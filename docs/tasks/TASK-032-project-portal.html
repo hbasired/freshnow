@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TASK-032 — The Project Portal: a plan, a shape, and an end</title>
+<style>
+  :root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#3fb950;--warn:#d29922;--bad:#f85149;--card:#161b22;--bd:#30363d}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;max-width:940px;padding:48px 24px;margin-inline:auto}
+  h1{font-size:1.9rem;margin:0 0 4px} h2{margin-top:2.5rem;color:var(--acc);font-size:1.25rem} h3{margin-top:1.6rem;font-size:1.02rem}
+  .meta{color:var(--mut);font-size:.9rem;margin-bottom:2rem}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:18px;margin:14px 0}
+  .unverified{border-left:3px solid var(--warn)} .ok{border-left:3px solid var(--acc)} .danger{border-left:3px solid var(--bad)}
+  code{background:#1f2630;padding:2px 6px;border-radius:4px;font-size:.9em}
+  pre{background:#1f2630;border:1px solid var(--bd);border-radius:8px;padding:12px;overflow-x:auto;font-size:.85rem}
+  .tw{overflow-x:auto} table{border-collapse:collapse;width:100%;margin:14px 0}
+  th,td{border:1px solid var(--bd);padding:7px 9px;text-align:left;font-size:.88rem;vertical-align:top} th{background:#1f2630}
+  .bad{color:var(--bad);font-weight:600}.good{color:var(--acc);font-weight:600}.warn{color:var(--warn);font-weight:600}
+  ul{padding-left:1.1rem}
+</style></head><body>
+<h1>TASK-032 — The Project Portal: a plan, a shape, and an end</h1>
+<p class="meta">2026-09-14 · Phase 5 of the task &amp; project portal plan · migration 0012 · core <code>projects.ts</code> ·
+two SQL views · 16 routes · a portal picker and a project page · 14 core tests + 10 route tests ·
+26/26 browser checks · 307 tests green</p>
+
+<div class="card ok"><strong>One-sentence summary:</strong> A second portal for work that has a reason, requirements
+with acceptance criteria, weighted milestones, a status log, and risks kept separate from operational blockers —
+where the percentage is always computed in SQL from the rows, a person's own claim is stored <em>beside</em> it
+rather than instead of it, and the metrics are the Kanban Guide's flow measures rather than an invented schedule index.</div>
+
+<h2>1 · The two decisions that carry the design</h2>
+<div class="tw"><table>
+  <thead><tr><th>Decision</th><th>Why</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><b>The existing <code>task</code> table is the unit of work for projects too</b> — <code>task.project_id</code> and <code>task.milestone_id</code>, not a parallel project-task system.</td>
+      <td>Everything Phase 3 built (steps, progress with a named source, relations, resolution) applies to project work unchanged, and a person's "My work" stays one list whichever kind of work it came from. A second task table would have meant two of every rule, drifting apart.</td>
+    </tr>
+    <tr>
+      <td><b>Progress is a view, never a column.</b> <code>project_progress</code> computes it from milestone weights, or the tasks' own evidence-based percentages when there are no milestones — and <code>progress_source</code> says which.</td>
+      <td>A stored percentage is a number somebody typed once and nobody updated. A view cannot go stale. And the number is never readable without its basis.</td>
+    </tr>
+  </tbody>
+</table></div>
+
+<h3>What a person may type, and where it goes</h3>
+<p>Exactly two things on a project are human judgements rather than arithmetic, and both are quarantined:</p>
+<ul>
+  <li><b><code>health</code></b> (green/amber/red) — set by a person, always with a mandatory note and a timestamp, because
+    whether a schedule slip is <em>worrying</em> is a judgement the data cannot make.</li>
+  <li><b><code>project_update.pct_reported</code></b> — "where we think we are". Stored in the status log
+    <em>next to</em> the computed figure, never replacing it. The API returns the computed number with the claim,
+    the audit row records both at the moment the claim was made, and the UI writes the gap out in words:
+    <em>"You said 80%; the work shows 25%."</em></li>
+</ul>
+
+<h2>2 · Design references</h2>
+<div class="tw"><table>
+  <thead><tr><th>Choice</th><th>Reference</th></tr></thead>
+  <tbody>
+    <tr><td>Requirements prioritised <b>MoSCoW</b>, including <b>won't</b></td><td>MoSCoW's own definition. "Won't" is the half people skip; writing down what is out of scope is what stops it being argued back in later.</td></tr>
+    <tr><td>Every requirement carries <b>acceptance criteria</b></td><td>A requirement nobody can test is not a requirement.</td></tr>
+    <tr><td><b>Per-milestone</b> progress, weighted</td><td>Linear computes progress per milestone specifically so critical work cannot hide inside an aggregate. Weights mean a two-month milestone need not count the same as a two-day one.</td></tr>
+    <tr><td>Flow metrics: <b>WIP, Throughput, Work Item Age, Cycle Time</b> — cycle time as <b>percentiles</b> (50/85/95), never a mean</td><td>The Kanban Guide (v2025.5). The distribution is skewed; the mean of a skewed distribution describes nobody's experience. Work Item Age is the only <em>leading</em> indicator of the four.</td></tr>
+    <tr><td><b>No SPI, CPI, earned value, velocity or burndown</b></td><td>They need a time-phased cost baseline FreshNow does not keep. Inventing one would be a fabricated number — the exact failure <code>HONESTY-AND-ACCURACY.md</code> exists to prevent.</td></tr>
+    <tr><td><code>project_issue</code> is <b>a separate table from <code>blocker</code></b></td><td>A broken chiller is an operational problem with a response window in minutes and an escalation ladder; "the supplier may slip" is a risk reviewed weekly. One table would give one of them the wrong urgency and would corrupt the blocker SLA statistics.</td></tr>
+  </tbody>
+</table></div>
+
+<h2>3 · What was built</h2>
+<div class="tw"><table>
+  <thead><tr><th>Where</th><th>Change</th></tr></thead>
+  <tbody>
+    <tr><td><code>migrations/0012_projects.sql</code></td><td>
+      <code>project</code> (purpose, status, dates, sponsor, lead, health + note),
+      <code>project_requirement</code> (MoSCoW + acceptance), <code>milestone</code> (weight),
+      <code>project_member</code>, <code>project_update</code> (append-only), <code>project_issue</code>;
+      <code>task.project_id</code> / <code>task.milestone_id</code>;
+      <code>app_can_view_project()</code>; and the two views. RLS enabled and forced on all six tables.
+    </td></tr>
+    <tr><td>View <code>project_progress</code></td><td>Per project: task and milestone counts, open and serious issues, the weighted or task-derived percentage with its <code>progress_source</code>, <code>schedule_elapsed_pct</code>, and when somebody last said anything.</td></tr>
+    <tr><td>View <code>flow_metrics</code></td><td>WIP, open total, Work Item Age (oldest and mean), throughput over 7 and 28 days, cycle-time p50/p85/p95, finished total — per project, with <code>project_id IS NULL</code> meaning ordinary operational work.</td></tr>
+    <tr><td><code>core/projects.ts</code></td><td>Create and shape a project; requirements; milestones (with the gate below); members; the status log; issues; <code>projectSweep</code>; <code>canManageProject</code> / <code>canContributeToProject</code>.</td></tr>
+    <tr><td><code>api/routes/projects.ts</code></td><td>16 routes. Reads RLS-scoped through <code>withContext</code>; every write checks permission explicitly first. The detail response carries a <code>may: { manage, contribute }</code> block so the page only offers what will actually work.</td></tr>
+    <tr><td><code>worker/index.ts</code></td><td>Three hourly sweeps beside the SLA sweep: milestone overdue, project stale (no update in 7 days), issue past its date. Each tells the project's members <b>once per day</b> — the date is in the idempotency key — and none of them changes any state.</td></tr>
+    <tr><td>Dashboard</td><td>A <b>portal picker</b> in the header (<code>#tasks/&lt;tab&gt;</code> / <code>#projects[/&lt;id&gt;]</code>, with bare <code>#&lt;tab&gt;</code> still understood so older links keep working), a project list, and a project page with Plan / Work / Status log / Risks / Flow.</td></tr>
+    <tr><td><code>semantic/schema.yaml</code></td><td>All six tables, both views, and the new task columns — including the join purpose that matters: <b>count blockers for "how often was this reported", count alerts for "how many problems"</b>, and <code>project_progress</code> as the only correct source for a project's percentage.</td></tr>
+  </tbody>
+</table></div>
+
+<h3>The milestone gate</h3>
+<p>Marking a milestone done while tasks under it are open is the single most common way a project reports itself green
+while being late. The core function refuses it; the route answers <b>409</b> with the count; the UI then asks
+<em>"2 task(s) under this milestone are not finished. Marking it done anyway is recorded as forced."</em> — and
+<code>force: true</code> writes <code>forced</code> and <code>openTasksAtTheTime</code> into the audit row. Nothing is
+prevented; it is simply impossible to do it quietly.</p>
+
+<h2>Verification</h2>
+<div class="tw"><table>
+  <thead><tr><th>Check</th><th>Result</th></tr></thead>
+  <tbody>
+    <tr><td><code>core/projects.test.ts</code> (14)</td><td class="good">Tasks-average and weighted-milestone rollups against hand-counted fixtures (3 of 4 weight = 75%, <em>not</em> "one of two milestones"); <code>schedule_elapsed_pct</code> NULL without dates; a claim of 90% leaves the computed 0% untouched and both land in the audit row; the milestone gate refuses then records the force; health needs a reason and turning red tells the members; a task cannot be filed under another project's milestone; membership, manager and stranger visibility per table; the sweeps tell people once per day; WIP, throughput and the median of 2 and 6 days.</td></tr>
+    <tr><td><code>api/projects.test.ts</code> (10)</td><td class="good">An employee may not start a project; validation refuses a nameless one and a malformed date; MoSCoW ordering and acceptance read back; the 409 names how much is open and <code>force</code> succeeds; a member may post an update and raise an issue but gets 403 on the plan; the lead's manager may change it; a stranger gets 403 on the detail and cannot see it in the list; the claim comes back beside the computed figure; a project 90% through its time with nothing done is flagged behind, one without dates is not.</td></tr>
+    <tr><td>Real browser (headless Edge, CEO)</td><td class="good">26/26, no console errors, no HTTP errors: portal picker and hash routing both ways; project started with purpose and dates; a MUST and a WON'T requirement; two weighted milestones, after which the progress source switches from tasks to milestones; a status update claiming 80% shows <em>"You said 80%; the work shows 0%"</em>; a high risk raised and moved to "being handled" with a note; the flow section states accurately why it has nothing to measure; reaching the weighted milestone moves progress to 75%, correctly <em>not</em> flagged behind at a 15-point gap.</td></tr>
+    <tr><td>Full suite + typecheck + build</td><td class="good">41 files · 307 passed · 1 skipped · typecheck clean · Vite build clean</td></tr>
+  </tbody>
+</table></div>
+
+<h2 class="bad">What we have not verified</h2>
+<div class="card unverified"><ul>
+  <li><b>No real project has ever been run through this.</b> Every fixture is invented. The shape follows established
+    practice, but FreshNow has not told us what their projects actually look like — whether they think in milestones
+    at all, and what they would call the stages.</li>
+  <li><b>The 7-day staleness threshold is assumed</b> (<code>STALE_PROJECT_DAYS</code>), as is reusing the task board's
+    30-point "behind" threshold for projects.</li>
+  <li><b>Weights default to 1.</b> Unless somebody sets them, the weighted rollup is an unweighted count of milestones
+    — correct, but not the benefit the column exists for.</li>
+  <li><b>Project alerts do not yet use the Phase 4 event catalogue.</b> They write outbox rows directly (both channels,
+    with a reason), so a person's <code>notification_pref</code> rules do <em>not</em> apply to project news. That is
+    deliberate — someone who silenced task assignments has said nothing about project news — but it means project
+    notifications currently cannot be turned off. Named here rather than implied.</li>
+  <li><b>There is no UI to create a task directly inside a project.</b> Work is created in the task portal and filed
+    into a project (<code>PATCH /dashboard/tasks/:id/project</code>, tested); the project page only shows it. The Work
+    section says so.</li>
+  <li><b>The project sweeps have not been observed firing on a real timer</b> — they are tested by direct invocation
+    and run hourly in the worker, but no hour has elapsed with a genuinely overdue project in the live database.</li>
+  <li><b>Cycle time counts from <code>started_at</code>, falling back to <code>created_at</code></b>. For tasks created
+    before Phase 3 there is no <code>started_at</code>, so their cycle time is measured from creation and will read long.</li>
+  <li><b>The bot knows nothing about projects.</b> The whole portal is dashboard-only.</li>
+</ul></div>
+
+<h2 class="bad">Security and honesty</h2>
+<div class="card danger"><ul>
+  <li><b>Both views are <code>security_invoker = true</code>.</b> Without it a view is a hole straight through RLS —
+    the single most common way row security is accidentally defeated. The RLS tests query through the tables the views
+    read, and a stranger sees nothing.</li>
+  <li><b>Six new tables, all <code>enable</code> + <code>force</code> RLS</b>, visibility via
+    <code>app_can_view_project()</code>: members, plus anyone who may see the lead or sponsor, plus the CEO.</li>
+  <li><b>Writes check permission in the route before calling core</b>, with a test for each refusal — the same pattern
+    as every phase since Phase 1.</li>
+  <li><b>No model touches any of it.</b> Every number on the project page is SQL over every row.</li>
+  <li><b>Nothing here scores a person.</b> Flow metrics are about work items, not people; there is no per-person
+    throughput, and there must not be.</li>
+  <li><b>One migration was corrected in place</b> (the view counts returned bigint, which reaches JavaScript as a
+    string). 0012 had been applied only to the local databases that day, and the views are now dropped-then-created so
+    a type correction can apply at all — <code>CREATE OR REPLACE VIEW</code> cannot change a column's type. Stated
+    because "never edit an applied migration" is a project rule and this is the exception being taken knowingly.</li>
+</ul></div>
+</body></html>

@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+*.tsbuildinfo
+
+# Env & secrets — NEVER commit real keys
+.env
+.env.local
+.env.*.local
+# Local credentials notes (dashboard logins) — see CREDENTIALS.local.md
+*.local.md
+
+# Test coverage
+coverage/
+
+# Next.js (dashboard, Task 012)
+packages/dashboard/.next/
+packages/dashboard/out/
+
+# Voice assets & local models (Tasks 016/017)
+data/voice/
+models/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

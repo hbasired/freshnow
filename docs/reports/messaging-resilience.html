@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Telegram alternatives — resilience and data residency — a proposal for FreshNow</title>
+<style>
+  :root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#3fb950;--warn:#d29922;--bad:#f85149;--card:#161b22;--bd:#30363d;--link:#88c0f0}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.7 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;max-width:980px;padding:48px 24px;margin-inline:auto}
+  h1{font-size:2rem;margin:0 0 6px;line-height:1.25} h2{margin-top:2.6rem;color:var(--acc);font-size:1.3rem;border-bottom:1px solid var(--bd);padding-bottom:6px}
+  h3{margin-top:1.8rem;font-size:1.05rem}
+  .meta{color:var(--mut);font-size:.9rem;margin-bottom:2rem}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:20px;margin:16px 0}
+  .key{border-left:3px solid var(--acc)} .warnbox{border-left:3px solid var(--warn)} .danger{border-left:3px solid var(--bad)}
+  code{background:#1f2630;padding:2px 6px;border-radius:4px;font-size:.9em}
+  .tw{overflow-x:auto} table{border-collapse:collapse;width:100%;margin:16px 0}
+  th,td{border:1px solid var(--bd);padding:8px 10px;text-align:left;font-size:.88rem;vertical-align:top} th{background:#1f2630}
+  .bad{color:var(--bad);font-weight:600}.good{color:var(--acc);font-weight:600}.warn{color:var(--warn);font-weight:600}.u{color:var(--mut);font-weight:600}
+  ul,ol{padding-left:1.2rem} li{margin:.3rem 0}
+  .lead{font-size:1.06rem;color:#c9d4df}
+  .rank{display:inline-block;min-width:1.6rem;height:1.6rem;line-height:1.6rem;text-align:center;border-radius:50%;background:#1f2630;font-weight:700;font-size:.85rem;margin-right:.4rem}
+  a{color:var(--link)} .small{font-size:.86rem;color:var(--mut)}
+</style></head><body>
+
+<h1>Telegram alternatives — resilience and data residency</h1>
+<p class="meta">A proposal for FreshNow (Daily Vending LLC) · version 2, 19 September 2026 (version 1 of 14 September
+covered resilience only) · prepared from public sources read on the dates given, every assumption marked ·
+companion to <a href="uae-data-residency-and-llm-analysis.html">UAE data residency, the PDPL, and where our AI should run</a></p>
+
+<div class="card key">
+<p class="lead"><b>Two different questions, two different answers.</b></p>
+<p class="lead"><b>"What if Telegram stops working?"</b> — The risk is regulatory or commercial (a ban, a suspension, a
+policy change), not technical: messaging is not blocked in the UAE and we are nowhere near Telegram's limits.
+Nothing is stored in Telegram, so an outage costs reach, never records. The fix is cheap: the dashboard is already a
+channel in its own right, and adding web push to it costs nothing. <em>Unchanged from version 1.</em></p>
+<p class="lead"><b>"Does Telegram keep our employees' data in the UAE?"</b> — No, and it cannot be made to: Telegram
+stores cloud chats in data centres "around the globe" and offers no contract to a business. Of every channel we
+looked at, <b>the only ones whose message content stays in the country are the ones we host ourselves</b> (the
+in-app inbox / installable web app), <b>SMS through the UAE carriers</b>, and — with caveats and a price — <b>WhatsApp's
+business API with its UAE local-storage option</b> and <b>Microsoft Teams with UAE data residency</b>. Web push is
+in between: the relay (Google, Apple or Mozilla) carries only ciphertext, by design of the standard.</p>
+<p class="lead">Recommendation: keep Telegram as the primary channel <em>with honest disclosure and consent</em>, build
+the two in-country channels we already own (in-app + web push), and hold WhatsApp-with-UAE-storage as the
+mainstream option if the company decides that content must never transit abroad at all.</p>
+</div>
+
+<h2>1 · What we actually checked</h2>
+<div class="tw"><table>
+  <thead><tr><th>Claim people make</th><th>What is actually the case</th><th>Confidence</th></tr></thead>
+  <tbody>
+    <tr><td>"Telegram is blocked in the UAE."</td>
+      <td><b>Text and file messaging is not blocked.</b> The TDRA regulates <em>VoIP</em>: "VoIP Services are considered
+        Telecommunications Services" and using ones "not provided by a Licensee … may be committing a criminal
+        offence." Voice and video calls in unlicensed apps are what is restricted. Our bot sends text, buttons and
+        files.</td>
+      <td class="good">[verified] TDRA FAQ, read 2026-09-19</td></tr>
+    <tr><td>"We will hit Telegram's rate limits."</td>
+      <td><b>Not at this size.</b> Telegram's Bot FAQ: "avoid sending more than one message per second" per chat;
+        "not able to broadcast more than about 30 messages per second" overall. FreshNow sends a few dozen messages a
+        day.</td>
+      <td class="good">[verified] Telegram Bot FAQ</td></tr>
+    <tr><td>"Telegram keeps our data in the UAE."</td>
+      <td><b>No.</b> Telegram's privacy policy: cloud chat data is stored in data centres around the globe, controlled
+        by different legal entities in different jurisdictions; EU/UK users' data in the Netherlands. There is no
+        UAE storage option and no data-processing agreement a business can sign.</td>
+      <td class="good">[verified] Telegram privacy policy</td></tr>
+    <tr><td>"The bot could be banned."</td>
+      <td><b>This is the real resilience risk, and it is not predictable.</b> A token can be revoked, an account
+        suspended, terms changed, by a company we have no relationship with.</td>
+      <td class="warn">[assumed] — no way to quantify</td></tr>
+    <tr><td>"An outage would lose our data."</td>
+      <td><b>No.</b> Every task, report, problem and decision lives in our Postgres. Telegram is a way of talking to
+        people, not a place anything is kept.</td>
+      <td class="good">[verified] in the system's own design</td></tr>
+  </tbody>
+</table></div>
+
+<div class="card key">
+<h3>The most important thing on this page</h3>
+<p>Every outgoing message is written to a database table first (the <b>outbox</b>), and a background worker delivers
+it afterwards, per channel. If Telegram is unavailable, messages do not disappear — they queue, they are visible in
+the dashboard's inbox, they retry, and they deliver when the channel returns. So the resilience question is only
+"how does an urgent one reach a person during the gap", and the residency question is only "which delivery channels
+carry content abroad" — both are questions about the last hop, not about the system.</p>
+</div>
+
+<h2>2 · Where each channel's data actually lives</h2>
+<p class="small">"Content" = the words of a message. "Metadata" = that a message exists, to whom, when. Residency is judged
+on content. Costs are published list prices where given; nobody has quoted us.</p>
+<div class="tw"><table>
+  <thead><tr><th>Channel</th><th>Content stored / processed where</th><th>Contract possible?</th><th>Cost</th><th>Staff must install</th><th>Residency</th><th>Resilience</th></tr></thead>
+  <tbody>
+    <tr><td><b>Telegram bot</b> (today)</td>
+      <td>Telegram's data centres worldwide; none in the UAE <span class="good">[verified]</span></td>
+      <td>No (consumer terms)</td><td>Free</td><td>Already have it</td>
+      <td class="bad">Abroad — must be disclosed and consented (PDPL Art. 23(1)(b))</td>
+      <td class="warn">Outside our control</td></tr>
+    <tr><td><b>In-app inbox + installable web app (PWA)</b></td>
+      <td>Our own server — wherever we host it (which is why the host must be in the UAE; see the companion report)</td>
+      <td>n/a — ours</td><td>Nothing</td><td>Add the page to the home screen (one minute)</td>
+      <td class="good">In-country, entirely</td>
+      <td class="good">Cannot be banned or rate-limited; already built as the inbox</td></tr>
+    <tr><td><b>Web push</b> (VAPID)</td>
+      <td>The notification transits a relay — Google FCM (Chrome/Edge), Apple APNs (Safari/iOS), Mozilla autopush
+        (Firefox) — <b>encrypted end to end</b> under RFC 8291, so the relay sees ciphertext plus metadata (that a
+        push happened, to which subscription) <span class="good">[verified — RFC 8291; relay list from Mozilla docs]</span></td>
+      <td>No (platform service)</td><td>Nothing</td><td>Same home-screen step; iPhone requires it</td>
+      <td class="warn">Metadata abroad, content not readable by the relay — the same shape as Langfuse metadata; disclose it</td>
+      <td class="good">Standard, no vendor account, nobody to ban us</td></tr>
+    <tr><td><b>Email</b></td>
+      <td>Depends on the provider. The providers in our email guide (Resend, Postmark, SES) are US companies with
+        EU/US regions; none advertises a UAE region <span class="warn">[believed — not re-checked this round]</span>.
+        Self-hosted inbound on our UAE box keeps received mail in-country; outbound from a cold IP lands in spam.</td>
+      <td>Yes (DPA)</td><td>Free–$20/month</td><td>Nothing</td>
+      <td class="warn">Abroad unless a UAE-hosted mail service is chosen</td>
+      <td class="good">Reaches people with no app; slow; easy to ignore</td></tr>
+    <tr><td><b>SMS via e&amp; / du</b></td>
+      <td>The UAE carriers. The aggregator in between may be abroad — choose a UAE-licensed one. Sender ID must be
+        registered with <b>both</b> carriers separately; measured Q1 2026 timelines 5–10 business days for a UAE
+        company; transactional/service messages need no <code>AD-</code> prefix and no promotional time window
+        <span class="warn">[believed — SMS aggregators' guides; get the transactional classification in writing]</span></td>
+      <td>Yes</td><td>Per message</td><td>Nothing</td>
+      <td class="good">In-country if the aggregator is</td>
+      <td class="good">Works on any phone, no data — last-resort escalation</td></tr>
+    <tr><td><b>WhatsApp Business Platform</b> (Meta's Cloud API)</td>
+      <td>Default storage is the United States. Meta offers <b>local storage</b> per business phone number; Infobip's
+        documentation of the supported list includes <b>Bahrain and the UAE</b>; Meta's own page defers to the
+        <code>data_localization_region</code> parameter, which I could not read. Even with local storage, content is
+        "in use" in Meta's other data centres for up to 60 minutes before being persisted only in-region
+        <span class="warn">[believed — Infobip docs; TTL from Meta's page; verify the region list on Meta's phone-number registration page]</span></td>
+      <td>Yes (Meta business terms + a Business Solution Provider)</td><td>Per message; business-initiated messages need approved templates; a 24-hour service window for replies</td><td>Already have it (most staff)</td>
+      <td class="warn">In-country at rest, transit abroad for up to an hour — the strongest mainstream messenger option, not a clean one</td>
+      <td class="warn">Still one vendor's account and policy; Meta can suspend too</td></tr>
+    <tr><td><b>Microsoft Teams</b> with UAE data residency</td>
+      <td>Chat and channel messages stored at rest in Azure UAE Central (Abu Dhabi) and UAE North (Dubai) for UAE
+        tenants <span class="good">[verified — Microsoft Learn + Teams blog]</span>. Where a bot's connector (Azure Bot
+        Service) processes messages in flight was not checked <span class="u">[uncertain]</span></td>
+      <td>Yes (Microsoft 365 terms, DPA)</td><td>A Microsoft 365 licence per employee</td><td>Install Teams, sign in with a work account</td>
+      <td class="good">In-country at rest</td>
+      <td class="warn">Enterprise vendor, unlikely to vanish; heavy for a workforce that reports by tapping three buttons</td></tr>
+    <tr><td><b>BOTIM</b> (Astra Tech, Abu Dhabi — the UAE-licensed VoIP app)</td>
+      <td>Presumably UAE, but <b>no public bot or business messaging API was found</b>; recent announcements are about
+        payments and voice AI <span class="u">[uncertain]</span></td>
+      <td>Would need a partnership</td><td>Unknown</td><td>Install BOTIM</td>
+      <td class="u">Unknown</td><td class="u">Not usable without an API</td></tr>
+    <tr><td><b>Self-hosted chat server</b> (Matrix/Element, Rocket.Chat, Mattermost, Zulip)</td>
+      <td>Our own server — in-country</td><td>n/a</td><td>Nothing in licences; a permanent operating cost</td><td>Install a new app and learn it</td>
+      <td class="good">In-country</td>
+      <td class="bad">Another always-on service competing with Postgres for eight shared vCPUs; another thing to patch and back up forever — see "against"</td></tr>
+    <tr><td><b>Signal</b></td>
+      <td>Signal's servers; no supported business/bot API — unofficial bridges only</td><td>No</td><td>Free</td><td>Install Signal</td>
+      <td class="bad">Abroad</td><td class="bad">Not a supported integration; not considered further</td></tr>
+  </tbody>
+</table></div>
+
+<h2>3 · What we recommend</h2>
+
+<h3><span class="rank">1</span> In-app inbox + web push through the app we already have — <span class="good">do this</span></h3>
+<div class="card">
+<p><b>What it is.</b> The dashboard becomes installable on a phone's home screen and can then send notifications the
+way any app does — banner, sound, badge — with the phone closed. VAPID / RFC 8030, 8291, 8292; supported by Chrome,
+Edge, Firefox and Safari.</p>
+<p><b>Why it is first — on both counts.</b> No vendor, no account, no contract, no fee, nobody to ban us; the outbox
+already has a channel column and the worker already picks a sender per channel, so it is one new sender function;
+and it is the only channel besides carrier SMS whose content never leaves our server — the relay carries ciphertext.</p>
+<p><b>The honest caveats.</b> On iPhone the person must add the page to the home screen first. No read receipts —
+we know a push was accepted, not that a human saw it; Telegram's Acknowledge tap is better evidence. Subscriptions
+expire: the sender must handle <code>410 Gone</code> and prune. And metadata (that a push went to this device) does
+go through Google/Apple/Mozilla — say so in the notice.</p>
+<p><b>Cost:</b> nothing, plus roughly a day of development.</p>
+</div>
+
+<h3><span class="rank">2</span> Telegram stays primary — <span class="warn">with an honest notice and consent</span></h3>
+<div class="card">
+<p>It works, people have it, and the features we rely on are not the restricted ones. What changes is disclosure: the
+consent notice must say that messages pass through Telegram, which stores them outside the UAE — see the companion
+report §5 for the draft. Under the PDPL, express consent is a lawful ground for that transfer (Art. 23(1)(b)); it is
+not a ground we can use for an AI provider we have no contract with, which is why the two problems are separated.</p>
+</div>
+
+<h3><span class="rank">3</span> Email — <span class="warn">second, when there is a domain</span></h3>
+<div class="card">
+<p>Reaches people who are not on Telegram at all; nobody installs anything; slower and easier to ignore. Needs a
+domain, DNS, a provider and a data-protection step before any address is stored — all in
+<code>docs/EMAIL-SETUP-GUIDE.md</code>. <b>Residency note added:</b> the providers in that guide are US companies with
+US/EU regions; if content must stay in the UAE, either keep email to notifications without personal content
+("you have a new alert — open the app") or find a UAE-hosted mail service. Cost: free–$20/month; a day of work once
+the domain exists.</p>
+</div>
+
+<h3><span class="rank">4</span> SMS through the UAE carriers — <span class="warn">last resort, top of the ladder only</span></h3>
+<div class="card">
+<p>Any phone, no app, no data, in-country. Sender ID registered with both e&amp; and du (5–10 business days measured
+for a UAE company in early 2026), per-message cost, and <b>written confirmation that internal operational alerts to
+our own staff are transactional, not promotional</b>, before the first message. Reserve it for a critical problem
+nobody has acknowledged after everything else failed.</p>
+</div>
+
+<h3><span class="rank">5</span> WhatsApp Business with UAE local storage — <span class="warn">only if "never abroad" becomes a hard rule</span></h3>
+<div class="card">
+<p>If FreshNow's lawyer concludes that message content must not be stored abroad at all, WhatsApp's business API is
+the one mainstream messenger that can promise in-country storage for UAE numbers — at the price of Meta business
+verification, a Business Solution Provider, per-message fees, template approval for every business-initiated
+message, and a transit window of up to an hour. It also changes the employee experience: people must message the
+business number first (opt-in), and replies outside 24 hours need a template. Worth a costed quote before deciding;
+not worth building speculatively.</p>
+</div>
+
+<h3>What we recommend <span class="bad">against</span></h3>
+<div class="card danger">
+<p><b>Do not add a chat server</b> — not Matrix/Element, not Rocket.Chat, not Mattermost, not Zulip — even though it
+would be in-country. FreshNow does not need a chat platform; it needs a way to reach a person when one channel is
+unavailable, and a way to keep content in the country. The in-app channel does both for nothing. A self-hosted chat
+server is another always-on service competing with the database for eight shared vCPUs, another thing to patch and
+back up indefinitely, and another app for staff to install — the thing most likely to fail in practice: the workforce
+adopted Telegram because they already had it.</p>
+<p><b>Do not move to Teams for this.</b> Its UAE residency is real, but a per-user licence and a heavyweight client to
+let people tap Done / Pending / Blocker is the wrong tool; keep it in mind only if the company standardises on
+Microsoft 365 for other reasons.</p>
+</div>
+
+<h2>4 · The design that makes all of this work</h2>
+<div class="card key">
+<p><b>The database is the queue, and the dashboard is a channel in its own right.</b> Every notification is already a
+row: who it is for, why they were chosen (the matched rule), which channel, whether it was delivered. The dashboard
+reads those rows as an inbox — a person can already see everything they were told, with the reason, without Telegram
+being involved. That channel needs no external service and cannot be blocked, rate-limited or banned — and it lives
+wherever we host, which is the residency decision. This is the architecture Jira, Asana, GitLab and Discourse use: an
+in-app notification store as the record, with push and email as ways of drawing attention to it. Adding a channel is
+one sender function; nothing about who is told, or why, changes.</p>
+</div>
+
+<h3>What is already true today</h3>
+<div class="tw"><table>
+  <thead><tr><th>Capability</th><th>Status</th></tr></thead>
+  <tbody>
+    <tr><td>Nothing is stored in Telegram; Postgres is the only record</td><td class="good">Built</td></tr>
+    <tr><td>Messages queue and retry rather than being lost during an outage</td><td class="good">Built</td></tr>
+    <tr><td>In-app inbox showing everything a person was told, and why</td><td class="good">Built</td></tr>
+    <tr><td>Outbox knows about channels; the worker picks a sender per channel; every linked person already gets an in-app copy</td><td class="good">Built</td></tr>
+    <tr><td>People can choose how they are told, per event, per channel</td><td class="good">Built</td></tr>
+    <tr><td>Escalation to named roles if nobody answers</td><td class="good">Built</td></tr>
+    <tr><td>Consent notice that names Telegram as an out-of-country channel</td><td class="warn">Not yet — draft in the companion report</td></tr>
+    <tr><td>Installable web app + web push sender</td><td class="warn">Not built — this proposal</td></tr>
+    <tr><td>Email sender</td><td class="warn">Not built — needs a domain first</td></tr>
+    <tr><td>SMS</td><td class="warn">Not built — needs the regulatory answer in writing</td></tr>
+    <tr><td>WhatsApp with UAE local storage</td><td class="warn">Not built — only if "never abroad" becomes a rule</td></tr>
+  </tbody>
+</table></div>
+
+<h2>5 · What we are asking you to decide</h2>
+<div class="card key">
+<ol>
+  <li><b>Approve the installable web app with web push</b> as the second channel — roughly a day of work, no cost, no
+    new supplier, in-country. <em>This is the one decision that improves both resilience and residency.</em></li>
+  <li><b>Decide the residency posture with your lawyer:</b> "disclose and consent" (Telegram stays primary) or "content
+    never stored abroad" (WhatsApp-with-UAE-storage or in-app only). The consent notice is written differently for
+    each.</li>
+  <li><b>Confirm whether email is wanted</b>, name the domain and who controls its DNS, and whether personal content
+    may go in an email or only "open the app" nudges.</li>
+  <li><b>Decide whether SMS is worth pursuing</b> for critical escalations — and get the transactional classification
+    in writing from the carrier first.</li>
+</ol>
+</div>
+
+<h2 class="bad">What we have not verified</h2>
+<div class="card warnbox"><ul>
+  <li><b>No outage has ever been simulated.</b> Queue-and-retry is tested in code; nobody has cut Telegram off and
+    watched a working day proceed.</li>
+  <li><b>WhatsApp's UAE local-storage region</b> comes from Infobip's documentation of Meta's list; Meta's own page
+    defers to a registration parameter I could not read. Confirm on Meta's phone-number registration documentation or
+    with a Business Solution Provider before relying on it.</li>
+  <li><b>Where a Teams bot's connector processes messages in flight</b> was not checked; the at-rest residency is
+    documented, the in-flight path is not.</li>
+  <li><b>BOTIM</b>: I found no public API; a partnership may exist that is not public.</li>
+  <li><b>Email providers' regions</b> were not re-checked this round; the statement that none offers a UAE region is
+    carried from the email guide.</li>
+  <li><b>SMS timelines and the transactional/promotional line</b> come from aggregators' 2026 guides, not from the
+    TDRA or a carrier directly.</li>
+  <li><b>Web push on iPhone has not been tested here</b>, on any device.</li>
+  <li><b>"Unlikely" is a judgement, not a measurement.</b> Nobody can put a number on the chance of a bot being
+    banned.</li>
+</ul></div>
+
+<h2>Sources</h2>
+<ul class="small">
+  <li>TDRA FAQs (VoIP is a licensed telecommunications service): <a href="https://tdra.gov.ae/en/FAQs">tdra.gov.ae/en/FAQs</a></li>
+  <li>Telegram Bot FAQ (rate limits): <a href="https://core.telegram.org/bots/faq">core.telegram.org/bots/faq</a>; Telegram Privacy Policy (storage locations): <a href="https://telegram.org/privacy">telegram.org/privacy</a></li>
+  <li>RFC 8291, <em>Message Encryption for Web Push</em>: <a href="https://www.rfc-editor.org/rfc/rfc8291.html">rfc-editor.org/rfc/rfc8291</a>; Mozilla autopush documentation (relay endpoints, FCM/APNs bridging): <a href="https://mozilla-services.github.io/autopush-rs/http.html">mozilla-services.github.io/autopush-rs</a>; Pushpad, <em>What are the browser push services?</em>: <a href="https://pushpad.xyz/blog/what-are-the-browser-push-services">link</a></li>
+  <li>Meta for Developers, <em>WhatsApp Cloud API — Local Storage</em> (data-in-use TTL): <a href="https://developers.facebook.com/docs/whatsapp/cloud-api/overview/local-storage/">link</a>; Infobip, <em>WhatsApp Business Messaging: privacy and security guidelines</em> (region list incl. UAE and Bahrain; US default): <a href="https://www.infobip.com/docs/whatsapp/compliance/data-privacy">link</a></li>
+  <li>Microsoft Learn, <em>Data Residency for Microsoft Teams</em>: <a href="https://learn.microsoft.com/en-us/microsoft-365/enterprise/m365-dr-service-teams?view=o365-worldwide">link</a>; Microsoft Teams blog, <em>Microsoft Teams launches United Arab Emirates Data Residency</em>: <a href="https://techcommunity.microsoft.com/blog/microsoftteamsblog/microsoft-teams-launches-united-arab-emirates-data-residency/980330">link</a>; <em>Location of data in Microsoft Teams</em>: <a href="https://learn.microsoft.com/en-us/microsoftteams/location-of-data-in-teams">link</a></li>
+  <li>Astra Tech / BOTIM: <a href="https://astratech.ae/">astratech.ae</a>; Microsoft customer story on BOTIM's Azure voice integration (Jan 2026): <a href="https://www.microsoft.com/en/customers/story/25412-astra-tech-azure-ai-foundry">link</a></li>
+  <li>Message Central, <em>TDRA Sender ID approval 2026: real timelines</em>: <a href="https://www.messagecentral.com/blog/tdra-sender-id-approval-real-timelines">link</a>; Telerivet, <em>UAE SMS compliance: TDRA rules, AD- prefix, sender ID</em>: <a href="https://www.telerivet.com/blog/uae-sms-compliance-tdra-ad-prefix">link</a>; Unifonic, <em>UAE Sender ID registration requirements</em>: <a href="https://docs.unifonic.com/articles/products-documentation/uae-sender-id-registration-requirements">link</a></li>
+  <li>Our own: <code>docs/EMAIL-SETUP-GUIDE.md</code> (providers and DNS), <code>packages/worker/src/outbox-relay.ts</code> (per-channel senders), <code>notification_outbox.channel</code> (telegram / inapp today).</li>
+</ul>
+<p class="meta" style="margin-top:2rem">Prepared as a proposal for discussion. Nothing in it has been implemented.</p>
+</body></html>

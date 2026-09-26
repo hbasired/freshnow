@@ -1,0 +1,588 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Where FreshNow's data may go — and what keeping it home costs</title>
+<meta name="description" content="A CEO briefing on UAE data protection, why the current hosting and AI providers do not fit, and the in-country alternatives with verified prices.">
+<style>
+  /* ── Light theme, FreshNow colours ───────────────────────────────────────────
+     Brand fills (#97d700 / #9bca3c / #f39c12) carry near-black ink: they are 8.6–10.9:1
+     with dark text and 1.7–2.2:1 with white, so white text never sits on them. Where a
+     colour has to be READ it is the darkened step: green #3d6b10 (6.35:1 on white),
+     orange #9d5404 (5.67:1), red #a40e26 (7.87:1), blue #0550ae (7.59:1). */
+  :root{
+    --bg:#ffffff; --card:#f6f8fa; --edge:#d0d7de; --ink:#1f2328; --mut:#59636e;
+    --brand:#97d700; --brand2:#9bca3c; --accent:#f39c12; --on-brand:#0d1117;
+    --ok:#3d6b10; --warn:#9d5404; --crit:#a40e26; --info:#0550ae;
+    --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100;   /* categorical, validated */
+    --grid:#e1e4e8;
+  }
+  *{box-sizing:border-box}
+  html{scroll-snap-type:y proximity;scroll-behavior:smooth}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.55 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  section.slide{min-height:100vh;scroll-snap-align:start;padding:44px 56px 56px;position:relative;display:flex;flex-direction:column;justify-content:center;max-width:1400px;margin:0 auto}
+  section.slide::after{content:attr(data-n)" / 16";position:absolute;right:56px;bottom:22px;font-size:12px;color:var(--mut)}
+  h1{font-size:2.6rem;line-height:1.15;margin:0 0 .6rem;letter-spacing:-.01em}
+  h2{font-size:1.9rem;line-height:1.2;margin:0 0 1rem;letter-spacing:-.01em}
+  h3{font-size:1.05rem;margin:1.2rem 0 .4rem}
+  p{margin:.4rem 0}
+  .kicker{display:inline-block;align-self:flex-start;background:var(--brand);color:var(--on-brand);font-weight:800;font-size:.8rem;letter-spacing:.08em;text-transform:uppercase;padding:4px 10px;border-radius:999px;margin-bottom:14px}
+  .lead{font-size:1.2rem;max-width:62ch;color:var(--ink)}
+  .mut{color:var(--mut)} .small{font-size:.86rem} .tiny{font-size:.76rem}
+  .grid{display:grid;gap:18px} .grid>*{min-width:0} .g2{grid-template-columns:1fr 1fr} .g32{grid-template-columns:3fr 2fr} .g3{grid-template-columns:repeat(3,1fr)} .g4{grid-template-columns:repeat(4,1fr)}
+  .card{background:var(--card);border:1px solid var(--edge);border-radius:16px;padding:18px 20px}
+  .card.brand{background:linear-gradient(110deg,var(--brand2),var(--brand));border:0;color:var(--on-brand)}
+  .card.brand .mut{color:#1f2328cc}
+  .edge-ok{border-left:5px solid var(--ok)} .edge-warn{border-left:5px solid var(--accent)} .edge-crit{border-left:5px solid var(--crit)} .edge-info{border-left:5px solid var(--info)}
+  .stat .n{font-size:2.6rem;font-weight:800;line-height:1;margin:.2rem 0}
+  .stat .l{font-size:.85rem;color:var(--mut)}
+  table{border-collapse:collapse;width:100%;font-size:.86rem;background:#fff;border-radius:12px;overflow:hidden}
+  th,td{border:1px solid var(--edge);padding:6px 9px;text-align:left;vertical-align:top}
+  th{background:var(--card);font-weight:700}
+  td.n,th.n{text-align:right;font-variant-numeric:tabular-nums} td.n{white-space:nowrap}
+  tr.hi td{background:#f2f9e3}
+  .v{color:var(--ok);font-weight:700}.b{color:var(--warn);font-weight:700}.a{color:var(--crit);font-weight:700}.i{color:var(--info);font-weight:700}
+  .tag{display:inline-block;font-size:.72rem;font-weight:800;padding:2px 8px;border-radius:999px;vertical-align:1px}
+  .tag.ok{background:#e6f4d5;color:var(--ok)} .tag.warn{background:#fff0dc;color:var(--warn)} .tag.crit{background:#ffe3e0;color:var(--crit)} .tag.info{background:#e1eefb;color:var(--info)} .tag.mut{background:#eaeef2;color:var(--mut)}
+  blockquote{margin:.5rem 0;padding:8px 14px;border-left:4px solid var(--brand);background:#f7fbee;border-radius:0 10px 10px 0;font-size:.92rem}
+  ul{padding-left:1.15rem;margin:.3rem 0} li{margin:.25rem 0}
+  a{color:var(--info)}
+  .foot{position:absolute;left:56px;bottom:22px;font-size:12px;color:var(--mut)}
+  .btn{background:var(--accent);color:var(--on-brand);font-weight:800;padding:8px 14px;border-radius:12px;display:inline-block}
+  .cite{font-size:.74rem;color:var(--mut);margin-top:6px}
+  .cite a{color:var(--info)}
+  .viz{margin-top:8px}
+  .legend{display:flex;gap:16px;font-size:.82rem;color:var(--mut);margin:6px 0 2px;flex-wrap:wrap}
+  .legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+  svg text{font-family:inherit}
+  .tip{position:fixed;pointer-events:none;background:#fff;border:1px solid var(--edge);border-radius:10px;padding:8px 10px;font-size:.8rem;box-shadow:0 6px 24px #0002;display:none;z-index:9}
+  .nav{position:fixed;right:18px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:6px;z-index:8}
+  .nav a{width:8px;height:8px;border-radius:50%;background:var(--edge);display:block}
+  .nav a.on{background:var(--ok)}
+  .hint{position:fixed;right:40px;top:10px;font-size:11px;color:var(--mut);background:#ffffffd9;padding:3px 10px;border-radius:999px;border:1px solid var(--edge)}
+  .flow{display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center}
+  .node{background:#fff;border:1px solid var(--edge);border-radius:12px;padding:10px 12px;font-size:.88rem}
+  .node.bad{border-color:var(--crit);background:#fff5f4} .node.ok{border-color:var(--ok);background:#f4faec} .node.warn{border-color:var(--accent);background:#fff8ec}
+  .arrow{font-size:1.4rem;color:var(--mut);text-align:center}
+  @media (max-width:900px){section.slide{padding:32px 20px 56px;min-height:auto}.g2,.g3,.g4,.g32{grid-template-columns:1fr}h1{font-size:1.9rem}h2{font-size:1.4rem}.nav{display:none}section.slide::after{right:20px}.foot{left:20px}}
+  @media print{html{scroll-snap-type:none}section.slide{min-height:auto;page-break-after:always;padding:24px}.nav,.hint,.tip{display:none}}
+</style>
+</head>
+<body>
+<div class="tip" id="tip"></div>
+<div class="hint">← → or ↑ ↓ to move · Home / End · P to print</div>
+<nav class="nav" id="nav"></nav>
+
+<!-- 1 ─────────────────────────────────────────────────────────────────────── -->
+<section class="slide" data-n="1" id="s1">
+  <span class="kicker">CEO briefing · 21 September 2026</span>
+  <h1>Where FreshNow's data may go —<br>and what keeping it home costs</h1>
+  <p class="lead">UAE data-protection law applied to the operations platform: what the law actually says, where employee data goes today, why the planned hosting and AI providers do not fit, and the in-country alternatives — with verified prices and every source linked.</p>
+  <div class="grid g4" style="margin-top:22px">
+    <div class="card stat edge-crit"><div class="l">The one thing to change first</div><div class="n" style="font-size:1.4rem">Host in the UAE</div><div class="l">the planned box is not</div></div>
+    <div class="card stat edge-warn"><div class="l">AI provider</div><div class="n" style="font-size:1.4rem">Core42</div><div class="l">same model, UAE jurisdiction</div></div>
+    <div class="card stat edge-ok"><div class="l">AI cost at 100 assignments + 200 status updates a day</div><div class="n">$0.12</div><div class="l">per day · about $7 a month with voice</div></div>
+    <div class="card stat edge-info"><div class="l">Telegram</div><div class="n" style="font-size:1.4rem">Lawful</div><div class="l">once the consent notice names it</div></div>
+  </div>
+  <p class="small mut" style="margin-top:18px">How to read the markers: <span class="v">[verified]</span> read in a primary source — the law's text, a vendor's own page, or our own database · <span class="b">[believed]</span> reputable secondary sources that agree · <span class="a">[uncertain]</span> sources conflict or none found · <span class="tag mut">assumed</span> a number chosen so the arithmetic can run, stated so it can be changed. This is a technical reading for a lawyer to confirm, not legal advice.</p>
+  <div class="foot">Prepared by the development team · sources on slide 15 · what is not verified on slide 16</div>
+</section>
+
+<!-- 2 ─────────────────────────────────────────────────────────────────────── -->
+<section class="slide" data-n="2" id="s2">
+  <span class="kicker">The answer in one slide</span>
+  <h2>Four questions, four answers</h2>
+  <div class="grid g2">
+    <div class="card edge-info"><h3 style="margin-top:0">1 · Must personal data stay in the UAE?</h3>
+      <p><b>Not as a general rule.</b> The federal law (Decree-Law 45/2021) <em>regulates</em> transfer abroad; it does not forbid it. Strict in-country rules exist for <b>health, banking/payments and government</b> data — none of which is FreshNow's employee task data. <span class="v">[verified — the law's text, slide 3]</span></p>
+      <p class="small">The catch: the rules that would make transfers straightforward have <b>not been issued</b> as of March 2026, so today companies rely on consent and contracts. <span class="b">[believed]</span></p></div>
+    <div class="card edge-crit"><h3 style="margin-top:0">2 · Does our data leave the country today?</h3>
+      <p><b>Yes, four ways</b> — Telegram (unavoidable), three US AI companies (avoidable), call metadata to Ireland (avoidable), and <b>the planned Hostinger server, which has no UAE data centre at all</b>. <span class="v">[verified — slides 5–6]</span></p></div>
+    <div class="card edge-warn"><h3 style="margin-top:0">3 · Why not keep Groq / OpenRouter?</h3>
+      <p>No processor contract on self-serve terms (Art. 7, 8); processing abroad with no adequacy route (Art. 22); a consent notice that never mentioned it; and a fallback chain that silently sends the same text to a <em>second</em> US company. <span class="v">[verified — slide 8]</span></p></div>
+    <div class="card edge-ok"><h3 style="margin-top:0">4 · What instead, and what does it cost?</h3>
+      <p><b>Core42 (a G42 company) runs the exact model we use today under UAE jurisdiction.</b> A full day — 100 assignments, 200 status updates, 40 end-of-day summaries, 10 questions — costs about <b>$0.12</b>; with voice notes about <b>$7 a month</b>. <span class="v">[verified prices · measured tokens — slides 9–12]</span></p></div>
+  </div>
+</section>
+
+<!-- 3 ─────────────────────────────────────────────────────────────────────── -->
+<section class="slide" data-n="3" id="s3">
+  <span class="kicker">What the law says</span>
+  <h2>Federal Decree-Law No. 45 of 2021 — the articles that decide this</h2>
+  <div class="grid g2">
+    <div>
+      <h3>It applies to us <span class="v">[verified]</span></h3>
+      <blockquote>Art. 2(1)(b): applies to "any Controller or Processor located in the State who carries out the activities of Processing Personal Data of Data Subjects inside or outside the State."</blockquote>
+      <h3>Employment is a lawful basis beyond consent <span class="v">[verified]</span></h3>
+      <blockquote>Art. 4(8): processing "necessary for the Controller or Data Subject to fulfill his/her obligations … in the field of employment"; Art. 4(9): "necessary to perform a contract".</blockquote>
+      <h3>We must appoint processors under contract <span class="v">[verified]</span></h3>
+      <blockquote>Art. 7(5): "appoint a Processor who provides sufficient guarantees"; Art. 8(1): processing "in accordance with … the contracts and agreements concluded between them".</blockquote>
+    </div>
+    <div>
+      <h3>Transfer abroad — the two articles everything turns on <span class="v">[verified]</span></h3>
+      <blockquote>Art. 22: transfer allowed "in the following cases approved by the Office" — a country with adequate data-protection law, or a bilateral agreement.</blockquote>
+      <blockquote>Art. 23(1): otherwise, allowed under (a) a contract imposing this law's controls, (b) "the express Consent of the Data Subject", (c) judicial claims, (d) "necessary to enter into or execute a contract", (e) judicial cooperation, (f) public interest.</blockquote>
+      <h3>Keep only as long as needed <span class="v">[verified]</span></h3>
+      <blockquote>Art. 5(7): "Personal Data may not be kept after fulfilling the purpose of Processing" unless anonymised.</blockquote>
+      <p class="cite">Source: English translation of the Decree-Law, LexisNexis Middle East (<a href="https://privacyarabia.com/wp-content/uploads/2022/08/Decree-Law-45-2021-Data-Protection-Law-English.pdf">PDF</a>); official Arabic listing <a href="https://uaelegislation.gov.ae/en/legislations/1972">uaelegislation.gov.ae</a>.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 4 ─────────────────────────────────────────────────────────────────────── -->
+<section class="slide" data-n="4" id="s4">
+  <span class="kicker">What the law says · continued</span>
+  <h2>"Data cannot leave the country" is true for some sectors — not ours</h2>
+  <div class="grid g2">
+    <div>
+      <table>
+        <thead><tr><th>Sector</th><th>Rule</th><th>Applies to FreshNow ops data?</th></tr></thead>
+        <tbody>
+          <tr><td>Health data</td><td>Federal Law 2/2019 (ICT in Health), Art. 13: not stored or transferred outside the UAE except as permitted</td><td class="v">No — unless we start recording health details (we must not)</td></tr>
+          <tr><td>Banking &amp; payment data</td><td>Central Bank consumer-protection and retail-payment regulations: kept in the UAE</td><td class="v">No — never store card or bank data in this system</td></tr>
+          <tr><td>Government data</td><td>Cloud-first / sovereign-cloud requirements</td><td class="v">No — private company</td></tr>
+          <tr><td>Free-zone companies (DIFC, ADGM)</td><td>Their own data-protection regimes</td><td class="b">Assumed no — <b>please confirm Daily Vending LLC is a mainland company</b></td></tr>
+          <tr class="hi"><td><b>Everything else — including employee task data</b></td><td><b>PDPL Art. 22–23: transfer <em>regulated</em>, not banned</b></td><td class="v">Yes — this is our regime</td></tr>
+        </tbody>
+      </table>
+      <p class="cite">Sector rules: Clifford Chance, <a href="https://www.cliffordchance.com/insights/resources/blogs/talking-tech/en/articles/2025/03/doing-business-in-the-middle-east--data-transfers-in-the-uae-and-ksa.html">Data Transfers in the UAE and KSA</a> (Mar 2025): "the UAE PDPL itself does not impose a general data localisation requirement"; PwC, <a href="https://www.pwc.com/m1/en/publications/documents/healthcare-data-protection-in-the-uae.pdf">Healthcare data protection in the UAE</a>. <span class="b">[believed]</span></p>
+    </div>
+    <div class="card edge-warn">
+      <h3 style="margin-top:0">The complication: the Executive Regulations are still missing</h3>
+      <p>Art. 28 required them within six months of the law (i.e. by early 2022). They set the adequacy list, the contract templates and the transfer procedure.</p>
+      <blockquote>Chambers, <em>Data Protection &amp; Privacy 2026 — UAE</em> (10 Mar 2026): "The Implementing Regulations … have yet to be issued" and "the Data Office has not yet become fully operational."</blockquote>
+      <p><b>What that means in practice:</b> the "adequate country" route does not exist yet; the usable grounds are <b>express consent</b> and <b>contracts</b>. And Art. 29 gives a six-month regularisation window that starts the day the Regulations appear — so the clock has not started, and will.</p>
+      <p class="small"><span class="a">[uncertain]</span> I could not find a primary source showing issuance between March and September 2026. One search result claimed a 2026 publication; the page it cited said "in progress". <b>Please have counsel check the Official Gazette.</b></p>
+      <p class="cite"><a href="https://practiceguides.chambers.com/practice-guides/data-protection-privacy-2026/uae/trends-and-developments">Chambers 2026 UAE chapter</a></p>
+    </div>
+  </div>
+</section>
+
+<!-- 5 ─────────────────────────────────────────────────────────────────────── -->
+<section class="slide" data-n="5" id="s5">
+  <span class="kicker">Where our data goes today</span>
+  <h2>Every path an employee's words take — from our own logs <span class="v">[verified]</span></h2>
+  <div class="grid g2">
+    <div>
+      <div class="flow">
+        <div class="node ok"><b>Employee's phone</b><br><span class="small mut">a status, a problem, a voice note</span></div><div class="arrow">→</div><div class="node bad"><b>Telegram</b><br><span class="small mut">servers worldwide, none in the UAE · no business contract possible</span></div>
+        <div class="node ok"><b>Our server</b><br><span class="small mut">today: a laptop in Dubai ✓</span></div><div class="arrow">→</div><div class="node bad"><b>Groq · NVIDIA · OpenRouter</b><br><span class="small mut">US companies, US/KSA/EU data centres · reads the text to detect problems</span></div>
+        <div class="node ok"><b>Our server</b></div><div class="arrow">→</div><div class="node warn"><b>Langfuse (Ireland)</b><br><span class="small mut">metadata only — never content · self-hostable</span></div>
+        <div class="node ok"><b>Production plan</b></div><div class="arrow">→</div><div class="node bad"><b>Hostinger VPS</b><br><span class="small mut">no UAE location — the whole database would be abroad</span></div>
+      </div>
+      <p class="small mut" style="margin-top:10px">Red = personal data leaves the UAE. The database itself is still in Dubai only because it is still on a laptop.</p>
+    </div>
+    <div>
+      <h3 style="margin-top:0">Model calls that carried employee text, by provider</h3>
+      <p class="small mut">All 322 calls to date, counted from our <code>llm_call</code> table. One of the Groq calls was a voice recording.</p>
+      <div class="viz" id="viz-providers"></div>
+      <div class="grid g3" style="margin-top:12px">
+        <div class="card stat edge-info"><div class="l">Total spend to date</div><div class="n" style="font-size:1.8rem">$0.0076</div><div class="l">322 calls</div></div>
+        <div class="card stat edge-crit"><div class="l">Contracts with those providers</div><div class="n" style="font-size:1.8rem">0</div><div class="l">self-serve API keys</div></div>
+        <div class="card stat edge-warn"><div class="l">Consent notice mentions AI abroad</div><div class="n" style="font-size:1.8rem">No</div><div class="l">must be re-issued</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 6 ─────────────────────────────────────────────────────────────────────── -->
+<section class="slide" data-n="6" id="s6">
+  <span class="kicker">Why not the Hostinger VPS</span>
+  <h2>Hostinger has no data centre in the UAE or anywhere in the Middle East</h2>
+  <div class="grid g2">
+    <div class="card edge-crit">
+      <h3 style="margin-top:0">Hostinger's own list of VPS locations <span class="v">[verified — their support page]</span></h3>
+      <blockquote>"Europe: France, Germany, Lithuania, and the United Kingdom. Asia: India, Indonesia, and Malaysia. North America: USA (Phoenix and Boston). South America: Brazil."</blockquote>
+      <p>Choosing the KVM 8 plan means the <b>entire employee database</b> — every name, every status, every word typed — lives permanently in one of those countries.</p>
+      <p><b>Under the PDPL that is a continuous cross-border transfer of the whole dataset</b> (Art. 22–23), with no adequacy decision to rely on, resting entirely on consent that today's notice does not even describe.</p>
+      <p class="cite"><a href="https://www.hostinger.com/support/1583267-where-are-hostinger-servers-located/">Where are Hostinger servers located?</a> · KVM 8 = 8 vCPU, 32 GB, 400 GB NVMe at $29.99/mo introductory, <b>$49.99/mo on renewal</b> <span class="b">[believed — 2026 pricing round-ups]</span></p>
+    </div>
+    <div>
+      <h3 style="margin-top:0">Why this is the first thing to change</h3>
+      <ul>
+        <li><b>It is the largest transfer by far.</b> The AI calls carry one message at a time; the database carries everything, forever.</li>
+        <li><b>It is the easiest to fix.</b> The software is a Docker Compose stack; it runs identically on any Linux box. Nothing in the code changes — only where it runs.</li>
+        <li><b>It has not happened yet.</b> Today the database is on a laptop in Dubai. Choosing the right host <em>before</em> go-live avoids a migration later.</li>
+        <li><b>It is the one decision that also unlocks the rest:</b> a UAE host with a domain gives us HTTPS, which web push, inbound email and the Telegram webhook all need.</li>
+      </ul>
+      <div class="card brand" style="margin-top:10px"><b>Decision needed:</b> choose a host with a UAE region (next slide). Prices shown are like-for-like where possible and honest where not.</div>
+    </div>
+  </div>
+</section>
+
+<!-- 7 ─────────────────────────────────────────────────────────────────────── -->
+<section class="slide" data-n="7" id="s7">
+  <span class="kicker">Hosting alternatives</span>
+  <h2>Servers that are physically in the UAE — monthly price, checked 19–21 Sept 2026</h2>
+  <div class="grid g32">
+    <div>
+      <table>
+        <thead><tr><th>Provider · region</th><th>Closest plan</th><th class="n">USD / month</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td>Hostinger (for contrast)</td><td>KVM 8 · 8 vCPU / 32 GB / 400 GB</td><td class="n">$29.99 → $49.99</td><td class="a">Not in the UAE. Intro price, then renewal</td></tr>
+          <tr class="hi"><td><b>LightNode · Dubai</b> (Tier 3+ DC)</td><td>8 vCPU / 16 GB / 50 GB</td><td class="n"><b>$52.70</b></td><td>Half our RAM, small disk; hourly billing; cheapest UAE option found</td></tr>
+          <tr><td>LightNode · Dubai</td><td>4 vCPU / 8 GB / 50 GB</td><td class="n">$27.70</td><td>Enough for the demo scale; not for growth</td></tr>
+          <tr><td>EDIS Global · Dubai (Equinix DX1)</td><td>2 vCPU / 4 GB base + add-ons</td><td class="n">≈ €222 built up</td><td>€21.99 base + €10/core + €5/GB to reach 8/32 — <span class="tag mut">my arithmetic</span></td></tr>
+          <tr><td><b>AWS · me-central-1 (UAE)</b></td><td>t3.2xlarge · 8 vCPU / 32 GB</td><td class="n">$293</td><td>On-demand; ~30% less with a 1-year commitment <span class="b">[believed]</span>; disk extra</td></tr>
+          <tr><td>AWS · me-central-1</td><td>m6i.2xlarge · 8 vCPU / 32 GB</td><td class="n">$344</td><td>Non-burstable; disk extra</td></tr>
+          <tr><td><b>Azure · UAE North (Dubai)</b></td><td>D8as v5 · 8 vCPU / 32 GB</td><td class="n">$310</td><td>$0.424/hr pay-as-you-go; disk extra</td></tr>
+          <tr><td>Azure · UAE Central (Abu Dhabi)</td><td>D8as v5</td><td class="n">$402</td><td>$0.551/hr</td></tr>
+          <tr><td>Oracle Cloud · Abu Dhabi / Dubai</td><td>—</td><td class="n">not priced</td><td>Region exists; price not checked</td></tr>
+        </tbody>
+      </table>
+      <p class="cite">AWS: <a href="https://aws-pricing.com/me-central-1.html">aws-pricing.com me-central-1</a> (updated 19 Sep 2026); Azure: <a href="https://www.azurespeed.com/AzureVmPricing/Standard_D8as_v5">azurespeed.com D8as_v5</a>; LightNode: <a href="https://go.lightnode.com/the-united-arab-emirates-vps">UAE VPS page</a>; EDIS: <a href="https://www.edisglobal.com/vps-hosting/united-arab-emirates-dubai">Dubai VPS</a>. Third-party price trackers for AWS/Azure — <b>confirm on the official calculators before signing</b>. Monthly = hourly × 730. Google Cloud has <b>no</b> UAE region (Dammam only) <span class="v">[verified]</span>.</p>
+    </div>
+    <div>
+      <h3 style="margin-top:0">Monthly price for 8 vCPU / 32 GB-class servers</h3>
+      <p class="small mut">Grey = not in the UAE. LightNode's plan is 16 GB, shown for the cheapest in-country option.</p>
+      <div class="viz" id="viz-hosting"></div>
+      <div class="card edge-info" style="margin-top:12px"><b>Reading it honestly:</b> a hyperscaler in the UAE costs 6–8× Hostinger; a Dubai VPS costs about the same as Hostinger's renewal price for half the RAM. The platform's real load is modest (Postgres + three small Node services), so <b>LightNode 8/16 or a 4-vCPU plan is a credible start</b>, with AWS/Azure as the "grow into it" path. All of them keep every byte in the UAE.</div>
+    </div>
+  </div>
+</section>
+
+<!-- 8 ─────────────────────────────────────────────────────────────────────── -->
+<section class="slide" data-n="8" id="s8">
+  <span class="kicker">Why not Groq, OpenRouter or NVIDIA API keys</span>
+  <h2>Four reasons — each tied to an article, not a preference</h2>
+  <div class="grid g2">
+    <div class="card edge-crit"><h3 style="margin-top:0">1 · No contract is possible on self-serve terms</h3>
+      <p>Art. 7(5) requires an appointed processor "who provides sufficient guarantees"; Art. 8(1) requires processing under "contracts and agreements concluded between them". A pay-as-you-go API key is not that. Groq's own privacy policy says customer data is governed by a separate Services Agreement and DPA that a self-serve key does not give you. <span class="v">[verified — Groq policy, 12 Nov 2025]</span></p></div>
+    <div class="card edge-crit"><h3 style="margin-top:0">2 · They process outside the UAE, with no adequacy route</h3>
+      <p>Groq's data centres: US, Canada, Saudi Arabia, Finland, Australia — no UAE, and no documented way to pin a region. NVIDIA and OpenRouter are US. With the Executive Regulations unissued, Art. 22 cannot be used; only consent or contract (Art. 23) remain. <span class="v">[verified — Groq newsroom]</span></p></div>
+    <div class="card edge-warn"><h3 style="margin-top:0">3 · Our consent does not cover it</h3>
+      <p>The notice employees agreed to says updates are "visible to you and the CEO" — nothing about an AI service abroad, nothing about voice notes being transcribed abroad. Art. 6 requires consent to be specific. <span class="v">[verified — the notice text in our code]</span></p></div>
+    <div class="card edge-warn"><h3 style="margin-top:0">4 · The fallback chain leaks silently</h3>
+      <p>Our configuration was <code>groq → openrouter → nvidia</code>. <b>On 19 September this actually happened:</b> Groq timed out at 25 s on every call and OpenRouter absorbed the traffic — visible in our logs as <code>groq ok=false 25,058 ms</code> followed by <code>openrouter ok=true</code>. Nobody was told, and employee text reached a second US company. Good engineering; wrong residency. <span class="v">[verified — our llm_call table]</span></p></div>
+  </div>
+  <div class="card brand" style="margin-top:14px"><b>The fix is not "build our own AI".</b> The model we use — <code>openai/gpt-oss-120b</code> — needs ~61 GB of memory just for its weights; our server has 32 GB and no GPU. Training a model on company data is the wrong tool for these tasks and would need data we do not have. The fix is to <b>run the same model at a provider in the UAE, under a contract, with less personal data in each request</b> — next slide. <span class="v">[verified — llama.cpp's gpt-oss guide: 61.0 GB]</span></div>
+</section>
+
+<!-- 9 ─────────────────────────────────────────────────────────────────────── -->
+<section class="slide" data-n="9" id="s9">
+  <span class="kicker">The alternative</span>
+  <h2>In-country AI exists today — the comparison</h2>
+  <table>
+    <thead><tr><th>Provider</th><th>Runs in the UAE?</th><th>Same model we use?</th><th>Contract / DPA</th><th class="n">Price per 1M tokens (in / out)</th><th>Access</th><th>Verdict</th></tr></thead>
+    <tbody>
+      <tr class="hi"><td><b>Core42 Compass</b> (G42, Abu Dhabi)</td><td class="v">"All UAE hosted deployments run under UAE jurisdiction"</td><td class="v"><b>Yes</b> — <code>gpt-oss-120b</code></td><td>Business terms available — get the DPA in writing</td><td class="n"><b>$0.15 / $0.37</b> (Qualcomm)<br>$0.25 / $0.69 (Cerebras, faster)</td><td>Self-serve today</td><td class="v"><span class="tag ok">RECOMMENDED</span></td></tr>
+      <tr><td><b>OpenAI · UAE region</b> <code>ae.api.openai.com</code></td><td class="v">Storage <b>and</b> processing in-region</td><td class="b">No — <code>gpt-5.6-luna</code>, <code>gpt-5.2</code>, <code>gpt-5.5</code> only</td><td>Enterprise terms, ZDR available</td><td class="n">luna $0.22 / $1.32<br>5.2 $1.93 / $15.40<br>5.5 $5.50 / $33.00<br><span class="tiny">incl. 10% residency uplift</span></td><td>Requires approval</td><td class="b"><span class="tag warn">SECOND OPTION</span></td></tr>
+      <tr><td>Azure OpenAI · UAE North</td><td class="b">Only Provisioned (reserved) and Whisper; "Global Standard" is <b>not</b> in-country</td><td class="b">No</td><td>Yes</td><td class="n">reserved capacity — expensive at our size</td><td>Azure account</td><td class="b"><span class="tag warn">VOICE ONLY</span> — Whisper in-region</td></tr>
+      <tr><td>AWS Bedrock · me-central-1</td><td class="b">Amazon Nova Pro / Lite in-region; Claude is "Global" only</td><td class="b">No</td><td>Yes</td><td class="n">AWS list</td><td>AWS account</td><td class="b"><span class="tag warn">POSSIBLE</span> — needs a benchmark</td></tr>
+      <tr><td>Groq / OpenRouter / NVIDIA (today)</td><td class="a">No</td><td class="v">Yes</td><td class="a">None on self-serve</td><td class="n">—</td><td>—</td><td class="a"><span class="tag crit">STOP FOR REAL DATA</span></td></tr>
+    </tbody>
+  </table>
+  <p class="cite">Core42: <a href="https://aicloud.core42.ai/gpt-oss">GPT-OSS on Compass</a> (prices re-checked 21 Sep 2026) · OpenAI: <a href="https://developers.openai.com/api/docs/guides/your-data">data controls — UAE region</a>, <a href="https://developers.openai.com/api/docs/pricing">pricing</a> ("Regional processing … charged a 10% uplift") · Microsoft: <a href="https://learn.microsoft.com/en-us/azure/foundry/foundry-models/concepts/models-sold-directly-by-azure-region-availability">region availability</a> (updated 4 Sep 2026) · AWS: <a href="https://docs.aws.amazon.com/bedrock/latest/userguide/models-region-compatibility.html">Bedrock model support by Region</a>. <span class="v">[verified]</span></p>
+  <p class="small mut"><b>Why Core42 first:</b> it is the same model, so our existing prompts and tests carry over; the change is a base URL and a key, and removing the US providers from the fallback list so an outage degrades to "a human reviews it" instead of "a second US company reads it". Keep Groq/OpenRouter keys for development on synthetic data only.</p>
+</section>
+
+<!-- 10 ────────────────────────────────────────────────────────────────────── -->
+<section class="slide" data-n="10" id="s10">
+  <span class="kicker">What one day costs · the inputs</span>
+  <h2>Tokens per operation — measured from our own logs, not guessed</h2>
+  <table class="small">
+        <thead><tr><th>Operation</th><th>AI calls</th><th class="n">Tokens in</th><th class="n">Tokens out</th><th>Basis</th></tr></thead>
+        <tbody>
+          <tr><td>Status update <b>with words</b> (Telegram text or voice)</td><td>2 — understand intent, extract the problem</td><td class="n">1,600</td><td class="n">600</td><td>72 real status calls averaged 629 in / 341 out; rounded up <span class="v">[verified]</span></td></tr>
+          <tr><td>Status update by <b>button only</b> (Done / Pending)</td><td>0</td><td class="n">0</td><td class="n">0</td><td>No AI at all — but every one of the 200 is costed as if it had words</td></tr>
+          <tr><td>Assignment by <b>Telegram message</b> ("tell Priya to …")</td><td>1</td><td class="n">700</td><td class="n">250</td><td>Measured intent-call size <span class="v">[verified]</span></td></tr>
+          <tr><td>Assignment on the <b>dashboard</b> or with <code>/assign</code> buttons</td><td><b>0</b></td><td class="n">0</td><td class="n">0</td><td>Deterministic — never touches a model <span class="v">[verified in code]</span></td></tr>
+          <tr><td>Assignment by <b>PDF</b> (one ~2-page document)</td><td>1</td><td class="n">1,700</td><td class="n">550</td><td>716 / 529 measured on short test PDFs, scaled to 2 pages; text capped at 20,000 chars</td></tr>
+          <tr><td>End-of-day summary</td><td>1 per employee</td><td class="n">1,000</td><td class="n">200</td><td><span class="tag mut">assumed</span> 40 employees</td></tr>
+          <tr><td>CEO question in the dashboard</td><td>2 — write SQL, narrate</td><td class="n">2,300</td><td class="n">300</td><td><span class="tag mut">assumed</span> 10 a day</td></tr>
+          <tr><td>Voice note</td><td>transcription, per minute</td><td class="n" colspan="2">20 min / day</td><td><span class="tag mut">assumed</span> 20% of updates, 30 s each · $0.006/min list price</td></tr>
+          <tr><td>Evidence / report PDF attached to a status</td><td><b>0 today</b></td><td class="n">—</td><td class="n">—</td><td>Stored and forwarded, never read by a model. Optional: ~800 / 200 per page if summarised</td></tr>
+        </tbody>
+  </table>
+  <div class="grid g2" style="margin-top:14px">
+    <div>
+      <h3 style="margin-top:0">Where the money goes — a typical day on Core42</h3>
+      <p class="small mut">100 assignments by message, 200 status updates, 40 summaries, 10 questions. Share of the $0.126.</p>
+      <div class="viz" id="viz-share"></div>
+    </div>
+    <div>
+      <div class="card edge-info" style="margin-top:0"><b>The finding that matters:</b> status updates are <b>73%</b> of the cost because each carries two AI calls. Assignments are cheap on any channel — and on the dashboard they are <b>free</b>. So the <em>assignment</em> channel barely moves the bill; what moves it is how many employees type words instead of tapping buttons.</div>
+    </div>
+  </div>
+</section>
+
+<!-- 11 ────────────────────────────────────────────────────────────────────── -->
+<section class="slide" data-n="11" id="s11">
+  <span class="kicker">What one day costs · the answer</span>
+  <h2>100 assignments + 200 status updates a day, four ways of assigning</h2>
+  <div class="grid g32">
+    <div>
+      <table>
+        <thead><tr><th>Assignments arrive by…</th><th class="n">Tokens<br><span class="tiny">in · out</span></th><th class="n">Core42<br><span class="tiny">gpt-oss-120b, Qualcomm</span></th><th class="n">Core42<br><span class="tiny">Cerebras</span></th><th class="n">OpenAI UAE<br><span class="tiny">gpt-5.6-luna</span></th><th class="n">OpenAI UAE<br><span class="tiny">gpt-5.2</span></th><th class="n">OpenAI UAE<br><span class="tiny">gpt-5.5</span></th></tr></thead>
+        <tbody>
+          <tr><td><b>A</b> · Telegram message</td><td class="n">453k · 156k</td><td class="n"><b>$0.126</b></td><td class="n">$0.221</td><td class="n">$0.306</td><td class="n">$3.27</td><td class="n">$7.64</td></tr>
+          <tr><td><b>B</b> · dashboard / buttons</td><td class="n">383k · 131k</td><td class="n"><b>$0.106</b></td><td class="n">$0.186</td><td class="n">$0.257</td><td class="n">$2.76</td><td class="n">$6.43</td></tr>
+          <tr><td><b>C</b> · PDF (5 tasks each → 20 PDFs)</td><td class="n">417k · 142k</td><td class="n"><b>$0.115</b></td><td class="n">$0.202</td><td class="n">$0.279</td><td class="n">$2.99</td><td class="n">$6.98</td></tr>
+          <tr class="hi"><td><b>D</b> · one third each (realistic)</td><td class="n">418k · 143k</td><td class="n"><b>$0.116</b></td><td class="n">$0.203</td><td class="n">$0.281</td><td class="n">$3.01</td><td class="n">$7.02</td></tr>
+          <tr><td>+ voice, 20 min / day</td><td class="n">—</td><td class="n" colspan="5">+ $0.12</td></tr>
+          <tr><td>+ optional: 50 evidence pages</td><td class="n">40k · 10k</td><td class="n">+ $0.01</td><td class="n">+ $0.02</td><td class="n">+ $0.02</td><td class="n">+ $0.23</td><td class="n">+ $0.55</td></tr>
+        </tbody>
+      </table>
+      <p class="small mut">Every scenario includes the 200 status updates, 40 summaries and 10 questions. Tokens are the same on every provider; only the price differs. If a PDF holds one task instead of five, scenario C becomes $0.15 on Core42.</p>
+    </div>
+    <div>
+      <h3 style="margin-top:0">Daily AI cost by scenario — the two providers worth choosing between</h3>
+      <div class="viz" id="viz-scenarios"></div>
+      <div class="grid g3" style="margin-top:10px">
+        <div class="card stat edge-ok"><div class="l">Core42, scenario D, with voice</div><div class="n">$0.24</div><div class="l">per day</div></div>
+        <div class="card stat edge-ok"><div class="l">per month</div><div class="n">$7.07</div><div class="l">30 days</div></div>
+        <div class="card stat edge-ok"><div class="l">per year</div><div class="n">$86</div><div class="l">365 days</div></div>
+      </div>
+      <p class="small mut" style="margin-top:8px">OpenAI's flagship models (5.2, 5.5) are 25–60× dearer and buy nothing for extraction and routing; if ever wanted, use them for the CEO's question box only. Our existing daily circuit-breaker of $2 covers every Core42 and luna scenario.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 12 ────────────────────────────────────────────────────────────────────── -->
+<section class="slide" data-n="12" id="s12">
+  <span class="kicker">What one day costs · per item, and what would change it</span>
+  <h2>Unit costs on Core42 — and the assumptions you can change</h2>
+  <div class="grid g32">
+    <div>
+      <table>
+        <thead><tr><th>One…</th><th class="n">Core42 (Qualcomm)</th><th class="n">Core42 (Cerebras)</th><th class="n">OpenAI luna UAE</th></tr></thead>
+        <tbody>
+          <tr><td>status update with words</td><td class="n">$0.00046</td><td class="n">$0.00081</td><td class="n">$0.00114</td></tr>
+          <tr><td>assignment by Telegram message</td><td class="n">$0.00020</td><td class="n">$0.00035</td><td class="n">$0.00048</td></tr>
+          <tr><td>assignment on the dashboard</td><td class="n" colspan="3"><b>$0 — no AI involved</b></td></tr>
+          <tr><td>PDF planned into tasks (per document)</td><td class="n">$0.00046</td><td class="n">$0.00080</td><td class="n">$0.00110</td></tr>
+          <tr><td>evidence page summarised (optional)</td><td class="n">$0.00019</td><td class="n">$0.00034</td><td class="n">$0.00044</td></tr>
+          <tr><td>minute of voice transcribed</td><td class="n" colspan="3">$0.006 (OpenAI / Azure list price; Core42's not published)</td></tr>
+        </tbody>
+      </table>
+      <div class="card brand" style="margin-top:12px"><b>In plain terms:</b> at this volume the AI bill is a rounding error next to one server. The decision is about <b>where the words are read and under what contract</b>, not about money.</div>
+    </div>
+    <div class="card edge-warn">
+      <h3 style="margin-top:0">What would move these numbers</h3>
+      <ul>
+        <li><b>Script.</b> Hindi or Malayalam typed in native script tokenises 2–3× worse than the Latin-script Hinglish in our logs. Worst case doubles the status line — still cents.</li>
+        <li><b>Head-count.</b> Summaries scale with people, not updates: 100 employees add about $0.01 a day.</li>
+        <li><b>Reasoning setting.</b> <code>gpt-oss-120b</code> is a reasoning model; at a high setting its output tokens (the dear side) can multiply. Our measured 340-token outputs are at the default.</li>
+        <li><b>Retries.</b> One retry on a malformed answer; measured failure rates are low. Budget 10% headroom.</li>
+        <li><b>Assumptions you own:</b> 40 employees · 10 questions a day · 20% voice at 30 s · 5 tasks per PDF. Change any of them and the arithmetic is linear.</li>
+      </ul>
+      <p class="small mut">Prices: Core42 page re-read 21 Sep 2026; OpenAI pricing page 19 Sep 2026. Token counts: our <code>llm_call</code> table joined to the audit log by run id, so each call is attributed to what the run actually did.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 13 ────────────────────────────────────────────────────────────────────── -->
+<section class="slide" data-n="13" id="s13">
+  <span class="kicker">Telegram</span>
+  <h2>Can we use Telegram at all? Yes — lawfully, on one condition</h2>
+  <div class="grid g32">
+    <div>
+      <table>
+        <thead><tr><th>Rule</th><th>What it says</th><th>Our position</th></tr></thead>
+        <tbody>
+          <tr><td>TDRA — is the app allowed?</td><td>VoIP is a licensed telecom service; unlicensed <em>calling</em> is what is restricted. Text and files are not. <span class="v">[verified — TDRA FAQ]</span></td><td class="v">Allowed. The bot never makes calls.</td></tr>
+          <tr><td>PDPL Art. 22–23 — data stored abroad</td><td>Telegram stores cloud chats in data centres worldwide, none in the UAE, and offers no business contract. Transfer is permitted with "the express Consent of the Data Subject" (Art. 23(1)(b)). <span class="v">[verified]</span></td><td class="b">Lawful <b>only after</b> the notice names Telegram and staff consent again. Today's notice does not.</td></tr>
+          <tr><td>Is Telegram our "processor"?</td><td>A processor acts on our instructions under contract; Telegram is a service the employee also uses privately.</td><td class="b">My reading: an independent service, like an email provider — <b>counsel should confirm</b>.</td></tr>
+          <tr><td>Employee monitoring (Labour Law 33/2021)</td><td>Must be disclosed, proportionate, purpose-limited. <span class="b">[believed]</span></td><td class="v">The bot is a self-report channel: no location, no scoring, no reading of private chats.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div>
+      <div class="card edge-ok"><h3 style="margin-top:0">So, in practice</h3>
+        <ul>
+          <li><b>Keep Telegram as the primary channel</b> — especially for drivers and field staff: already installed, no password, one tap, and the Acknowledge tap is proof a human read it.</li>
+          <li><b>Re-issue the consent notice</b> so it names Telegram, the AI provider and where each runs; ask everyone again. The system already versions and hashes the notice.</li>
+          <li><b>Keep the database as the only record</b> — already true; Telegram carries messages, it stores nothing we rely on.</li>
+          <li><b>Have an in-country channel ready</b> — the dashboard inbox and web push are built and switched off, so a rule change or a ban is a switch, not a rebuild.</li>
+        </ul></div>
+      <p class="cite" style="margin-top:8px"><a href="https://tdra.gov.ae/en/FAQs">TDRA FAQs</a> · <a href="https://telegram.org/privacy">Telegram privacy policy</a></p>
+    </div>
+  </div>
+</section>
+
+<!-- 14 ────────────────────────────────────────────────────────────────────── -->
+<section class="slide" data-n="14" id="s14">
+  <span class="kicker">Decisions and actions</span>
+  <h2>What to do, in order — most of it is a decision, not a project</h2>
+  <table>
+    <thead><tr><th>#</th><th>Action</th><th>Article</th><th>Who</th><th>Effort</th><th>Cost</th></tr></thead>
+    <tbody>
+      <tr class="hi"><td>1</td><td><b>Host in the UAE, not on Hostinger.</b> Pick from slide 7. The software moves unchanged.</td><td>22–23</td><td>CEO decides · developer moves it</td><td>days</td><td>$53–$344 / month</td></tr>
+      <tr class="hi"><td>2</td><td><b>Move the AI to Core42</b> (same model); remove the US fallbacks; voice via Azure UAE North Whisper or Core42. Re-run our tests and benchmark first.</td><td>7(5), 8, 22–23</td><td>CEO signs up · developer switches</td><td>days</td><td>≈ $7 / month</td></tr>
+      <tr class="hi"><td>3</td><td><b>Re-issue the consent notice</b> naming Telegram, the AI provider and where it runs; native-speaker Hindi and Malayalam; ask everyone again.</td><td>5(1), 6</td><td>company wording · lawyer · developer ships it</td><td>hours after wording</td><td>—</td></tr>
+      <tr><td>4</td><td>Sign a data-processing agreement with each processor that sees content: the host, Core42, Langfuse if kept in the cloud.</td><td>7(5), 8(1)</td><td>company</td><td>contract work</td><td>—</td></tr>
+      <tr><td>5</td><td>Keep a record of processing (categories, access, retention, cross-border movement). Most of it already exists in the system's semantic layer.</td><td>7(4)</td><td>company + developer</td><td>half a day</td><td>—</td></tr>
+      <tr><td>6</td><td>Set the retention window (<code>RETENTION_DAYS</code>, ≥ 30). The sweep is built and waiting for a number.</td><td>5(7)</td><td>company decides</td><td>minutes</td><td>—</td></tr>
+      <tr><td>7</td><td>Pseudonymise prompts (names → indexes; ignore health content). The law names pseudonymisation twice.</td><td>7(2), 20</td><td>developer</td><td>a day</td><td>—</td></tr>
+      <tr><td>8</td><td>Write the breach procedure; name a data-protection contact.</td><td>9, 10</td><td>company</td><td>hours</td><td>—</td></tr>
+      <tr><td>9</td><td>Buy a domain. It unlocks HTTPS, web push, inbound email and the Telegram webhook at once.</td><td>—</td><td>company</td><td>an hour</td><td>~$10–15 / year</td></tr>
+      <tr><td>10</td><td>Ask counsel to watch for the Executive Regulations; the six-month clock starts when they appear.</td><td>28–29</td><td>lawyer</td><td>ongoing</td><td>—</td></tr>
+    </tbody>
+  </table>
+  <div class="card brand" style="margin-top:12px"><b>If you do only three things:</b> host in the UAE (1), move the AI to Core42 (2), re-consent with an honest notice (3). After those, the only personal data leaving the country is what Telegram carries — disclosed and consented.</div>
+</section>
+
+<!-- 15 ────────────────────────────────────────────────────────────────────── -->
+<section class="slide" data-n="15" id="s15">
+  <span class="kicker">Sources</span>
+  <h2>Every claim above, and where to check it</h2>
+  <div class="grid g2 small">
+    <div>
+      <h3 style="margin-top:0">The law and its status</h3>
+      <ul>
+        <li>Federal Decree-Law No. 45 of 2021 — English translation, LexisNexis Middle East: <a href="https://privacyarabia.com/wp-content/uploads/2022/08/Decree-Law-45-2021-Data-Protection-Law-English.pdf">PDF</a>; official listing: <a href="https://uaelegislation.gov.ae/en/legislations/1972">uaelegislation.gov.ae/en/legislations/1972</a></li>
+        <li>Chambers, <em>Data Protection &amp; Privacy 2026 — UAE</em> (10 Mar 2026): <a href="https://practiceguides.chambers.com/practice-guides/data-protection-privacy-2026/uae/trends-and-developments">link</a></li>
+        <li>Clifford Chance, <em>Data Transfers in the UAE and KSA</em> (10 Mar 2025): <a href="https://www.cliffordchance.com/insights/resources/blogs/talking-tech/en/articles/2025/03/doing-business-in-the-middle-east--data-transfers-in-the-uae-and-ksa.html">link</a></li>
+        <li>DLA Piper, <em>Data Protection Laws of the World — UAE</em>: <a href="https://www.dlapiperdataprotection.com/countries/uae-general/law.html">link</a></li>
+        <li>PwC, <em>Healthcare data protection in the UAE</em> (ICT Health Law): <a href="https://www.pwc.com/m1/en/publications/documents/healthcare-data-protection-in-the-uae.pdf">PDF</a></li>
+        <li>TDRA FAQs (VoIP): <a href="https://tdra.gov.ae/en/FAQs">link</a> · Telegram privacy policy: <a href="https://telegram.org/privacy">link</a></li>
+      </ul>
+      <h3>Hosting</h3>
+      <ul>
+        <li>Hostinger, <em>Where are Hostinger servers located?</em>: <a href="https://www.hostinger.com/support/1583267-where-are-hostinger-servers-located/">link</a></li>
+        <li>AWS me-central-1 prices (third-party tracker, 19 Sep 2026): <a href="https://aws-pricing.com/me-central-1.html">link</a> · official: <a href="https://aws.amazon.com/ec2/pricing/on-demand/">EC2 on-demand pricing</a></li>
+        <li>Azure D8as v5 by region: <a href="https://www.azurespeed.com/AzureVmPricing/Standard_D8as_v5">azurespeed.com</a> · official: <a href="https://azure.microsoft.com/en-us/pricing/details/virtual-machines/linux/">Azure Linux VM pricing</a></li>
+        <li>LightNode UAE VPS: <a href="https://go.lightnode.com/the-united-arab-emirates-vps">link</a> · EDIS Global Dubai: <a href="https://www.edisglobal.com/vps-hosting/united-arab-emirates-dubai">link</a></li>
+        <li>Google Cloud locations (no UAE region): <a href="https://cloud.google.com/about/locations/">link</a></li>
+      </ul>
+    </div>
+    <div>
+      <h3 style="margin-top:0">AI providers</h3>
+      <ul>
+        <li>Core42, <em>GPT-OSS on Compass</em> — prices and "UAE jurisdiction": <a href="https://aicloud.core42.ai/gpt-oss">link</a> · changelog: <a href="https://www.core42.ai/compass/documentation/2025">link</a></li>
+        <li>OpenAI, <em>Data controls</em> (UAE region, eligible models): <a href="https://developers.openai.com/api/docs/guides/your-data">link</a> · <em>Pricing</em> (10% residency uplift): <a href="https://developers.openai.com/api/docs/pricing">link</a></li>
+        <li>Microsoft Learn, <em>Region availability for Foundry Models</em> (4 Sep 2026): <a href="https://learn.microsoft.com/en-us/azure/foundry/foundry-models/concepts/models-sold-directly-by-azure-region-availability">link</a></li>
+        <li>AWS Bedrock, <em>Model support by Region</em>: <a href="https://docs.aws.amazon.com/bedrock/latest/userguide/models-region-compatibility.html">link</a></li>
+        <li>Groq privacy policy (12 Nov 2025): <a href="https://groq.com/privacy-policy">link</a> · data centres: <a href="https://groq.com/newsroom/groq-launches-european-data-center-footprint-in-helsinki-finland">Helsinki</a>, <a href="https://groq.com/newsroom/groq-expands-to-asia-pacific-with-sydney-data-center-to-power-the-next-generation-of-ai-inference">Sydney</a></li>
+        <li>Langfuse data regions (EU = Ireland): <a href="https://langfuse.com/security/data-regions">link</a></li>
+        <li>llama.cpp, <em>running gpt-oss</em> (model sizes: 120b = 61.0 GB): <a href="https://github.com/ggml-org/llama.cpp/discussions/15396">link</a></li>
+      </ul>
+      <h3>Our own records</h3>
+      <ul>
+        <li><code>llm_call</code> table — 322 calls, providers, tokens, latency, the 19 Sep Groq timeouts</li>
+        <li><code>packages/core/src/onboarding.ts</code> — the consent notice text employees see</li>
+        <li><code>.env</code> — <code>LLM_PROVIDER_ORDER=groq,openrouter,nvidia</code>, <code>LLM_DAILY_BUDGET_USD=2</code></li>
+        <li>Full analyses: <code>docs/reports/uae-data-residency-and-llm-analysis.html</code> · <code>docs/reports/llm-provider-decision-and-costs.html</code></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 16 ────────────────────────────────────────────────────────────────────── -->
+<section class="slide" data-n="16" id="s16">
+  <span class="kicker">What is not verified</span>
+  <h2>Where this briefing could be wrong, stated plainly</h2>
+  <div class="grid g2">
+    <div class="card edge-warn">
+      <ul>
+        <li><b>Whether the Executive Regulations have been issued since March 2026.</b> Chambers says no; no primary source found either way. <b>Counsel should check the Official Gazette.</b></li>
+        <li><b>Whether Daily Vending LLC is a mainland or free-zone company.</b> Assumed mainland; DIFC/ADGM would change the regime.</li>
+        <li><b>Whether a regulator would treat Telegram as a processor</b> needing a contract it does not offer. A reading, not counsel's opinion.</li>
+        <li><b>Hyperscaler prices are from third-party trackers</b> (dated 18–19 Sep 2026) and exclude disk, bandwidth and any reserved-instance discount. Confirm on the official calculators before signing.</li>
+        <li><b>Core42's logging and retention terms</b> were not found on the pages read. Get the DPA in writing before sending real employee text. Their API has not yet been tested with our prompts.</li>
+      </ul>
+    </div>
+    <div class="card edge-warn">
+      <ul>
+        <li><b>OpenAI's 10% uplift and UAE eligibility</b> come from their pricing page and developer docs; the UAE endpoint "requires additional approval" we have not requested.</li>
+        <li><b>The cost model's assumptions are mine:</b> 40 employees, 10 questions, 20% voice at 30 s, 5 tasks per PDF. Linear — change a number, the line scales.</li>
+        <li><b>Token counts are from mostly English and Latin-script Hinglish.</b> Native Devanagari or Malayalam tokenises 2–3× worse.</li>
+        <li><b>Three search-engine summaries were wrong</b> on the primary page ("regulations issued in 2026", "Google has a UAE region", "Claude runs in-region in the UAE") and were corrected here — which is why every number carries a marker and a link.</li>
+        <li><b>No lawyer has reviewed this.</b> It is a technical reading built to be checked quickly, and it should be.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="foot">FreshNow Operations · briefing prepared 21 September 2026 · press P to print or save as PDF</div>
+</section>
+
+<script>
+(function(){
+  // ── Data ─────────────────────────────────────────────────────────────────
+  const providers = [["Groq (US)",250],["NVIDIA (US)",54],["OpenRouter (US)",17],["Groq Whisper — a voice recording",1]];
+  const hosting = [
+    ["Hostinger KVM 8 (renewal) · not in UAE",49.99,"grey"],
+    ["LightNode Dubai · 8 vCPU / 16 GB",52.70,"ok"],
+    ["EDIS Dubai · built to 8 / 32 (≈€222)",240,"info"],
+    ["AWS me-central-1 · t3.2xlarge",293,"info"],
+    ["Azure UAE North · D8as v5",310,"info"],
+    ["AWS me-central-1 · m6i.2xlarge",344,"info"],
+    ["Azure UAE Central · D8as v5",402,"info"],
+  ];
+  const share = [["Status updates",0.092,"var(--s1)"],["Assignments by message",0.020,"var(--s2)"],["End-of-day summaries",0.009,"var(--s3)"],["CEO questions",0.005,"var(--s4)"]];
+  const scen = [["A · message",0.126,0.306],["B · dashboard",0.106,0.257],["C · PDF",0.115,0.279],["D · one third each",0.116,0.281]];
+
+  const tip = document.getElementById("tip");
+  const showTip = (e, html) => { tip.innerHTML = html; tip.style.display="block"; tip.style.left=(e.clientX+14)+"px"; tip.style.top=(e.clientY+14)+"px"; };
+  const hideTip = () => tip.style.display="none";
+  const esc = (s) => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+  const svg = (w,h) => { const s=document.createElementNS("http://www.w3.org/2000/svg","svg"); s.setAttribute("viewBox",`0 0 ${w} ${h}`); s.style.width="100%"; s.style.height="auto"; s.setAttribute("role","img"); return s; };
+  const el = (n,a,t) => { const e=document.createElementNS("http://www.w3.org/2000/svg",n); for(const k in a) e.setAttribute(k,a[k]); if(t!=null) e.textContent=t; return e; };
+  const colour = { grey:"#8b949e", ok:"var(--ok)", info:"var(--info)" };
+
+  // Horizontal bars, one series, direct value labels (≤24px thick, 4px rounded end).
+  function hbars(id, rows, fmt, opts={}) {
+    const W=560, rowH=34, padL=opts.padL||250, padR=70, H=rows.length*rowH+12;
+    const max=Math.max(...rows.map(r=>r[1]));
+    const s=svg(W,H); s.setAttribute("aria-label", opts.label||"bar chart");
+    rows.forEach((r,i)=>{
+      const y=6+i*rowH, len=(W-padL-padR)*(r[1]/max);
+      s.appendChild(el("text",{x:padL-8,y:y+16,"text-anchor":"end","font-size":"12",fill:"var(--ink)"},r[0]));
+      const bar=el("rect",{x:padL,y:y+2,width:Math.max(len,2),height:22,rx:4,fill:colour[r[2]]||"var(--s1)"});
+      bar.addEventListener("pointermove",e=>showTip(e,`<b>${fmt(r[1])}</b> · ${esc(r[0])}`)); bar.addEventListener("pointerleave",hideTip);
+      s.appendChild(bar);
+      s.appendChild(el("text",{x:padL+len+6,y:y+17,"font-size":"12","font-weight":"700",fill:"var(--ink)"},fmt(r[1])));
+    });
+    document.getElementById(id).appendChild(s);
+  }
+  hbars("viz-providers", providers, v=>v+(v===1?" call":" calls"), {padL:200,label:"Model calls by provider"});
+  hbars("viz-hosting", hosting, v=>"$"+v.toFixed(0)+"/mo", {padL:250,label:"Monthly hosting price"});
+
+  // Stacked part-to-whole bar, 4 categorical slots, direct labels + legend.
+  (function(){
+    const W=560,H=70,total=share.reduce((a,r)=>a+r[1],0); const s=svg(W,H); let x=0;
+    share.forEach((r,i)=>{ const w=(W-2*(share.length-1))*(r[1]/total); const rect=el("rect",{x,y:8,width:w,height:26,fill:r[2],rx:i===0||i===share.length-1?4:0});
+      rect.addEventListener("pointermove",e=>showTip(e,`<b>$${r[1].toFixed(3)}</b> · ${esc(r[0])} · ${Math.round(100*r[1]/total)}%`)); rect.addEventListener("pointerleave",hideTip); s.appendChild(rect);
+      if(w>60) s.appendChild(el("text",{x:x+w/2,y:26,"text-anchor":"middle","font-size":"12","font-weight":"700",fill:"#fff"},Math.round(100*r[1]/total)+"%"));
+      x+=w+2; });
+    s.appendChild(el("text",{x:0,y:58,"font-size":"11",fill:"var(--mut)"},"$0.126 per day, scenario A"));
+    const box=document.getElementById("viz-share"); box.appendChild(s);
+    const lg=document.createElement("div"); lg.className="legend"; share.forEach(r=>{ const i=document.createElement("span"); i.innerHTML=`<i style="background:${r[2]}"></i>${esc(r[0])} $${r[1].toFixed(3)}`; lg.appendChild(i); }); box.appendChild(lg);
+  })();
+
+  // Grouped columns, two series, legend + direct labels.
+  (function(){
+    const W=560,H=250,padL=44,padB=40,padT=18,max=0.35,plotH=H-padT-padB;
+    const s=svg(W,H); const slot=(W-padL)/scen.length; const bw=22;
+    [0,0.1,0.2,0.3].forEach(t=>{ const y=padT+plotH-(t/max)*plotH; s.appendChild(el("line",{x1:padL,x2:W,y1:y,y2:y,stroke:"var(--grid)"})); s.appendChild(el("text",{x:padL-6,y:y+4,"text-anchor":"end","font-size":"11",fill:"var(--mut)"},"$"+t.toFixed(2))); });
+    scen.forEach((r,i)=>{ const cx=padL+slot*i+slot/2;
+      [[r[1],"var(--ok)","Core42 gpt-oss-120b",-bw-2],[r[2],"var(--info)","OpenAI gpt-5.6-luna (UAE)",2]].forEach(([v,c,name,dx])=>{
+        const h=(v/max)*plotH, y=padT+plotH-h; const rect=el("rect",{x:cx+dx,y,width:bw,height:h,rx:4,fill:c});
+        rect.addEventListener("pointermove",e=>showTip(e,`<b>$${v.toFixed(3)}/day</b> · ${name}<br>${esc(r[0])}`)); rect.addEventListener("pointerleave",hideTip); s.appendChild(rect);
+        s.appendChild(el("text",{x:cx+dx+bw/2,y:y-4,"text-anchor":"middle","font-size":"11","font-weight":"700",fill:"var(--ink)"},"$"+v.toFixed(2)));
+      });
+      s.appendChild(el("text",{x:cx,y:H-14,"text-anchor":"middle","font-size":"11",fill:"var(--mut)"},r[0]));
+    });
+    s.appendChild(el("line",{x1:padL,x2:W,y1:padT+plotH,y2:padT+plotH,stroke:"var(--edge)"}));
+    const box=document.getElementById("viz-scenarios");
+    const lg=document.createElement("div"); lg.className="legend"; lg.innerHTML='<span><i style="background:var(--ok)"></i>Core42 · gpt-oss-120b (Qualcomm)</span><span><i style="background:var(--info)"></i>OpenAI UAE · gpt-5.6-luna</span>'; box.appendChild(lg); box.appendChild(s);
+  })();
+
+  // ── Navigation ───────────────────────────────────────────────────────────
+  const slides=[...document.querySelectorAll("section.slide")]; const nav=document.getElementById("nav");
+  slides.forEach((sl,i)=>{ const a=document.createElement("a"); a.href="#"; a.title="Slide "+(i+1); a.addEventListener("click",e=>{e.preventDefault(); sl.scrollIntoView({behavior:"smooth"});}); nav.appendChild(a); });
+  const cur=()=>{ const y=window.scrollY+window.innerHeight/2; return Math.max(0,slides.findIndex(s=>s.offsetTop+s.offsetHeight>y)); };
+  const paint=()=>{ const c=cur(); [...nav.children].forEach((a,i)=>a.classList.toggle("on",i===c)); };
+  window.addEventListener("scroll",paint,{passive:true}); paint();
+  window.addEventListener("keydown",e=>{
+    const c=cur(); let n=null;
+    if(["ArrowRight","ArrowDown","PageDown"," "].includes(e.key)) n=Math.min(slides.length-1,c+1);
+    if(["ArrowLeft","ArrowUp","PageUp"].includes(e.key)) n=Math.max(0,c-1);
+    if(e.key==="Home") n=0; if(e.key==="End") n=slides.length-1;
+    if(e.key==="p"||e.key==="P"){ window.print(); return; }
+    if(n!==null){ e.preventDefault(); slides[n].scrollIntoView({behavior:"smooth"}); }
+  });
+})();
+</script>
+</body>
+</html>

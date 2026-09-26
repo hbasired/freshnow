@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TASK-029 — The Org Model: Managers, Department Leads, and Who Sees Whom</title>
+<style>
+  :root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#3fb950;--warn:#d29922;--bad:#f85149;--card:#161b22;--bd:#30363d}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;max-width:940px;padding:48px 24px;margin-inline:auto}
+  h1{font-size:1.9rem;margin:0 0 4px} h2{margin-top:2.5rem;color:var(--acc);font-size:1.25rem} h3{margin-top:1.6rem;font-size:1.02rem}
+  .meta{color:var(--mut);font-size:.9rem;margin-bottom:2rem}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:18px;margin:14px 0}
+  .unverified{border-left:3px solid var(--warn)} .ok{border-left:3px solid var(--acc)} .danger{border-left:3px solid var(--bad)}
+  code{background:#1f2630;padding:2px 6px;border-radius:4px;font-size:.9em}
+  pre{background:#010409;border:1px solid var(--bd);border-radius:8px;padding:14px;overflow-x:auto;font-size:.84rem}
+  .tw{overflow-x:auto} table{border-collapse:collapse;width:100%;margin:14px 0}
+  th,td{border:1px solid var(--bd);padding:7px 9px;text-align:left;font-size:.88rem;vertical-align:top} th{background:#1f2630}
+  .bad{color:var(--bad);font-weight:600}.good{color:var(--acc);font-weight:600}.warn{color:var(--warn);font-weight:600}
+  ul{padding-left:1.1rem}
+</style></head><body>
+<h1>TASK-029 — The Org Model: Managers, Department Leads, and Who Sees Whom</h1>
+<p class="meta">2026-09-14 · Phase 2 of the task &amp; project portal plan · migration 0009 · every read policy rewritten
+on one predicate · 12 boundary tests + 4 route tests · CEO edits roles and reporting lines on the People tab</p>
+
+<div class="card ok"><strong>One-sentence summary:</strong> The system now knows four kinds of person instead of two —
+CEO, manager, department lead, employee — and one SQL function decides, for every table, whether a viewer may see
+somebody's data; the same rule, in TypeScript, decides whether they may give them work.</div>
+
+<h2>1 · Why</h2>
+<p>You chose: managers assign to and see their reports; department leads see their whole department; the CEO sees
+everything. Before this, <code>resolveRole()</code> was binary and <code>manager_employee_id</code> was an unindexed
+column nothing enforced. Every read policy said "own row or CEO".</p>
+
+<h2>2 · The model</h2>
+<div class="tw"><table>
+  <thead><tr><th>access_role</th><th>Sees</th><th>May give work to</th></tr></thead>
+  <tbody>
+    <tr><td><code>ceo</code></td><td>everyone</td><td>anyone</td></tr>
+    <tr><td><code>manager</code></td><td>their direct reports (<code>manager_employee_id = them</code>), in any department</td><td>their direct reports</td></tr>
+    <tr><td><code>lead</code></td><td>their direct reports, plus everyone in their department</td><td>the same set</td></tr>
+    <tr><td><code>employee</code></td><td>themselves</td><td>themselves (the bot's Add a task)</td></tr>
+  </tbody>
+</table></div>
+<p><code>access_role</code> is what a person may <i>do</i>; <code>role_title</code> stays the free-text job title they
+typed at onboarding. Departments compare case-insensitively — Hemanth typed "Production", the seed says
+"production", and the live data showed the difference the first time the rule ran.</p>
+
+<h2>3 · What changed</h2>
+<div class="tw"><table>
+  <thead><tr><th>Where</th><th>Change</th></tr></thead>
+  <tbody>
+    <tr><td><code>migrations/0009_org_roles.sql</code></td><td><code>employee.access_role</code> with CHECK; indexes on manager and department; <code>app_access_role()</code>, <code>app_department()</code>, and <code>app_can_view_employee(target)</code> (SECURITY DEFINER, pinned search_path, same reasoning as 0008); a trigger that refuses a reporting line that loops (20-hop walk); SELECT policies on <code>employee</code>, <code>task</code>, <code>task_update</code>, <code>blocker</code>, <code>assignment</code>, <code>daily_report</code>, <code>attachment</code> rewritten on that one function.</td></tr>
+    <tr><td><code>core/db.ts</code></td><td><code>AppContext</code> gains <code>accessRole</code> and <code>department</code>, set as two more transaction-local GUCs. Absent means <code>employee</code> — forgetting them can only hide rows.</td></tr>
+    <tr><td><code>core/org.ts</code> (new)</td><td><code>loadViewer</code> (one query for everything RLS and the routes need), <code>canAssignTo</code> (the TypeScript twin of the SQL predicate, for writes that run as the service role), <code>updateOrg</code> (audited with before/after; refuses to demote the CEO row).</td></tr>
+    <tr><td><code>api/viewer.ts</code></td><td><code>resolveViewer(req)</code> — the verified token's org fields under sign-in, a lookup by id in demo mode. All ten RLS reads in <code>dashboard.ts</code> now pass it.</td></tr>
+    <tr><td><code>api/auth.ts</code></td><td>The one employee query the hook already made now returns <code>access_role</code> and <code>department</code>.</td></tr>
+    <tr><td><code>api/routes/work.ts</code>, <code>documents.ts</code></td><td>"CEO only" became <code>canAssignTo</code>. Acknowledging a blocker is allowed for the CEO, the resolver, or the raiser's manager. New <code>PATCH /dashboard/people/:id</code> (CEO only) for role, manager, department; a cycle returns 409 with the reason.</td></tr>
+    <tr><td><code>dashboard</code></td><td>People tab shows Access and Reports to, editable inline by the CEO; assign tools shown to anyone whose role is not <code>employee</code>; <code>/dashboard/me</code> carries the role.</td></tr>
+    <tr><td><code>semantic/schema.yaml</code></td><td><code>access_role</code>, the reporting-line rule, and <code>employee.org_updated</code> documented.</td></tr>
+  </tbody>
+</table></div>
+
+<h2>Verification</h2>
+<div class="tw"><table>
+  <thead><tr><th>Check</th><th>Result</th></tr></thead>
+  <tbody>
+    <tr><td><code>org.rls.test.ts</code> — a seven-person org (manager with reports in two departments, a lead, a same-department non-report, a stranger)</td><td class="good">12/12: each role's positive AND negative visibility on employee, task, task_update, daily_report, blocker, assignment; a context with no role sees only itself; <code>canAssignTo</code> agrees with the policies; a looping reporting line and self-management are refused and change nothing; org changes carry before/after</td></tr>
+    <tr><td>Existing RLS and grants suites</td><td class="good">Unchanged and green after the policy rewrite</td></tr>
+    <tr><td><code>work.test.ts</code> org paths</td><td class="good">Manager → report 201, manager → stranger 403; manager acknowledges a report's blocker; only the CEO may PATCH people; a loop is 409; <code>/me</code> carries role and department</td></tr>
+    <tr><td>Browser (headless Edge, real sign-in)</td><td class="good">CEO made Ahmed Khan a manager and Priya Nair his report from the People tab; both confirmed on the page and in the database with audit rows naming the CEO; then reverted so the seed is as it was</td></tr>
+  </tbody>
+</table></div>
+
+<h2 class="bad">What we have not verified</h2>
+<div class="card unverified"><ul>
+  <li><b>A manager or lead signed in through the browser.</b> The only real accounts are the CEO and Hemanth; the manager and lead behaviours are proven by the route and boundary tests, not by a person clicking as one.</li>
+  <li><b>Performance of <code>app_can_view_employee</code> at scale.</b> It is STABLE and indexed, and runs once per row per policy; at seven employees it is instant, at hundreds it has not been measured.</li>
+  <li><b>The bot still sees two roles.</b> <code>resolveRole()</code> is unchanged; a manager in Telegram gets employee behaviour. Manager features in the bot are not in this plan.</li>
+  <li><b>Department names are free text.</b> Case-insensitive matching handles "Production"/"production"; it does not handle "Prod". A department list is a small later improvement.</li>
+</ul></div>
+
+<h2 class="bad">Security</h2>
+<div class="card danger"><ul>
+  <li>This phase rewrote live RLS policies. Every branch of the new predicate has a test that a viewer who must not see a row does not, and the pre-existing suite passed unchanged first.</li>
+  <li><code>app_can_view_employee</code> is SECURITY DEFINER; its search_path is pinned and it reads exactly one table. Execute is granted to <code>freshnow_app</code> only.</li>
+  <li>Role and reporting-line changes are CEO-only and audited with before/after. The CEO row cannot be given another role.</li>
+  <li>Migration 0009 was corrected once (case-insensitive department) after it had been applied to this machine's database only; the function was re-applied in place. It has not shipped anywhere else.</li>
+</ul></div>
+</body></html>

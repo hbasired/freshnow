@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TASK-002 — Schema, RLS &amp; Semantic Layer</title>
+<style>
+  :root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#3fb950;--warn:#d29922;--card:#161b22;--bd:#30363d}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+       font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+       max-width:860px;padding:48px 24px;margin-inline:auto}
+  h1{font-size:1.9rem;margin:0 0 4px} h2{margin-top:2.5rem;color:var(--acc);font-size:1.25rem}
+  .meta{color:var(--mut);font-size:.9rem;margin-bottom:2rem}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:18px;margin:14px 0}
+  .unverified{border-left:3px solid var(--warn)}
+  code{background:#1f2630;padding:2px 6px;border-radius:4px;font-size:.9em}
+  pre{background:#010409;border:1px solid var(--bd);border-radius:8px;padding:14px;overflow-x:auto}
+  table{border-collapse:collapse;width:100%;margin:14px 0}
+  th,td{border:1px solid var(--bd);padding:8px 10px;text-align:left;font-size:.94rem}
+  th{background:#1f2630}
+  .warn{color:var(--warn)}
+  .ok{color:var(--acc)}
+</style></head><body>
+<h1>TASK-002 — Schema, RLS &amp; Semantic Layer</h1>
+<p class="meta">Phase 1 (demo) · 2026-09-04 · Satisfies SPEC-000 R4/R6 (deterministic routing), R9/R10 (append-only audit), and the CLAUDE.md database-schema + semantic-layer rules · Adds the core Postgres schema, row-level security, the hand-maintained semantic layer, and a real test harness. <span class="ok">17/17 tests green against real Postgres.</span></p>
+
+<h2>What was done</h2>
+<div class="card">
+<ul>
+  <li><strong><code>migrations/0001_init.sql</code></strong> — 15 tables: <code>employee</code>, <code>task</code>, <code>task_update</code>, <code>blocker</code>, <code>escalation</code>, <code>routing_rule</code>, <code>assignment</code>, <code>consent_record</code>, <code>invite_code</code>, <code>voice_asset</code>, <code>notification_outbox</code>, <code>audit_log</code>, <code>run_trace</code>, <code>llm_call</code>, <code>job_run</code>. Telegram ids are <code>bigint</code>; every business row has <code>is_synthetic</code>.</li>
+  <li><strong>Row-Level Security, default-deny</strong> on all 15 tables, with policies for an RLS-enforced app role (<code>freshnow_app</code>) and a bypassing service role (the owner/superuser). <code>audit_log</code> is append-only (no UPDATE/DELETE granted).</li>
+  <li><strong>Degenerate routing seed</strong> — a <code>DEMO CEO</code> employee and 5 <code>routing_rule</code> rows all resolving to the CEO (verified: <code>distinct_resolvers = 1</code>).</li>
+  <li><strong><code>semantic/schema.yaml</code></strong> — every table and key column documented in business language, with FK <code>purpose</code> strings including the self-referential <code>employee.manager_employee_id</code> and the twice-joined <code>blocker.raised_by</code> / <code>assigned_resolver</code>.</li>
+  <li><strong><code>packages/core/src/roles.ts</code></strong> — deterministic <code>resolveRole(userId, ceoUserId)</code>; <code>meta.ts</code> — <code>PROJECT_NAME</code>, <code>IS_DEMO</code>.</li>
+  <li><strong>Test harness</strong> — <code>vitest.global-setup.ts</code> creates and migrates a throwaway <code>freshnow_test</code> database; <code>vitest.setup.ts</code> points the db layer at it. <code>scripts/migrate.ts</code> applies migrations to the demo DB (tracked in <code>schema_migrations</code>).</li>
+  <li>The DB access layer <code>packages/core/src/db.ts</code> and the acceptance tests (<code>db.rls.test.ts</code>, <code>semantic.test.ts</code>, <code>index.test.ts</code>) arrived as an externally-supplied test suite; this task implements everything they assert (see Research findings).</li>
+</ul>
+</div>
+
+<h2>Why it was done</h2>
+<div class="card">
+<p><strong>Determinism &amp; audit (SPEC-000 R4–R10).</strong> Routing must be a lookup, not a model call, and every state change must be traceable and unforgeable. The <code>routing_rule</code> table is that lookup (degenerate → CEO for the demo, but table-driven so real routing is a later <em>data</em> change, not a rewrite). <code>audit_log</code> is append-only so "who changed what" cannot be rewritten.</p>
+<p><strong>RLS as the isolation boundary (constraint: an employee must never see another's tasks).</strong> Enforcing this in the database — not the application — means a bug in a handler cannot leak another employee's rows. Research confirmed the critical footgun: if the app connects as the table <em>owner</em>, policies are silently ignored. So the app connects as a non-owner role and the worker uses a bypassing service role.</p>
+<p><strong>A throwaway test database.</strong> CLAUDE.md forbids mocking the DB in integration tests. Tests run against real Postgres, but in a separate <code>freshnow_test</code> database so running the suite never wipes demo data shown to officials.</p>
+</div>
+
+<h2>How it works</h2>
+<div class="card">
+<p><strong>Two roles, one boundary.</strong> The app connects as <code>freshnow_app</code> (login, non-owner, no BYPASSRLS) so RLS applies. The worker/migrations connect as the owner/superuser, which bypasses RLS by design.</p>
+<pre>request ─▶ withContext({employeeId | isCeo}, fn)
+             └─ sql.begin(tx =>
+                  set_config('app.employee_id', &lt;uuid&gt;, true)   ← is_local: scoped to THIS txn
+                  set_config('app.is_ceo',     'on'|'off', true)   ← pooling-safe, no leakage
+                  fn(tx))                     policies read current_setting(...) per row</pre>
+<p><strong>The policy shape</strong> (task_update shown): read/insert only your own rows; the CEO context sees all.</p>
+<pre>using       (employee_id = app_current_employee() or app_is_ceo())
+with check  (employee_id = app_current_employee() or app_is_ceo())  -- blocks inserting as someone else</pre>
+<p><strong>Append-only audit</strong> is enforced twice: a CEO-only SELECT policy + an INSERT policy, and <code>UPDATE/DELETE</code> privileges are revoked from the app role, so a tamper attempt fails at the privilege layer.</p>
+<p><strong>Tests</strong> attack the boundary rather than assert the implementation: they try to read another employee's rows, insert across employees, and UPDATE the audit log — and confirm Postgres refuses.</p>
+<table>
+<tr><th>Suite</th><th>Tests</th><th>Proves</th></tr>
+<tr><td>db.rls.test.ts</td><td>8 <span class="ok">✓</span></td><td>employee isolation, WITH CHECK, blocker visibility, CEO-sees-all, service bypass, append-only audit, routing→CEO</td></tr>
+<tr><td>semantic.test.ts</td><td>1 <span class="ok">✓</span></td><td>every base table appears in schema.yaml</td></tr>
+<tr><td>index.test.ts</td><td>3 <span class="ok">✓</span></td><td>resolveRole (incl. &gt;32-bit ids), IS_DEMO, PROJECT_NAME</td></tr>
+<tr><td>config.test.ts</td><td>5 <span class="ok">✓</span></td><td>env parsing (from Task 001)</td></tr>
+</table>
+</div>
+
+<h2>Concepts and techniques used</h2>
+<div class="card">
+<ul>
+  <li><strong>Row-Level Security</strong> with a non-owner login role — isolation enforced by Postgres, not the app.</li>
+  <li><strong>Transaction-local GUCs</strong> via <code>set_config('app.*', …, true)</code> — the parameterised form of <code>SET LOCAL</code>, scoped to the transaction so a pooled connection cannot leak one user's context into the next request.</li>
+  <li><strong>WITH CHECK</strong> — separates what you can read (USING) from what you can write, blocking cross-employee inserts.</li>
+  <li><strong>Append-only by privilege + policy</strong> — defence in depth on the audit log.</li>
+  <li><strong>The semantic layer</strong> — a hand-maintained meaning map; FK <code>purpose</code> strings spell out self-joins a model cannot infer from types.</li>
+  <li><strong>Deterministic role lookup</strong> — <code>resolveRole</code> is a pure bigint compare, never a model call.</li>
+  <li><strong>Forward-only migrations</strong> with a <code>schema_migrations</code> ledger; a <strong>throwaway test database</strong> instead of DB mocks.</li>
+</ul>
+</div>
+
+<h2>Research findings</h2>
+<div class="card">
+<p>Searched at task start (2026-09-04):</p>
+<ul>
+  <li><strong>postgres.js RLS pattern</strong> — <code>sql.begin(tx =&gt; …)</code> with <code>set_config(…, true)</code> is the documented transaction-scoped approach; the <code>true</code> flag is what makes it pooling-safe. Adopted as-is in <code>db.ts</code>.</li>
+  <li><strong>RLS + roles</strong> — PostgreSQL docs and multiple production write-ups confirm: superusers, BYPASSRLS roles, and <em>table owners</em> bypass RLS; the fix is to run the app as a non-owner role. This directly shaped the two-role design.</li>
+  <li><strong>vitest globalSetup</strong> — runs once before the suite; the right place to create/migrate a test DB. Adopted.</li>
+  <li><strong>Externally-supplied acceptance tests.</strong> Four files (<code>db.ts</code> + three test files) appeared in <code>packages/core/src</code> that were not authored here; they encode exactly the T2/T6 behaviour in the plan. Per instruction, this task was built to satisfy them (TDD-style). Only their relative-import extensions were adjusted to compile under NodeNext; their logic was left untouched.</li>
+</ul>
+</div>
+
+<h2 class="warn">What we have not verified</h2>
+<div class="card unverified">
+<ul>
+  <li>RLS correctness is proven for the tested tables and contexts; policies on the <strong>untested tables</strong> (escalation, assignment, outbox, invite, voice, run_trace, llm_call, job_run) are reasoned, not exercised by a test yet.</li>
+  <li>Behaviour under a <strong>real connection pool with concurrency</strong> is untested (tests run files serially); the transaction-local guarantee is taken from documentation, not measured under load.</li>
+  <li>The migration ledger has only ever applied <strong>one</strong> migration; multi-migration ordering/rollback is untested.</li>
+  <li><code>pgvector</code> is installed but <strong>no vector column or index exists yet</strong> — its availability is assumed from the image, not exercised.</li>
+  <li>The <code>freshnow_app</code> password is a <strong>dev-only literal</strong> in the migration; production secret handling is not addressed.</li>
+  <li>The schema's <strong>categories, statuses, and the degenerate routing are synthetic placeholders</strong> — real values depend on company answers A7–A9.</li>
+  <li>Whether the demo DB's schema should later be reset/re-seeded (vs. accumulate) is not decided.</li>
+</ul>
+</div>
+
+<h2>Open questions</h2>
+<div class="card">
+<ul>
+  <li>Real blocker categories, sites, shifts, resolvers, and SLAs (Block A) — until then routing stays degenerate (→ CEO).</li>
+  <li>Origin of the externally-supplied acceptance tests — noted; the user directed building to pass them.</li>
+  <li>Production: should the table owner also be forced under RLS (<code>FORCE ROW LEVEL SECURITY</code>), or is the non-owner-app-role split sufficient? (Demo uses the split.)</li>
+</ul>
+</div>
+</body></html>

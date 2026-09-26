@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TASK-003 — Core API Skeleton</title>
+<style>
+  :root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#3fb950;--warn:#d29922;--card:#161b22;--bd:#30363d}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+       font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+       max-width:860px;padding:48px 24px;margin-inline:auto}
+  h1{font-size:1.9rem;margin:0 0 4px} h2{margin-top:2.5rem;color:var(--acc);font-size:1.25rem}
+  .meta{color:var(--mut);font-size:.9rem;margin-bottom:2rem}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:18px;margin:14px 0}
+  .unverified{border-left:3px solid var(--warn)}
+  code{background:#1f2630;padding:2px 6px;border-radius:4px;font-size:.9em}
+  pre{background:#010409;border:1px solid var(--bd);border-radius:8px;padding:14px;overflow-x:auto}
+  table{border-collapse:collapse;width:100%;margin:14px 0}
+  th,td{border:1px solid var(--bd);padding:8px 10px;text-align:left;font-size:.94rem}
+  th{background:#1f2630}
+  .warn{color:var(--warn)} .ok{color:var(--acc)}
+</style></head><body>
+<h1>TASK-003 — Core API Skeleton</h1>
+<p class="meta">Phase 1 (demo) · 2026-09-04 · Satisfies SPEC-000 R9/R11 (audit + traceability) · Fastify server with correlation-id propagation, a consistent error model, a DB-aware health check, an append-only audit helper, and the first real endpoint (CEO invite). <span class="ok">22/22 tests green.</span></p>
+
+<h2>What was done</h2>
+<div class="card">
+<ul>
+  <li><strong><code>packages/api/src/server.ts</code></strong> — <code>buildServer()</code>: an <code>onRequest</code> hook that mints or echoes an <code>x-correlation-id</code>; a single error handler (ZodError → 400, others → mapped status with a consistent <code>{error:{code,message,correlationId}}</code> shape); a 404 handler.</li>
+  <li><strong>Routes</strong> — <code>GET /health</code> (checks Postgres with <code>select 1</code>) and <code>POST /employees/invite</code> (creates a single-use code + writes an audit row).</li>
+  <li><strong><code>packages/core/src/audit.ts</code></strong> — <code>logAudit()</code> appends to <code>audit_log</code> via the service role.</li>
+  <li><strong><code>packages/core/src/invite.ts</code></strong> — <code>generateInviteCode()</code> (unambiguous alphabet) and <code>createInvite()</code>; <code>DEMO_CEO_ID</code> added to <code>meta.ts</code>.</li>
+  <li><strong><code>packages/api/src/server.test.ts</code></strong> — 5 integration tests via Fastify <code>inject()</code>: health, correlation-id echo, 404 model, invite creation + audit row, and 400 on bad input.</li>
+</ul>
+</div>
+
+<h2>Why it was done</h2>
+<div class="card">
+<p><strong>Channel-agnostic core (CLAUDE.md rule 1).</strong> The bot, dashboard, and later adapters must all call the same API, so domain actions (like issuing an invite) live behind HTTP + <code>packages/core</code>, not inside a bot handler.</p>
+<p><strong>Correlation id from the edge.</strong> SPEC-000 R9/R11 require every state change to be traceable. Minting/propagating one id per request — and echoing it — lets a single run be followed across the API, the worker, and <code>audit_log</code>.</p>
+<p><strong>Explicit Zod parse over the type provider.</strong> Research found the current <code>fastify-type-provider-zod</code> targets Zod 4.1's <code>decode()</code> APIs; the codebase is on Zod 3.x (to keep the T2 suite stable). Rather than take a risky Zod 4 upgrade mid-build, request bodies are validated with an explicit <code>Schema.parse(req.body)</code>, which is exactly the "unknown + Zod parse at boundaries" rule and adds no coupling.</p>
+</div>
+
+<h2>How it works</h2>
+<div class="card">
+<pre>onRequest ─▶ req.correlationId = inbound x-correlation-id  ??  randomUUID()
+             reply header x-correlation-id: &lt;id&gt;
+
+POST /employees/invite
+  Schema.parse(body)  ──(ZodError)──▶ 400 {error.code:"validation_error"}
+     │ ok
+     ▼
+  createInvite()  ─▶ insert invite_code (service role)  ─▶ returns code + expiry
+     ▼
+  logAudit({correlationId, action:"invite.created", entityId:code})  ─▶ audit_log
+     ▼
+  201 {code, expiresAt}</pre>
+<p>The audit helper uses the service role (append-only for the app role, so the API path cannot rewrite history). The invite code uses an alphabet with no <code>0/O/1/I/L</code> because people read codes off a screen.</p>
+</div>
+
+<h2>Concepts and techniques used</h2>
+<div class="card">
+<ul>
+  <li><strong>Correlation-id propagation</strong> — one id per run, accepted-or-minted at the edge and echoed, so logs and audit rows join up.</li>
+  <li><strong>Boundary validation</strong> — untrusted request bodies parsed once, at the handler edge, with Zod.</li>
+  <li><strong>Consistent error envelope</strong> — every failure returns the same shape including the correlation id.</li>
+  <li><strong>In-process integration testing</strong> — Fastify <code>inject()</code> exercises the real routes, error handler, and database without opening a socket.</li>
+  <li><strong>Append-only audit via role separation</strong> — writes go through the service role; the app role has no UPDATE/DELETE on <code>audit_log</code>.</li>
+</ul>
+</div>
+
+<h2>Research findings</h2>
+<div class="card">
+<ul>
+  <li><strong>fastify-type-provider-zod (2026)</strong> — actively maintained but uses Zod 4.1 <code>decode()</code> and <code>z.output</code> serialization. Rejected for now to avoid a Zod-major upgrade; revisit if/when the codebase moves to Zod 4.</li>
+  <li><strong>Fastify 5.12.1</strong> installed. Note: Fastify 5 types the error-handler argument as <code>unknown</code> — handled by narrowing (<code>instanceof ZodError</code>) then reading <code>statusCode</code>/<code>message</code> defensively.</li>
+</ul>
+</div>
+
+<h2 class="warn">What we have not verified</h2>
+<div class="card unverified">
+<ul>
+  <li><strong>No authentication yet.</strong> <code>POST /employees/invite</code> is open — "only the CEO may invite" is enforced in Task 006/012 (bot CEO check / dashboard session), not here.</li>
+  <li><strong>Invite-code collision</strong> (astronomically unlikely at 31<sup>8</sup>) would throw on the UNIQUE constraint and surface as a 500; no retry-on-collision yet.</li>
+  <li><strong>/health checks Postgres only</strong> — not Redis, and not the LLM providers.</li>
+  <li>The server has only been exercised via <code>inject()</code>; it has <strong>not been run as a live listening process</strong>, and not under load or with Redis down.</li>
+  <li>No rate limiting, CORS, or request-size limits configured yet.</li>
+</ul>
+</div>
+
+<h2>Open questions</h2>
+<div class="card">
+<ul>
+  <li>Who may call <code>/employees/invite</code> — dashboard session, bot CEO id, or both? (Decided in Task 006/012.)</li>
+  <li>Should <code>/health</code> also report Redis and the LLM budget state once those exist?</li>
+</ul>
+</div>
+</body></html>

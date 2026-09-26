@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TASK-035 — A light theme, and the portal picker before the password</title>
+<style>
+  :root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#3fb950;--warn:#d29922;--bad:#f85149;--card:#161b22;--bd:#30363d}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;max-width:940px;padding:48px 24px;margin-inline:auto}
+  h1{font-size:1.9rem;margin:0 0 4px} h2{margin-top:2.5rem;color:var(--acc);font-size:1.25rem} h3{margin-top:1.6rem;font-size:1.02rem}
+  .meta{color:var(--mut);font-size:.9rem;margin-bottom:2rem}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:18px;margin:14px 0}
+  .unverified{border-left:3px solid var(--warn)} .ok{border-left:3px solid var(--acc)} .danger{border-left:3px solid var(--bad)}
+  code{background:#1f2630;padding:2px 6px;border-radius:4px;font-size:.9em}
+  pre{background:#1f2630;border:1px solid var(--bd);border-radius:8px;padding:12px;overflow-x:auto;font-size:.85rem}
+  .tw{overflow-x:auto} table{border-collapse:collapse;width:100%;margin:14px 0}
+  th,td{border:1px solid var(--bd);padding:7px 9px;text-align:left;font-size:.88rem;vertical-align:top} th{background:#1f2630}
+  .bad{color:var(--bad);font-weight:600}.good{color:var(--acc);font-weight:600}.warn{color:var(--warn);font-weight:600}
+  ul{padding-left:1.1rem}
+</style></head><body>
+<h1>TASK-035 — A light theme, and the portal picker before the password</h1>
+<p class="meta">2026-09-18 · dashboard only · <code>index.css</code> two-palette tokens · <code>lib/theme.ts</code> ·
+<code>Root.tsx</code> rewritten · 26 hardcoded colours removed · 23 + 8 browser checks · 321 tests still green</p>
+
+<div class="card ok"><strong>One-sentence summary:</strong> The dashboard now opens on a choice of the two portals
+<em>before</em> asking for a password and lands you in the one you picked; and it has a real light theme — every
+colour is a token with two values, an explicit choice beats the operating system, and both themes were measured to
+pass WCAG AA on real data rather than eyeballed.</div>
+
+<h2>1 · The entry flow</h2>
+<p>Before: sign in, then discover a portal switch in the header. After: <b>choose a portal, sign in, work.</b></p>
+<pre>  open /app/  →  ┌ Task &amp; logging ┐  ┌ Projects ┐   ← no password asked yet
+                 └────────┬───────┘  └────┬─────┘
+                          └─────┬─────────┘
+                    "Sign in to &lt;portal&gt;"  →  that portal's dashboard
+                                                (header still switches between them)</pre>
+<p>Choosing first is worth the extra click because the two portals answer different questions, a person usually
+arrives already knowing which one they came for, and the sign-in screen can then say what you are signing in to.
+Signing out returns to the picker rather than to a bare login box.</p>
+
+<div class="card danger">
+<h3>What the picker is not</h3>
+<p><b>It is not a security boundary, and the UI says so.</b> The same account opens both portals; what a person may
+see or do is decided by their role and by row-level security in Postgres, exactly as before. The login card carries
+the line <em>"One account opens both portals — what you can see and do is set by your role."</em></p>
+<p>This mattered enough to write down. A picker that <em>looks</em> like two separate logins would imply a boundary
+that does not exist, and a person who believes the Projects portal is walled off from the task data would be wrong
+in a way the interface had encouraged. Implying a boundary that is not enforced is worse than having none.</p>
+<p><b>An existing session is not re-challenged.</b> Somebody who is already signed in picks a portal and goes
+straight in. Asking again for a password the browser is already holding is theatre, not security.</p>
+</div>
+
+<h2>2 · The light theme</h2>
+<div class="tw"><table>
+  <thead><tr><th>Decision</th><th>Why</th></tr></thead>
+  <tbody>
+    <tr><td><b>Every colour is a token with two values</b>, dark declared in <code>@theme</code> and light overriding the same names under <code>:root[data-theme="light"]</code>.</td><td>No component knows which theme is on. It asks for <code>bg-panel</code> and gets whatever the root says, so a third theme later is a block of CSS and no component changes.</td></tr>
+    <tr><td><b>All 26 hardcoded hex literals were removed first.</b> <code>bg-[#1f2630]</code> → <code>bg-sunken</code>, and so on.</td><td>This is the whole job. A literal is invisible in dark and a black hole in light — the theme cannot work while any survive. New tokens: <code>sunken</code>, <code>well</code>, <code>on-accent</code>, the three severity pairs, <code>demo-edge</code>, <code>scrim</code>.</td></tr>
+    <tr><td><b>Three states, not a switch:</b> Light · Dark · Auto.</td><td>A two-state toggle cannot express "it is dark because my laptop is". Auto tracks the OS live — change the system theme with the page open and it follows — and an explicit choice beats it and persists.</td></tr>
+    <tr><td><b>The theme is applied before React mounts</b>, by an inline script in <code>index.html</code>.</td><td>Anything deferred runs after the browser has already painted, so a light-theme reload would flash dark first. It has to be inline and synchronous.</td></tr>
+    <tr><td><b><code>color-scheme</code> is set per theme.</b></td><td>The native date picker in the header, scrollbars and form controls are drawn by the browser, not by our CSS — without this they stay dark on a light page. It is the one part of the UI CSS cannot reach.</td></tr>
+    <tr><td><b>The light accents are darker than GitHub's own.</b></td><td>Measured, not preferred: these are 14px text on their <em>own</em> 15% tint (the selected tab, the active nav item). GitHub's values are fine on white (≈5.1:1) but reach only ≈4.15:1 on that tint — under AA. Darkening gives ≈5.9:1 on the tint, ≈7.4:1 on white.</td></tr>
+  </tbody>
+</table></div>
+
+<h2>3 · Verification</h2>
+<div class="tw"><table>
+  <thead><tr><th>Check</th><th>Result</th></tr></thead>
+  <tbody>
+    <tr><td>Entry flow, real browser (23 checks)</td><td class="good">The picker is the first thing shown and <b>no password field exists before a portal is chosen</b>; both portals are offered and each explains itself; clicking one opens a sign-in that names it; signing in lands in <b>that</b> portal (<code>#projects</code>, not the task board); the header still switches; signing out returns to the picker; "choose a different portal" works.</td></tr>
+    <tr><td>Theme, real browser</td><td class="good">With nothing stored, an emulated dark OS gives a dark page and an emulated light OS gives a light one — <b>and changing the OS with the page open switches it live</b>. An explicit Light beats a dark OS and survives a reload. The picker, the login card and the dashboard are all themed; panels are not left dark on a light page.</td></tr>
+    <tr><td><b>Contrast, measured on real data</b></td><td class="good">Carry-over, Activity, Alerts, People and an open task drawer — every visible text element checked against its <em>alpha-composited</em> background. <b>0 below WCAG AA in light, 0 in dark.</b></td></tr>
+    <tr><td>Full suite + typecheck + build</td><td class="good">43 files · 321 passed · 1 skipped · typecheck clean · Vite build clean · no console or HTTP errors in any browser run</td></tr>
+  </tbody>
+</table></div>
+
+<div class="card warnbox">
+<h3>The measurement was wrong twice before it was right</h3>
+<p>Worth recording, because the wrong version was persuasive. The first contrast check treated a
+<code>bg-ok/15</code> tint as a solid fill — it only walked up the tree when a background was <em>fully</em>
+transparent. That produced a plausible-looking 4.13:1, which I acted on; then, after darkening the palette, the
+same broken check reported <b>2.84:1 — worse</b>, which is what exposed it.</p>
+<p>Rewritten to composite alpha properly over every ancestor, it reports zero failures. Recomputing the numbers by
+hand afterwards showed the darkening had been justified anyway (4.14 → 5.84 on the tint) — but that was luck, not
+method. <b>A measurement you have not sanity-checked is worse than no measurement, because you will act on it.</b></p>
+</div>
+
+<h2 class="bad">What we have not verified</h2>
+<div class="card unverified"><ul>
+  <li><b>Demo mode (<code>authRequired: false</code>) was not exercised.</b> The API currently runs with sign-in on.
+    The path is short — picker, then <code>App</code> with no identity — and typechecks, but it was reasoned about
+    rather than run.</li>
+  <li><b>No phone, no projector.</b> Everything was checked in headless Edge at 1280–1400px. The light theme's
+    actual purpose — a bright room — has never been seen in one, and the toggle has not been tapped on a phone.</li>
+  <li><b>Contrast was measured on the pages the check visits</b> (Carry-over, Activity, Alerts, People, a task
+    drawer, the picker, the login card). The Projects portal's inner sections, the Ask tab and the document-upload
+    card were not measured, only looked at.</li>
+  <li><b>AA, not AAA</b>, and non-text contrast (borders, the progress-bar fills, focus rings) was not measured at
+    all — only text.</li>
+  <li><b>The older scratchpad browser harnesses now start at the picker</b> and would need a portal click added.
+    They are throwaway checks, not part of <code>pnpm test</code>, so nothing in CI is affected.</li>
+  <li><b>No automated test guards the theme.</b> The browser checks are scratchpad scripts; a future change that
+    reintroduces a hex literal would not fail <code>pnpm test</code>. A lint rule banning <code>[#</code> in
+    className would close that, and was not added.</li>
+</ul></div>
+</body></html>

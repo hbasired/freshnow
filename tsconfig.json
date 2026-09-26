@@ -1,0 +1,20 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "include": [
+    "packages/core/src",
+    "packages/api/src",
+    "packages/bot/src",
+    "packages/worker/src",
+    "vitest.config.ts",
+    "vitest.setup.ts",
+    "vitest.global-setup.ts",
+    "scripts/migrate.ts",
+    "scripts/seed.ts",
+    "scripts/e2e-demo.ts",
+    "scripts/employee-sim.ts",
+    "scripts/reset-employee.ts"
+  ]
+}

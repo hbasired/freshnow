@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FreshNow — Demo Guide</title>
+<style>
+  :root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#3fb950;--warn:#d29922;--crit:#f85149;
+        --card:#161b22;--bd:#30363d;--blue:#88c0f0}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+       font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+       max-width:900px;padding:40px 22px 80px;margin-inline:auto}
+  h1{font-size:1.9rem;margin:0 0 6px}
+  h2{margin-top:2.6rem;color:var(--acc);font-size:1.3rem;border-bottom:1px solid var(--bd);padding-bottom:6px}
+  h3{margin-top:1.7rem;font-size:1.05rem}
+  .meta{color:var(--mut);font-size:.9rem;margin-bottom:1.6rem}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:16px 18px;margin:14px 0}
+  .warn{border-left:3px solid var(--warn)} .good{border-left:3px solid var(--acc)}
+  .bad{border-left:3px solid var(--crit)} .info{border-left:3px solid var(--blue)}
+  code{background:#1f2630;padding:2px 6px;border-radius:4px;font-size:.9em}
+  pre{background:#010409;border:1px solid var(--bd);border-radius:8px;padding:14px;
+      overflow-x:auto;font-size:.84rem;line-height:1.5}
+  table{border-collapse:collapse;width:100%;margin:14px 0}
+  th,td{border:1px solid var(--bd);padding:8px 10px;text-align:left;font-size:.92rem;vertical-align:top}
+  th{background:#1f2630}
+  .kbd{background:#1f2630;border:1px solid var(--bd);border-bottom-width:2px;border-radius:5px;
+       padding:1px 7px;font-size:.86em;white-space:nowrap}
+  .step{display:flex;gap:12px;margin:12px 0}
+  .n{flex:0 0 28px;height:28px;border-radius:50%;border:2px solid var(--acc);color:var(--acc);
+     display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.82rem}
+  .yes{color:var(--acc);font-weight:700}.no{color:var(--crit);font-weight:700}
+  nav.toc{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:14px 18px;margin:18px 0}
+  nav.toc a{color:var(--blue);text-decoration:none;display:inline-block;margin:3px 14px 3px 0;font-size:.92rem}
+  nav.toc a:hover{text-decoration:underline}
+  .pill{display:inline-block;background:#1f2630;border:1px solid var(--bd);border-radius:20px;
+        padding:1px 10px;font-size:.75rem;color:var(--mut)}
+  ul{padding-left:1.15rem}
+</style></head><body>
+
+<h1>FreshNow Ops — Demo Guide</h1>
+<p class="meta">Bot <b>@freshnow1bot</b> · CEO Telegram id <code>6051615734</code> ·
+Updated 2026-09-07 · <span class="pill">80 tests passing</span></p>
+
+<nav class="toc">
+  <a href="#connect">How it actually connects</a>
+  <a href="#one">The one thing to understand</a>
+  <a href="#run">Demo runsheet</a>
+  <a href="#points">Killer points</a>
+  <a href="#cmds">Commands</a>
+  <a href="#trouble">Troubleshooting</a>
+  <a href="#honest">Be honest about</a>
+</nav>
+
+<table>
+<tr><th>Dashboard</th><td><a href="http://10.255.254.35:3001" style="color:var(--blue)">http://10.255.254.35:3001</a> (phone) · <code>http://localhost:3001</code> (PC)</td></tr>
+<tr><th>Database console</th><td><a href="http://10.255.254.35:8080" style="color:var(--blue)">http://10.255.254.35:8080</a> (Adminer)</td></tr>
+</table>
+
+<div class="card warn"><b>⚠️ The wifi IP changes</b> when the machine reconnects. If a page will not
+open on a phone, run <code>ipconfig | findstr IPv4</code> on the PC and use the <b>Wi-Fi</b>
+address — not the WSL/vEthernet one.</div>
+
+<h2 id="connect">🌐 How it actually connects</h2>
+
+<p><b>Telegram messages never touch your local network.</b> This is the part that surprises
+people, and it is worth understanding before the demo.</p>
+
+<pre>   CEO phone                Telegram servers               Your PC
+  (any network)             (api.telegram.org)          (bot process)
+       |                            |                         |
+       |  1. "/invite Hemanth"      |                         |
+       |---------------------------&gt;|                         |
+       |                            |&lt;------------------------|
+       |                            |  2. bot asks over HTTPS:
+       |                            |     "anything new?"  (getUpdates)
+       |                            |     -- OUTBOUND, held open --
+       |                            |------------------------&gt;|
+       |                            |  3. Telegram hands over the message
+       |                            |                         |
+       |                            |                4. bot writes to Postgres
+       |                            |                   on localhost:5433
+       |                            |&lt;------------------------|
+       |                            |  5. sendMessage (OUTBOUND HTTPS)
+       |&lt;---------------------------|                         |
+       |  6. the code appears       |                         |</pre>
+
+<div class="card good"><b>The key point.</b> Your PC <b>never receives an incoming connection</b>.
+It only makes <em>outbound</em> HTTPS calls to <code>api.telegram.org</code>. That is why this works
+behind a home router with no port forwarding, no public IP, and no firewall changes. This is
+called <b>long polling</b>.</div>
+
+<h3>Do the phones need to be on your wifi?</h3>
+<table>
+<tr><th>For this</th><th>Same network?</th><th>Why</th></tr>
+<tr><td><b>The bot</b> — register, log tasks, alerts, assignment</td><td class="no">NO</td>
+<td>Phone talks to Telegram; PC talks to Telegram. They never talk to each other. Mobile data works, even from another country.</td></tr>
+<tr><td><b>The dashboard</b> <code>:3001</code></td><td class="yes">YES</td>
+<td>The phone browser connects <em>directly</em> to your PC's LAN IP.</td></tr>
+<tr><td><b>Adminer</b> <code>:8080</code></td><td class="yes">YES</td><td>Same reason.</td></tr>
+</table>
+
+<p><b>In short: the Telegram half works from anywhere. Only the two web pages need the same
+wifi.</b> If your phone drops off the wifi mid-demo, the bot keeps working — only the dashboard
+stops loading.</p>
+
+<h3>How the invite code is verified</h3>
+<p>Nothing is "sent to your PC" by the employee. The sequence is:</p>
+<div class="step"><div class="n">1</div><div>Employee types the code in Telegram → it reaches <b>Telegram's servers</b>.</div></div>
+<div class="step"><div class="n">2</div><div>Your bot picks it up on its next <code>getUpdates</code> poll (~1 second).</div></div>
+<div class="step"><div class="n">3</div><div><code>validateInvite(code)</code> runs a <b>local SQL SELECT</b>: does this code exist, is it unredeemed, is it unexpired?</div></div>
+<div class="step"><div class="n">4</div><div>If valid, the consent notice is shown. <b>The code is not consumed yet</b> — consent comes first.</div></div>
+<div class="step"><div class="n">5</div><div>On "I agree", <code>redeemInvite()</code> runs <b>one transaction</b> with the invite row locked
+(<code>SELECT … FOR UPDATE</code>): creates the <code>employee</code> row carrying their Telegram
+user id, marks the <code>invite_code</code> redeemed, and writes the <code>consent_record</code>.
+All three succeed together or none do — so a double redeem can never create two identities.</div></div>
+
+<div class="card info">The employee's Telegram ID is captured <b>automatically</b> at step 5.
+Nobody types it, and the CEO never needs it.</div>
+
+<h3>What actually goes to the AI — and what does not</h3>
+<p>A common assumption is "every message goes to the AI". It does not, and that matters for cost,
+speed and reliability.</p>
+<table>
+<tr><th>What happens</th><th>Touches Groq?</th><th>Why</th></tr>
+<tr><td>Tapping ✅ Done / ⏳ Pending / 🚫 Blocker</td><td class="no">No</td><td>The tap <b>is</b> the status. Recorded directly.</td></tr>
+<tr><td>Entering an invite code</td><td class="no">No</td><td>Plain SQL: does it exist, unused, unexpired?</td></tr>
+<tr><td>The 4 registration answers</td><td class="no">No</td><td>Written straight to columns.</td></tr>
+<tr><td>Free text describing a problem</td><td class="yes">Yes</td><td>Words → <code>{category, severity, summary}</code></td></tr>
+<tr><td>A voice note</td><td class="yes">Yes, twice</td><td>Whisper transcribes → then the text is parsed</td></tr>
+<tr><td><b>Deciding who fixes it</b></td><td class="no"><b>No</b></td><td>A <b>table lookup</b> in <code>routing_rule</code></td></tr>
+<tr><td><b>Deciding whether to escalate</b></td><td class="no"><b>No</b></td><td>A <b>rule</b> on severity + age + SLA</td></tr>
+</table>
+<div class="card good">The last two are the important ones. Once the AI has said <em>what kind</em> of
+problem it is, <b>it stops</b>. Who it goes to and whether it escalates are decided by Postgres —
+which is why "why did this go to X?" is answerable by pointing at a row, and why the same input
+always produces the same decision.</div>
+
+<h3>The exact order when someone reports a problem</h3>
+<p>The storage order is the opposite of what people usually assume — <b>the words are saved before
+the AI is called, not after</b>:</p>
+<pre>1. employee's words arrive
+2. WRITE RAW TEXT TO POSTGRES        &lt;-- first, always
+3. reply "saved" to the employee     &lt;-- they are free to go
+4. send the text to Groq             &lt;-- may be slow, may fail
+5. write the parsed result back
+6. look up the resolver (SQL, no AI)
+7. queue the CEO alert in notification_outbox
+8. worker delivers it via an outbound call to Telegram</pre>
+<div class="card info">If Groq is down at step 4, steps 1–3 already happened: the employee's exact
+words are safe, they were told it was received, and the update is flagged for a human instead.
+<b>Nothing is ever lost because the AI was unavailable.</b></div>
+
+<h3>What changes when you deploy to the VPS</h3>
+<p>The application code does not change. Only the <b>transport</b> flips:</p>
+<table>
+<tr><th></th><th>Demo (now)</th><th>VPS (production)</th></tr>
+<tr><td>How Telegram reaches the bot</td><td><b>Long polling</b> — bot asks Telegram</td><td><b>Webhook</b> — Telegram pushes to you</td></tr>
+<tr><td>Needs a public address</td><td>No</td><td><b>Yes</b> — a domain, e.g. <code>ops.freshnow.ae</code></td></tr>
+<tr><td>Needs TLS</td><td>No</td><td><b>Yes</b> — Caddy issues it automatically</td></tr>
+<tr><td>Security check</td><td>n/a</td><td>Verify <code>X-Telegram-Bot-Api-Secret-Token</code> on every request</td></tr>
+<tr><td>Dashboard reached at</td><td>LAN IP, same wifi</td><td><code>https://ops.freshnow.ae</code> from anywhere</td></tr>
+<tr><td>Set by</td><td><code>TELEGRAM_MODE=polling</code></td><td><code>TELEGRAM_MODE=webhook</code> + <code>TELEGRAM_WEBHOOK_URL</code> + <code>TELEGRAM_WEBHOOK_SECRET</code></td></tr>
+</table>
+<p>Why webhook in production: polling wastes requests and adds a second of latency; webhooks are
+pushed instantly. Why polling now: a webhook needs a public HTTPS URL, which a laptop on wifi
+does not have.</p>
+<div class="card warn"><b>One trap for later:</b> if you ever point the webhook at a dev tunnel and
+forget to reset it, <b>production silently stops receiving messages</b>.
+<code>getWebhookInfo</code> tells you where the webhook currently points.</div>
+
+<h2 id="one">⭐ The one thing to understand</h2>
+<div class="card good"><b>The CEO does NOT need the employee's Telegram ID to create an invite code.</b>
+A code is created from a <b>name only</b>. The ID is captured automatically when they redeem it.
+<pre style="margin-top:10px">CEO creates a code (from a name)  →  gives the code to the person  →  person enters it</pre>
+You can create every code <b>before the demo starts</b>.</div>
+
+<div class="card bad"><b>❌ What does NOT work.</b> A new person sending <em>"here are my details +
+my unique ID"</em> as a message. The bot replies <em>"Send /start to see your menu"</em> and nothing
+is created.<br><br>
+That is deliberate: identity is <b>never self-declared</b>, otherwise anyone who finds the bot
+could enrol as staff. The invite code is the authorisation gate. After the gate, the bot
+<b>asks 4 questions one at a time</b> — they do not send a block of text.</div>
+
+<h2 id="run">🎬 Demo runsheet</h2>
+
+<h3>Step 0 — Before anyone is watching</h3>
+<pre>docker compose up -d          # database, redis, admin console
+pnpm start:api                # dashboard      :3001
+pnpm start:worker             # delivery + escalation
+pnpm start:bot                # @freshnow1bot</pre>
+<p>Use <code>start:*</code>, <b>never <code>dev:*</code></b> — <code>dev:*</code> watches files and
+restarts the bot mid-conversation. Open the dashboard on the PC, on the <b>"How it works"</b> tab.</p>
+
+<h3>Step 1 — Codes already made</h3>
+<table><tr><th>Code</th><th>For</th></tr>
+<tr><td><code>6KZMKNHN</code></td><td>Demo Employee One</td></tr>
+<tr><td><code>V8ERP55N</code></td><td>Demo Employee Two</td></tr>
+<tr><td><code>X6EBDBJK</code></td><td>Spare</td></tr>
+<tr><td><code>GWVT6V7M</code></td><td>Ahmed Khan</td></tr></table>
+<p>Each is <b>single-use</b>, valid 72 hours.</p>
+
+<h3>Step 2 — CEO creates one live</h3>
+<p>On the CEO phone: <span class="kbd">/invite Rakesh Kumar</span> → a code comes straight back.
+Tap it to copy. <span class="pill">or /start → ➕ Create invite code</span></p>
+
+<h3>Step 3 — New person registers</h3>
+<div class="step"><div class="n">1</div><div>Search <b>@freshnow1bot</b> → <span class="kbd">Start</span></div></div>
+<div class="step"><div class="n">2</div><div>Tap <span class="kbd">🔑 I have an invite code</span></div></div>
+<div class="step"><div class="n">3</div><div>Type the code and send</div></div>
+<div class="step"><div class="n">4</div><div>Privacy notice appears → tap <span class="kbd">✅ I agree</span></div></div>
+<div class="step"><div class="n">5</div><div>Answer <b>4 questions, one at a time</b>:
+<table style="margin-top:8px"><tr><th>Bot asks</th><th>You send</th></tr>
+<tr><td>1/4 Which department?</td><td><code>production</code></td></tr>
+<tr><td>2/4 Role or job title?</td><td><code>juice production operator</code></td></tr>
+<tr><td>3/4 Which site?</td><td><code>warehouse</code></td></tr>
+<tr><td>4/4 Which shift?</td><td><code>day</code></td></tr></table></div></div>
+<div class="step"><div class="n">6</div><div>Pick language → <b>English / हिंदी / മലയാളം</b>. Registered.</div></div>
+<p>✅ <b>Show it landed:</b> dashboard → <b>People</b> tab → they appear with <b>no DEMO badge</b>
+(a real person). <b>Activity</b> shows <code>invite.redeemed</code>.</p>
+
+<h3>Step 4 — They log status and raise a problem</h3>
+<p><span class="kbd">/start</span> → <span class="kbd">📋 Log daily tasks</span> →
+<span class="kbd">➕ Add a task</span> → <code>Restock Deira metro machines</code> →
+<span class="kbd">📋 Log daily tasks</span> again → tap <span class="kbd">🚫 Blocker</span>.</p>
+<p>The bot asks what is stopping it. Reply by <b>typing or a voice note</b>:</p>
+<pre>van 2 ka chiller thanda nahi ho raha juice kharab ho jayega</pre>
+<p>Expect: <em>"🚨 Logged a <b>high</b> equipment problem — The chiller on van 2 is not cooling.
+The CEO has been alerted."</em></p>
+<div class="card info"><b>Try the voice note.</b> It runs the same pipeline. The bot first replies
+<em>"I heard: …"</em> so you see the transcription before it acts. English, Hindi and Malayalam
+all work.</div>
+
+<h3>Step 5 — The CEO gets it</h3>
+<p>The CEO phone receives, unprompted:</p>
+<pre>⚠️ Blocker (high) — equipment: van 2 chiller
+   [ ✅ Acknowledge ]</pre>
+<p>Tapping <b>Acknowledge</b> stops the escalation timer. <span class="kbd">/blockers</span> lists
+all open problems.</p>
+
+<h3>Step 6 — CEO assigns work back</h3>
+<p><span class="kbd">/assign</span> → tap the employee → type
+<code>Swap the van 2 chiller unit</code> → it lands on their phone and appears in their task list.
+Loop closed.</p>
+
+<h3>Step 7 — The dashboard</h3>
+<table>
+<tr><th>Tab</th><th>Point out</th></tr>
+<tr><td><b>Blockers</b></td><td>The one just raised, colour-coded by severity</td></tr>
+<tr><td><b>Needs review</b></td><td>Anything the system could not understand — in the worker's own words</td></tr>
+<tr><td><b>Activity</b></td><td>Every step, timestamped, in order</td></tr>
+<tr><td><b>How it works</b></td><td>The flow diagram, and which table each step writes</td></tr>
+<tr><td><b>Ask</b></td><td>"How many equipment blockers are open?" → answer <b>plus the SQL</b></td></tr>
+<tr><td><b>View as ▾</b></td><td>Switch CEO → employee: the data shrinks to only what they may see.
+<b>This is the access-control proof — enforced by the database, not the page.</b></td></tr>
+</table>
+
+<h2 id="points">The three killer points for officials</h2>
+<div class="card good"><b>1. "Why did this go to X?"</b> — the answer is a row in
+<code>routing_rule</code>, not a model's opinion. Same input, same decision, every time.</div>
+<div class="card good"><b>2. Nothing is ever lost.</b> The employee's exact words are saved
+<em>before</em> the AI is called. If the AI is down, the words survive and a human is told.</div>
+<div class="card good"><b>3. Every number is traceable.</b> Everything shares a correlation id, so
+any figure traces back to the exact message and rule that produced it.</div>
+
+<h2 id="cmds">Commands</h2>
+<table>
+<tr><th>Command</th><th>Who</th><th>Does</th></tr>
+<tr><td><code>/start</code></td><td>everyone</td><td>Your menu</td></tr>
+<tr><td><code>/help</code></td><td>everyone</td><td>Instructions for your role</td></tr>
+<tr><td><code>/cancel</code></td><td>everyone</td><td>Abandon the current step</td></tr>
+<tr><td><code>/whoami</code></td><td>everyone</td><td>Your Telegram id and role</td></tr>
+<tr><td><code>/withdraw</code></td><td>employee</td><td>Withdraw consent (PDPL)</td></tr>
+<tr><td><code>/invite &lt;name&gt;</code></td><td>CEO</td><td>Create an invite code</td></tr>
+<tr><td><code>/blockers</code></td><td>CEO</td><td>Open problems + Acknowledge</td></tr>
+<tr><td><code>/assign</code></td><td>CEO</td><td>Give a task to an employee</td></tr>
+</table>
+<p>These also appear in Telegram's <b>☰ menu</b>.</p>
+
+<h2 id="trouble">Troubleshooting</h2>
+<table>
+<tr><th>Symptom</th><th>Fix</th></tr>
+<tr><td>Dashboard blank on phone</td><td>Wrong IP. <code>ipconfig | findstr IPv4</code> → use the <b>Wi-Fi</b> one, same wifi as the PC.</td></tr>
+<tr><td>Bot silent</td><td>Bot process died: <code>pnpm start:bot</code></td></tr>
+<tr><td>"Send /start…" when a question was expected</td><td>Step was reset. <code>/cancel</code> then <code>/start</code>, redo that part.</td></tr>
+<tr><td>Someone stuck mid-registration</td><td><code>docker exec freshnow-db psql -U freshnow -d freshnow -c "delete from bot_session;"</code></td></tr>
+<tr><td>Invite code rejected</td><td>Single-use, 72 h. Use another, or <code>/invite</code> a new one.</td></tr>
+<tr><td>No CEO menu</td><td><code>CEO_TELEGRAM_USER_ID</code> must equal that phone's id → restart the bot.</td></tr>
+<tr><td>Alert never reaches CEO</td><td>Worker not running: <code>pnpm start:worker</code>. Check <code>notification_outbox</code> for <code>pending</code>.</td></tr>
+<tr><td>Voice misheard</td><td>Transcript is shown first as "I heard: …". Send again or type. Words are saved either way.</td></tr>
+</table>
+
+<h2 id="honest">Be honest about these if asked</h2>
+<div class="card warn"><ul>
+<li><b>Existing employees and blockers are synthetic</b>, badged <b>DEMO DATA</b>. Anyone who registers today is real and unbadged.</li>
+<li><b>Routing goes to the CEO only</b> — the table is real and deterministic, but every category points at the CEO because FreshNow has not supplied the real resolver map. Changing it later is a data change, not a rewrite.</li>
+<li><b>Blocker categories and SLA windows are placeholders</b>, not FreshNow's real ones.</li>
+<li><b>The Hindi and Malayalam privacy notices have not been checked by a native speaker.</b></li>
+<li><b>The NVIDIA fallback model is failing</b> (503). Groq does all the work; if Groq is down, updates are saved and flagged for a human rather than parsed.</li>
+<li><b>Voice accuracy on real speech is unmeasured</b> — the pipeline is verified, the accuracy is not.</li>
+</ul></div>
+
+</body></html>

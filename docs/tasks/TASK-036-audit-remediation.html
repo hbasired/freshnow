@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TASK-036 — Audit remediation: security, traceability, and the things that failed silently</title>
+<style>
+  :root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#3fb950;--warn:#d29922;--bad:#f85149;--card:#161b22;--bd:#30363d}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;max-width:940px;padding:48px 24px;margin-inline:auto}
+  h1{font-size:1.9rem;margin:0 0 4px} h2{margin-top:2.5rem;color:var(--acc);font-size:1.25rem} h3{margin-top:1.6rem;font-size:1.02rem}
+  .meta{color:var(--mut);font-size:.9rem;margin-bottom:2rem}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:18px;margin:14px 0}
+  .unverified{border-left:3px solid var(--warn)} .ok{border-left:3px solid var(--acc)} .danger{border-left:3px solid var(--bad)}
+  code{background:#1f2630;padding:2px 6px;border-radius:4px;font-size:.9em}
+  .tw{overflow-x:auto} table{border-collapse:collapse;width:100%;margin:14px 0}
+  th,td{border:1px solid var(--bd);padding:7px 9px;text-align:left;font-size:.88rem;vertical-align:top} th{background:#1f2630}
+  .bad{color:var(--bad);font-weight:600}.good{color:var(--acc);font-weight:600}.warn{color:var(--warn);font-weight:600}
+  ul{padding-left:1.1rem}
+</style></head><body>
+<h1>TASK-036 — Audit remediation: security, traceability, and the things that failed silently</h1>
+<p class="meta">2026-09-18 · migrations 0014 + 0015 · core <code>trace.ts</code> (new) · <code>replay.ts</code> rewritten ·
+21 audit findings + 11 review findings closed · 338 tests green · every service restarted and verified live</p>
+
+<div class="card ok"><strong>One-sentence summary:</strong> An adversarial audit and a code review found a
+question box running as a role that could read password hashes, an RLS policy that let an employee promote
+themselves to CEO, a replay that reported 90% of real runs as diverged and a nonexistent run as clean, a
+trace table nothing but the seeder wrote, and a routing failure that lost a blocker forever — all are closed,
+each with a test or a live probe proving it, and every claim in the knowledge base that turned out false is
+corrected.</div>
+
+<h2>1 · Method</h2>
+<p>A subagent was given the four architectural rules, the knowledge base and a running system, and told to
+find what was broken rather than confirm what worked — running ~40 live queries, a privilege probe as the real
+<code>freshnow_app</code> role, and a diff of the semantic layer against <code>information_schema</code>.
+Separately, <code>/code-review</code> at high effort covered the dashboard rework. <b>Every critical finding
+was re-verified independently before anything was changed</b>, and each fix carries a test or a live probe.
+Three of my own probes were wrong before they were right; those are recorded too (§5).</p>
+
+<h2>2 · Security</h2>
+<div class="tw"><table>
+  <thead><tr><th>Finding</th><th>Fix</th><th>Proof</th></tr></thead>
+  <tbody>
+    <tr><td class="bad"><b>The NL-query ran model-written SQL as the BYPASSRLS <code>postgres</code> role</b>, a member of <code>pg_read_all_data</code> that can read <code>auth.users</code>, <code>auth.refresh_tokens</code> and <code>auth.identities</code>. <code>CLAUDE.md</code> claimed "a read-only role against pre-approved views" — neither half was true.</td>
+        <td>Runs as <code>freshnow_app</code> inside the <em>asker's own</em> RLS context. That role has no privileges on <code>auth</code> at all. The guard additionally refuses every non-public schema and the catalogue.</td>
+        <td class="good"><code>has_table_privilege('freshnow_app','auth.users','SELECT')</code> → false; 11 guard tests; the HTTP route passes the verified viewer.</td></tr>
+    <tr><td class="bad"><b>An employee could promote themselves to CEO.</b> <code>employee_update</code> had no column restriction and <code>freshnow_app</code> holds UPDATE.</td>
+        <td>Migration 0014: a BEFORE UPDATE trigger refuses changes to <code>access_role</code>, <code>auth_user_id</code>, <code>manager_employee_id</code>, <code>department</code>, <code>status</code>, <code>telegram_user_id</code> unless the session is the CEO or the service role.</td>
+        <td class="good">Probed as the real app role with a valid RLS context: all three escalations blocked (<code>42501</code>), an ordinary <code>site</code> edit still succeeds on 1 row. The org tests prove <code>updateOrg</code> on the service role still works.</td></tr>
+    <tr><td class="bad"><b>Any signed-in CEO's writes were audited as <code>DEMO_CEO_ID</code></b>: the auth hook collapsed a real CEO to the label <code>"ceo"</code>, which <code>actorOf</code> then mapped to the seeded id.</td>
+        <td>The hook keeps the real employee id; <code>viewerIsCeo</code> carries the role. The dead <code>viewerContext</code> helper is removed so it cannot be reintroduced.</td>
+        <td class="good">Auth test: <code>/dashboard/me</code> returns the real id, and a task created by the CEO audits as <code>employee:&lt;their id&gt;</code>.</td></tr>
+    <tr><td class="bad"><b>Routing was non-deterministic</b>: no uniqueness on <code>routing_rule</code>, so duplicate rules made the winner plan-dependent.</td>
+        <td>Unique index on (category, site, shift), <code>NULLS NOT DISTINCT</code>.</td><td class="good">Migration applied; duplicates de-duplicated first.</td></tr>
+    <tr><td class="bad"><b>Authentication fails open</b> on a missing <code>SUPABASE_URL</code>, bound to <code>0.0.0.0</code>.</td>
+        <td>Demo mode is legitimate and not refused — but it is now the loudest line the process logs at startup.</td><td class="warn">Reasoned; not tested by restarting with a broken env.</td></tr>
+  </tbody>
+</table></div>
+
+<h2>3 · Traceability — CLAUDE.md rule 3, made true</h2>
+<div class="card danger">
+<h3>Replay did not replay</h3>
+<p>It re-read the <em>live</em> blocker row to get the category, then re-derived. Two consequences: it was not a
+replay (a routing-rule change and a data change were indistinguishable), and because the reset script
+hard-deletes blockers while the audit log keeps pointing at them, <b>45 of 50 routed blockers no longer existed
+and every one reported <code>diverged: true</code></b>. Worse: a correlation id that never existed returned
+<code>{steps: 0, checks: [], diverged: false}</code> — "replayed fine".</p>
+<p><b>Fix:</b> <code>blocker.routed</code> now records its <em>inputs</em> (category, severity, site, shift) in the
+audit detail; replay re-derives from those and never touches the live row. A run that does not exist returns
+<code>found: false</code>. A run recorded before inputs were kept is counted <code>unreplayable</code> — unknown,
+not diverged. Six tests, including the three behaviours that were silently wrong.</p>
+</div>
+<div class="tw"><table>
+  <thead><tr><th>Finding</th><th>Fix</th></tr></thead>
+  <tbody>
+    <tr><td class="bad"><code>run_trace</code> was written <b>only by the seeder</b>. Two rows, both seed. "Every run is reconstructible" was not true.</td><td>New <code>core/trace.ts</code>; <code>parse_update</code> and <code>route_blocker</code> write it from the real paths, best-effort and counted on <code>/health</code>. Append-only — my first version added a uniqueness constraint, which was wrong (§5).</td></tr>
+    <tr><td class="bad"><code>notification_outbox</code> and <code>escalation</code> had <b>no <code>correlation_id</code></b>: the message a person actually received could not be tied to the run that produced it.</td><td>Migration 0015 adds both, indexed; every writer passes it through.</td></tr>
+    <tr><td class="bad">The <b>CEO rung of the escalation ladder was <code>DEMO_CEO_ID</code></b>, hardcoded. On a real org chart the top two rungs resolved to nobody and the ladder exhausted telling no one.</td><td>Looked up from <code>employee where access_role='ceo'</code>, like the department-lead rung beside it, with the seeded id as the fallback only when no CEO row exists.</td></tr>
+  </tbody>
+</table></div>
+
+<h2>4 · The things that failed silently</h2>
+<div class="tw"><table>
+  <thead><tr><th>Finding</th><th>Fix</th></tr></thead>
+  <tbody>
+    <tr><td class="bad"><b>A routing failure lost the blocker permanently.</b> The row existed with no resolver and no SLA; the sweep filters exactly those out; nothing reported it.</td><td>Caught at the call site → audited as <code>blocker.routing_failed</code> → a human is alerted by the needs-review path. And <code>sweepUnroutedBlockers</code> runs beside the SLA sweep as the net below that, re-routing what it can and auditing what it cannot.</td></tr>
+    <tr><td class="bad"><b>Abandoned messages vanished</b> — five failed attempts, one console line, including escalation alerts to the CEO.</td><td>After the batch commits, <code>notification.abandoned</code> is audited with the recipient, key and last error.</td></tr>
+    <tr><td class="bad"><b>The Telegram sender had no timeout</b> and ran inside the relay's open transaction holding row locks — a black-holed socket would stall the whole worker.</td><td><code>AbortSignal.timeout(20s)</code>.</td></tr>
+    <tr><td class="bad"><b><code>/health</code> said "ok" with Redis stopped.</b></td><td>A TCP ping, reported as its own field. <b>Proved live:</b> stopped the container → <code>redis: down</code>; started it → <code>redis: ok</code>.</td></tr>
+    <tr><td class="bad"><b>The budget cap fails open for any unpriced model</b> — <code>estimateCost</code> returned 0 silently, and model ids are env-configurable.</td><td>Warns once per unpriced model, naming the consequence; <code>isPriced()</code> exposed.</td></tr>
+    <tr><td class="bad"><b>done → reopen → done sent nothing the second time</b>: the idempotency key was the task alone.</td><td>The key now includes the <code>task_update</code> that reported it.</td></tr>
+    <tr><td class="bad"><b>Nothing checked consent</b> after onboarding; 6 of 7 active employees had none.</td><td>Recorded as <code>consent.missing</code>, once per person per day. Deliberately does <em>not</em> refuse the update — losing a report of a broken chiller to a paperwork gap is the wrong trade.</td></tr>
+    <tr><td class="bad">Four list endpoints had <b>no LIMIT</b> and were re-fetched on every live refresh.</td><td>Bounded at 500.</td></tr>
+    <tr><td class="bad">The <b>semantic-layer test checked table names only.</b></td><td>Column-accurate both ways. It immediately caught <code>schema_migrations.filename</code> (real: <code>name</code>), a phantom column, and four undocumented ones including <code>employee.role_title</code>.</td></tr>
+    <tr><td class="bad">The reset script would <b>throw on any real manager</b> ever escalated to.</td><td>Anonymises <code>escalation.escalated_to</code> and removes named ladder targets.</td></tr>
+  </tbody>
+</table></div>
+
+<h2>5 · Where I was wrong before I was right</h2>
+<div class="card unverified"><ul>
+  <li><b>The first privilege trigger did not work.</b> It was SECURITY DEFINER and tested <code>current_user</code>, which a
+    SECURITY DEFINER function rewrites to the owner (<code>postgres</code>) — so the service-role escape hatch matched
+    every caller. Fixed with <code>session_user</code> (G92).</li>
+  <li><b>My first probe of that trigger lied.</b> It picked the target employee with a subquery that ran before the RLS
+    context was set, saw no rows, and the UPDATE matched nothing — which raised nothing, which I counted as "allowed".
+    A privilege probe must assert <code>row_count</code> (G93).</li>
+  <li><b>I added a uniqueness constraint on <code>run_trace(correlation_id, step)</code> that was wrong.</b> One run can
+    legitimately perform a step for several entities; the seeder routes three blockers under one id. The seed test
+    caught it. Traces are append-only now, like the audit log.</li>
+</ul></div>
+
+<h2>Verification</h2>
+<div class="tw"><table>
+  <thead><tr><th>Check</th><th>Result</th></tr></thead>
+  <tbody>
+    <tr><td>Full suite + typecheck + build</td><td class="good">43 files · <b>338 passed</b> (from 321) · 1 skipped · clean</td></tr>
+    <tr><td>Privilege probe as <code>freshnow_app</code></td><td class="good">3 escalations blocked, 1 ordinary edit allowed, on real rows</td></tr>
+    <tr><td>Redis outage</td><td class="good">Detected and reported live</td></tr>
+    <tr><td>All services restarted</td><td class="good">API, worker (with the reconciliation sweep), bot — all on the new build; <code>/health</code> shows <code>redis: ok</code> and the trace spine</td></tr>
+  </tbody>
+</table></div>
+
+<h2 class="bad">What we have not verified</h2>
+<div class="card unverified"><ul>
+  <li><b>The fail-open warning</b> (I21) was not exercised — that means restarting the API with a broken env.</li>
+  <li><b>The sender timeout</b> was not exercised against a black-holed socket; 20 s is a judgement.</li>
+  <li><b>No real routing failure has occurred</b> since the catch was added; the path is tested by reasoning and by
+    the sweep's query, not by a live unroutable blocker.</li>
+  <li><b>Still open from the audit</b> (recorded, deliberately not done today): the EOD narrative is not put through
+    the numeric-sanity gate (I10); the grounding gate does not exist (I11); the LLM concurrency cap is per-process
+    and three processes run (I8); Telegram webhook mode is unimplemented (I14); the audit-log actor is forgeable
+    from the app connection (C2, defence in depth); retention/erasure is not built (DEVIATIONS #6); routing still
+    ignores site and shift (I1) — <code>WHAT-WE-NEED-FROM-FRESHNOW.md</code> says so where it asks for the routing table.</li>
+</ul></div>
+</body></html>

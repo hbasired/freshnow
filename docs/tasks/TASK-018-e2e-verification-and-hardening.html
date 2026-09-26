@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TASK-018 — End-to-End Verification &amp; Low-Literacy Hardening</title>
+<style>
+  :root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#3fb950;--warn:#d29922;--bad:#f85149;--card:#161b22;--bd:#30363d}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+       font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+       max-width:900px;padding:48px 24px;margin-inline:auto}
+  h1{font-size:1.9rem;margin:0 0 4px} h2{margin-top:2.5rem;color:var(--acc);font-size:1.25rem}
+  h3{margin-top:1.6rem;font-size:1.02rem}
+  .meta{color:var(--mut);font-size:.9rem;margin-bottom:2rem}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:18px;margin:14px 0}
+  .unverified{border-left:3px solid var(--warn)}
+  .ok{border-left:3px solid var(--acc)}
+  code{background:#1f2630;padding:2px 6px;border-radius:4px;font-size:.9em}
+  pre{background:#010409;border:1px solid var(--bd);border-radius:8px;padding:14px;overflow-x:auto;font-size:.84rem}
+  table{border-collapse:collapse;width:100%;margin:14px 0}
+  th,td{border:1px solid var(--bd);padding:7px 9px;text-align:left;font-size:.9rem;vertical-align:top}
+  th{background:#1f2630}
+  .bad{color:var(--bad);font-weight:600}.good{color:var(--acc);font-weight:600}
+  ul{padding-left:1.1rem}
+</style></head><body>
+<h1>TASK-018 — End-to-End Verification &amp; Low-Literacy Hardening</h1>
+<p class="meta">Phase 1 (demo D6) · 2026-09-04 · Partially satisfies T18 (demo readiness) ·
+Satisfies SPEC-000 R23 (no update lost) and R25 (escalate to a human, never guess)</p>
+
+<div class="card ok"><strong>One-sentence summary:</strong> Ran the whole loop end-to-end against
+real Telegram accounts (19/19 checks, real messages delivered to both phones), then had an agent
+role-play a barely-literate warehouse worker for 30 messages — which exposed six real problems the
+unit tests could never have caught, all traced to one root cause and fixed.</div>
+
+<h2>What was done</h2>
+<ul>
+<li><code>scripts/e2e-demo.ts</code> — a 19-check end-to-end run against the real database, the real
+Groq parser, and the <em>real running worker</em>, using the two live Telegram accounts.</li>
+<li><code>scripts/employee-sim.ts</code> — drives one employee message through the real pipeline and
+prints what the system understood. Alerts it generates are suppressed so tests cannot spam the CEO.</li>
+<li>Hardened <code>packages/core/src/parse.ts</code>: rewritten extraction prompt, new <code>safety</code>
+category, <code>maxTokens</code> 400 → 1200.</li>
+<li><code>packages/core/src/updates.ts</code>: <code>needs_review</code> now alerts a human.</li>
+<li><code>packages/core/src/llm/client.ts</code>: aggregate every provider's error instead of only the last.</li>
+<li>Malayalam added to the consent notice and the bot's language picker.</li>
+</ul>
+
+<h2>Why it was done</h2>
+<p>Eighty passing unit tests said the system worked. They were testing the mechanism with clean
+inputs. The people who will actually use this bot are warehouse and delivery staff who may barely
+read or write, typing phonetically on a cheap phone in three languages. Nothing in the suite
+resembled that, so an agent was given that persona and told to try to use the system honestly.</p>
+
+<h2>How it works — what the stress test found</h2>
+<p><strong>What was already right:</strong> across 30 runs, <code>raw_text_preserved</code> was true
+<strong>30/30</strong> and nothing crashed — the write-raw-first ordering held. And chatter, gibberish,
+"done boss" and 👍 produced <em>zero</em> false blockers, so the CEO was never spammed.</p>
+<p><strong>What was broken:</strong> six real problems produced no blocker at all.</p>
+<table>
+<tr><th>Employee wrote</th><th>Before</th><th>After</th></tr>
+<tr><td><code>boss machine band ho gaya juice nahi nikal raha</code></td><td class="bad">needs_review (dropped)</td><td class="good">equipment / high</td></tr>
+<tr><td><code>gadi ka tyre punchar…</code> (pure Hindi)</td><td class="bad">needs_review (dropped)</td><td class="good">equipment / high</td></tr>
+<tr><td><code>sir pump work aakunnilla…</code> (Malayalam)</td><td class="bad">needs_review (dropped)</td><td class="good">equipment / critical</td></tr>
+<tr><td><code>aaj kaam ho gaya sab lekin kal ke liye orange nahi hai</code></td><td class="bad">no blocker</td><td class="good">supply / high</td></tr>
+<tr><td><code>20 carton aana tha lekin 5 hi aaya</code></td><td class="bad">no blocker</td><td class="good">supply / high</td></tr>
+<tr><td><code>salim gir gaya … khoon nikal raha hai</code></td><td class="bad">staffing / critical</td><td class="good">safety / critical</td></tr>
+<tr><td><code>juice kharab</code> (already spoiled)</td><td class="bad">medium</td><td class="good">high</td></tr>
+<tr><td><code>boss chiller down</code></td><td class="bad">"The <em>boss chiller</em> is down"</td><td class="good">"The chiller is down."</td></tr>
+</table>
+
+<h3>The root cause was not what it looked like</h3>
+<p>Three of these looked like "the model cannot read Hindi/Malayalam". The stored error said
+<code>AbortError: This operation was aborted</code> — a timeout. Both were wrong. The client only
+reported the <em>last</em> provider's error, hiding the primary's. Once every provider's error was
+collected, the real failure appeared:</p>
+<pre>groq(openai/gpt-oss-120b) attempt 1 — HTTP 400: json_validate_failed, failed_generation: ""
+groq(openai/gpt-oss-120b) attempt 2 — HTTP 400: json_validate_failed, failed_generation: "ma…"
+nvidia(nemotron-…-reasoning) attempt 1 — HTTP 503: ResourceExhausted (946/16)
+nvidia(nemotron-…-reasoning) attempt 2 — AbortError: This operation was aborted</pre>
+<p><code>gpt-oss-120b</code> is a <strong>reasoning</strong> model. With <code>max_tokens: 400</code> and
+JSON mode it spent its budget reasoning and was truncated mid-JSON, so Groq rejected the entire
+generation. The <code>"ma…"</code> fragment shows the second half of the problem: it had started
+replying <em>in Malayalam prose</em>, mirroring the employee's language, which JSON mode cannot accept.</p>
+<p>So: <strong>a token cap and an unpinned output language</strong>, presenting as a language-comprehension
+failure and misreported as a timeout. Raising the cap to 1200 turned a case that failed 3/3 into one
+that passed 3/3.</p>
+
+<h3>The most dangerous finding</h3>
+<p><code>needs_review</code> was a <strong>silent delete</strong>. The message was stored, no blocker was
+raised, and nobody was told — for exactly the employees least able to notice and rephrase. It now
+enqueues the raw words to the CEO for triage and writes an audit row, while the bot tells the
+employee it was saved but not understood.</p>
+
+<h2>Concepts and techniques used</h2>
+<ul>
+<li><strong>Persona-driven adversarial testing</strong> — the failures were in the gap between "correct
+mechanism" and "usable by the actual person", which only a realistic user model reaches.</li>
+<li><strong>Error aggregation across a fallback chain</strong> — a fallback that masks the primary's error makes the primary undiagnosable.</li>
+<li><strong>Reasoning-model token budgeting</strong> — with constrained JSON output, tokens must cover the reasoning, not just the answer.</li>
+<li><strong>Pinning output language independently of input language.</strong></li>
+<li><strong>Severity anchored to consequence</strong>, with realised harm never rated below the risk of the same harm.</li>
+<li><strong>Escalate-to-human on ambiguity</strong> rather than failing closed (SPEC-000 R25).</li>
+</ul>
+
+<h2>Research findings</h2>
+<ul>
+<li>Groq's <code>json_object</code> response format validates server-side and returns <strong>HTTP 400
+<code>json_validate_failed</code></strong> with a <code>failed_generation</code> field — which is what made the
+diagnosis possible once the error was surfaced.</li>
+<li>The NVIDIA NIM fallback returns <strong>503 ResourceExhausted</strong> on every call and then burns the
+full 10 s timeout. It provides no resilience today.</li>
+<li>Bot token verified live as <code>@freshnow1bot</code>; both accounts had already run <code>/start</code>,
+so the bot was permitted to message them.</li>
+</ul>
+
+<h2 class="warn">What we have not verified</h2>
+<div class="card unverified">
+<ul>
+<li><strong>Nobody has tapped through the bot on a real phone.</strong> Every flow was driven through the
+same core functions the handlers call, and Telegram delivery was proven — but button rendering,
+force-reply behaviour and message ordering in the actual app are still untested.</li>
+<li><strong>The fixes are prompt-level, not guaranteed.</strong> Each corrected case was re-run (some 3×) and
+passed, but an LLM is not deterministic. There is no automated regression test pinning these
+behaviours; a future prompt or model change could silently undo them.</li>
+<li><strong>The NVIDIA fallback is unusable</strong> and has not been replaced, so the system is effectively
+single-provider. A Groq outage means no parsing (updates would queue as <code>needs_review</code>).</li>
+<li><strong>The Hindi and Malayalam consent notices were written by me, not a native speaker.</strong> PDPL
+requires the person to understand what they consent to — both need review before real employees see them.</li>
+<li><strong>Cost and latency of the larger token cap are unmeasured</strong> beyond the individual
+<code>llm_call</code> rows; no sustained-load figure exists.</li>
+<li><strong>Only ~40 distinct messages were tested</strong>, by one persona, judged by the same agent that
+wrote them. Not a benchmark.</li>
+<li><strong>Voice (T16/T17) is still not built</strong>, and a genuinely non-literate employee would likely
+prefer speaking to typing — the accessibility gap this test exposed is only partly closed by text fixes.</li>
+</ul>
+</div>
+
+<h2>Open questions</h2>
+<ul>
+<li>Replace or drop the NVIDIA fallback? As configured it costs ~20 s per Groq failure and never succeeds.</li>
+<li>Should <code>needs_review</code> also auto-ask the employee to re-send, rather than only telling them it wasn't understood?</li>
+<li>Should severity/category decisions be pinned by a golden-set regression test run on every prompt change?</li>
+<li>Company Block A remains open: the real blocker taxonomy, real SLA windows, and the real resolver map are all still synthetic.</li>
+</ul>
+</body></html>

@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TASK-037 — The remaining findings: routing, gates, webhook, retention, and two things proved</title>
+<style>
+  :root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#3fb950;--warn:#d29922;--bad:#f85149;--card:#161b22;--bd:#30363d}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;max-width:940px;padding:48px 24px;margin-inline:auto}
+  h1{font-size:1.9rem;margin:0 0 4px} h2{margin-top:2.5rem;color:var(--acc);font-size:1.25rem} h3{margin-top:1.6rem;font-size:1.02rem}
+  .meta{color:var(--mut);font-size:.9rem;margin-bottom:2rem}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:18px;margin:14px 0}
+  .unverified{border-left:3px solid var(--warn)} .ok{border-left:3px solid var(--acc)} .danger{border-left:3px solid var(--bad)}
+  code{background:#1f2630;padding:2px 6px;border-radius:4px;font-size:.9em}
+  .tw{overflow-x:auto} table{border-collapse:collapse;width:100%;margin:14px 0}
+  th,td{border:1px solid var(--bd);padding:7px 9px;text-align:left;font-size:.88rem;vertical-align:top} th{background:#1f2630}
+  .bad{color:var(--bad);font-weight:600}.good{color:var(--acc);font-weight:600}.warn{color:var(--warn);font-weight:600}
+  ul{padding-left:1.1rem}
+</style></head><body>
+<h1>TASK-037 — The remaining findings: routing, gates, webhook, retention, and two things proved</h1>
+<p class="meta">2026-09-18 · migration 0016 · core <code>retention.ts</code> (new) · bot <code>webhook.ts</code> (new) ·
+grounding gate (new) · every item TASK-036 left open is now closed · <b>360 tests green</b> (from 338)</p>
+
+<div class="card ok"><strong>One-sentence summary:</strong> The seven findings deliberately left open after the
+audit are closed — routing now honours site and shift, the audit log's actor cannot be forged, the EOD narrative
+and the question box both pass through the two gates <code>CLAUDE.md</code> specifies, Telegram webhook mode
+exists with its secret-token check, PDPL retention and erasure exist — and the two claims I had marked "reasoned,
+not exercised" were exercised, one of which found a config rule that would have broken every model call.</div>
+
+<h2>1 · What was closed</h2>
+<div class="tw"><table>
+  <thead><tr><th>Finding</th><th>Fix</th><th>Proof</th></tr></thead>
+  <tbody>
+    <tr><td class="bad"><b>Routing ignored site and shift.</b> The query hardcoded <code>site is null and shift is null</code>; the doc-comment claimed the opposite. Every site-specific rule the company entered would have been invisible.</td>
+        <td>Matches on (category, site, shift), most specific first, case-insensitive on the typed fields. Replay uses the same key.</td>
+        <td class="good">5 tests: a 3-column rule beats a 2-column one; falls back correctly; case-insensitive; and a raiser's own site/shift drives the decision end to end with the key recorded for replay.</td></tr>
+    <tr><td class="bad"><b>The audit-log actor was forgeable</b> from the app connection — <code>with check (true)</code>.</td>
+        <td>Migration 0016: a BEFORE INSERT trigger. On the app connection the actor must be the session's own employee or <code>system</code>; the service role (where the API's verified identity is applied) may write any actor.</td>
+        <td class="good">Probed as <code>freshnow_app</code>: a forged CEO actor refused (42501); own actor and <code>system</code> accepted.</td></tr>
+    <tr><td class="bad"><b>The EOD narrative reached the CEO with no gate.</b> A model-written summary asked to state derived numbers, with only an instruction — not a check — against inventing them.</td>
+        <td>Passed through <code>numericSanityGate</code> against the counts, the detail and the date. A failure withholds the prose, keeps the computed counts, and audits <code>eod.gate_failed</code> with the numbers that had no source.</td>
+        <td class="good">EOD tests pass on real model narratives, so the gate is not over-strict; the verdict is on every <code>eod.generated</code> audit row.</td></tr>
+    <tr><td class="bad"><b>The grounding gate did not exist</b>, though two documents claimed it did.</td>
+        <td>Built. A claim about a policy, rule or food-safety requirement passes only if the SQL read a policy-bearing table (<code>sla_policy</code>, the ladder, <code>routing_rule</code>, <code>task_status</code>) and got rows. There is no document store, so a HACCP claim can never be grounded today — which is the correct verdict. Shown beside the numeric gate in the dashboard.</td>
+        <td class="good">6 tests: plain data passes; a HACCP claim is refused; an SLA claim is grounded by <code>sla_policy</code> and refused when the same sentence came from another table; deterministic.</td></tr>
+    <tr><td class="bad"><b>Webhook mode did not exist.</b> <code>TELEGRAM_MODE</code> was validated and read by nothing; <code>DEVIATIONS.md</code> called the switch a one-liner.</td>
+        <td><code>bot/webhook.ts</code>: a <code>node:http</code> listener for one path and one method, constant-time secret-token check <em>before</em> grammY sees the body, rejections audited (never with the token), <code>setWebhook</code> on startup. Fails closed without a secret ≥16 chars or an HTTPS <code>PUBLIC_URL</code>.</td>
+        <td class="good">5 tests against a real socket: no token → 401 and no handler runs; wrong token (including right-length) → 401; right token → 200 and dispatched; other paths/methods → 404; the rejection audit contains neither the guess nor the secret.</td></tr>
+    <tr><td class="bad"><b>Retention and erasure were not built</b> (PDPL; CLAUDE.md Phase 1).</td>
+        <td><code>core/retention.ts</code>. Retention ages out <em>words</em> (<code>note_raw</code> and the parsed copy), never counts; disabled until <code>RETENTION_DAYS</code> is set and refuses under 30. Erasure anonymises — name, Telegram, login, every note — and keeps every row, task and audit entry. The worker runs the sweep hourly and says when it is disabled.</td>
+        <td class="good">5 tests: disabled-and-says-so; refuses 7 days; ages the old note and leaves the recent one, the status and the parsed summary gone; erasure leaves the rows in place, is idempotent, and audits counts but never content.</td></tr>
+    <tr><td class="bad"><b>The LLM concurrency cap was per-process</b> while its comment claimed a global bound; the bot's comment said 6.</td>
+        <td><code>LLM_CONCURRENCY</code> per process, both comments corrected, <code>.env.example</code> says the real ceiling is the sum. A truly global cap was deliberately not added — a network round-trip before every model call to enforce what the 429 backoff already handles.</td>
+        <td class="warn">Config, not code — no test.</td></tr>
+  </tbody>
+</table></div>
+
+<h2>2 · The two things I had marked "reasoned, not exercised"</h2>
+<div class="card ok">
+<h3>The Telegram sender timeout — exercised</h3>
+<p>A local HTTP server that accepts the connection and never responds, which is what a black-holed link looks like
+to <code>fetch</code>. The sender rejected after <b>20.04 s</b>. Before the fix it would have waited forever, inside
+the relay's open transaction, holding row locks, with the worker loop stopped.</p>
+<h3>The fail-open warning — exercised, and it found a trap in the test itself</h3>
+<p>Starting the API with <code>SUPABASE_URL=</code> (empty) <b>fails closed</b>: config validation rejects it and the
+process refuses to start — safer than I had claimed. The fail-open case is the variable being <em>absent</em>. And
+unsetting it in the shell was not enough: <code>import "dotenv/config"</code> re-injected it from <code>.env</code>,
+so my first probe was testing a system with auth <b>on</b> (the 401 said so). With dotenv pointed at an env file
+without the key: the warning printed once, and <code>/dashboard/me?viewer=ceo</code> answered
+<code>isCeo: true</code> — the exact state the warning describes.</p>
+</div>
+
+<div class="card danger">
+<h3>The config rule that would have broken every model call</h3>
+<p>Adding webhook config, I wrote <code>TELEGRAM_WEBHOOK_SECRET: z.string().min(16).optional()</code>. Two facts
+combined: <code>.env</code> has that variable set to an empty value (harmless in polling mode), and
+<code>loadConfig()</code> is called inside <code>llmCompleteInner</code> on <b>every model call</b>. The rule threw
+on every one. The question-box tests caught it — <em>"I couldn't produce a safe query"</em> on a perfectly good
+query — before it reached a running service. The length rule now lives in the webhook branch, where it belongs.
+Recorded because a validation rule that is right in one mode and fatal in another is exactly the kind of thing a
+test suite exists to catch, and it did.</p>
+</div>
+
+<h2>Verification</h2>
+<div class="tw"><table>
+  <thead><tr><th>Check</th><th>Result</th></tr></thead>
+  <tbody>
+    <tr><td>Full suite + typecheck + build</td><td class="good">46 files · <b>360 passed</b> (from 338) · 1 skipped · clean</td></tr>
+    <tr><td>Live probes as the real app role</td><td class="good">Audit-actor forgery refused; legitimate writes accepted</td></tr>
+    <tr><td>Sender timeout</td><td class="good">20.04 s against a socket that never answers</td></tr>
+    <tr><td>Fail-open warning</td><td class="good">Fires exactly when <code>?viewer=ceo</code> is accepted; empty value fails closed</td></tr>
+    <tr><td>All services restarted</td><td class="good">API, worker (retention sweep reporting itself disabled), bot — on the new build</td></tr>
+  </tbody>
+</table></div>
+
+<h2 class="bad">What we have not verified</h2>
+<div class="card unverified"><ul>
+  <li><b>Webhook mode has never received a real update from Telegram.</b> The listener, the secret check and
+    <code>setWebhook</code> are tested against a local socket and a stub bot. It has not been run behind Caddy with a
+    public HTTPS URL, because there is no domain yet (<code>WHAT-WE-NEED-FROM-FRESHNOW.md</code> §6).</li>
+  <li><b>The retention window is unset</b> and will stay unset until FreshNow's data controller chooses one. The
+    sweep runs hourly and says so; nothing is aged out today.</li>
+  <li><b>Erasure has no UI or command yet.</b> <code>eraseEmployee</code> is a core function with tests; nothing calls
+    it. The reset script still hard-deletes, which is the demo tool's job — but a production "this person left"
+    action should call this instead.</li>
+  <li><b>The grounding gate's claim detector is a regex.</b> It will miss a policy claim phrased unusually and may
+    flag an innocent sentence containing "must be". Both errors are visible (the gate verdict is shown), and the
+    failure direction is a withheld sentence, not a false one.</li>
+  <li><b>Routing by site/shift is tested but the live table has no site or shift rules</b> — every seeded rule is
+    category-only. The company's table (§1.1 of the needs document) is what exercises it for real.</li>
+  <li><b>The EOD gate has not been seen to fail</b> on a real narrative; the fallback path is tested by reasoning.</li>
+</ul></div>
+</body></html>

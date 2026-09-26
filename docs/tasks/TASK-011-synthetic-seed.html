@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TASK-011 — Synthetic Demo Seed</title>
+<style>
+  :root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#3fb950;--warn:#d29922;--card:#161b22;--bd:#30363d}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+       font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+       max-width:860px;padding:48px 24px;margin-inline:auto}
+  h1{font-size:1.9rem;margin:0 0 4px} h2{margin-top:2.5rem;color:var(--acc);font-size:1.25rem}
+  .meta{color:var(--mut);font-size:.9rem;margin-bottom:2rem}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:18px;margin:14px 0}
+  .unverified{border-left:3px solid var(--warn)}
+  code{background:#1f2630;padding:2px 6px;border-radius:4px;font-size:.9em}
+  pre{background:#010409;border:1px solid var(--bd);border-radius:8px;padding:14px;overflow-x:auto}
+  .warn{color:var(--warn)} .ok{color:var(--acc)}
+</style></head><body>
+<h1>TASK-011 — Synthetic Demo Seed</h1>
+<p class="meta">Phase 1 (demo) · 2026-09-04 · Honours HONESTY-AND-ACCURACY.md (synthetic data is always labelled) · Gives the dashboard, query box, and replay real, clearly-labelled history to show. <span class="ok">49/49 tests (incl. idempotency) green; demo DB seeded.</span></p>
+
+<h2>What was done</h2>
+<div class="card">
+<ul>
+  <li><strong><code>packages/core/src/seed.ts</code></strong> — <code>seedDemo()</code>: idempotent, inserts 5 <code>DEMO –</code> employees (warehouse, production, delivery, retail, QC; English + Hindi), 6 tasks, 6 past updates (done/pending/blocker across a few days), and 3 blockers — routed through the <em>real</em> engine (so audit history is genuine), one escalated, plus <code>run_trace</code> rows for replay.</li>
+  <li><strong><code>scripts/seed.ts</code></strong> + <code>pnpm seed</code> — seeds the demo database.</li>
+  <li><strong>Test</strong> — runs <code>seedDemo</code> twice, asserts identical counts (idempotent) and <code>is_synthetic=true</code> on every seeded row.</li>
+</ul>
+</div>
+
+<h2>Why it was done</h2>
+<div class="card">
+<p>The company has not shared real employee data yet. To demonstrate the working system end-to-end, the demo needs history — but that history must never be mistaken for real. So every seeded name is <code>DEMO –</code> prefixed, every row is <code>is_synthetic=true</code>, and the blockers are routed/escalated by the same deterministic engine the live system uses, so the audit trail and traces are authentic even though the data is invented.</p>
+</div>
+
+<h2>How it works</h2>
+<div class="card">
+<pre>seedDemo()  (idempotent)
+  delete prior seed (fixed employee ids + seed correlation)
+  upsert 5 DEMO employees (report to CEO)
+  insert tasks + a few days of updates (done / pending / blocker)
+  insert 3 blockers → routeBlocker() → assigned_resolver=CEO, SLA, audit
+  make one overdue → escalateBlocker() → escalation + alert + audit
+  insert run_trace rows (for replay)
+  → { employees:5, tasks:6, updates:6, blockers:3 }</pre>
+</div>
+
+<h2>Concepts and techniques used</h2>
+<div class="card">
+<ul>
+  <li><strong>Idempotent seeding</strong> — fixed ids + a seed correlation id; a re-run wipes and re-inserts, never duplicates.</li>
+  <li><strong>Labelled synthetic data</strong> — <code>DEMO –</code> names + <code>is_synthetic</code> everywhere; the honesty rule made concrete.</li>
+  <li><strong>Exercising the real pipeline</strong> — blockers go through the actual <code>routeBlocker</code>/<code>escalateBlocker</code>, so the demo's audit/trace history is genuine.</li>
+</ul>
+</div>
+
+<h2 class="warn">What we have not verified</h2>
+<div class="card unverified">
+<ul>
+  <li><strong>Every name, role, site, and shift is invented</strong> — none reflect real FreshNow staff or operations. All are <code>[assumed]</code>.</li>
+  <li>The volume is tiny (5 employees, a few days) — enough to demo, not to benchmark.</li>
+  <li>The seeded <code>note_parsed</code> is hand-written to match plausible LLM output; the parser was not re-run over the seeded <code>note_raw</code>.</li>
+  <li>The seed is designed for the demo DB; running it replaces prior seed data (not additive).</li>
+</ul>
+</div>
+
+<h2>Open questions</h2>
+<div class="card">
+<ul>
+  <li>Replace with the company's real (anonymised) history once trust is established and it is shared.</li>
+</ul>
+</div>
+</body></html>

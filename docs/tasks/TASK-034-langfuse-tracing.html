@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TASK-034 — Langfuse tracing: what happened, in order</title>
+<style>
+  :root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#3fb950;--warn:#d29922;--bad:#f85149;--card:#161b22;--bd:#30363d}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;max-width:940px;padding:48px 24px;margin-inline:auto}
+  h1{font-size:1.9rem;margin:0 0 4px} h2{margin-top:2.5rem;color:var(--acc);font-size:1.25rem} h3{margin-top:1.6rem;font-size:1.02rem}
+  .meta{color:var(--mut);font-size:.9rem;margin-bottom:2rem}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:18px;margin:14px 0}
+  .unverified{border-left:3px solid var(--warn)} .ok{border-left:3px solid var(--acc)} .danger{border-left:3px solid var(--bad)}
+  code{background:#1f2630;padding:2px 6px;border-radius:4px;font-size:.9em}
+  pre{background:#1f2630;border:1px solid var(--bd);border-radius:8px;padding:12px;overflow-x:auto;font-size:.85rem}
+  .tw{overflow-x:auto} table{border-collapse:collapse;width:100%;margin:14px 0}
+  th,td{border:1px solid var(--bd);padding:7px 9px;text-align:left;font-size:.88rem;vertical-align:top} th{background:#1f2630}
+  .bad{color:var(--bad);font-weight:600}.good{color:var(--acc);font-weight:600}.warn{color:var(--warn);font-weight:600}
+  ul{padding-left:1.1rem}
+</style></head><body>
+<h1>TASK-034 — Langfuse tracing: what happened, in order</h1>
+<p class="meta">2026-09-14 · core <code>llm/langfuse.ts</code> · 7 operations named · <code>/health</code> counters ·
+11 tests · 321 tests green · <b>switched on against Langfuse Cloud (EU) and verified end to end</b></p>
+
+<div class="card ok"><strong>One-sentence summary:</strong> Every model call can now be read as a trace — which
+provider answered, how long it took, what it cost, and where a retry fell through to a fallback — grouped by
+correlation id so one run reads as one story; it is off unless two environment variables are set, it sends
+<em>no employee text</em> unless that is switched on separately, and it cannot break a model call.</div>
+
+<div class="card ok"><strong>Live since 2026-09-14.</strong> Pointed at Langfuse Cloud (EU). A real parse was traced
+end to end and read back through Langfuse's own API: trace <code>parse_update</code>, tagged
+<code>freshnow</code>, one observation, total cost <b>$0.0002805</b> &mdash; matching the <code>llm_call</code> row's
+$0.000281 &mdash; and <code>input: null</code>, confirming the privacy default held and no employee text left the machine.</div>
+
+<h2>1 · Why, given <code>llm_call</code> already exists</h2>
+<p>The <code>llm_call</code> table records every call's provider, model, tokens, cost, latency and success, and the
+daily budget cap reads it. It answers <em>"what did this cost"</em> perfectly well. What it does not answer is
+<em>"what happened, in order"</em> — that a parse was attempted on Groq, hit a 429, waited, fell through to
+OpenRouter, and the second answer failed schema validation, all inside one employee's message.</p>
+<p>That is the question a trace viewer answers, and it is the one worth asking when something is slow or wrong.
+So: <b><code>llm_call</code> stays the record of cost</b> — it must not depend on a third party, because the budget
+cap depends on it — <b>and Langfuse is the timeline on top of it.</b> Same facts, arranged for a different question.</p>
+
+<h2>2 · The three decisions</h2>
+<div class="tw"><table>
+  <thead><tr><th>Decision</th><th>Why</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><b>No SDK.</b> One <code>fetch</code> against Langfuse's public ingestion endpoint, with basic auth.</td>
+      <td><code>CLAUDE.md</code>: no dependencies without a stated reason, on a box where every process competes with
+        Postgres for 8 shared vCPUs. The SDK and its transitive tree would wrap one HTTP POST. The whole client is
+        about 200 lines including comments.</td>
+    </tr>
+    <tr>
+      <td><b>Content capture is OFF by default.</b> Metadata always; prompt and completion text only with
+        <code>LANGFUSE_CAPTURE_CONTENT=1</code>.</td>
+      <td>Prompts here contain employees' own words about their shift, in Hindi, Malayalam or English. Sending that
+        to an observability tool is a data-protection decision, not a technical one. With a <em>hosted</em> Langfuse
+        it means employee free text leaves the company, needing the same lawful basis, notice and consent as any
+        other processing. The default is the one that cannot create that problem.</td>
+    </tr>
+    <tr>
+      <td><b>It can never break a model call.</b> Fire-and-forget, a 5 s send timeout, a 200-event cap, every failure
+        swallowed and counted.</td>
+      <td>Losing a trace is acceptable. Losing an employee's update because an observability tool was down is not.
+        The counters on <code>/health</code> are how a silently broken tracer becomes visible — because
+        "fire-and-forget" and "quietly failing for a week" look identical without them.</td>
+    </tr>
+  </tbody>
+</table></div>
+
+<h3>The correlation id is the trace id</h3>
+<p>Every model call made during one run lands under one trace, because the existing <code>correlation_id</code> —
+already threaded from a Telegram message or an HTTP request through every write and every audit row — is used
+directly as the Langfuse trace id. A retry on a fallback provider is a second generation inside the same trace, with
+its own observation id keyed by <code>(run, provider, model, attempt)</code>, so nothing overwrites anything.</p>
+
+<h3>Operations, named</h3>
+<p>All seven call sites now pass an <code>operation</code>, so the trace list reads as work rather than as a list of
+model calls: <code>parse_update</code>, <code>classify_intent</code>, <code>resolve_context</code>,
+<code>plan_document</code>, <code>eod_summary</code>, <code>question_to_sql</code>, <code>narrate_answer</code>.
+It affects nothing but the trace name.</p>
+
+<h2>3 · What changed</h2>
+<div class="tw"><table>
+  <thead><tr><th>Where</th><th>Change</th></tr></thead>
+  <tbody>
+    <tr><td><code>core/llm/langfuse.ts</code> (new)</td><td>Config from the environment (null = off), a bounded queue, a 2-second batch flush on an unref'd timer, <code>traceLlmCall</code>, <code>flushTraces</code>, and <code>tracingStats</code>.</td></tr>
+    <tr><td><code>core/llm/client.ts</code></td><td><code>logLlmCall</code> also traces, on both the success and the failure path; <code>LlmCompleteOpts</code> gains an optional <code>operation</code>.</td></tr>
+    <tr><td>Seven call sites</td><td>Each names its operation.</td></tr>
+    <tr><td><code>api/routes/health.ts</code></td><td>Reports <code>tracing: { enabled, queued, sent, failed, dropped, captureContent }</code>.</td></tr>
+    <tr><td><code>.env.example</code></td><td>All five variables, with the privacy warning written where somebody switching it on will read it.</td></tr>
+  </tbody>
+</table></div>
+
+<h2>4 · How it was switched on (and how to move it)</h2>
+<div class="card">
+<p><b>Currently pointed at Langfuse Cloud (EU)</b>, <code>https://cloud.langfuse.com</code>, with the keys in
+<code>.env</code> and nowhere else. The plan is to move it to a self-hosted instance on the VPS once that is
+finalised; changing <code>LANGFUSE_BASE_URL</code> and the key pair is the entire migration.</p>
+<p>To point it somewhere else:</p>
+<ol>
+  <li>Open the Langfuse UI and create (or pick) a project.</li>
+  <li><b>Settings → API Keys → Create new API key.</b> Copy the public key (<code>pk-lf-…</code>) and the secret key
+    (<code>sk-lf-…</code>) — the secret is shown once.</li>
+  <li>Put both in <code>.env</code> as <code>LANGFUSE_PUBLIC_KEY</code> and <code>LANGFUSE_SECRET_KEY</code>. Set
+    <code>LANGFUSE_BASE_URL</code> if it is not the local instance.</li>
+  <li>Restart the API, bot and worker. <code>curl localhost:3001/health</code> should show
+    <code>tracing.enabled: true</code>.</li>
+  <li>Send one message through the bot and look at the trace list.</li>
+</ol>
+<p><b>Leave <code>LANGFUSE_CAPTURE_CONTENT</code> unset</b> unless the consent notice has been updated to cover it.</p>
+</div>
+
+<h2>Verification</h2>
+<div class="tw"><table>
+  <thead><tr><th>Check</th><th>Result</th></tr></thead>
+  <tbody>
+    <tr><td><code>langfuse.test.ts</code> (11)</td><td class="good">Disabled with no keys, and a public key alone is not configuration; nothing queues or sends while disabled; the default base URL is the self-hosted instance, not anyone's cloud; a trace and a generation are written with the right cost, tokens and auth header; the correlation id is the trace id; a failure is level ERROR carrying the reason; two attempts get distinct observation ids under one trace; <b>the employee's text appears nowhere in the payload by default</b>, and <code>contentCaptured: false</code> says why; it does appear with the flag on; a network failure and a rejected batch are both counted and never thrown; past the cap, events are dropped rather than growing without bound.</td></tr>
+    <tr><td>Full suite + typecheck</td><td class="good">43 files · 321 passed · 1 skipped · typecheck clean</td></tr>
+  </tbody>
+</table></div>
+
+<h2 class="bad">What we have not verified</h2>
+<div class="card unverified"><ul>
+  <li><b>Only one operation has been traced for real</b> &mdash; <code>parse_update</code>. The other six
+    (<code>classify_intent</code>, <code>resolve_context</code>, <code>plan_document</code>,
+    <code>eod_summary</code>, <code>question_to_sql</code>, <code>narrate_answer</code>) go through the same
+    <code>logLlmCall</code> path, so they are believed to work, but none has been observed in the Langfuse UI.</li>
+  <li><b>The retry and fallback path has not been traced for real.</b> The test proves two attempts get distinct
+    observation ids under one trace; no actual provider failure has been watched arriving as two generations.</li>
+  <li><b>Traces now leave the machine.</b> Langfuse Cloud (EU) receives metadata for every model call &mdash; model,
+    provider, tokens, cost, latency, success. No employee text, because content capture is off. That is a deliberate
+    choice made with the user; moving to a self-hosted instance on the VPS is the stated plan.</li>
+  <li><b>No load testing.</b> The 200-event cap and 2-second flush are reasonable-looking numbers, not measured ones.</li>
+  <li><b>Only LLM calls are traced.</b> Not the routing decisions, not the SQL the query agent runs, not the outbox.
+    Those are already in <code>audit_log</code> and <code>run_trace</code>; unifying them into one trace view would
+    be a separate piece of work.</li>
+  <li><b>Nothing flushes on shutdown.</b> <code>stopTracing()</code> exists and nothing calls it, so a process killed
+    within 2 seconds of a model call loses those traces. Acceptable for observability; stated rather than implied.</li>
+</ul></div>
+
+<h2 class="bad">Security and privacy</h2>
+<div class="card danger"><ul>
+  <li><b>No <code>userId</code> on any trace.</b> Tying traces to an employee would create a per-person record of
+    what they wrote and how the model handled it — precisely the individual profiling <code>CLAUDE.md</code> forbids.
+    Traces carry a correlation id and nothing that identifies a person.</li>
+  <li><b>The keys live only in <code>.env</code></b>, like every other credential, and appear in no report, no
+    knowledge-base entry and no memory file.</li>
+  <li><b>Content capture is a deliberate, separate switch</b> with the PDPL consequence written next to it in
+    <code>.env.example</code>, so nobody can turn it on without reading what it means.</li>
+  <li><b>The budget cap does not depend on Langfuse.</b> It reads <code>llm_call</code>. An observability outage can
+    never affect spend control.</li>
+</ul></div>
+</body></html>

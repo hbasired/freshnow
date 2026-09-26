@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TASK-009 — Routing &amp; Escalation Engine</title>
+<style>
+  :root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#3fb950;--warn:#d29922;--card:#161b22;--bd:#30363d}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+       font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+       max-width:860px;padding:48px 24px;margin-inline:auto}
+  h1{font-size:1.9rem;margin:0 0 4px} h2{margin-top:2.5rem;color:var(--acc);font-size:1.25rem}
+  .meta{color:var(--mut);font-size:.9rem;margin-bottom:2rem}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:18px;margin:14px 0}
+  .unverified{border-left:3px solid var(--warn)}
+  code{background:#1f2630;padding:2px 6px;border-radius:4px;font-size:.9em}
+  pre{background:#010409;border:1px solid var(--bd);border-radius:8px;padding:14px;overflow-x:auto}
+  table{border-collapse:collapse;width:100%;margin:14px 0}
+  th,td{border:1px solid var(--bd);padding:8px 10px;text-align:left;font-size:.94rem}
+  th{background:#1f2630}
+  .warn{color:var(--warn)} .ok{color:var(--acc)}
+</style></head><body>
+<h1>TASK-009 — Routing &amp; Escalation Engine</h1>
+<p class="meta">Phase 1 (demo) · 2026-09-04 · Satisfies SPEC-000 R4–R6 (deterministic routing &amp; escalation) and R20 (the model never decides who resolves or whether to escalate) · The rules-based heart of the demo. <span class="ok">47/47 tests green (8 routing rules + 2 BullMQ, real Redis).</span></p>
+
+<h2>What was done</h2>
+<div class="card">
+<ul>
+  <li><strong><code>packages/core/src/routing.ts</code></strong> — <code>routeBlocker</code> (table lookup → resolver + SLA), <code>routeAndAlert</code> (route + enqueue one CEO alert), <code>escalateBlocker</code> (level+1, one alert per level), <code>acknowledgeBlocker</code>, <code>slaSweep</code> (safety net), <code>slaMinutesFor</code>.</li>
+  <li><strong><code>packages/worker/src/escalation.ts</code></strong> — BullMQ <code>armEscalation</code>/<code>cancelEscalation</code> (delayed job keyed by blocker id) and a worker that escalates only if the blocker is still open.</li>
+  <li><strong><code>worker/src/index.ts</code></strong> — the loop now runs the outbox relay, the escalation worker, and a periodic <code>slaSweep</code>.</li>
+  <li><strong>Tests</strong> — 8 rule tests (per-severity SLA, category routing, catch-all, idempotent alert, escalation levels, ack, sweep) and 2 BullMQ arm/cancel tests against real Redis.</li>
+</ul>
+</div>
+
+<h2>Why it was done</h2>
+<div class="card">
+<p><strong>Routing is a table lookup, not a model call.</strong> When the CEO asks "why did this go to X?", the answer is a <code>routing_rule</code> row — reproducible and auditable. The LLM said <em>what kind</em> of problem it is (Task 008); a lookup decides <em>who</em> gets it. In the demo every rule resolves to the CEO, but the engine is table-driven, so real multi-resolver routing is a data change, not a rewrite.</p>
+<p><strong>Escalation is a rule on severity + age + SLA.</strong> Same inputs, same decision. The delayed job is a BullMQ job — "escalate in N minutes unless acknowledged" survives a restart, which a <code>setTimeout</code> would not. The <code>slaSweep</code> is a belt-and-braces safety net if a timer is ever lost.</p>
+</div>
+
+<h2>How it works</h2>
+<div class="card">
+<pre>routeAndAlert(blockerId)
+  routeBlocker: lookup routing_rule (category + catch-all, most specific first) → CEO
+               set assigned_resolver + sla_due_at = now + SLA(severity)
+               audit "blocker.routed"
+  enqueue ONE outbox alert to the resolver (idempotency: blocker-alert-&lt;id&gt;)
+
+armEscalation(blockerId, delayMs)  →  BullMQ delayed job (jobId esc-&lt;id&gt;)
+  fires → still open? → escalateBlocker (level+1, alert, audit)
+  acknowledged? → cancelEscalation removes the job
+
+slaSweep (every 5 min) → open + past sla_due_at + never escalated → escalateBlocker</pre>
+<p>SLA windows (minutes): critical 15 · high 60 · medium 240 · low 1440. These are <strong>placeholders</strong> until the company supplies real ones.</p>
+</div>
+
+<h2>Concepts and techniques used</h2>
+<div class="card">
+<ul>
+  <li><strong>Deterministic routing</strong> — a lookup keyed by (category, site, shift); the demo uses category + catch-all.</li>
+  <li><strong>Delayed jobs vs setTimeout</strong> — BullMQ persists the timer in Redis, surviving restarts.</li>
+  <li><strong>jobId as idempotency + cancel handle</strong> — arming twice is a no-op; cancelling is one remove.</li>
+  <li><strong>Safety-net sweep</strong> — a periodic query catches anything a lost timer missed.</li>
+  <li><strong>Bounded escalation</strong> — levels increment from stored state; never an unbounded loop.</li>
+  <li><strong>Idempotent alerts</strong> — one outbox row per blocker (and per escalation level).</li>
+</ul>
+</div>
+
+<h2>Research findings</h2>
+<div class="card">
+<p>Reused the transactional-outbox and BullMQ research. New gotcha: <strong>BullMQ 6 needs <code>ioredis</code> installed explicitly</strong> (it is an optional peer that pnpm does not auto-install) — otherwise the queue throws "could not load the optional 'ioredis' package".</p>
+</div>
+
+<h2 class="warn">What we have not verified</h2>
+<div class="card unverified">
+<ul>
+  <li><strong>SLA windows are ASSUMED placeholders</strong> (critical 15 / high 60 / medium 240 / low 1440 min). Real values await company answer A9.</li>
+  <li><strong>The delayed job FIRING is not tested for timing</strong> — only arm/cancel are (waiting 60 s in a test is flaky). The escalation <em>action</em> is tested via <code>slaSweep</code> and direct calls; the BullMQ fire→process path is trusted, not measured.</li>
+  <li><strong>Routing ignores site/shift</strong> — the blocker carries only <code>category</code>; site/shift live on <code>routing_rule</code> for future org-wide routing and would be derived from the raising employee then.</li>
+  <li>The CEO alert's <code>chatId</code> is NULL until the CEO links their Telegram id (Task 007), so alerts enqueue but cannot deliver yet.</li>
+  <li>No load/soak testing of the sweep or the queue.</li>
+</ul>
+</div>
+
+<h2>Open questions</h2>
+<div class="card">
+<ul>
+  <li>Real SLA windows and, later, real resolver routing (A7–A9).</li>
+  <li>Should routing derive site/shift from the employee, or should the blocker capture them at raise time?</li>
+</ul>
+</div>
+</body></html>

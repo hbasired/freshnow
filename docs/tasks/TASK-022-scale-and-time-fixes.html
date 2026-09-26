@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TASK-022 — Scale, Confirmation Naming &amp; Company Time</title>
+<style>
+  :root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#3fb950;--warn:#d29922;--bad:#f85149;--card:#161b22;--bd:#30363d}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+       font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+       max-width:900px;padding:48px 24px;margin-inline:auto}
+  h1{font-size:1.9rem;margin:0 0 4px} h2{margin-top:2.5rem;color:var(--acc);font-size:1.25rem}
+  h3{margin-top:1.6rem;font-size:1.02rem}
+  .meta{color:var(--mut);font-size:.9rem;margin-bottom:2rem}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:18px;margin:14px 0}
+  .unverified{border-left:3px solid var(--warn)}
+  .ok{border-left:3px solid var(--acc)}
+  .danger{border-left:3px solid var(--bad)}
+  code{background:#1f2630;padding:2px 6px;border-radius:4px;font-size:.9em}
+  pre{background:#010409;border:1px solid var(--bd);border-radius:8px;padding:14px;overflow-x:auto;font-size:.84rem}
+  table{border-collapse:collapse;width:100%;margin:14px 0}
+  th,td{border:1px solid var(--bd);padding:7px 9px;text-align:left;font-size:.9rem;vertical-align:top}
+  th{background:#1f2630}
+  .bad{color:var(--bad);font-weight:600}.good{color:var(--acc);font-weight:600}
+  ul{padding-left:1.1rem}
+</style></head><body>
+<h1>TASK-022 — Scale, Confirmation Naming &amp; Company Time</h1>
+<p class="meta">Phase 2 · 2026-09-09 · Satisfies CLAUDE.md rule 4 (bounded) and the style rule
+"store UTC, render Asia/Dubai" · Follows the first live end-to-end run of the document pipeline</p>
+
+<div class="card ok"><strong>One-sentence summary:</strong> A screenshot review confirmed the
+document pipeline works end to end and exposed two real defects — status confirmations that never
+named the task, and every displayed time being four hours wrong — then the bot was moved from
+one-update-at-a-time to concurrent processing with per-chat ordering and a measured cap on model
+calls.</div>
+
+<h2>What the screenshots confirmed</h2>
+<div class="card ok">
+<p>The document pipeline ran end to end for the first time, verified against the database:</p>
+<ul>
+<li>4 tasks created from the PDF, all routed, delivered as 4 separate "New task from the CEO"
+messages</li>
+<li><strong>The file was not forwarded</strong> — the default held</li>
+<li>The two names the document invented (<code>manvanth</code>, <code>atif</code>) were flagged and
+resolved by the CEO's tap, not guessed</li>
+<li>Blocker detection fired on ordinary free text: <em>"Did not go to the warehouse as travel was
+not possible"</em> → <strong>high logistics problem, CEO alerted</strong></li>
+</ul>
+</div>
+
+<h2 class="bad">Defect 1 — "Recorded as done" never said which task</h2>
+<p>The employee reported that a task they had marked done was still showing. The database was
+right and the interface was wrong:</p>
+<table>
+<tr><th>Task</th><th>Status</th><th>Note attached</th></tr>
+<tr><td>Assign tasks from PDF</td><td><strong>done</strong></td><td><em>"The demo finalization is
+complete and ready for demonstration."</em></td></tr>
+<tr><td>Build finalized DEMO platform…</td><td><strong>open</strong></td><td>never reported</td></tr>
+</table>
+<p>The <code>/log</code> board posts one card per task. Tapping a button puts the confirmation at
+the <em>bottom</em> of the chat, far from the card pressed, and the text said only
+<em>"Recorded as done. Anything to add about <strong>this task</strong>?"</em> — so the employee
+tapped the first card, believed it was another, and their note about the demo platform was filed
+against "Assign tasks from PDF".</p>
+<p>Every confirmation now names the task:
+<code>✅ Recorded as <strong>done</strong>: "Assign tasks from PDF"</code>. Cheap to fix, and it was
+producing genuinely wrong records — a note about one job attached to another, and a task the CEO
+would see as untouched while the employee believed it finished.</p>
+
+<h2 class="bad">Defect 2 — every displayed time was UTC</h2>
+<p>CLAUDE.md says "Store UTC, render Asia/Dubai." Only the first half was true. The employee was
+shown <code>05:11</code> for a message their own phone stamped <code>09:11</code> — four hours out
+on every timestamp this system has ever displayed, which makes an evening report look as though it
+was filed before dawn.</p>
+<p><strong>Worse than cosmetic:</strong> <code>new Date().toISOString().slice(0,10)</code> was used
+for "today" in the end-of-day report and the dashboard's default date. Between 20:00 and midnight
+in Dubai that returns <em>yesterday</em>, so an EOD report run at 20:30 — exactly when somebody
+would run it — would have summarised the wrong day entirely.</p>
+<p>New <code>packages/core/src/time.ts</code>: <code>localTime</code>,
+<code>localDateTime</code>, <code>localDate</code>, <code>companyToday</code>, all
+<code>Asia/Dubai</code>. Anything calling <code>toISOString()</code> on a user-facing path is now a
+bug.</p>
+
+<h2>Built for scale</h2>
+<p><code>bot.start()</code> processes updates <strong>one at a time</strong>. Every handler here can
+make a model call taking 1-4 seconds, so ten employees reporting at the end of a shift queue behind
+each other and the tenth waits the better part of a minute — for a bot whose entire value
+proposition is that reporting is quick.</p>
+
+<h3>1 · Concurrent processing, sequential per person</h3>
+<p>Moved to <code>@grammyjs/runner</code>, with <strong><code>sequentialize()</code> keyed by chat
+id as the first middleware</strong>, ahead of session loading.</p>
+<p>The sequencing is not optional. Conversation state lives in one <code>bot_session</code> row per
+chat: two concurrent handlers for the same person would both read the same step, both act on it,
+and the later write would erase the earlier — losing a half-finished registration, or creating one
+document's tasks twice. Different people run in parallel; one person runs in order.</p>
+<p><code>sink.concurrency</code> is 50, far below the runner's default of 500 — this box has 8 vCPU
+shared with Postgres, Redis and the worker, and admitting more work than can be served converts a
+queue into memory pressure.</p>
+
+<h3>2 · The cap belongs at the model, not the bot</h3>
+<p>Processing updates concurrently does not make a system scale; it moves the bottleneck. Ten
+simultaneous messages become ten simultaneous model calls, and the provider answers with 429s.</p>
+<p><code>llmSemaphore</code> (6 concurrent, 200 queued) wraps <code>llmComplete</code> — which every
+model call in the system already funnels through, so the cap is honest rather than advisory.
+Documents get their own narrower semaphore (2), because a document read is a download plus a parse
+plus a large prompt.</p>
+<p>The wait queue is <strong>bounded</strong>. An unbounded queue under sustained overload is a
+slower way to run out of memory, and it holds work until long after the person gave up. Past the cap
+we fail fast and say so. Waiting is the right behaviour otherwise: an employee whose message takes
+four seconds instead of two still gets an answer, whereas one whose message is dropped has learned
+not to trust the bot.</p>
+
+<h3>3 · Measured, not assumed</h3>
+<pre>20 simultaneous messages through the real pipeline
+
+elapsed        : 8161ms
+succeeded      : 20/20
+failed         : 0
+peak concurrent: 6   (exactly the limit)
+peak queued    : 14
+rejected       : 0
+throughput     : 2.5 msg/sec
+
+sequential would have taken roughly 30s  →  about 3.7x</pre>
+
+<h3>4 · Saturation is observable</h3>
+<p><code>/health</code> now reports <code>load</code> per semaphore — active, waiting, peak,
+rejected — and returns <code>busy</code> when anyone is queuing. <code>waiting</code> above zero
+means people are queuing for a model slot; <code>rejected</code> above zero is the number that says
+the box needs more capacity rather than more patience.</p>
+
+<h2 class="bad">A regression I introduced and fixed</h2>
+<div class="card danger">
+<p>While switching to the runner I called <code>bot.api.getMe()</code> <em>outside</em> the retry
+wrapper, purely to print the username in a log line. A routine ECONNRESET on this link — which
+happens several times an hour here — killed the process before it ever polled. Caught immediately
+because the restart failed loudly. Anything touching the network at startup now goes through
+<code>withRetry</code>, including calls whose only purpose is a log line, and an
+<code>unhandledRejection</code> handler keeps a transient fault from taking the bot down silently.</p>
+</div>
+
+<h2>Verification</h2>
+<ul>
+<li><strong>182 tests pass, typecheck clean</strong> (31 files, 1 skipped). New: 6 concurrency tests
+covering the limit, that nothing queued is dropped, slot release on throw, fail-fast when the queue
+is full, FIFO order, and that a 50-item burst finishes in waves rather than serially.</li>
+<li><strong>The load figure above is measured</strong> against the real model and the real database,
+not simulated.</li>
+<li>Bot confirmed running: <code>@freshnow1bot polling concurrently (sink 50, per-chat sequential,
+6 concurrent model calls)</code>.</li>
+<li><code>/health</code> confirmed returning live <code>load</code> figures.</li>
+</ul>
+
+<h2 class="bad">What we have not verified</h2>
+<div class="card unverified">
+<ul>
+<li><strong>The limits are reasoned, not measured against a real workforce.</strong> 6 concurrent
+model calls, 2 documents, sink 50 — chosen from this box's shape. They should be revisited once
+real load exists; there is no evidence yet about where this box actually degrades.</li>
+<li><strong>No test has exceeded 20 concurrent messages.</strong> The queue cap and the
+<code>QueueFullError</code> path are covered by unit tests only, never live.</li>
+<li><strong>No soak test.</strong> The runner has not been observed under sustained multi-hour load,
+so nothing is known about memory behaviour over time.</li>
+<li><strong>Per-chat sequencing is verified by construction</strong> — grammY's guarantee plus
+middleware order — <strong>not by a live race test</strong>. A test that fires two updates for one
+chat and asserts the session survives would be worth writing.</li>
+<li><strong>The worker is still a single process</strong> polling the outbox every 3s. That is fine
+at this volume but is the next thing to hit a ceiling, and it has not been load-tested at all.</li>
+<li><strong>Postgres pool is 5 connections per role.</strong> Not tuned against the new concurrency,
+and not yet a measured constraint.</li>
+<li>Carried over: voice accuracy unmeasured; <code>llm_call.cost_usd</code> reports 0; the NL-query
+box still runs as the service role rather than under the viewer's RLS context.</li>
+</ul>
+</div>
+
+<h2>Files touched</h2>
+<table>
+<tr><th>File</th><th>Change</th></tr>
+<tr><td><code>packages/core/src/time.ts</code></td><td>new — Asia/Dubai rendering, <code>companyToday</code></td></tr>
+<tr><td><code>packages/core/src/concurrency.ts</code></td><td>new — bounded semaphore, stats</td></tr>
+<tr><td><code>packages/core/src/llm/client.ts</code></td><td>every call now passes the semaphore</td></tr>
+<tr><td><code>packages/bot/src/index.ts</code></td><td>grammY runner, graceful drain, startup hardening</td></tr>
+<tr><td><code>packages/bot/src/bot.ts</code></td><td><code>sequentialize</code> first; confirmations name the task</td></tr>
+<tr><td><code>packages/api/src/routes/health.ts</code></td><td>reports live saturation</td></tr>
+<tr><td><code>packages/core/src/eod.ts</code>, <code>context.ts</code>, <code>intent.ts</code>,
+<code>routes/dashboard.ts</code></td><td>company time instead of UTC</td></tr>
+</table>
+</body></html>

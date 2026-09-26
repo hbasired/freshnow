@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TASK-006 — Telegram Bot Flows</title>
+<style>
+  :root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#3fb950;--warn:#d29922;--card:#161b22;--bd:#30363d}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+       font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+       max-width:860px;padding:48px 24px;margin-inline:auto}
+  h1{font-size:1.9rem;margin:0 0 4px} h2{margin-top:2.5rem;color:var(--acc);font-size:1.25rem}
+  h3{margin-top:1.6rem;font-size:1.02rem}
+  .meta{color:var(--mut);font-size:.9rem;margin-bottom:2rem}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:18px;margin:14px 0}
+  .unverified{border-left:3px solid var(--warn)}
+  .ok{border-left:3px solid var(--acc)}
+  code{background:#1f2630;padding:2px 6px;border-radius:4px;font-size:.9em}
+  pre{background:#010409;border:1px solid var(--bd);border-radius:8px;padding:14px;overflow-x:auto;font-size:.86rem}
+  table{border-collapse:collapse;width:100%;margin:14px 0}
+  th,td{border:1px solid var(--bd);padding:8px 10px;text-align:left;font-size:.94rem;vertical-align:top}
+  th{background:#1f2630}
+  ul{padding-left:1.1rem}
+</style></head><body>
+<h1>TASK-006 — Telegram Bot Flows</h1>
+<p class="meta">Phase 1 (demo D2/D3) · 2026-09-04 · Completes T6 (bot), T7 (invite + self-registration),
+T10 (CEO alert actions), T13 (assignment) · Satisfies SPEC-000 R1, R21, R23; 05-TELEGRAM-DATA-FLOW §3–§6</p>
+
+<div class="card ok"><strong>One-sentence summary:</strong> Replaced the bot's stub menus with the real
+conversation flows — invite-gated onboarding with PDPL consent, self-filled profile, daily task logging
+with raw-text-first blocker capture, a CEO blocker queue with one-tap acknowledge, and CEO→employee task
+assignment — all as thin handlers over new, tested <code>core</code> logic. <strong>80 tests green.</strong></div>
+
+<h2>What was done</h2>
+<p>The engine (parse → route → escalate → outbox) already existed and was tested; the bot's menu
+callbacks were stubs replying <em>"arrives next"</em>. This task made them real.</p>
+<table>
+<tr><th>File</th><th>What it holds</th></tr>
+<tr><td><code>packages/core/src/onboarding.ts</code> <em>(new)</em></td>
+<td>PDPL notice (EN/HI) + <code>noticeHash</code>, <code>validateInvite</code> (non-consuming),
+<code>redeemInvite</code> (transactional), <code>updateProfileField</code> (whitelisted columns),
+<code>ensureCeoLinked</code>, <code>withdrawConsent</code></td></tr>
+<tr><td><code>packages/core/src/updates.ts</code> <em>(new)</em></td>
+<td><code>listOpenTasks</code>, <code>createTask</code>, <code>recordTaskUpdate</code> (raw-first),
+<code>attachNoteAndProcess</code>, <code>listOpenBlockers</code>, <code>listEmployees</code>,
+<code>assignTask</code></td></tr>
+<tr><td><code>packages/bot/src/bot.ts</code> <em>(rewritten)</em></td>
+<td>Session state machine + every handler. Handlers only translate Telegram → core call → reply.</td></tr>
+<tr><td><code>packages/core/src/routing.ts</code></td><td>CEO alert payload now carries an inline <strong>Acknowledge</strong> button</td></tr>
+<tr><td>Tests <em>(new)</em></td><td><code>onboarding.test.ts</code> (10), <code>updates.test.ts</code> (7)</td></tr>
+</table>
+
+<h2>Why it was done</h2>
+<p>The demo's whole purpose is to show a company official a working loop on a real phone. Every part of
+that loop existed except the surface people actually touch.</p>
+<h3>The onboarding design — and the rule it had to respect</h3>
+<p><code>05-TELEGRAM-DATA-FLOW.md</code> §3 is explicit: <em>never let someone self-declare who they are</em>,
+because anyone who finds the bot could enrol as anyone. But the requirement was equally explicit that the
+CEO must not do data entry for every employee. These are reconciled by splitting identity from description:</p>
+<pre>
+CEO types a NAME only  ──►  single-use code (72h)  ──►  employee redeems it
+                                                            │
+                                        consent shown BEFORE the code is consumed
+                                                            │
+                            code + consent accepted ──► employee row created & linked
+                                                            │
+                              employee self-fills department / role / site / shift
+</pre>
+<p>The <strong>code is the authorisation gate</strong> (spec-faithful); the <strong>descriptive profile is
+self-filled</strong> (as required). Checking a code does not consume it, so consent is genuinely obtained
+before anything is written.</p>
+
+<h2>How it works</h2>
+<h3>Ordering that protects the employee's words</h3>
+<p>Tapping <em>Blocker</em> writes the <code>task_update</code> row immediately with the button status —
+which is deterministic ground truth — and no note. The bot then asks what's blocking it. When the text
+arrives it is written to <code>note_raw</code> and the employee is acknowledged <em>before</em> the model
+is called. Only then does parse → route → alert run. If Groq is down the update is flagged
+<code>needs_review</code> and the employee's words are still on disk (SPEC-000 R23).</p>
+<h3>Conversation state</h3>
+<p>A small tagged union in grammY's in-memory session
+(<code>awaiting_code | awaiting_consent | profile | blocker_note | new_task | invite_name | assign_title</code>).
+A restart loses only the <em>pointer to the next question</em>, never data, because each answer is written
+to Postgres as it arrives.</p>
+<h3>Nothing is sent directly</h3>
+<p>Assignment and alerts both write to <code>notification_outbox</code> with an idempotency key; the worker
+delivers. The CEO's alert carries an <code>Acknowledge</code> button whose tap cancels the escalation timer —
+an explicit human action, never autonomous (SPEC-000 R21).</p>
+
+<h2>Concepts and techniques used</h2>
+<ul>
+<li><strong>Thin adapter / fat core</strong> — every handler is translate-and-delegate, so the logic is unit-testable without a Telegram harness (CLAUDE.md rule 1).</li>
+<li><strong>Authorisation gate vs. descriptive data</strong> — the security-relevant fact (who you are) is granted; the non-sensitive facts (what you do) are self-declared.</li>
+<li><strong>Consent-before-write, with a notice hash</strong> — proves <em>what</em> was agreed to, not merely that something was.</li>
+<li><strong>Transactional redemption with <code>SELECT … FOR UPDATE</code></strong> — a double redeem cannot create two identities.</li>
+<li><strong>Write-raw-first</strong> — persistence ordering as a durability guarantee.</li>
+<li><strong>Column whitelisting</strong> — the profile updater switches over a fixed field set; an SQL identifier is never built from input.</li>
+<li><strong>Transactional outbox</strong> — assignment/alert delivery survives restarts and is exactly-once.</li>
+</ul>
+
+<h2>Research findings</h2>
+<ul>
+<li><strong>Bot token verified live</strong> against <code>getMe</code>: the bot is <code>@freshnow1bot</code>. <code>getWebhookInfo</code> returned an empty URL, so long polling runs without the webhook/polling conflict.</li>
+<li><strong>grammY <code>session</code></strong> ships in core grammy (no extra dependency); the <code>conversations</code> plugin was not needed for a 7-state machine.</li>
+<li><strong>callback_data 64-byte limit</strong> — the longest payload used is <code>log:&lt;uuid&gt;:blocker</code> at 48 bytes, comfortably inside the cap.</li>
+<li><strong>Correction carried forward:</strong> the LLM provider is <strong>Groq</strong> (<code>api.groq.com</code>, <code>gpt-oss-120b</code>) with an NVIDIA NIM fallback — not xAI's "Grok". Earlier planning notes said xAI; the code was already correct.</li>
+</ul>
+
+<h2 class="warn">What we have not verified</h2>
+<div class="card unverified">
+<ul>
+<li><strong>No flow has been exercised on a real phone yet.</strong> Every handler is covered indirectly through its core function, but the actual tap-through (buttons rendering, force-reply behaviour, message ordering) is untested until the two accounts run it. This is the single biggest gap.</li>
+<li><strong><code>CEO_TELEGRAM_USER_ID</code> is still empty</strong>, so <code>resolveRole</code> returns "employee" for everyone and the CEO menu/alerts are unreachable until it is set.</li>
+<li><strong>The LLM path in the blocker flow is not covered by an automated test</strong> — <code>attachNoteAndProcess</code> calls Groq, so it is exercised only by the pre-existing live test and by manual use. Cost and latency of that call are unmeasured here.</li>
+<li><strong>Hindi is handled by the model prompt, not proven in these tests.</strong> The parser was verified in Hindi in T8; the onboarding/profile text is English-only regardless of the chosen language.</li>
+<li><strong>Session state is in memory.</strong> Losing the process mid-registration means re-tapping; not load-tested, and not shared across processes.</li>
+<li><strong>Alerts queued before a recipient is linked can never deliver</strong> — they carry <code>chat_id = null</code>, retry, and are then abandoned (observed live: 3 seed alerts abandoned). Only alerts created after linking will arrive.</li>
+<li><strong><code>createInvite</code> marks the invite row <code>is_synthetic = true</code></strong> even for a real person. The employee row it produces is correctly <code>false</code>; the invite row's flag is a cosmetic mislabel worth fixing.</li>
+</ul>
+</div>
+
+<h2>Open questions</h2>
+<ul>
+<li>Which Telegram account is the CEO? Needed to populate <code>CEO_TELEGRAM_USER_ID</code>; both accounts should run <code>/start</code> so their ids are captured in <code>audit_log</code>.</li>
+<li>Should an employee be able to see blockers they raised after they are resolved, or only open ones?</li>
+<li>Company Block A still open: real blocker taxonomy, real SLA windows, real org/resolver map — all still synthetic.</li>
+</ul>
+</body></html>

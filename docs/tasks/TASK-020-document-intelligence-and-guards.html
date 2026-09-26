@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TASK-020 — Document Intelligence, Conversation Guards &amp; Dashboard Navigation</title>
+<style>
+  :root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#3fb950;--warn:#d29922;--bad:#f85149;--card:#161b22;--bd:#30363d}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+       font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+       max-width:900px;padding:48px 24px;margin-inline:auto}
+  h1{font-size:1.9rem;margin:0 0 4px} h2{margin-top:2.5rem;color:var(--acc);font-size:1.25rem}
+  h3{margin-top:1.6rem;font-size:1.02rem}
+  .meta{color:var(--mut);font-size:.9rem;margin-bottom:2rem}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:18px;margin:14px 0}
+  .unverified{border-left:3px solid var(--warn)}
+  .ok{border-left:3px solid var(--acc)}
+  .danger{border-left:3px solid var(--bad)}
+  code{background:#1f2630;padding:2px 6px;border-radius:4px;font-size:.9em}
+  pre{background:#010409;border:1px solid var(--bd);border-radius:8px;padding:14px;overflow-x:auto;font-size:.84rem}
+  table{border-collapse:collapse;width:100%;margin:14px 0}
+  th,td{border:1px solid var(--bd);padding:7px 9px;text-align:left;font-size:.9rem;vertical-align:top}
+  th{background:#1f2630}
+  .bad{color:var(--bad);font-weight:600}.good{color:var(--acc);font-weight:600}
+  ul{padding-left:1.1rem}
+</style></head><body>
+<h1>TASK-020 — Document Intelligence, Conversation Guards &amp; Dashboard Navigation</h1>
+<p class="meta">Phase 2 (demo fast-follow) · 2026-09-08 · Extends T13 (assignment) and T12
+(dashboard) · Satisfies CLAUDE.md rule 2 (the model proposes, a human commits), rule 3
+(deterministic guards, auditable) and rule 4 (bounded)</p>
+
+<div class="card ok"><strong>One-sentence summary:</strong> A PDF full of jobs is now read and
+split into one tracked assignment per job routed to the person each names — instead of the whole
+file being forwarded to one person — plus two deterministic guards for the incident where an
+overnight question swallowed the next morning's instruction, a direct <code>/log</code> command,
+and a rebuilt dashboard navigation.</div>
+
+<h2>What triggered this</h2>
+<p>Four screenshots from a live session, each showing a distinct problem.</p>
+
+<h3 class="bad">A · An overnight question ate the next morning's message</h3>
+<p>At 15:11 the CEO sent <code>/invite</code>; the bot asked for a name and never got one. The
+step was still live the next morning, so the 09:43 caption was accepted as the answer. The
+database ended up holding this:</p>
+<table>
+<tr><th>code</th><th>display_name</th></tr>
+<tr><td><code>3BYGXR4X</code></td><td>Assign the tasks to hemanth based on the attached pdf document.</td></tr>
+</table>
+<p>The assignment the CEO wanted never happened, and an invite code existed for a person named
+after a whole sentence. <strong>That code has been cancelled and the cancellation audit-logged.</strong></p>
+
+<h3 class="bad">B · The PDF was forwarded, not understood</h3>
+<p>One task was created — <code>Assign tasks from PDF</code> — with the raw file stapled to it.
+Nobody can report status against "here is a PDF". The document actually contained four numbered
+items of real work.</p>
+
+<h3 class="bad">C · There was no way to just log a status</h3>
+<p>Daily capture was reachable only by tapping through a menu. There was no command for the one
+thing people are meant to do every day.</p>
+
+<h3>D · The document appeared to hang — and this one was not our fault</h3>
+<p>Both <code>sendDocument</code> calls were <strong>accepted</strong> by Telegram: outbox rows
+<code>sent</code>, 1 attempt, no retries. The recipient's client then could not pull the bytes.
+At that moment, from this machine, three independent symptoms:</p>
+<ul>
+<li><code>setMyCommands</code> failed on bot startup (the retry recovered it)</li>
+<li><code>getFile</code> returned <strong>Gateway Timeout</strong> for both stored file ids</li>
+<li>the raw download threw <strong>ECONNRESET</strong></li>
+</ul>
+<p>Hours later the <em>same file ids</em> downloaded in <strong>627ms</strong> and
+<strong>187ms</strong> with valid <code>%PDF-</code> headers. Same code, same references — so the
+references were never bad and the transport was. This is now designed for rather than assumed
+away: <code>downloadTelegramFile()</code> retries three times with backoff, and on failure keeps
+the file held so retrying costs one message rather than a re-upload.</p>
+
+<h2>What was built</h2>
+
+<h3>1 · Documents are read, split and routed</h3>
+<p>New <code>packages/core/src/documents.ts</code>. The document is downloaded, its text
+extracted, and the separate jobs inside it become separate assignments to the people it names.
+On the real document from the incident:</p>
+<pre>4 numbered items  →  6 tracked tasks, each its own assignment and its own message
+
+1. Build the complete finalized DEMO platform for status logging and task assigning → Hemanth
+2. Report back about previous tasks                                                 → Hemanth
+3. Go to warehouse to get details of employees and production systems               → Hemanth
+4. Check what is working in the warehouse and what can be due for maintenance        → Hemanth
+5. Enter all data in the database and automate alerts in the dashboard               → Hemanth</pre>
+<p>Six rather than four because items 1 and 4 each contained two distinct jobs. Each has its own
+status thread, which "here is a PDF" never had.</p>
+<p><strong>The file is no longer forwarded by default.</strong> It goes only on an explicit tap
+(<code>📄 Also send the file</code>), and then rides on the first task only, so one document does
+not arrive six times.</p>
+
+<h3>2 · The plan is a proposal, not an autonomous write</h3>
+<p><code>planDocumentTasks</code> writes nothing. The CEO sees every task and its owner and taps
+to create them. A task whose owner could not be resolved shows as
+<strong>"⚠️ nobody named — needs you to say who"</strong> and blocks the create button — the model
+never picks the nearest-looking colleague. Grounding is the same as everywhere else: the model
+returns an index into a list we supplied, validated on return.</p>
+<p>Tested with a name that is real in the document and absent from the company
+("Bartholomew Fitzgerald"): the task comes back with <strong>no assignee</strong> and
+<code>needsOwner = true</code>.</p>
+
+<h3>3 · Two deterministic conversation guards</h3>
+<p><code>packages/bot/src/guards.ts</code> — rules, not model calls, because they guard a question
+the bot itself asked: they must behave identically every time, cost nothing, and be testable
+without a network. Both err towards <em>asking</em>: a false "not a name" costs one tap, a false
+"yes" mints a wrong record.</p>
+<table>
+<tr><th>Guard</th><th>Rule</th></tr>
+<tr><td><code>isStepStale</code></td><td>30-minute TTL. Past it the step is dropped before the
+handler runs <em>and the person is told</em> — silent expiry would answer their next message in a
+context they no longer remember being in. A session with no timestamp counts as stale.</td></tr>
+<tr><td><code>looksLikeName</code></td><td>≤40 chars, ≤4 words, no sentence punctuation or digits,
+no instruction verb — and refused outright when a document is attached, because nobody staples a
+PDF to a name. On a "no" the bot asks which was meant.</td></tr>
+</table>
+
+<h3>4 · <code>/log</code>, <code>/status</code>, <code>/mytasks</code></h3>
+<p>All three call one <code>showLogBoard()</code>, so the command cannot drift from the menu
+button. <code>/log</code> sits directly after <code>/start</code> in the Telegram command menu —
+reporting your day is the daily action, and menu-diving to reach it is a barrier for exactly
+whoever most needs it.</p>
+
+<h3>5 · Dashboard navigation</h3>
+<p>Eight pills in one horizontally-scrolling strip hid half the tabs off the right edge of a
+phone — the device this is actually read on, which makes that the same as not having them.</p>
+<ul>
+<li>Grouped sidebar on a wide screen (<strong>Today / Work / Records / Tools</strong>); a 4-across
+grid on a phone with nothing scrolled out of reach.</li>
+<li>A <strong>live count on each tab</strong>, so you can see where the work is without opening it;
+blockers and carry-over turn red when non-zero.</li>
+<li>A breadcrumb naming what you are looking at and why.</li>
+<li>The tab is kept in the <strong>URL hash</strong>, so a refresh, a bookmark or a shared link
+lands back on the same view.</li>
+</ul>
+
+<h2>Research</h2>
+<p>PDF text extraction in Node, checked at task start rather than assumed:</p>
+<table>
+<tr><th>Library</th><th>Verdict</th></tr>
+<tr><td><strong>unpdf 1.8.1</strong></td><td><strong>Chosen.</strong> MIT, <strong>zero runtime
+dependencies</strong>, Node ≥22, published 2026-08-13. Ships a serverless build of Mozilla's PDF.js
+with canvas mocked. Zero deps matters on a box where every process competes with Postgres for CPU.
+The <code>@napi-rs/canvas</code> peer is for rendering only and is not installed.</td></tr>
+<tr><td>pdfjs-dist</td><td>Full engine — layout coordinates, fonts, rasterization. More than text
+extraction needs.</td></tr>
+<tr><td>pdf-parse</td><td>Simple, but older and thinner than unpdf on the same underlying engine.</td></tr>
+</table>
+<p>Measured on the real document: 1 page, 481 chars, <strong>259ms</strong>.</p>
+
+<h2>Verification</h2>
+<ul>
+<li><strong>123 tests pass, typecheck clean</strong> (27 files, 1 skipped). New: 5 document tests,
+4 document-assignment tests, 9 guard tests, 5 bot-flow tests.</li>
+<li><strong>The bot's own router is tested</strong>, not just core: <code>flows.test.ts</code>
+drives <code>handleText</code> with a stub context and asserts the incident message produces a
+question and <strong>no invite code</strong>, that a plausible name with a document attached is
+still questioned, that a real name still works, and that an expired step is announced.</li>
+<li><strong>Per-job assignment verified against the database</strong> — one assignment row and one
+outbox delivery per job; a mixed document gives each person their own task and only their own.</li>
+<li><strong>Non-forwarding verified</strong> — 0 attachment rows and 0 attachment outbox rows on a
+plain assignment; still 1 when the CEO opts in.</li>
+<li><strong>Dashboard verified live</strong> — script parses, all 15 referenced element ids exist,
+71 divs balanced, 8 tabs and 4 nav groups present.</li>
+<li><code>/log</code> confirmed registered via <code>getMyCommands</code>.</li>
+<li>Document planning ran against the <strong>real PDF</strong> from the incident, and the
+regression tests use its actual text.</li>
+</ul>
+
+<h2 class="bad">What we have not verified</h2>
+<div class="card unverified">
+<ul>
+<li><strong>Nobody has run the document flow from a real phone.</strong> The handler wiring is
+covered by typecheck and a stub-context test, but no one has sent a PDF through Telegram and
+tapped "Create these tasks". This is the single most important thing to try next.</li>
+<li><strong>Only one real document has been tested</strong> — one page, English, a clean numbered
+list under a single governing heading. Multi-page documents, tables, Hindi or Malayalam text, and
+documents mixing several people under sub-headings are all untested. Where the boundary falls
+between "two jobs" and "one job in two clauses" is a model judgement and has not been measured
+across a corpus.</li>
+<li><strong>Scanned/image PDFs are handled but not tested with a real scan.</strong> The code path
+says "I could not find any text — tell me the tasks here"; that message has not been seen in
+practice. There is no OCR.</li>
+<li><strong>The 30-minute TTL is a judgement, not a measured figure</strong> — long enough to
+survive an interruption, far short of the overnight gap that caused the incident. It has not been
+validated against how people actually use the bot.</li>
+<li><strong><code>looksLikeName</code> is English-centric.</strong> The instruction-verb list is
+English; a Hindi or Malayalam instruction would pass the verb check, though the length, word-count
+and punctuation rules still apply.</li>
+<li><strong>The new dashboard navigation has not been opened in a phone browser</strong> — it is
+verified by parsing and by markup assertions only.</li>
+<li>Carried over: voice accuracy unmeasured; <code>llm_call.cost_usd</code> reports 0; the NL-query
+box still runs as the service role rather than under the viewer's RLS context.</li>
+</ul>
+</div>
+
+<h2>Files touched</h2>
+<table>
+<tr><th>File</th><th>Change</th></tr>
+<tr><td><code>packages/core/src/documents.ts</code></td><td>new — extract, plan, format</td></tr>
+<tr><td><code>packages/bot/src/guards.ts</code></td><td>new — staleness + name plausibility</td></tr>
+<tr><td><code>packages/bot/src/bot.ts</code></td><td>document plan flow, TTL middleware, ambiguity
+step, <code>/log</code>, shared <code>showLogBoard</code></td></tr>
+<tr><td><code>packages/bot/src/index.ts</code></td><td><code>/log</code> in the command menu</td></tr>
+<tr><td><code>packages/api/src/dashboard-page.ts</code></td><td>grouped nav, counts, breadcrumb, hash routing</td></tr>
+<tr><td><code>packages/core/src/index.ts</code></td><td>document exports</td></tr>
+<tr><td>4 new test files</td><td><code>documents</code>, <code>document-assignment</code>,
+<code>guards</code>, <code>flows</code></td></tr>
+</table>
+</body></html>

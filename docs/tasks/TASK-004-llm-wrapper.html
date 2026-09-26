@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TASK-004 — LLM Wrapper (Groq + NVIDIA)</title>
+<style>
+  :root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#3fb950;--warn:#d29922;--card:#161b22;--bd:#30363d}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+       font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+       max-width:860px;padding:48px 24px;margin-inline:auto}
+  h1{font-size:1.9rem;margin:0 0 4px} h2{margin-top:2.5rem;color:var(--acc);font-size:1.25rem}
+  .meta{color:var(--mut);font-size:.9rem;margin-bottom:2rem}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:18px;margin:14px 0}
+  .unverified{border-left:3px solid var(--warn)}
+  code{background:#1f2630;padding:2px 6px;border-radius:4px;font-size:.9em}
+  pre{background:#010409;border:1px solid var(--bd);border-radius:8px;padding:14px;overflow-x:auto}
+  table{border-collapse:collapse;width:100%;margin:14px 0}
+  th,td{border:1px solid var(--bd);padding:8px 10px;text-align:left;font-size:.94rem}
+  th{background:#1f2630}
+  .warn{color:var(--warn)} .ok{color:var(--acc)}
+</style></head><body>
+<h1>TASK-004 — LLM Wrapper (Groq primary, NVIDIA fallback)</h1>
+<p class="meta">Phase 1 (demo) · 2026-09-04 · Satisfies SPEC-000 R13 (llm_call logging), R15/R17 (bounded loops &amp; retries), R19 (translate, don't compute), and the "single wrapper" rule · One entrypoint for every model call. <span class="ok">29/29 tests green.</span></p>
+
+<h2>What was done</h2>
+<div class="card">
+<ul>
+  <li><strong><code>packages/core/src/llm/client.ts</code></strong> — <code>llmComplete({messages, schema, correlationId})</code>: the single LLM entrypoint. Returns a Zod-validated object.</li>
+  <li><strong><code>extract.ts</code></strong> — tolerant JSON extraction (handles code fences and prose-wrapped JSON from reasoning models).</li>
+  <li><strong><code>cost.ts</code></strong> — best-effort token→USD estimate feeding the daily budget cap.</li>
+  <li><strong>Model IDs corrected</strong> — a live query showed Groq no longer serves <code>llama-3.3-70b-versatile</code>. Primary is now <code>openai/gpt-oss-120b</code> (verified); fallback is the NVIDIA nemotron model. Updated in <code>config.ts</code>, <code>.env</code>, <code>.env.example</code>.</li>
+  <li><strong>Tests</strong> — <code>extract.test.ts</code> (4) + <code>client.test.ts</code> (3, stubbed fetch + real DB): success+logging, provider fallback, and budget-exceeded degradation.</li>
+</ul>
+</div>
+
+<h2>Why it was done</h2>
+<div class="card">
+<p><strong>One wrapper, by rule.</strong> CLAUDE.md forbids calling a model from handlers. Everything goes through <code>llmComplete</code>, so schema validation, retries, timeouts, cost logging, and the budget cap are enforced in exactly one place.</p>
+<p><strong>The model translates; it never computes.</strong> <code>llmComplete</code> takes a Zod schema and returns a validated object — it turns free text into structure, and nothing it returns is a number it invented (SPEC-000 R19). Aggregation stays in Postgres (Task 014).</p>
+<p><strong>Bounded, always.</strong> A 10 s timeout, one retry per provider, then the fallback provider — then it gives up with <code>LlmError</code>. Over the daily budget it throws <code>LlmBudgetExceededError</code> so callers degrade to rules-only rather than spend without limit (SPEC-000 R15/R17).</p>
+</div>
+
+<h2>How it works</h2>
+<div class="card">
+<pre>llmComplete({messages, schema, correlationId})
+  │
+  ├─ dailySpendUsd() ≥ budget?  ──▶ throw LlmBudgetExceededError  (degrade to rules)
+  │
+  ├─ for provider in [groq, nvidia]:
+  │     for attempt in [0,1]:              ← one retry
+  │        fetch {base}/chat/completions   ← AbortController, 10 s
+  │           response_format: json_object, temperature 0
+  │        extractJson(content) ─▶ schema.parse(...)   ← validate
+  │        logLlmCall(tokens, cost, latency, success)  ← llm_call row
+  │        return validated object
+  │     (on failure: log failure, try next attempt / provider)
+  │
+  └─ all failed ──▶ throw LlmError</pre>
+<p>Live check (2026-09-04): a single Groq call with <code>openai/gpt-oss-120b</code> on <em>"chiller in van 2 not holding temp, juice at risk"</em> returned <code>{"status":"blocker","category":"equipment","severity":"high"}</code> using 146 prompt + 186 completion tokens.</p>
+</div>
+
+<h2>Concepts and techniques used</h2>
+<div class="card">
+<ul>
+  <li><strong>Single-wrapper boundary</strong> — one module owns every model call and its guardrails.</li>
+  <li><strong>Structured output + tolerant parsing</strong> — request <code>json_object</code>, then extract-and-validate so a chatty or reasoning model can't corrupt state.</li>
+  <li><strong>Bounded retries + provider fallback</strong> — a fixed attempt budget, never an unbounded loop.</li>
+  <li><strong>Budget circuit-breaker → graceful degradation</strong> — spend is checked before every call; over cap, the system falls back to rules.</li>
+  <li><strong>Cost/latency/token observability</strong> — every call writes an <code>llm_call</code> row.</li>
+</ul>
+</div>
+
+<h2>Research findings</h2>
+<div class="card">
+<ul>
+  <li><strong>Groq catalog moved (2026).</strong> Live <code>/models</code> query: <code>openai/gpt-oss-120b</code>, <code>openai/gpt-oss-20b</code>, <code>qwen/qwen3.8-27b</code>, plus <code>whisper-large-v3</code> / <code>-turbo</code> (STT) and <code>canopylabs/orpheus-*</code> (TTS). <code>llama-3.3-70b-versatile</code> is gone. Chose <code>gpt-oss-120b</code> and verified JSON extraction works.</li>
+  <li><strong>Bonus for later:</strong> Groq hosts Whisper — a cloud STT option for Task 016 (voice) using the same key, and Orpheus TTS for Task 017. Recorded, not yet adopted.</li>
+  <li><strong>NVIDIA NIM</strong> — the user's <code>nvidia/nemotron-3-nano-omni-30b-a3b-reasoning</code> is available; kept as the fallback. Cleaner instruct models (<code>nvidia/llama-3.1-nemotron-70b-instruct</code>) are also available if the omni-reasoning model proves noisy for JSON.</li>
+</ul>
+</div>
+
+<h2 class="warn">What we have not verified</h2>
+<div class="card unverified">
+<ul>
+  <li><strong>Committed tests stub the network</strong> — the wrapper logic is proven, but the only real API call was a single manual Groq check. The NVIDIA fallback has <strong>not</strong> been live-tested for <code>json_object</code> support.</li>
+  <li><strong>Cost is a $0 placeholder</strong> (free tier). The budget cap mechanism is tested by inserting a synthetic high-cost row; real per-token pricing is UNVERIFIED.</li>
+  <li><strong>Hindi/Hinglish extraction quality is unmeasured</strong> — contract tests across languages come with the parser task (Task 008).</li>
+  <li>Behaviour under provider rate-limiting / 429s, and under real latency, is untested.</li>
+  <li>No prompt-injection hardening on the free-text input yet.</li>
+</ul>
+</div>
+
+<h2>Open questions</h2>
+<div class="card">
+<ul>
+  <li>Real token pricing for a meaningful budget cap (currently everything estimates $0).</li>
+  <li>Adopt Groq Whisper for Task 016 instead of local faster-whisper? (Same key, cloud, fast.)</li>
+  <li>Does the NVIDIA omni model reliably honour <code>json_object</code>, or should the fallback be an instruct model?</li>
+</ul>
+</div>
+</body></html>

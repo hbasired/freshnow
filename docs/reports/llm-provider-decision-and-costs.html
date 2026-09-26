@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Which AI provider, what it costs, and the Telegram verdict — FreshNow</title>
+<style>
+  :root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#3fb950;--warn:#d29922;--bad:#f85149;--card:#161b22;--bd:#30363d;--blue:#88c0f0}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;max-width:980px;padding:44px 22px 90px;margin-inline:auto}
+  h1{font-size:1.9rem;margin:0 0 6px} h2{margin-top:2.6rem;color:var(--acc);font-size:1.3rem;border-bottom:1px solid var(--bd);padding-bottom:6px} h3{margin-top:1.6rem;font-size:1.05rem}
+  .meta{color:var(--mut);font-size:.9rem;margin-bottom:1.4rem}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:16px 18px;margin:14px 0}
+  .ok{border-left:3px solid var(--acc)} .warn{border-left:3px solid var(--warn)} .bad{border-left:3px solid var(--bad)} .info{border-left:3px solid var(--blue)}
+  code{background:#1f2630;padding:2px 6px;border-radius:4px;font-size:.9em}
+  .tw{overflow-x:auto} table{border-collapse:collapse;width:100%;margin:14px 0}
+  th,td{border:1px solid var(--bd);padding:7px 9px;text-align:left;font-size:.88rem;vertical-align:top} th{background:#1f2630}
+  td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+  .v{color:var(--acc);font-weight:600}.b{color:var(--warn);font-weight:600}.a{color:var(--bad);font-weight:600}.u{color:var(--mut);font-weight:600}
+  ul{padding-left:1.15rem} li{margin:3px 0}
+  a{color:var(--blue)} .small{font-size:.86rem;color:var(--mut)}
+  .big{font-size:1.15rem}
+</style></head><body>
+<h1>Which AI provider, what it costs, and the Telegram verdict</h1>
+<p class="meta">Prepared 2026-09-19 for FreshNow · follows <a href="uae-data-residency-and-llm-analysis.html">UAE data residency, the PDPL, and where our AI should run</a> and <a href="messaging-resilience.html">Telegram alternatives — resilience and data residency</a> · prices read from the vendors' own pages today · token counts measured from our own call log</p>
+
+<div class="card warn"><b>How to read this.</b> Not legal advice — a technical reading of the law's text and of what our system does, for a UAE lawyer to confirm. <span class="v">[verified]</span> = primary source or our own data; <span class="b">[believed]</span> = reputable secondary sources; <span class="u">[assumed]</span> = a number I had to pick, stated so you can change it.</div>
+
+<h2>1 · Groq / OpenRouter, or a UAE-hosted provider? — the verdict</h2>
+<div class="card bad">
+<p class="big"><b>Do not use Groq or OpenRouter (or NVIDIA) for real employee data in production. Use Core42 Compass, with OpenAI's UAE endpoint as the second option.</b> Keep the Groq/OpenRouter keys for development against synthetic (DEMO) data only.</p>
+</div>
+<p>I re-read the relevant articles of Federal Decree-Law 45/2021 and the vendor documentation before writing this. Four reasons, in order of weight:</p>
+<ol>
+  <li><b>No processor contract is possible on those terms.</b> Art. 7(5) requires the controller to "appoint a Processor who provides sufficient guarantees", and Art. 8(1) requires processing "in accordance with the instructions of the Controller and the contracts and agreements concluded between them" <span class="v">[verified]</span>. Groq, OpenRouter and NVIDIA's self-serve APIs are consumer-grade terms; Groq's privacy policy says customer data is governed by a separate Services Agreement and DPA that a self-serve key does not give you <span class="v">[verified — Groq privacy policy, effective 12 Nov 2025]</span>. Core42 and OpenAI both offer business terms and DPAs.</li>
+  <li><b>They process outside the UAE with no route under Art. 22.</b> Groq runs in the US, Canada, Saudi Arabia, Finland and Australia — no UAE, and no way I could find to pin a region; NVIDIA and OpenRouter are US <span class="v">[verified]</span>. The adequacy route (Art. 22) does not exist yet because the Executive Regulations have not been issued (as of March 2026) <span class="b">[believed — Chambers 2026]</span>, so the only grounds left are express consent (Art. 23(1)(b)) or a contract importing the law's controls (Art. 23(1)(a)) — the second of which brings us back to reason 1.</li>
+  <li><b>Our consent does not cover it.</b> The notice employees agreed to says nothing about an AI service abroad <span class="v">[verified — quoted in the residency report §5]</span>. Until a new notice is consented, every Groq call with a real person's words is a transfer with no lawful ground we can point to.</li>
+  <li><b>The fallback chain makes it worse silently.</b> <code>LLM_PROVIDER_ORDER=groq,openrouter,nvidia</code> means a rate-limit at one US company routes the same employee text to a second and a third, with no notice to anyone. A residency posture cannot have a fallback that leaves the country.</li>
+</ol>
+<div class="card ok">
+<p><b>What "use Core42" means in practice</b> — one configuration change and one code change, then re-run the existing contract tests and the model benchmark:</p>
+<ul>
+  <li>Sign up to Core42 Compass, get the DPA in writing, and put its OpenAI-compatible base URL and key in <code>.env</code> as a new provider entry. The model is the same <code>openai/gpt-oss-120b</code> we run today, so prompts and the extraction contract tests should pass unchanged — verify, do not assume <span class="u">[Core42's API format is described as "Chat Completion"; I have not tested it]</span>.</li>
+  <li>Set <code>LLM_PROVIDER_ORDER=core42</code> and <b>remove the US providers from the fallback list</b>. When Core42 is down or rate-limited, the wrapper's existing degradation applies: the update is stored verbatim, flagged <em>needs a human</em>, and a person is alerted — nothing is lost and nothing leaves the country.</li>
+  <li>Voice: point transcription at Azure UAE North's Whisper (Standard deployment — in-region <span class="v">[verified — Microsoft's region table]</span>) or Core42's GPT-4o Transcribe (preview); until then, turn voice off. Groq Whisper stays off.</li>
+  <li>Optionally add OpenAI's UAE endpoint (<code>ae.api.openai.com</code>, requires approval) as a second in-country provider for the question box, where a stronger model helps. Its cheap eligible model is <code>gpt-5.6-luna</code>.</li>
+</ul>
+</div>
+<p class="small">Honest note on the past: during development, 250 chat calls and one voice note went to Groq, 54 to NVIDIA, 17 to OpenRouter. Most carried DEMO (synthetic) text; the one real registered person's updates went through Groq. That is history the audit log records; the fix is forward-looking.</p>
+
+<h2>2 · What it will cost — 100 assignments and 200 status updates a day</h2>
+
+<h3>Where the numbers come from</h3>
+<div class="tw"><table>
+<thead><tr><th>Operation</th><th>Model calls</th><th class="n">Tokens in</th><th class="n">Tokens out</th><th>Basis</th></tr></thead>
+<tbody>
+<tr><td>Status update with words (Telegram text or voice transcript)</td><td>2 — intent resolution + extraction</td><td class="n">1,600</td><td class="n">600</td><td>Measured: our log averages 629 in / 341 out per call on status runs (72 calls), intent calls ~716 in; rounded up <span class="v">[verified]</span></td></tr>
+<tr><td>Status update by button tap only (Done / Pending)</td><td>0</td><td class="n">0</td><td class="n">0</td><td>Deterministic — no model. Not counted; I assumed all 200 carry words, which over-estimates</td></tr>
+<tr><td>Assignment by Telegram message ("tell Priya to …")</td><td>1 — the intent resolver extracts person + task</td><td class="n">700</td><td class="n">250</td><td>Measured intent call size <span class="v">[verified]</span></td></tr>
+<tr><td>Assignment by <code>/assign</code> buttons or the dashboard form</td><td>0</td><td class="n">0</td><td class="n">0</td><td>Deterministic — the directory, the tap and the title never touch a model <span class="v">[verified in code]</span></td></tr>
+<tr><td>Assignment by PDF (per document, ~2 pages)</td><td>1 — the planner reads the extracted text</td><td class="n">1,700</td><td class="n">550</td><td>Measured 716 in / 529 out on short test PDFs, scaled to ~2 pages; text is capped at 20,000 characters (~5,000 tokens) per document <span class="v">[verified cap]</span></td></tr>
+<tr><td>End-of-day narrative</td><td>1 per active employee per day</td><td class="n">1,000</td><td class="n">200</td><td>Estimated from the prompt shape; <b>40 employees assumed</b> (200 updates ÷ 5 per person) <span class="u">[assumed]</span></td></tr>
+<tr><td>CEO question box</td><td>2 — translate to SQL + narrate</td><td class="n">2,300</td><td class="n">300</td><td><b>10 questions/day assumed</b> <span class="u">[assumed]</span></td></tr>
+<tr><td>Voice notes</td><td>transcription, priced per minute</td><td colspan="2" class="n">20 min/day</td><td><b>20% of updates as 30-second voice notes assumed</b>; $0.006/min is OpenAI's list price for Whisper and gpt-4o-transcribe <span class="v">[verified]</span>; Core42's transcription price is not published on the pages I read</td></tr>
+<tr><td>Evidence / report PDFs attached to a status update</td><td><b>0 today</b></td><td class="n">—</td><td class="n">—</td><td>Attachments are stored and forwarded; no model reads them <span class="v">[verified in code]</span>. If you want them summarised, add ~800 in / 200 out per page (optional line below)</td></tr>
+</tbody></table></div>
+
+<h3>Prices used (per 1M tokens, read today)</h3>
+<div class="tw"><table>
+<thead><tr><th>Provider · model</th><th class="n">Input</th><th class="n">Output</th><th>Source</th></tr></thead>
+<tbody>
+<tr><td>Core42 Compass · <code>gpt-oss-120b</code> on Qualcomm</td><td class="n">$0.15</td><td class="n">$0.37</td><td rowspan="2"><a href="https://aicloud.core42.ai/gpt-oss">Core42 page</a> <span class="v">[verified]</span></td></tr>
+<tr><td>Core42 Compass · <code>gpt-oss-120b</code> on Cerebras (faster)</td><td class="n">$0.25</td><td class="n">$0.69</td></tr>
+<tr><td>OpenAI UAE · <code>gpt-5.6-luna</code> (+10% residency uplift)</td><td class="n">$0.22</td><td class="n">$1.32</td><td rowspan="3"><a href="https://developers.openai.com/api/docs/pricing">OpenAI pricing</a>: luna $0.20/$1.20, 5.2 $1.75/$14, 5.5 $5/$30; "Regional processing (data residency) endpoints are charged a 10% uplift for models released on or after March 5, 2026" <span class="v">[verified]</span>. Only these three are eligible for UAE processing</td></tr>
+<tr><td>OpenAI UAE · <code>gpt-5.2</code> (+10%)</td><td class="n">$1.93</td><td class="n">$15.40</td></tr>
+<tr><td>OpenAI UAE · <code>gpt-5.5</code> (+10%)</td><td class="n">$5.50</td><td class="n">$33.00</td></tr>
+</tbody></table></div>
+
+<h3>Daily spend by scenario (chat models; add $0.12/day for voice at 20 min)</h3>
+<p class="small">200 status updates with words + 40 EOD narratives + 10 questions in every scenario; only the 100 assignments change channel. PDF scenario assumes 5 tasks per PDF → 20 PDFs/day <span class="u">[assumed]</span>; at 1 task per PDF the PDF scenario is 100 PDFs/day — column shown in brackets.</p>
+<div class="tw"><table>
+<thead><tr><th>Scenario</th><th class="n">Tokens/day in · out</th><th class="n">Core42 Qualcomm</th><th class="n">Core42 Cerebras</th><th class="n">OpenAI luna UAE</th><th class="n">OpenAI 5.2 UAE</th><th class="n">OpenAI 5.5 UAE</th></tr></thead>
+<tbody>
+<tr><td><b>A</b> — all 100 assignments by Telegram message</td><td class="n">453k · 156k</td><td class="n"><b>$0.13</b></td><td class="n">$0.22</td><td class="n">$0.31</td><td class="n">$3.27</td><td class="n">$7.64</td></tr>
+<tr><td><b>B</b> — all 100 on the dashboard (or <code>/assign</code> buttons)</td><td class="n">383k · 131k</td><td class="n"><b>$0.11</b></td><td class="n">$0.19</td><td class="n">$0.26</td><td class="n">$2.76</td><td class="n">$6.43</td></tr>
+<tr><td><b>C</b> — all 100 by PDF, 5 tasks per PDF (1 per PDF)</td><td class="n">417k · 142k (553k · 186k)</td><td class="n"><b>$0.12</b> ($0.15)</td><td class="n">$0.20 ($0.27)</td><td class="n">$0.28 ($0.37)</td><td class="n">$2.99 ($3.93)</td><td class="n">$6.98 ($9.18)</td></tr>
+<tr><td><b>D</b> — one third each (message / dashboard / PDF)</td><td class="n">418k · 143k</td><td class="n"><b>$0.12</b></td><td class="n">$0.20</td><td class="n">$0.28</td><td class="n">$3.01</td><td class="n">$7.02</td></tr>
+<tr><td>Optional: also read 50 evidence pages/day</td><td class="n">+40k · +10k</td><td class="n">+$0.01</td><td class="n">+$0.02</td><td class="n">+$0.02</td><td class="n">+$0.23</td><td class="n">+$0.55</td></tr>
+<tr><td>Voice, 20 min/day (any provider at $0.006/min)</td><td></td><td class="n" colspan="5">+$0.12</td></tr>
+</tbody></table></div>
+
+<div class="card ok">
+<p><b>Read the table like this.</b> With Core42 running the same model we use now, <b>a full day of this volume costs about 12 cents in chat tokens and another 12 cents in voice — roughly $7–8 a month, under $100 a year</b>, in scenario D. OpenAI's <code>gpt-5.6-luna</code> in the UAE is about 2.5× that — still under $10/month. The "flagship" OpenAI models (5.2, 5.5) are 25–60× dearer and buy nothing for extraction and routing; if you ever want them, use them for the CEO's question box only. <b>The channel mix barely matters</b>: assignments are the cheap operation, and the dashboard/button path is free. Status updates dominate because each carries two model calls. The current <code>LLM_DAILY_BUDGET_USD=2</code> cap covers every Core42 and luna scenario with room to spare.</p>
+<p><b>Per item</b> on Core42 (Qualcomm): a status update costs $0.00046, an assignment by message $0.00020, a planned PDF $0.00046, an evidence page $0.00019.</p>
+</div>
+
+<h3>What would change these numbers</h3>
+<ul>
+  <li><b>Script.</b> Hindi and Malayalam typed in native script tokenise 2–3× worse than Latin transliteration; our measured averages are mostly transliterated Hinglish and English. Worst case, double the status-update line.</li>
+  <li><b>Employee count.</b> EOD narratives scale with people, not updates: 100 employees add ~$0.01/day on Core42.</li>
+  <li><b>Retries.</b> The wrapper retries once on a bad JSON; measured failure rates are low, but budget 10% headroom.</li>
+  <li><b>Reasoning effort.</b> <code>gpt-oss-120b</code> is a reasoning model; if it is run at a high reasoning setting, output tokens (the expensive side) can multiply several-fold. Our measured 340-token outputs are at the default.</li>
+</ul>
+
+<h2>3 · Telegram — can we use it, or is it a violation?</h2>
+<div class="card ok">
+<p class="big"><b>Using Telegram for this is not a violation of UAE law as written, provided the notice says what it does and the person agrees.</b> It is a permitted cross-border transfer on the consent ground, not a prohibited one — and it must be treated as a transfer, not ignored.</p>
+</div>
+<div class="tw"><table>
+<thead><tr><th>Rule</th><th>What it says</th><th>Our position</th></tr></thead>
+<tbody>
+<tr><td>TDRA — is the app itself allowed?</td><td>VoIP is a licensed telecom service; unlicensed voice/video calling is the restricted feature. Text, buttons and files are not <span class="v">[verified — TDRA FAQ]</span></td><td class="v">Allowed. The bot never uses calls.</td></tr>
+<tr><td>PDPL Art. 2 — does the law apply?</td><td>Yes: a controller in the State processing data of subjects in the State <span class="v">[verified]</span></td><td>Applies to every message.</td></tr>
+<tr><td>PDPL Art. 22–23 — data stored abroad</td><td>Telegram stores cloud chats in data centres worldwide, none in the UAE, and offers no business contract <span class="v">[verified — Telegram privacy policy]</span>. Transfer without adequacy is permitted with "the express Consent of the Data Subject to transfer his/her Personal Data outside the State" (Art. 23(1)(b)) <span class="v">[verified]</span></td><td class="b">Lawful <b>only after</b> the notice names Telegram and the person consents to it. Today's notice does not — fix it first (draft in the residency report §5).</td></tr>
+<tr><td>PDPL Art. 7(5) / 8 — is Telegram our processor?</td><td>A processor acts on the controller's instructions under a contract. Telegram is a communications service the employee also uses privately; the company cannot instruct it or contract with it</td><td class="b">My reading: Telegram is an independent service, like an email provider, not an appointed processor — <b>a lawyer should confirm</b>. If the regulator treats every channel as a processor needing a contract, Telegram fails that test and the in-app channel or WhatsApp Business (UAE storage) replaces it.</td></tr>
+<tr><td>Sector localisation (health, banking, government)</td><td>Strict in-country rules, not applicable to operational task data <span class="b">[believed]</span></td><td class="v">Does not apply — and keep it that way: never solicit health details in a status update.</td></tr>
+<tr><td>Employee monitoring (Labour Law 33/2021, PDPL Art. 5)</td><td>Monitoring must be disclosed, proportionate, purpose-limited <span class="b">[believed]</span></td><td class="v">The bot is a self-report channel: no location, no scoring, no sentiment, no reading of private chats. Disclosed in the notice.</td></tr>
+<tr><td>Art. 6(2) — withdrawal</td><td>Consent can be withdrawn at any time</td><td class="v">Built: <code>/withdraw</code> disables the account; the CEO's erase action anonymises.</td></tr>
+<tr><td>Art. 28–29 — Executive Regulations</td><td>May set "controls and requirements" for the Art. 23 cases; six-month regularisation once issued</td><td class="b">Review the Telegram position the day they are published.</td></tr>
+</tbody></table></div>
+<p><b>So:</b> keep Telegram as the primary channel, re-consent everyone with a notice that names it, keep Postgres as the only record (already true), and build the in-country in-app channel so that a change in the rules — or a Telegram ban — is a switch, not a rebuild.</p>
+
+<h2>4 · What I could not verify</h2>
+<ul>
+  <li>Whether the Executive Regulations have been issued since March 2026 (Chambers says no; no primary source found either way).</li>
+  <li>Core42's logging/retention terms and its transcription price — not on the pages I read; get the DPA.</li>
+  <li>That Core42's API accepts our prompts unchanged — the contract tests will tell.</li>
+  <li>Whether a UAE regulator would treat Telegram as a processor requiring a contract — a lawyer's call.</li>
+  <li>The 40-employee, 10-question, 20%-voice and 5-tasks-per-PDF assumptions — change them in the table and the arithmetic is linear.</li>
+</ul>
+
+<h2>Sources</h2>
+<ul class="small">
+  <li>Federal Decree-Law No. 45 of 2021 (English translation, LexisNexis Middle East): <a href="https://privacyarabia.com/wp-content/uploads/2022/08/Decree-Law-45-2021-Data-Protection-Law-English.pdf">PDF</a></li>
+  <li>Chambers, <em>Data Protection &amp; Privacy 2026 — UAE</em>: <a href="https://practiceguides.chambers.com/practice-guides/data-protection-privacy-2026/uae/trends-and-developments">link</a></li>
+  <li>OpenAI pricing: <a href="https://developers.openai.com/api/docs/pricing">developers.openai.com/api/docs/pricing</a>; OpenAI data controls (UAE region, eligible models): <a href="https://developers.openai.com/api/docs/guides/your-data">link</a></li>
+  <li>Core42, GPT-OSS on Compass (pricing): <a href="https://aicloud.core42.ai/gpt-oss">link</a>; Compass changelog: <a href="https://www.core42.ai/compass/documentation/2025">link</a></li>
+  <li>Microsoft Learn, region availability for Foundry Models (Whisper in UAE North): <a href="https://learn.microsoft.com/en-us/azure/foundry/foundry-models/concepts/models-sold-directly-by-azure-region-availability">link</a></li>
+  <li>Groq privacy policy: <a href="https://groq.com/privacy-policy">link</a>; Groq data centres: <a href="https://groq.com/newsroom/groq-launches-european-data-center-footprint-in-helsinki-finland">Helsinki</a>, <a href="https://groq.com/newsroom/groq-expands-to-asia-pacific-with-sydney-data-center-to-power-the-next-generation-of-ai-inference">Sydney</a></li>
+  <li>TDRA FAQs: <a href="https://tdra.gov.ae/en/FAQs">link</a>; Telegram privacy policy: <a href="https://telegram.org/privacy">link</a>; Telegram Bot FAQ: <a href="https://core.telegram.org/bots/faq">link</a></li>
+  <li>Our own: <code>llm_call</code> (322 calls; per-operation averages joined to <code>audit_log</code> by correlation id), <code>documents.ts</code> (<code>MAX_DOC_CHARS = 20_000</code>), <code>.env</code> (<code>LLM_PROVIDER_ORDER</code>, <code>LLM_DAILY_BUDGET_USD=2</code>).</li>
+</ul>
+</body></html>

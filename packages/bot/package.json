@@ -1,0 +1,13 @@
+{
+  "name": "@freshnow/bot",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts"
+  },
+  "dependencies": {
+    "@freshnow/core": "workspace:*",
+    "grammy": "^1.46.0"
+  }
+}

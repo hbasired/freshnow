@@ -1,0 +1,254 @@
+export { loadConfig, configSchema } from "./config.js";
+export type { Config } from "./config.js";
+
+export { PROJECT_NAME, IS_DEMO, DEMO_CEO_ID } from "./meta.js";
+
+export { resolveRole, botRole } from "./roles.js";
+export type { Role } from "./roles.js";
+
+export { getAppSql, getServiceSql, withContext, closeDb } from "./db.js";
+export type { Db, Tx, AppContext, AccessRole } from "./db.js";
+
+export { ACCESS_ROLES, loadViewer, canAssignTo, updateOrg, ceoEmployeeId, listAssignable, listOpenBlockersFor } from "./org.js";
+export {
+  addTaskStep,
+  setStepDone,
+  recomputeProgress,
+  reportProgress,
+  updateTaskFields,
+  linkTasks,
+  resolveBlocker,
+  closeTask,
+  INVERSE,
+  MAX_RELATIONS_PER_TASK,
+} from "./progress.js";
+export type { ProgressSource, RelationKind, TaskStep } from "./progress.js";
+export type { ViewerOrg } from "./org.js";
+
+export { logAudit } from "./audit.js";
+export type { AuditEntry } from "./audit.js";
+
+export { createInvite, generateInviteCode } from "./invite.js";
+export type { CreatedInvite } from "./invite.js";
+
+export { enqueueNotification } from "./outbox.js";
+export type { OutboxMessage, OutboxChannel } from "./outbox.js";
+export { OUTBOX_CHANNELS } from "./outbox.js";
+
+export { extractBlocker, parseTaskUpdate, blockerExtractionSchema } from "./parse.js";
+export type { BlockerExtraction, ParseResult } from "./parse.js";
+
+export {
+  routeBlocker,
+  routeAndAlert,
+  escalateBlocker,
+  acknowledgeBlocker,
+  slaSweep,
+  sweepUnroutedBlockers,
+  slaMinutesFor,
+  loadSlaMinutes,
+  resolveForCategory,
+} from "./routing.js";
+export type { RouteResult, RouteAndAlertResult, EscalationResult, UnroutedSweepResult } from "./routing.js";
+
+export { recordTrace, traceStats, resetTraceStats, TRACE_STEPS } from "./trace.js";
+export {
+  CHANNELS,
+  channelAvailability,
+  channelStates,
+  liveChannels,
+  isChannelLive,
+  setChannelEnabled,
+} from "./channels.js";
+export type { Channel, ChannelState } from "./channels.js";
+export {
+  savePushSubscription,
+  deletePushSubscription,
+  pushSubscriptionsFor,
+  listMyDevices,
+  markPushDelivered,
+} from "./push.js";
+export type { PushSubscriptionInput, StoredPushSubscription } from "./push.js";
+export { screenInboundEmail, recordInboundEmail, secretMatches, addressOf } from "./inbound-email.js";
+export type { InboundEmail, InboundVerdict } from "./inbound-email.js";
+export { retentionSweep, retentionDays, eraseEmployee } from "./retention.js";
+export type { RetentionResult, ErasureResult } from "./retention.js";
+export type { TraceStep } from "./trace.js";
+
+export { subscribeToChanges, changeSubscriberCount, closeChangeStream } from "./changes.js";
+export type { ChangeEvent, ChangeListener } from "./changes.js";
+
+export {
+  PROJECT_STATUSES,
+  HEALTHS,
+  REQUIREMENT_KINDS,
+  MOSCOW,
+  ISSUE_KINDS,
+  ISSUE_STATUSES,
+  MEMBER_ROLES,
+  STALE_PROJECT_DAYS,
+  createProject,
+  updateProject,
+  setProjectHealth,
+  addRequirement,
+  setRequirementStatus,
+  addMilestone,
+  setMilestoneStatus,
+  addProjectMember,
+  removeProjectMember,
+  setTaskProject,
+  addProjectUpdate,
+  raiseProjectIssue,
+  resolveProjectIssue,
+  projectSweep,
+  canManageProject,
+  canContributeToProject,
+} from "./projects.js";
+export type {
+  ProjectStatus,
+  Health,
+  RequirementKind,
+  Moscow,
+  IssueKind,
+  IssueStatus,
+  MemberRole,
+  ProjectSweepResult,
+} from "./projects.js";
+
+export {
+  ALERT_EVENT_TYPES,
+  PREF_MODES,
+  availableChannels,
+  resolveAlertRecipients,
+  notify,
+  openAlert,
+  blockerAlias,
+  loadEscalationLadder,
+  mayAcknowledgeBlocker,
+  addTaskWatcher,
+  removeTaskWatcher,
+  setNotificationPref,
+  markNotificationsRead,
+} from "./alerts.js";
+export type { AlertEvent, AlertEventType, AlertRecipient, NotifyResult, EscalationLevelRow, PrefMode } from "./alerts.js";
+
+export { replayRun } from "./replay.js";
+export type { ReplayReport, ReplayCheck } from "./replay.js";
+
+export { seedDemo } from "./seed.js";
+export type { SeedCounts } from "./seed.js";
+
+export { answerQuestion, MAX_ROWS } from "./query/answer.js";
+export type { QueryResult } from "./query/answer.js";
+export { validateReadOnlySql } from "./query/guard.js";
+export { numericSanityGate } from "./query/gates.js";
+
+export { llmComplete, LlmError, LlmBudgetExceededError } from "./llm/client.js";
+export {
+  isTracingEnabled,
+  langfuseConfig,
+  traceLlmCall,
+  flushTraces,
+  tracingStats,
+  stopTracing,
+  resetTracingStats,
+} from "./llm/langfuse.js";
+export type { LangfuseConfig, TracedCall } from "./llm/langfuse.js";
+export type { LlmMessage, LlmCompleteOpts } from "./llm/client.js";
+export { extractJson } from "./llm/extract.js";
+export { estimateCost } from "./llm/cost.js";
+
+export {
+  CONSENT_POLICY_VERSION,
+  consentNotice,
+  noticeHash,
+  validateInvite,
+  redeemInvite,
+  PROFILE_STEPS,
+  profilePrompt,
+  updateProfileField,
+  ensureCeoLinked,
+  withdrawConsent,
+} from "./onboarding.js";
+export type { InviteCheck, RedeemResult, ProfileStep, ProfileField } from "./onboarding.js";
+
+export {
+  listOpenTasks,
+  createTask,
+  recordTaskUpdate,
+  attachNoteAndProcess,
+  listEmployees,
+  listOpenBlockers,
+  assignTask,
+} from "./updates.js";
+export type {
+  OpenTask,
+  ReportedStatus,
+  UpdateChannel,
+  RecordedUpdate,
+  ProcessedNote,
+  DirectoryEntry,
+  OpenBlocker,
+  AssignmentResult,
+} from "./updates.js";
+
+export {
+  transcribeAudio,
+  saveVoiceAsset,
+  markVoiceTranscribed,
+  markVoiceFailed,
+} from "./voice.js";
+export type { Transcription } from "./voice.js";
+
+export { classifyIntent, intentSchema, isObviousQuestion, summariseOwnWork, formatOwnWork } from "./intent.js";
+export type { Intent, OwnWorkSummary } from "./intent.js";
+
+export { loadMessageContext, resolveMessage } from "./context.js";
+export type { MessageContext, ResolvedMessage, ResolvedItem, ContextTask, ContextPerson } from "./context.js";
+
+export { generateEodReport, generateAllEodReports, formatEodReport } from "./eod.js";
+export type { EodReport, EodTaskLine, EodBlockerLine } from "./eod.js";
+
+export { saveAttachments, listAttachmentsForAssignment, describeAttachment, MAX_ATTACHMENTS } from "./attachments.js";
+export type { IncomingFile, StoredAttachment } from "./attachments.js";
+
+export {
+  extractPdfText,
+  decodeTextFile,
+  planDocumentTasks,
+  formatDocumentPlan,
+  MAX_DOC_CHARS,
+  MAX_DOC_TASKS,
+} from "./documents.js";
+export type { ExtractedDocument, DocumentTask, DocumentPlan } from "./documents.js";
+
+export {
+  inspectFile,
+  detectFileType,
+  safeFileName,
+  explainVerdict,
+  MAX_FILE_BYTES,
+  MAX_PDF_PAGES,
+  MAX_TEXT_CHARS,
+} from "./document-security.js";
+export type { SafetyReport, Verdict } from "./document-security.js";
+
+export {
+  scanForInjection,
+  spotlight,
+  sanitiseModelText,
+  outputLooksInjected,
+  logInjectionScan,
+  explainInjection,
+  SPOTLIGHT_RULE,
+} from "./injection.js";
+export type { InjectionScan } from "./injection.js";
+
+export { checkRateLimit, LIMITS } from "./rate-limit.js";
+export type { RateLimit, RateDecision } from "./rate-limit.js";
+
+export { localTime, localDateTime, localDate, companyToday, COMPANY_TZ } from "./time.js";
+
+export { Semaphore, QueueFullError, llmSemaphore, documentSemaphore, concurrencyStats } from "./concurrency.js";
+export type { SemaphoreStats } from "./concurrency.js";
+export { escapeMarkdown } from "./document-security.js";

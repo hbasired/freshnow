@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TASK-014 — Guarded NL-Query</title>
+<style>
+  :root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#3fb950;--warn:#d29922;--card:#161b22;--bd:#30363d}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+       font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+       max-width:860px;padding:48px 24px;margin-inline:auto}
+  h1{font-size:1.9rem;margin:0 0 4px} h2{margin-top:2.5rem;color:var(--acc);font-size:1.25rem}
+  .meta{color:var(--mut);font-size:.9rem;margin-bottom:2rem}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:18px;margin:14px 0}
+  .unverified{border-left:3px solid var(--warn)}
+  code{background:#1f2630;padding:2px 6px;border-radius:4px;font-size:.9em}
+  pre{background:#010409;border:1px solid var(--bd);border-radius:8px;padding:14px;overflow-x:auto}
+  .warn{color:var(--warn)} .ok{color:var(--acc)}
+</style></head><body>
+<h1>TASK-014 — Guarded Natural-Language Query</h1>
+<p class="meta">Phase 2 (pulled into demo) · 2026-09-04 · Satisfies SPEC-003 (LLM translates, Postgres computes, gates catch invented numbers) · Ask in plain English, get a SQL-backed answer or an honest abstention. <span class="ok">10 tests + live-verified against real Groq.</span></p>
+
+<h2>What was done</h2>
+<div class="card">
+<ul>
+  <li><strong><code>query/guard.ts</code></strong> — <code>validateReadOnlySql</code>: single statement, SELECT/WITH only, no write keywords, LIMIT enforced.</li>
+  <li><strong><code>query/gates.ts</code></strong> — <code>numericSanityGate</code>: every number in the answer must appear in the returned rows.</li>
+  <li><strong><code>query/answer.ts</code></strong> — <code>answerQuestion</code>: NL→SQL (bounded, validated) → run in a READ ONLY transaction (≤50 rows) → narrate → gate → return the answer <em>with</em> the executed SQL, row count, gate verdict. Abstention is reachable.</li>
+  <li><strong>Tests</strong> — guard (5), gate (3), and an end-to-end that proves the gate catches an invented number; plus a live run against the seeded demo DB.</li>
+</ul>
+</div>
+
+<h2>Why it was done</h2>
+<div class="card">
+<p>The CEO can ask "how many equipment blockers?" and the model must <strong>not</strong> read rows and count them — it writes a query, Postgres counts over every row, and the model narrates a small result. Then a deterministic gate runs before anything is shown. If a number can't be verified, the system abstains and shows the SQL rather than guessing. This is the whole thesis of the project made usable.</p>
+</div>
+
+<h2>How it works</h2>
+<div class="card">
+<pre>question ─▶ LLM: translate → SQL   (validated read-only, LIMIT 50)
+                     │
+              READ ONLY txn ─▶ Postgres computes ─▶ ≤50 rows
+                     │
+              LLM: narrate rows → answer
+                     │
+   numeric-sanity gate: every number in the answer ∈ rows?
+        pass → answer + SQL + rowCount + gate verdict
+        fail → abstain, show the SQL, never print the number</pre>
+<p><strong>Live verification (2026-09-04):</strong> "How many equipment blockers?" → <code>SELECT COUNT(*) FROM blocker WHERE category = 'equipment'</code> → "There are 2 equipment blockers" (correct). "How many critical?" → <code>WHERE severity='critical'</code> → "1" (correct).</p>
+</div>
+
+<h2>Concepts and techniques used</h2>
+<div class="card">
+<ul>
+  <li><strong>Text-to-SQL with translate-not-compute</strong> — the number comes from Postgres, never the model.</li>
+  <li><strong>Read-only transaction guard</strong> — <code>set transaction read only</code> makes any write fail at the DB, on top of SQL validation.</li>
+  <li><strong>Numeric-sanity gate</strong> — catches "correct query, invented total".</li>
+  <li><strong>Bounded + abstaining</strong> — 2 SQL attempts, MAX_ROWS 50, and "I don't have that" is a valid answer.</li>
+  <li><strong>Evidence attached</strong> — the executed SQL and row count travel with every answer.</li>
+</ul>
+</div>
+
+<h2>Research findings</h2>
+<div class="card">
+<p>The first live run exposed a real limitation: the model wrote <code>WHERE affected_asset = 'equipment'</code> instead of <code>category = 'equipment'</code>, returning "0" — and the gate <strong>passed</strong>, because 0 was faithfully grounded in that (wrong) query. Adding value hints to the schema context (<code>category text[equipment|supply|…]</code>) fixed it. The lesson is recorded honestly below.</p>
+</div>
+
+<h2 class="warn">What we have not verified</h2>
+<div class="card unverified">
+<ul>
+  <li><strong>The gate catches invented NUMBERS, not semantic query errors.</strong> A wrong-but-internally-consistent query (wrong column, wrong filter) passes the gate. Schema hints reduce this; full semantic validation (a second, differently-derived cross-check) is deferred (SPEC-003's cross-validator, task 022).</li>
+  <li>The schema context is <strong>hand-curated and hardcoded</strong>, not pruned from <code>schema.yaml</code> at runtime.</li>
+  <li>The <strong>grounding gate</strong> (policy claims must cite a source) is not implemented.</li>
+  <li>The query runs as the service role — <strong>per-viewer RLS scoping</strong> is wired when the dashboard adds it (so an employee's question only sees their own data).</li>
+  <li>Only simple aggregate questions over tiny seed data were tried; multi-join/complex questions are untested.</li>
+</ul>
+</div>
+
+<h2>Open questions</h2>
+<div class="card">
+<ul>
+  <li>Add a cross-validation step (re-derive the answer a second way) for semantic correctness?</li>
+  <li>Scope the query to the viewer's RLS role at the dashboard boundary (Task 012).</li>
+</ul>
+</div>
+</body></html>

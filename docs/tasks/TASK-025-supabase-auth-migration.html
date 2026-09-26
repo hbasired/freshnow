@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TASK-025 — Supabase Migration &amp; Real Dashboard Sign-in</title>
+<style>
+  :root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#3fb950;--warn:#d29922;--bad:#f85149;--card:#161b22;--bd:#30363d}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+       font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+       max-width:940px;padding:48px 24px;margin-inline:auto}
+  h1{font-size:1.9rem;margin:0 0 4px} h2{margin-top:2.5rem;color:var(--acc);font-size:1.25rem}
+  h3{margin-top:1.6rem;font-size:1.02rem}
+  .meta{color:var(--mut);font-size:.9rem;margin-bottom:2rem}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:18px;margin:14px 0}
+  .unverified{border-left:3px solid var(--warn)}
+  .ok{border-left:3px solid var(--acc)}
+  .danger{border-left:3px solid var(--bad)}
+  code{background:#1f2630;padding:2px 6px;border-radius:4px;font-size:.9em}
+  pre{background:#010409;border:1px solid var(--bd);border-radius:8px;padding:14px;overflow-x:auto;font-size:.84rem}
+  .tw{overflow-x:auto}
+  table{border-collapse:collapse;width:100%;margin:14px 0}
+  th,td{border:1px solid var(--bd);padding:7px 9px;text-align:left;font-size:.88rem;vertical-align:top}
+  th{background:#1f2630}
+  .bad{color:var(--bad);font-weight:600}.good{color:var(--acc);font-weight:600}.warn{color:var(--warn);font-weight:600}
+  ul{padding-left:1.1rem}
+</style></head><body>
+<h1>TASK-025 — Supabase Migration &amp; Real Dashboard Sign-in</h1>
+<p class="meta">2026-09-11 → 2026-09-12 · Moved the live system onto Supabase · Replaced the
+<code>?viewer=</code> demo identity with verified Supabase Auth tokens · Checked it in a real
+browser as the CEO and as an employee · 210 tests green on Supabase Postgres</p>
+
+<div class="card ok"><strong>One-sentence summary:</strong> FreshNow now runs on Supabase, every
+row copied and counted, and the dashboard has real sign-in — and signing in through a real browser
+found three defects that the build, the typecheck and 210 tests had all passed.</div>
+
+<h2>1 · Why this task</h2>
+<p>You asked for Supabase as "the final one which will be used when deployed". TASK-024
+recommended it for a second reason: the dashboard had <b>no authentication</b>. It decided who you
+were from <code>?viewer=</code> — a URL parameter anyone could set to <code>ceo</code>. Row-level
+security then correctly enforced an identity nobody had checked. Supabase Auth supplies the
+missing half: an identity the server can verify.</p>
+
+<h2>2 · Research</h2>
+<p>The stack research was done in TASK-024 (Supabase, Supavisor transaction pooling, why our
+<code>set_config(…, true)</code> RLS context is pooler-safe). This task verified the specifics
+against the running stack rather than re-searching them:</p>
+<ul>
+  <li>The Supabase CLI (2.117) local stack publishes an <b>ES256</b> signing key at
+    <code>/auth/v1/.well-known/jwks.json</code>. Local development therefore exercises the same
+    asymmetric verification a hosted project uses — not the legacy shared HS256 secret.</li>
+  <li>New-style keys: <code>sb_publishable_…</code> (public, ships to browsers) and
+    <code>sb_secret_…</code> (bypasses RLS through the Data API). The publishable key works with
+    Auth through the local gateway.</li>
+  <li>On Supabase, <code>postgres</code> has BYPASSRLS but is <b>not</b> a superuser, and is
+    allowed to set <code>session_replication_role</code> — what Supabase's own restore guide uses.</li>
+</ul>
+
+<h2>3 · What was built</h2>
+<div class="tw"><table>
+  <thead><tr><th>Piece</th><th>What it does</th><th>Why this way</th></tr></thead>
+  <tbody>
+    <tr><td><code>packages/api/src/auth.ts</code></td>
+      <td>Verifies the bearer token against the published keys (ES256/RS256 only; issuer and
+        audience checked), then maps <code>sub</code> to an active employee via
+        <code>employee.auth_user_id</code>. 401 for a bad token, 403 for a valid stranger.</td>
+      <td>Verification is local (key set cached), so there is no auth round trip per request. One
+        message for every token failure — which check failed helps an attacker, not a user.</td></tr>
+    <tr><td>Auth hook in <code>routes/dashboard.ts</code></td>
+      <td>A <code>preHandler</code> on <code>/dashboard/*</code> and <code>/employees/*</code>
+        sets the viewer from the verified token. <code>?viewer=</code> is ignored.</td>
+      <td>A hook, not per-route code, so no route can forget it.</td></tr>
+    <tr><td>CEO-only gates</td>
+      <td>Question box, report generation and invites return 403 to a non-CEO token.</td>
+      <td>The question box still runs generated SQL as the service role; open to all, it would
+        read everything.</td></tr>
+    <tr><td><code>/app-config</code>, <code>/dashboard/me</code></td>
+      <td>Tell the React app whether sign-in is required and who is signed in. A local Supabase
+        address is rewritten to the host the browser used, so a phone gets the PC's address.</td>
+      <td>The same build runs in demo mode and production without a rebuild.</td></tr>
+    <tr><td>React: <code>Root.tsx</code>, <code>lib/auth.ts</code></td>
+      <td>Login screen, session kept and refreshed by supabase-js, token attached to every API
+        call, sign-out. Employees get no viewer dropdown, no Ask tab, no Generate button.</td>
+      <td>Hide what the API will refuse, rather than show buttons that can only fail.</td></tr>
+    <tr><td>Migration 0007</td>
+      <td>Adds <code>employee.auth_user_id</code> (unique when set). Revokes Supabase's default
+        grants to <code>anon</code> and <code>authenticated</code> on everything in <code>public</code>,
+        now and for future tables.</td>
+      <td>No FK to <code>auth.users</code>: it would make the migrations Supabase-only (D60).</td></tr>
+    <tr><td>Migration 0008</td>
+      <td><code>employee_display_name(uuid)</code> — SECURITY DEFINER, <code>search_path</code>
+        pinned, callable only by the app role. Returns a name and nothing else.</td>
+      <td>Fixes G58 without letting employees read each other's rows (D62).</td></tr>
+    <tr><td><code>pnpm link:user</code></td>
+      <td>Creates or finds a Supabase Auth account and links it to an employee; audited.</td>
+      <td>The only code that reads the secret key (D63).</td></tr>
+    <tr><td><code>/</code> redirect, <code>pnpm urls</code>, docs</td>
+      <td>Under sign-in <code>/</code> goes to <code>/app/</code> (the old page cannot sign in).
+        <code>pnpm urls</code> now shows the sign-in port a phone must reach.</td>
+      <td>—</td></tr>
+  </tbody>
+</table></div>
+
+<h2>4 · The migration</h2>
+<ol>
+  <li>Started a minimal local stack (Postgres, Auth, gateway, Studio). It first failed on a
+    network Docker had removed during a restart (G56); cleared and restarted.</li>
+  <li>Applied migrations 0001–0007 with <code>pnpm migrate</code>, then 0008 when it was written.</li>
+  <li>Copied the rows as a data-only dump, loaded in one transaction with FK triggers suspended
+    (the <code>employee</code> self-reference makes the dump circular, G62), then compared every
+    table's count and spot-checked four FK paths. The dump file was deleted afterwards — it held
+    personal data.</li>
+  <li>Switched <code>.env</code>, keeping the old values as commented lines. Restarted all three
+    services. The old <code>freshnow-db</code> container is untouched. Rolling back is: restore the four
+    commented database lines, comment out <code>SUPABASE_URL</code> (the old database has no
+    <code>auth_user_id</code> column, so sign-in would refuse everyone), and restart.</li>
+</ol>
+<div class="tw"><table>
+  <thead><tr><th>Table</th><th>Rows (old = new)</th><th>Table</th><th>Rows (old = new)</th></tr></thead>
+  <tbody>
+    <tr><td>employee</td><td>7</td><td>audit_log</td><td>242</td></tr>
+    <tr><td>task</td><td>13</td><td>llm_call</td><td>294</td></tr>
+    <tr><td>task_update</td><td>18</td><td>notification_outbox</td><td>22</td></tr>
+    <tr><td>blocker</td><td>5</td><td>daily_report</td><td>7</td></tr>
+    <tr><td>assignment</td><td>6</td><td>invite_code</td><td>6</td></tr>
+    <tr><td>attachment</td><td>2</td><td>escalation</td><td>4</td></tr>
+    <tr><td>routing_rule</td><td>5</td><td>bot_session · consent_record · run_trace</td><td>2 · 1 · 2</td></tr>
+  </tbody>
+</table></div>
+
+<h2>5 · What only a real browser found</h2>
+<p>Everything above passed its tests. Then a headless Edge, driven over the DevTools protocol,
+signed in through the actual login form — and found three defects in a row:</p>
+<div class="card danger"><h3 style="margin-top:0">G57 — a blank page</h3>
+<p>Vite built asset URLs from <code>/</code>; the API serves the app at <code>/app/</code>. The page
+loaded, returned 200, and then 404'd on its own script. Fixed with <code>base: "/app/"</code>.</p></div>
+<div class="card danger"><h3 style="margin-top:0">G58 — an employee saw 0 of their 6 assignments</h3>
+<p>The query joined <code>employee</code> to name who gave the work. Hemanth may not read the CEO's
+row, so the inner join matched nothing and every assignment the CEO gave him disappeared — with no
+error. Fixed with the narrow name function in migration 0008, plus a regression test that also
+proves the employee still cannot list other employees.</p></div>
+<div class="card danger"><h3 style="margin-top:0">G59 — the title and the Ask answer were invisible</h3>
+<p>A theme colour named <code>base</code> made Tailwind compile <code>text-base</code> as a
+<i>colour</i> — the background colour. My first diagnosis (a missing CSS variable) was wrong: the
+built CSS showed the variable was there; the rule for <code>.text-base</code> showed the real cause.
+Renamed the colour; the check now asserts the title's computed colour and the answer's.</p></div>
+
+<h2>Verification</h2>
+<div class="tw"><table>
+  <thead><tr><th>Check</th><th>Result</th></tr></thead>
+  <tbody>
+    <tr><td>Full test suite on Supabase Postgres</td><td class="good">32 files · 210 passed · 1 skipped</td></tr>
+    <tr><td>Sign-in tests (real ES256 keys served locally)</td><td class="good">9/9 — no token, <code>?viewer=ceo</code>, garbage, foreign key, expired, other issuer, other audience → 401; unlinked or disabled → 403; employee sees own rows only; CEO sees all; CEO-only routes; legacy HS256 only with its secret</td></tr>
+    <tr><td>Real Supabase Auth tokens</td><td class="good">ES256 · published <code>kid</code> · <code>iss …/auth/v1</code> · <code>aud authenticated</code> · 1 h</td></tr>
+    <tr><td>Grants after 0007</td><td class="good"><code>anon</code>/<code>authenticated</code>: 0 · app role default-deny: 0 rows · <code>audit_log</code> UPDATE denied</td></tr>
+    <tr><td>Browser — login</td><td class="good">Form renders at 400 px; wrong password → "That email and password do not match an account."</td></tr>
+    <tr><td>Browser — CEO</td><td class="good">7 people · 6 assignments · Ask tab · live question → "There are 4 open blockers right now." with SQL shown · title light at 16 px</td></tr>
+    <tr><td>Browser — Hemanth</td><td class="good">1 person (himself) · 6 assignments · no Ask tab · no viewer dropdown · sign-out returns to login</td></tr>
+    <tr><td>Browser — errors</td><td class="good">None, apart from the deliberate wrong-password 400. No horizontal scroll at 400 px.</td></tr>
+    <tr><td>Services on Supabase</td><td class="good">API <code>/health</code> db ok · bot polling as @freshnow1bot · worker relay running</td></tr>
+  </tbody>
+</table></div>
+
+<h2 class="bad">What we have not verified</h2>
+<div class="card unverified"><ul>
+  <li><b>Sign-in from a phone.</b> Port 54321 answered on this PC's Wi-Fi address from this PC.
+    No phone has tried; Windows Firewall may block it for other devices (A-T25.3).</li>
+  <li><b>A hosted Supabase project.</b> Everything ran on the local CLI stack. The transaction
+    pooler (Supavisor) was excluded locally, so pooled connections are untested (A-T25.2).</li>
+  <li><b>A real bot conversation since the switch.</b> The bot started and polls on Supabase,
+    but no one has sent it a message since. Telegram reachability on this Wi-Fi is intermittent (G60).</li>
+  <li><b>Session refresh past one hour</b> in an open browser — supabase-js is configured to do
+    it; it was not watched happening.</li>
+  <li><b>Signing-key rotation</b> (G61) and <b>password recovery</b> — there is no reset UI, no
+    email service, and the account emails are placeholders (A-T25.1).</li>
+  <li><b>Supabase's security advisors</b> were not run. Known findings to expect:
+    <code>vector</code> installed in <code>public</code>; RLS off on <code>schema_migrations</code>
+    (it has no <code>anon</code> grants).</li>
+  <li><b>Per-viewer scoping of the question box's generated SQL</b> is still not built; it is
+    CEO-only instead.</li>
+</ul></div>
+
+<h2 class="bad">Security</h2>
+<div class="card danger"><ul>
+  <li>The local stack uses Supabase's <b>well-known development keys and JWT secret</b>. They are
+    fine on this PC and must never reach production; a hosted project issues its own.</li>
+  <li>The <b>secret key</b> is in <code>.env</code> (git-ignored) and read only by
+    <code>pnpm link:user</code>. On a hosted project, also switch off the Data API or remove
+    <code>public</code> from its exposed schemas — 0007 revokes the grants, but one control is not two.</li>
+  <li>Dashboard passwords were printed once to the terminal and shared in chat. Change them before
+    anyone else sees the dashboard (<code>pnpm link:user … &lt;new-password&gt;</code>).</li>
+  <li>Still outstanding from earlier: rotate every API key pasted into chat or stored in
+    <code>models/*.txt</code> (Groq, NVIDIA, OpenRouter).</li>
+</ul></div>
+</body></html>

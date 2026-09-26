@@ -1,0 +1,63 @@
+# FreshNow demo — local infrastructure only.
+# Production uses self-hosted Supabase + Caddy TLS (see DEVIATIONS.md #1, #2).
+# Here we run plain Postgres+pgvector and Redis; RLS is a Postgres feature and is
+# enforced identically, not faked. Ports are bound to 127.0.0.1 so nothing is
+# exposed off the machine.
+
+services:
+  db:
+    image: pgvector/pgvector:pg17
+    container_name: freshnow-db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-freshnow}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-freshnow_dev_pw}
+      POSTGRES_DB: ${POSTGRES_DB:-freshnow}
+    ports:
+      # Host 5433 (not 5432) to avoid clashing with any pre-existing local Postgres.
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - freshnow_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-freshnow} -d ${POSTGRES_DB:-freshnow}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: freshnow-redis
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      # Host 6380: another project on this machine already holds 6379.
+      - "127.0.0.1:6380:6379"
+    volumes:
+      - freshnow_redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  # Browser-based DB console for operators: browse, edit, run SQL, export.
+  # Bound to 0.0.0.0 for the demo so it is reachable from a phone on the same wifi.
+  # NOT for production - production reaches Postgres over an SSH tunnel only.
+  adminer:
+    image: adminer:5
+    container_name: freshnow-adminer
+    environment:
+      ADMINER_DEFAULT_SERVER: db
+      # NOTE: the System dropdown defaults to MySQL/MariaDB and this image has no
+      # env var to change it (ADMINER_DEFAULT_DRIVER was tried; it has no effect).
+      # The operator MUST switch it to PostgreSQL by hand at login.
+      ADMINER_DESIGN: dracula
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+    restart: unless-stopped
+
+volumes:
+  freshnow_db:
+  freshnow_redis:

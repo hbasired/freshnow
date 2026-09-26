@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TASK-008 — Blocker Parser (core)</title>
+<style>
+  :root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#3fb950;--warn:#d29922;--card:#161b22;--bd:#30363d}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+       font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+       max-width:860px;padding:48px 24px;margin-inline:auto}
+  h1{font-size:1.9rem;margin:0 0 4px} h2{margin-top:2.5rem;color:var(--acc);font-size:1.25rem}
+  .meta{color:var(--mut);font-size:.9rem;margin-bottom:2rem}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:18px;margin:14px 0}
+  .unverified{border-left:3px solid var(--warn)}
+  code{background:#1f2630;padding:2px 6px;border-radius:4px;font-size:.9em}
+  pre{background:#010409;border:1px solid var(--bd);border-radius:8px;padding:14px;overflow-x:auto}
+  table{border-collapse:collapse;width:100%;margin:14px 0}
+  th,td{border:1px solid var(--bd);padding:8px 10px;text-align:left;font-size:.94rem}
+  th{background:#1f2630}
+  .warn{color:var(--warn)} .ok{color:var(--acc)}
+</style></head><body>
+<h1>TASK-008 — Blocker Parser (core)</h1>
+<p class="meta">Phase 1 (demo) · 2026-09-04 · Satisfies SPEC-000 R19 (model translates, never computes/decides) and R23 (raw text persisted before any model call) · Turns a free-text update into a structured, routable blocker. <span class="ok">37/37 tests green; English + Hindi verified live.</span></p>
+
+<h2>What was done</h2>
+<div class="card">
+<ul>
+  <li><strong><code>packages/core/src/parse.ts</code></strong> — <code>extractBlocker(text)</code> (LLM → Zod-validated <code>{is_blocker, category, severity, affected_asset?, risk?, summary}</code>) and <code>parseTaskUpdate(id)</code> (read <code>note_raw</code> → extract → write <code>note_parsed</code> → create a <code>blocker</code> row, or flag <code>needs_review</code> on failure).</li>
+  <li><strong>Fixed a jsonb double-encoding bug</strong> in <code>parse.ts</code>, <code>audit.ts</code>, and <code>outbox.ts</code>: <code>${JSON.stringify(obj)}::jsonb</code> stored a jsonb <em>string</em>; switched to <code>${sql.json(obj)}</code> which stores a proper object. This would have corrupted the outbox payload the real Telegram sender reads.</li>
+  <li><strong>Tests</strong> — 3 pipeline tests (stubbed LLM, real DB): blocker created, needs_review on failure, non-blocker; plus a gated live test that ran real English + Hinglish through Groq.</li>
+</ul>
+</div>
+
+<h2>Why it was done</h2>
+<div class="card">
+<p><strong>The model translates; deterministic code decides.</strong> The parser extracts <em>what kind</em> of problem it is. It does not decide who resolves it or whether to escalate — that is Task 009 (a table lookup + a rule). This split is what keeps routing auditable.</p>
+<p><strong>Raw text is written before the model is called.</strong> The bot (Task 007) writes <code>note_raw</code> first; <code>parseTaskUpdate</code> runs afterwards. If the LLM is down or returns garbage, the update is not lost — it is flagged <code>needs_review</code> and can be re-parsed later. <code>is_synthetic</code> is inherited from the update, so a demo blocker is never mistaken for real.</p>
+</div>
+
+<h2>How it works</h2>
+<div class="card">
+<pre>parseTaskUpdate(taskUpdateId, correlationId)
+  read note_raw, employee_id
+  extractBlocker(note_raw)  ──▶ llmComplete(schema)   ← translate to validated JSON
+     success → write note_parsed
+        is_blocker? → insert blocker (raised_by=employee, category, severity, …)
+        else        → no blocker
+     failure → note_parsed = {needs_review:true, error}; NO blocker (raw kept)</pre>
+<p>Live check (2026-09-04, <code>RUN_LLM_LIVE=1</code>): English <em>"chiller in van 2 not holding temp, juice at risk"</em> and Hinglish <em>"van 2 ka chiller theek nahi hai, juice kharab ho jayega"</em> both classified as blockers with valid category/severity enums, ~2.7 s for the pair.</p>
+</div>
+
+<h2>Concepts and techniques used</h2>
+<div class="card">
+<ul>
+  <li><strong>LLM-as-translator</strong> — free text → a fixed schema; the engine (Task 009) makes every consequential decision.</li>
+  <li><strong>Write-raw-first</strong> — durability before derivation; a model outage never loses an update.</li>
+  <li><strong>Graceful degradation</strong> — a parse failure becomes <code>needs_review</code>, not a crash or a fabricated blocker.</li>
+  <li><strong>Correct jsonb binding</strong> — <code>sql.json()</code> (single-encode) vs the double-encoding trap of <code>JSON.stringify + ::jsonb</code>.</li>
+</ul>
+</div>
+
+<h2>Research findings</h2>
+<div class="card">
+<p>Reused the Task 004 provider verification. New this task: a <strong>live multilingual check</strong> — Groq <code>gpt-oss-120b</code> handled English and romanized Hindi correctly on the two examples tried. This is a spot check, not a benchmark.</p>
+</div>
+
+<h2 class="warn">What we have not verified</h2>
+<div class="card unverified">
+<ul>
+  <li><strong>The daily-logging Telegram UI is not built</strong> — <code>parseTaskUpdate</code> is the core the bot will call once a <code>BOT_TOKEN</code> exists (Task 006/007). The write-raw-first ordering is enforced there, not yet exercised end-to-end.</li>
+  <li><strong>Extraction accuracy is measured on two examples only.</strong> No dataset, no accuracy/precision numbers, no Devanagari-script test, no noisy/ambiguous inputs. Severity calibration against real resolution times is future work.</li>
+  <li>No prompt-injection hardening on the free-text input.</li>
+  <li>The hourly <code>reparse_failed</code> retry job is not scheduled yet.</li>
+</ul>
+</div>
+
+<h2>Open questions</h2>
+<div class="card">
+<ul>
+  <li>Bot wiring for daily logging (needs the token).</li>
+  <li>How much to trust the model's <code>severity</code> before a human recalibrates it against real resolution times?</li>
+</ul>
+</div>
+</body></html>

@@ -1,0 +1,75 @@
+# docker-compose.mattermost.yml — an optional company chat server.
+#
+# A SEPARATE FILE on purpose: `docker compose up` must never start this by accident. Bring
+# it up deliberately, and only if you have decided to operate it:
+#
+#     docker compose -f docker-compose.mattermost.yml up -d
+#
+# Why Mattermost and not the alternatives: Team Edition is MIT, free, with no user limit,
+# and its incoming webhooks are a plain JSON POST — which is all this platform needs
+# (packages/worker/src/chat-sender.ts is ~40 lines and has no dependency). Rocket.Chat asks
+# for 4 GB of RAM and Matrix Synapse actively uses about 2 GB for a handful of users.
+#
+# Honest sizing: this stack wants ~2 GB of RAM and its own Postgres. On the 32 GB VPS that
+# is comfortable on memory; the thing to watch is the 8 SHARED vCPUs, which the database
+# this platform depends on also needs. Read docs/MATTERMOST-SETUP-GUIDE.md before starting.
+#
+# And the standing recommendation, unchanged: the in-app inbox plus web push already give
+# you an in-country channel with no server to run and nothing for staff to install. This
+# exists because you asked for the option, not because it is the cheaper path.
+
+services:
+  mattermost-db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: mmuser
+      # Change this before the first start; it is read only by the container below.
+      POSTGRES_PASSWORD: ${MM_DB_PASSWORD:-change_me_before_first_start}
+      POSTGRES_DB: mattermost
+    volumes:
+      - mattermost-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mmuser -d mattermost"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  mattermost:
+    image: mattermost/mattermost-team-edition:latest
+    restart: unless-stopped
+    depends_on:
+      mattermost-db:
+        condition: service_healthy
+    environment:
+      MM_SQLSETTINGS_DRIVERNAME: postgres
+      MM_SQLSETTINGS_DATASOURCE: postgres://mmuser:${MM_DB_PASSWORD:-change_me_before_first_start}@mattermost-db:5432/mattermost?sslmode=disable&connect_timeout=10
+      # The address people will use. Caddy terminates TLS in front of this.
+      MM_SERVICESETTINGS_SITEURL: ${MM_SITE_URL:-http://localhost:8065}
+      # Incoming webhooks are what this platform posts to; off by default in Mattermost.
+      MM_SERVICESETTINGS_ENABLEINCOMINGWEBHOOKS: "true"
+      # Nobody should be able to create an account on a company server by finding the URL.
+      MM_TEAMSETTINGS_ENABLEOPENSERVER: "false"
+    ports:
+      # Bound to loopback: Caddy proxies to it. Publishing 8065 on 0.0.0.0 would put an
+      # unauthenticated-by-default chat server on the open internet.
+      - "127.0.0.1:8065:8065"
+    volumes:
+      - mattermost-config:/mattermost/config
+      - mattermost-data:/mattermost/data
+      - mattermost-logs:/mattermost/logs
+      - mattermost-plugins:/mattermost/plugins
+      - mattermost-client-plugins:/mattermost/client/plugins
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8065/api/v4/system/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+volumes:
+  mattermost-db:
+  mattermost-config:
+  mattermost-data:
+  mattermost-logs:
+  mattermost-plugins:
+  mattermost-client-plugins:

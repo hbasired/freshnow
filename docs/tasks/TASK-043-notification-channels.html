@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TASK-043 — Four channels, three switches, and a web push that really sent</title>
+<style>
+  :root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#3fb950;--warn:#d29922;--bad:#f85149;--card:#161b22;--bd:#30363d}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;max-width:980px;padding:48px 24px;margin-inline:auto}
+  h1{font-size:1.9rem;margin:0 0 4px} h2{margin-top:2.5rem;color:var(--acc);font-size:1.25rem} h3{margin-top:1.6rem;font-size:1.02rem}
+  .meta{color:var(--mut);font-size:.9rem;margin-bottom:2rem}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:18px;margin:14px 0}
+  .unverified{border-left:3px solid var(--warn)} .ok{border-left:3px solid var(--acc)} .danger{border-left:3px solid var(--bad)}
+  code{background:#1f2630;padding:2px 6px;border-radius:4px;font-size:.9em}
+  .tw{overflow-x:auto} table{border-collapse:collapse;width:100%;margin:14px 0}
+  th,td{border:1px solid var(--bd);padding:7px 9px;text-align:left;font-size:.88rem;vertical-align:top} th{background:#1f2630}
+  .bad{color:var(--bad);font-weight:600}.good{color:var(--acc);font-weight:600}.warn{color:var(--warn);font-weight:600}
+  ul{padding-left:1.1rem} li{margin:3px 0}
+  a{color:#88c0f0}
+</style></head><body>
+<h1>TASK-043 — Four channels, three switches, and a web push that really sent</h1>
+<p class="meta">2026-09-19 · migration 0017 · core: <code>channels.ts</code>, <code>push.ts</code>,
+<code>inbound-email.ts</code> · worker: three new senders · dashboard: PWA + two cards ·
+<b>412 tests passing</b> (from 376), 4 failing for an unrelated provider outage</p>
+
+<div class="card ok"><strong>One-sentence summary:</strong> The in-app inbox, web push, email (both
+directions) and a company-chat webhook are all built and wired to switches the CEO controls — every one
+of them shipped <em>off</em>, with Telegram untouched as the live channel — and web push was proven end
+to end by sending a real encrypted notification to Microsoft's push service and getting it accepted.</div>
+
+<h2>1 · What was already there, and what was actually missing</h2>
+<p>Migration <code>0011_alerting.sql</code> was written for this: <code>notification_outbox.channel</code>
+already allowed <code>telegram | inapp | email | webpush</code>, the worker's <code>Senders</code> map was
+already keyed by channel, and a row whose channel has no sender is simply never claimed — so an unfinished
+channel was inert rather than broken. The idempotency key already ended in <code>:&lt;channel&gt;</code>.</p>
+<p>What was missing was not delivery but <b>control</b>: a channel was on if an environment variable said
+so, which is a developer's decision made in a file the company cannot see. And the in-app channel was
+already finished — <code>inAppSender</code> is a deliberate no-op because the row <em>is</em> the
+notification.</p>
+
+<h2>2 · Three switches, not one</h2>
+<p>A message now needs all three of these to be true, and they belong to three different people:</p>
+<div class="tw"><table>
+  <thead><tr><th>Gate</th><th>Whose decision</th><th>Where it lives</th></tr></thead>
+  <tbody>
+    <tr><td><b>Available</b> — are the keys on this box?</td><td>a developer</td><td><code>.env</code>, read by <code>channelAvailability()</code></td></tr>
+    <tr><td><b>Enabled</b> — is the company using it?</td><td>the CEO</td><td><code>channel_setting</code>, flipped in the dashboard, audited as <code>channel.toggled</code></td></tr>
+    <tr><td><b>Preferred</b> — does this person want it?</td><td>each employee</td><td><code>notification_pref</code> (already existed; opt-in for everything but Telegram)</td></tr>
+  </tbody>
+</table></div>
+<p>The reason they are separate is the error message. <em>"Web push is not configured on this server"</em>
+and <em>"the company has not switched web push on"</em> are different problems with different fixes, and
+the Channels card says which — a toggle that silently does nothing is worse than one that explains itself.</p>
+
+<div class="card danger">
+<h3>A hole this closed</h3>
+<p>Four call sites queued a channel <em>directly</em> and never consulted any gate:
+<code>updates.ts:288</code> (needs-review), <code>:432</code> (attachments), <code>projects.ts:491,500</code>.
+Once a CEO could switch Telegram off, those four would have kept posting to it. Fixed in one place —
+<code>enqueueNotification</code> now drops a message on a channel that is not live and audits
+<code>notification.channel_disabled</code> — rather than in four places that can drift apart. The audit
+row carries the channel and the recipient, never the message body.</p>
+</div>
+
+<h2>3 · What was built, per channel</h2>
+<div class="tw"><table>
+  <thead><tr><th>Channel</th><th>What it needed</th><th>Cost</th></tr></thead>
+  <tbody>
+    <tr><td><b>In-app inbox</b></td><td>nothing — already finished</td><td>free</td></tr>
+    <tr><td><b>Web push</b></td><td>A PWA (icons generated from the brand mark, manifest, a 60-line service worker), VAPID config, <code>push_subscription</code> (one row per <em>device</em>), subscribe/unsubscribe routes, <code>makeWebPushSender()</code>, and a device card in the UI. <b>No offline cache on purpose</b>: a cached operations board shows yesterday's problems as if they were today's.</td><td><b>free — no account, no API key.</b> VAPID is a key pair you generate; Google, Apple and Mozilla accept it with no registration</td></tr>
+    <tr><td><b>Email out</b></td><td><code>makeEmailSender()</code> over plain SMTP, so Brevo/Resend/SMTP2GO/a company server are all four lines of <code>.env</code>. A hard bounce (5xx) turns the channel off for that person instead of burning the sending reputation; 421/450/451 back off.</td><td>free at our volume (Brevo 300/day)</td></tr>
+    <tr><td><b>Email in</b> — assign by email</td><td><code>POST /inbound/email</code> with <b>five gates</b>, then the existing <code>planDocumentTasks</code>. See below.</td><td>free (Cloudflare Email Routing)</td></tr>
+    <tr><td><b>Company chat</b></td><td><code>makeChatSender()</code> — 40 lines, no dependency, posts <code>{text}</code> to any incoming webhook. Plus <code>docker-compose.mattermost.yml</code> (a separate file, so nothing starts by accident).</td><td>free software; ~2 GB RAM if you run it</td></tr>
+  </tbody>
+</table></div>
+<p>Dependencies added: <code>web-push</code> (MPL-2.0) and <code>nodemailer</code> (MIT-0), both in the
+worker only. The chat sender and the service worker have none.</p>
+
+<h3>Inbound email is the dangerous one, and is treated that way</h3>
+<p>It is the only path where something outside the company can cause a write, and anyone can put any
+address in a <code>From:</code> header. Five gates, cheapest first: a constant-time shared secret;
+<b>SPF, DKIM and DMARC must all pass</b> (a <em>missing</em> verdict is treated as failing — an edge that
+did not check is not evidence); the sender must be an active employee who may give work; auto-replies and
+bulk mail are dropped; and even then the result is a <b>proposal a human confirms</b>, never a silent
+write. Every refusal is audited with the reason and never the body. With no secret configured the route
+returns 404 — an unconfigured write path that works is worse than one that does not exist.</p>
+
+<h2>4 · How it was verified</h2>
+<div class="tw"><table>
+  <thead><tr><th>Check</th><th>Result</th></tr></thead>
+  <tbody>
+    <tr><td>36 new tests: the three gates, the outbox drop, the push sender's fan-out / 410-delete / 429-backoff, email bounce handling, the chat webhook, and 11 inbound-email refusals</td><td class="good">all passing</td></tr>
+    <tr><td><b>Web push, end to end, for real:</b> a headless browser subscribed on <code>localhost</code> and stored a genuine Microsoft WNS endpoint (<code>wns2-pn1p.notify.windows.com</code>); a message queued on the <code>webpush</code> channel was delivered by the worker — <code>status=sent</code>, <code>attempts=1</code></td><td class="good">the encrypted payload was accepted by a real push service</td></tr>
+    <tr><td>Channels card in a browser: five channels, correct badges, the honest "switched on but not configured" state when Email was flipped without SMTP keys</td><td class="good">passes, screenshotted</td></tr>
+    <tr><td>Live routes after restart: <code>/dashboard/me/devices</code> 401 without a token, <code>/inbound/email</code> 404 while unconfigured, <code>vapidPublicKey</code> served, manifest + <code>sw.js</code> + icons 200 at <code>/app/</code></td><td class="good">all as designed</td></tr>
+    <tr><td>Typecheck, dashboard build, migration applied</td><td class="good">clean</td></tr>
+  </tbody>
+</table></div>
+
+<div class="card danger">
+<h3>Two things that went wrong, recorded rather than tidied away</h3>
+<p><b>My own browser harness flipped the wrong switch.</b> After enabling Email, a toast shifted the layout
+by one row and the "put it back" click landed on <b>Telegram</b>, switching the live channel off on the
+real database. Nothing was lost and no message was missed, and I found it in seconds because
+<code>channel.toggled</code> records who and what — the audit log did exactly the job it exists for. The
+toggles now carry a stable <code>aria-label</code> and <code>data-channel</code> so a test can address
+them by identity rather than position.</p>
+<p><b>Groq is timing out at 25 s per call</b> and OpenRouter is silently absorbing the traffic — visible
+in <code>llm_call</code> as <code>ok=false, 25058ms</code> followed by <code>openrouter ok=true</code>.
+The fallback chain is behaving exactly as designed. It is also a live demonstration of the residency
+problem already flagged: employee text is now reaching a <em>second</em> US provider with nobody being
+told. Four tests that make real model calls exceed their 30 s timeout because of it; they are unrelated
+to this work and passed earlier the same day.</p>
+</div>
+
+<h2 class="bad">What we have not verified</h2>
+<div class="card unverified"><ul>
+  <li><b>Web push has never reached a phone</b>, and cannot until there is a domain: service workers only
+    run in a secure context, so <code>http://10.205.60.148:3001</code> is dead ground. Localhost proves the
+    whole pipeline; iOS additionally requires Add to Home Screen, which nobody has done here.</li>
+  <li><b>No notification has been seen by a human.</b> Microsoft accepted the encrypted payload; whether a
+    banner appeared on a screen was not observed, because the browser had closed.</li>
+  <li><b>Email has never sent a message.</b> The sender is tested against an injected transport, not an
+    SMTP server — no provider account exists, no domain, no SPF/DKIM/DMARC. Deliverability is completely
+    unproven.</li>
+  <li><b>Inbound email has never received one.</b> The five gates are tested with fixtures; no Cloudflare
+    Email Worker has been written or deployed, and the Worker script itself is not in this repo.</li>
+  <li><b>The chat sender has never spoken to Mattermost</b> — only to a local HTTP server. The compose
+    file has never been started.</li>
+  <li><b>Encryption and HTTP transport for push are not covered by our tests</b>, by design: that boundary
+    is injected so the sender's own decisions could be tested, and it belongs to <code>web-push</code>.</li>
+  <li><b>Nobody has tested a hard bounce for real</b>, so the "turn email off for that person" rule is
+    proven only against a synthesised 550.</li>
+  <li><code>employee.email</code> exists but <b>no address has been stored</b>, and the consent notice
+    still does not mention email — which it must before one is.</li>
+</ul></div>
+</body></html>

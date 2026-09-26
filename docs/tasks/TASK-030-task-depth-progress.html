@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TASK-030 — Task Depth: Steps, Progress as Evidence, Relations, Resolution</title>
+<style>
+  :root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#3fb950;--warn:#d29922;--bad:#f85149;--card:#161b22;--bd:#30363d}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;max-width:940px;padding:48px 24px;margin-inline:auto}
+  h1{font-size:1.9rem;margin:0 0 4px} h2{margin-top:2.5rem;color:var(--acc);font-size:1.25rem} h3{margin-top:1.6rem;font-size:1.02rem}
+  .meta{color:var(--mut);font-size:.9rem;margin-bottom:2rem}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:18px;margin:14px 0}
+  .unverified{border-left:3px solid var(--warn)} .ok{border-left:3px solid var(--acc)} .danger{border-left:3px solid var(--bad)}
+  code{background:#1f2630;padding:2px 6px;border-radius:4px;font-size:.9em}
+  .tw{overflow-x:auto} table{border-collapse:collapse;width:100%;margin:14px 0}
+  th,td{border:1px solid var(--bd);padding:7px 9px;text-align:left;font-size:.88rem;vertical-align:top} th{background:#1f2630}
+  .bad{color:var(--bad);font-weight:600}.good{color:var(--acc);font-weight:600}.warn{color:var(--warn);font-weight:600}
+  ul{padding-left:1.1rem}
+</style></head><body>
+<h1>TASK-030 — Task Depth: Steps, Progress as Evidence, Relations, Resolution</h1>
+<p class="meta">2026-09-14 · Phase 3 of the task &amp; project portal plan · migration 0010 · core <code>progress.ts</code> ·
+7 routes · a task detail panel · 8 core tests + 6 route tests · browser-verified · 257 tests green</p>
+
+<div class="card ok"><strong>One-sentence summary:</strong> A task now carries its checklist, a percentage that always
+says what it is made of (counted, implied by status, or self-reported with a note), a start and due date with a
+"behind" flag computed in SQL, links to other tasks with the inverse written automatically, and a reason for stopping —
+and none of those numbers ever comes from a model.</div>
+
+<h2>1 · The design, and where it comes from</h2>
+<div class="tw"><table>
+  <thead><tr><th>Decision</th><th>Reference</th></tr></thead>
+  <tbody>
+    <tr><td>Status → <b>category</b> (todo / in_progress / done) in a lookup table; reports run on the category</td><td>Jira status categories</td></tr>
+    <tr><td><b>Status ≠ resolution</b>: <code>resolution</code> (done, won't do, duplicate, cancelled) set with the closing status, never alone</td><td>Atlassian's resolution-field guidance</td></tr>
+    <tr><td>Three progress sources, always named: <b>counted</b> from steps wins; <b>status</b> (<code>pct_when_here</code>) when there are no steps; <b>self-reported</b> only with a note, labelled, replaced by the next count</td><td>OpenProject's published modes (work-based, status-based); the "90% complete syndrome" literature</td></tr>
+    <tr><td>One recursive task table (<code>parent_task_id</code>, <code>task_type</code>), not a table per level</td><td>OpenProject work packages, Vikunja, Focalboard</td></tr>
+    <tr><td>Relations separate from hierarchy; inverse row written in the same transaction; cap of 30; cycle check on ordering links</td><td>Vikunja relation kinds; Asana's 30-dependency cap</td></tr>
+    <tr><td>"Behind" = elapsed fraction minus reported progress &gt; 30 points, computed on read, shown as a flag, never a forecast</td><td>Your choice; threshold <code>[assumed]</code></td></tr>
+  </tbody>
+</table></div>
+
+<h2>2 · What changed</h2>
+<div class="tw"><table>
+  <thead><tr><th>Where</th><th>Change</th></tr></thead>
+  <tbody>
+    <tr><td><code>migrations/0010_task_depth.sql</code></td><td><code>task_status</code> lookup (FK from <code>task.status</code>); task gains resolution, progress (pct/source/note/updated), started_at, priority, parent, type, estimate; <code>task_step</code>, <code>task_relation</code>, <code>progress_event</code> (append-only); blocker gains resolved_at/by/note. RLS on the new tables follows the task's owner via <code>app_can_view_employee</code>. <b>Cascades</b>: the three child tables go with their task; their people references are SET NULL.</td></tr>
+    <tr><td><code>core/progress.ts</code> (new)</td><td><code>addTaskStep</code>, <code>setStepDone</code>, <code>recomputeProgress</code> (idempotent; appends an event only on change), <code>reportProgress</code> (refuses without a note), <code>updateTaskFields</code>, <code>linkTasks</code> (inverse + cap + bounded cycle walk), <code>resolveBlocker</code> (note required), <code>closeTask</code>.</td></tr>
+    <tr><td><code>core/updates.ts</code></td><td>A status report sets <code>started_at</code> on first report, sets <code>resolution = done</code> with <code>status = done</code>, and recomputes progress.</td></tr>
+    <tr><td><code>api/routes/tasks.ts</code> (new)</td><td><code>GET /dashboard/tasks/:id</code> (steps, relations, history, problems, subtasks, elapsed and behind), steps add/tick, self-report, fields, relations, close, and <code>/blockers/:id/resolve</code>. Owner or anyone who may assign to them; RLS hides the rest.</td></tr>
+    <tr><td><code>dashboard/components/task-detail.tsx</code> (new)</td><td>A side panel: the percentage with its evidence and the elapsed-time marker, steps with checkboxes, self-report form, priority/due date, relations, problems with Resolve, history, close-for-a-reason.</td></tr>
+    <tr><td><code>dashboard/App.tsx</code></td><td>Carry-over gains a Progress column and opens the panel from the title; My work cards gain Details and the progress bar.</td></tr>
+    <tr><td><code>semantic/schema.yaml</code></td><td>Four tables and every new column documented, with the "group by category, not name" join purpose.</td></tr>
+  </tbody>
+</table></div>
+
+<h2>Verification</h2>
+<div class="tw"><table>
+  <thead><tr><th>Check</th><th>Result</th></tr></thead>
+  <tbody>
+    <tr><td><code>progress.test.ts</code> (8)</td><td class="good">Status-implied percentage moves with reports; steps counted and winning over status; override refused without a note, labelled, replaced by the next count; history appended with sources; recompute idempotent; inverse relations, loop refused both ways, self-link refused; blocker resolution needs a note and a live blocker; closed task carries its reason; new tables visible to owner and CEO, not to a stranger</td></tr>
+    <tr><td><code>tasks.test.ts</code> (6)</td><td class="good">Steps and ticking through HTTP; a manager may tick a report's step, a stranger gets 403 on read and write; self-report validation and labelling; a task started two days ago and due tomorrow is flagged behind; relations both ways with 409 on a loop; blocker resolve refused for a stranger, refused without a note, recorded with the resolver's name</td></tr>
+    <tr><td>Browser (headless Edge, employee then CEO)</td><td class="good">Added a task, opened its panel, 0% "implied by the status"; two steps → "counted from steps — 0 of 2"; ticked one → 50%; self-reported 75% with a note → labelled self-reported in amber; Carry-over shows the amber 75% bar for the CEO</td></tr>
+    <tr><td>Full suite + typecheck</td><td class="good">37 files · 257 passed · 1 skipped</td></tr>
+  </tbody>
+</table></div>
+
+<h2 class="bad">What we have not verified</h2>
+<div class="card unverified"><ul>
+  <li><b>The status percentages are placeholders</b> (open 0, pending 10, in progress 50, done 100). Editable in <code>task_status</code>; the company has not said what a "pending" task is worth.</li>
+  <li><b>The behind threshold of 30 points is assumed.</b> One constant in <code>tasks.ts</code>, used by both the board and the panel.</li>
+  <li><b>Weighted rollup by <code>estimate_minutes</code></b> is stored but not yet used; counting treats every step as equal.</li>
+  <li><b>Subtasks</b> have a parent link and appear in the panel; there is no UI to create one yet — steps cover the checklist case.</li>
+  <li><b>The bot does not show progress.</b> Steps, percentages and relations are dashboard-only this phase; the bot's board is unchanged.</li>
+</ul></div>
+
+<h2 class="bad">Security and honesty</h2>
+<div class="card danger"><ul>
+  <li>A self-reported number can never be mistaken for a measurement: the source is a column, the note is mandatory, the UI colours it differently, and the history keeps every value.</li>
+  <li>Cascading deletes were introduced for the three child tables only, deliberately and documented in the migration; business rows still never cascade.</li>
+  <li>Every write route checks ownership or <code>canAssignTo</code> before calling core, with tests for the refusals.</li>
+</ul></div>
+</body></html>

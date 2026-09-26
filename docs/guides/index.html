@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FreshNow — Guides</title>
+<style>
+  :root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#3fb950;--warn:#d29922;
+        --card:#161b22;--bd:#30363d;--blue:#88c0f0}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+       font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+       max-width:780px;padding:52px 22px 80px;margin-inline:auto}
+  h1{font-size:2rem;margin:0 0 4px}
+  .sub{color:var(--mut);margin-bottom:30px}
+  a.guide{display:block;background:var(--card);border:1px solid var(--bd);border-left:3px solid var(--acc);
+          border-radius:10px;padding:18px 20px;margin:14px 0;text-decoration:none;color:inherit}
+  a.guide:hover{border-color:var(--acc)}
+  a.guide h2{margin:0 0 5px;font-size:1.15rem;color:var(--acc)}
+  a.guide p{margin:0;color:var(--mut);font-size:.92rem}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:15px 18px;margin:22px 0}
+  .warn{border-left:3px solid var(--warn)}
+  table{border-collapse:collapse;width:100%;margin:10px 0}
+  th,td{border:1px solid var(--bd);padding:7px 10px;text-align:left;font-size:.9rem}
+  th{background:#1f2630}
+  code{background:#1f2630;padding:2px 6px;border-radius:4px;font-size:.88em}
+</style></head><body>
+
+<h1>FreshNow Ops — Guides</h1>
+<p class="sub">Bot <b>@freshnow1bot</b> · Updated 2026-09-19</p>
+
+<a class="guide" href="demo-guide.html">
+  <h2>1 · Demo Guide</h2>
+  <p>How the system connects (Telegram, networking, what changes on the VPS), the runsheet for
+     showing officials, commands, and troubleshooting.</p>
+</a>
+
+<a class="guide" href="fresh-run.html">
+  <h2>2 · Fresh Run — the test guide</h2>
+  <p>Step by step with exactly what to send and what to expect back: invite → register → consent →
+     blocker (text or voice) → CEO acknowledges → assigns → employee closes → dashboard → a manager in
+     Telegram → a question with both gates. Plus reset and what-went-wrong.</p>
+</a>
+
+<a class="guide" href="channels-guide.html">
+  <h2>3 · Channels — how people are reached</h2>
+  <p>Telegram, the dashboard inbox, phone notifications, email and company chat: what each is for,
+     who should use it, the three switches that must all be on, and exactly what to click. Includes
+     the honest answer on drivers (keep them on Telegram) and what a domain unlocks.</p>
+</a>
+
+<a class="guide" href="db-walkthrough.html">
+  <h2>4 · Database Walkthrough</h2>
+  <p>Follow one person through the tables: the chain and the rings around it (org, task depth,
+     alerting, projects, evidence), who may see what tested as the app role, one run's full story by
+     correlation id. Every query run against the live database on 2026-09-19.</p>
+</a>
+
+<a class="guide" href="backend-operations.html">
+  <h2>5 · Backend Operations</h2>
+  <p>Supabase access, the two roles, what each of the 36 tables holds, changing routing / SLAs /
+     the ladder safely, tracing and replay, monitoring, verified backup and restore, the never-touch
+     list.</p>
+</a>
+
+<div class="card">
+<table>
+<tr><th>Addresses right now</th><td><code>pnpm urls</code> — the Wi-Fi IP changes; do not reuse an old link</td></tr>
+<tr><th>Dashboard</th><td>http://localhost:3001/app/ (PC) · <code>http://&lt;wifi-ip&gt;:3001/app/</code> (phone, same Wi-Fi, ports 3001 + 54321)</td></tr>
+<tr><th>Live database</th><td>Supabase Postgres <code>127.0.0.1:54322</code> · Studio http://localhost:54323</td></tr>
+<tr><th>Old database (rollback only)</th><td><code>localhost:5433</code> · Adminer http://localhost:8080</td></tr>
+<tr><th>CEO Telegram id</th><td><code>6051615734</code></td></tr>
+<tr><th>Redis</th><td><code>localhost:6380</code></td></tr>
+<tr><th>Health</th><td>http://localhost:3001/health</td></tr>
+</table>
+</div>
+
+<div class="card warn"><b>The Wi-Fi IP changes</b> when the machine reconnects. If a page will not open
+on a phone, run <code>pnpm urls</code> on the PC and use the address it prints. The bot itself does
+<b>not</b> need the same network; only the web pages do.</div>
+
+<p class="sub" style="margin-top:26px">The Markdown originals are <code>DEMO-GUIDE.md</code>,
+<code>FRESH-RUN.md</code>, <code>DB-WALKTHROUGH.md</code> and <code>BACKEND-OPERATIONS.md</code> in the
+project root; <code>python scripts/render-guides.py</code> re-renders the last three.
+Related reports:
+<a href="../reports/uae-data-residency-and-llm-analysis.html">UAE data residency &amp; where the AI should run</a> ·
+<a href="../reports/llm-provider-decision-and-costs.html">Which AI provider, what it costs, and the Telegram verdict</a> ·
+<a href="../reports/messaging-resilience.html">Telegram alternatives</a>.</p>
+
+</body></html>

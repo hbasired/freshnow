@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TASK-039 — Managers act as managers in Telegram</title>
+<style>
+  :root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#3fb950;--warn:#d29922;--bad:#f85149;--card:#161b22;--bd:#30363d}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;max-width:940px;padding:48px 24px;margin-inline:auto}
+  h1{font-size:1.9rem;margin:0 0 4px} h2{margin-top:2.5rem;color:var(--acc);font-size:1.25rem} h3{margin-top:1.6rem;font-size:1.02rem}
+  .meta{color:var(--mut);font-size:.9rem;margin-bottom:2rem}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:18px;margin:14px 0}
+  .unverified{border-left:3px solid var(--warn)} .ok{border-left:3px solid var(--acc)} .danger{border-left:3px solid var(--bad)}
+  code{background:#1f2630;padding:2px 6px;border-radius:4px;font-size:.9em}
+  pre{background:#1f2630;padding:12px 14px;border-radius:8px;overflow-x:auto;font-size:.85em;line-height:1.5}
+  .tw{overflow-x:auto} table{border-collapse:collapse;width:100%;margin:14px 0}
+  th,td{border:1px solid var(--bd);padding:7px 9px;text-align:left;font-size:.88rem;vertical-align:top} th{background:#1f2630}
+  .bad{color:var(--bad);font-weight:600}.good{color:var(--acc);font-weight:600}.warn{color:var(--warn);font-weight:600}
+  ul{padding-left:1.1rem}
+</style></head><body>
+<h1>TASK-039 — Managers act as managers in Telegram</h1>
+<p class="meta">2026-09-18 · no migration · core <code>roles.ts</code>, <code>org.ts</code> · bot <code>bot.ts</code> ·
+first test of the bot through grammY's real <code>handleUpdate</code> · <b>375 tests green</b> (from 362)</p>
+
+<div class="card ok"><strong>One-sentence summary:</strong> A person the CEO makes a manager or department lead on
+the dashboard's People tab now gets a manager's menu in Telegram — their team's blockers, assigning to their
+reports — decided by the same <code>canAssignTo</code> rule and the same RLS policy the dashboard uses, re-checked at
+every step because callback data is guessable; and a pre-existing gap where a crafted callback could turn a
+document into tasks for anyone was closed on the way.</div>
+
+<h2>1 · Why</h2>
+<p>Since TASK-030's org model the dashboard has known three levels — CEO, manager/lead, employee — but the bot's
+<code>resolveRole</code> knew two: the configured CEO Telegram id, and everyone else. A manager could report their
+own day in Telegram and nothing more; their team's problems and the assign button lived only in the browser. It
+failed closed, which was the acceptable direction, but it meant the channel most of the workforce actually uses
+did not know the org chart the CEO had drawn.</p>
+
+<h2>2 · Research</h2>
+<p>grammY's own deployment checklist and transformer guide (read 2026-09-18) describe the testing approach used
+here for the first time in this repo: feed sample <code>Update</code> objects to <code>bot.handleUpdate</code> and
+intercept every outgoing Bot API call with a transformer installed via <code>bot.api.config.use</code>, returning a
+fake <code>ApiResponse</code> so no HTTP call is made. grammY 1.46 is what is installed; nothing in the API surface
+used here has moved. No other research was needed: the permission rule already existed and was already tested.</p>
+
+<h2>3 · What was built</h2>
+<div class="tw"><table>
+  <thead><tr><th>Piece</th><th>What it does</th><th>Why that way</th></tr></thead>
+  <tbody>
+    <tr><td><code>botRole(isConfigCeo, accessRole)</code><br><small>core/roles.ts</small></td>
+        <td>Pure. The configured Telegram id is CEO with or without a row; a row with <code>access_role = 'ceo'</code>
+          is CEO too; <code>manager</code> and <code>lead</code> both give the manager menu; anything else is an
+          employee. <code>Role</code> gains <code>"manager"</code>.</td>
+        <td>Two sources of identity, both honoured: config as the anchor, the row as what the People tab sets. The
+          difference between manager and lead (department reach) is decided by <code>canAssignTo</code>, never by
+          the menu string — the menu asks "may I show the button?", the rule asks "may this person do this to that
+          person?", every time.</td></tr>
+    <tr><td><code>listAssignable(viewer)</code><br><small>core/org.ts</small></td>
+        <td>The directory keyboard's people: CEO everyone but self; manager their reports; lead their reports plus
+          their department (case-insensitive, trimmed, like the policy); employee nobody.</td>
+        <td>The SQL twin of <code>canAssignTo</code>, so the bot never lists a name the write would then refuse.
+          Self is excluded — "Add a task" is the self path, and a directory with your own name in it is how work
+          lands on the wrong list.</td></tr>
+    <tr><td><code>listOpenBlockersFor(viewer)</code><br><small>core/org.ts</small></td>
+        <td>The CEO's whole queue, or — for a manager — the query run <em>under row-level security as that
+          person</em> (<code>withContext</code>, read-only). The reporter is left-joined so a blocker routed to the
+          manager by someone whose row they may not read still shows, with the name withheld.</td>
+        <td>The bot's <code>/blockers</code> and the dashboard's list are now literally the same policy
+          (<code>blocker_select</code>) and cannot drift.</td></tr>
+    <tr><td>Bot auth middleware</td>
+        <td>The one existing query now also reads <code>access_role</code> and <code>department</code>, builds
+          <code>ctx.viewer</code> (the same shape the API builds for a signed-in user) and sets
+          <code>ctx.role</code> through <code>botRole</code>.</td>
+        <td>One query per update, as before. No new round-trip.</td></tr>
+    <tr><td>Manager menu and <code>/help</code></td>
+        <td>🚨 My team's blockers · 📌 Assign a task to my team · 📋 Log daily tasks · ➕ Add a task · 👤 Update my
+          details. No invite (CEO only, matching the API) and no document-to-tasks.</td>
+        <td>A manager's day is their own work plus their team's problems.</td></tr>
+    <tr><td><code>/assign</code>, directory, typed name, <code>assignto:</code> tap, the final write</td>
+        <td>Open to CEO or manager. The directory is <code>listAssignable</code>; a typed name resolves only among
+          those; the tap re-checks <code>canAssignTo</code> (alert, not silence, on refusal); the title step
+          re-checks once more before <code>assignTask</code> ("no longer reports to you").</td>
+        <td>Callback data is an employee id anyone can type into a modified client. The directory having shown a
+          name is not authorization; the rule at the write is.</td></tr>
+    <tr><td>Plain-text "tell Rashid X and Priya Y"</td>
+        <td>Open to managers; each named person is checked; the ones outside the team are reported back by name
+          ("Omar does not report to you, so I did not assign anything to them"), the rest assigned.</td>
+        <td>The resolver sees every colleague as a candidate, so filtering has to happen after resolution. Silent
+          drops are how someone believes a job was handed out when it never was.</td></tr>
+    <tr><td class="bad">Document planning — a pre-existing hole</td>
+        <td>Only the <em>button</em> was CEO-gated; <code>doc:read</code> callback data and
+          <code>planFromDocument</code> never checked the role, and <code>docplan:go</code> assigned to everyone the
+          plan named. Now the planner refuses non-CEOs at the function, and <code>docplan:go</code> re-checks
+          <code>canAssignTo</code> per task and lists what it refused.</td>
+        <td>Same principle: gate the function, not the UI that reaches it.</td></tr>
+  </tbody>
+</table></div>
+
+<h2>4 · How it was verified</h2>
+<div class="tw"><table>
+  <thead><tr><th>Check</th><th>Result</th></tr></thead>
+  <tbody>
+    <tr><td><code>botRole</code> — 7 cases including config-CEO-without-a-row and lead → manager menu</td><td class="good">pass</td></tr>
+    <tr><td><code>org.rls.test.ts</code> +2: <code>listAssignable</code> for all four roles against the seeded org (lead sees
+      L1, Mgr, P, R1 — production — and not R2/X in delivery); <code>listOpenBlockersFor</code>: manager sees their
+      report's blocker and the one routed to them from outside with the name withheld, the lead sees production only,
+      the CEO sees all three, an employee gets an empty queue</td><td class="good">14/14</td></tr>
+    <tr><td><b><code>bot/roles.test.ts</code> — 10 tests through the real bot</b> (<code>handleUpdate</code> + transformer,
+      session in Postgres): manager greeted as manager with the right menu and no invite; <code>/assign</code> lists
+      their report and not the outsider, the employee or the CEO; a crafted <code>assignto:&lt;outsider&gt;</code> is
+      refused with an alert and a follow-up title creates nothing; assigning to a report creates the task, the
+      assignment by the manager, and a Telegram outbox row; <code>/blockers</code> shows the team's and not the
+      stranger's; a typed stranger's name is not recognised; invites refused; a plain employee refused every manager
+      command and the crafted tap; the CEO still sees everyone and everything</td><td class="good">10/10</td></tr>
+    <tr><td>Existing <code>flows.test.ts</code> (CEO document and invite flows) unchanged</td><td class="good">11/11</td></tr>
+    <tr><td>Full suite + typecheck</td><td class="good">47 files · <b>375 passed</b> · 1 skipped · clean</td></tr>
+    <tr><td>Bot restarted on the new code — stale tree ended by pid first (G98), API and worker left running
+      (they do not import anything that changed)</td><td class="good">polling; API <code>ok</code></td></tr>
+  </tbody>
+</table></div>
+
+<h2>5 · What was deliberately not built</h2>
+<ul>
+  <li><b>Team end-of-day for managers.</b> <code>/eod</code> still gives a manager their own report; the CEO gets
+    everyone. A team EOD is a reasonable next step and a separate one.</li>
+  <li><b>Questions for managers.</b> The question box stays CEO-only in both channels; a manager asking a question
+    in Telegram gets their own work summary, as an employee does.</li>
+  <li><b>Documents to tasks for managers.</b> Deliberately CEO-only: the planner names people from the whole
+    company, and a manager would get a plan two-thirds refused. Better to not offer it than to offer it broken.</li>
+  <li><b>Invites for managers.</b> The API says CEO only; the bot matches.</li>
+</ul>
+
+<h2 class="bad">What we have not verified</h2>
+<div class="card unverified"><ul>
+  <li><b>No real manager has used the live bot.</b> The live org chart has nobody with <code>manager</code> or
+    <code>lead</code>; every seeded person reports to the CEO as an employee. The path is proven through the real
+    middleware chain with a mocked Telegram API, not through Telegram itself. The first real use is: CEO promotes
+    someone on People, that person sends <code>/start</code>.</li>
+  <li><b>The plain-text assignment path for a manager was not exercised</b> — it needs the model to resolve
+    "tell Rahim to…" into an assignee, and the test suite's philosophy is real model calls, which I did not add
+    for this. The per-item check is the same <code>canAssignTo</code> call the tap path proves.</li>
+  <li><b>A person promoted mid-conversation</b> gets the new role on their next update (the middleware reads the row
+    every time), but a session step started under the old role — e.g. a half-finished assignment — is not
+    re-validated except at the final write, which is the one place it matters.</li>
+  <li><b>Two CEOs.</b> If the configured Telegram id belongs to one person and <code>access_role = 'ceo'</code> to
+    another, both are CEO in the bot. Nothing prevents it; the People tab's CEO-row rules make it unlikely
+    (A-T38.1, now narrowed).</li>
+</ul></div>
+</body></html>

@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TASK-031 — Alerts: who is told what, when, and what happens if nobody answers</title>
+<style>
+  :root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#3fb950;--warn:#d29922;--bad:#f85149;--card:#161b22;--bd:#30363d}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;max-width:940px;padding:48px 24px;margin-inline:auto}
+  h1{font-size:1.9rem;margin:0 0 4px} h2{margin-top:2.5rem;color:var(--acc);font-size:1.25rem} h3{margin-top:1.6rem;font-size:1.02rem}
+  .meta{color:var(--mut);font-size:.9rem;margin-bottom:2rem}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:18px;margin:14px 0}
+  .unverified{border-left:3px solid var(--warn)} .ok{border-left:3px solid var(--acc)} .danger{border-left:3px solid var(--bad)}
+  code{background:#1f2630;padding:2px 6px;border-radius:4px;font-size:.9em}
+  pre{background:#1f2630;border:1px solid var(--bd);border-radius:8px;padding:12px;overflow-x:auto;font-size:.85rem}
+  .tw{overflow-x:auto} table{border-collapse:collapse;width:100%;margin:14px 0}
+  th,td{border:1px solid var(--bd);padding:7px 9px;text-align:left;font-size:.88rem;vertical-align:top} th{background:#1f2630}
+  .bad{color:var(--bad);font-weight:600}.good{color:var(--acc);font-weight:600}.warn{color:var(--warn);font-weight:600}
+  ul{padding-left:1.1rem}
+</style></head><body>
+<h1>TASK-031 — Alerts: who is told what, when, and what happens if nobody answers</h1>
+<p class="meta">2026-09-14 · Phase 4 of the task &amp; project portal plan · migration 0011 · core <code>alerts.ts</code> ·
+a rewritten <code>routing.ts</code> · a channel-aware outbox · 10 routes · an inbox and an Alerts tab ·
+16 core tests + 6 route tests · browser-verified · 283 tests green</p>
+
+<div class="card ok"><strong>One-sentence summary:</strong> Every alert recipient is now a row somebody can read
+— the resolver, the raiser's manager, the department lead, the CEO, a task's watchers — chosen by a table lookup
+that records <em>which rule</em> picked them, delivered through an outbox that knows about channels, folded into
+one alert per problem however many times it is reported, and escalated up a ladder of rungs with timeouts instead
+of straight to the CEO forever.</div>
+
+<h2>1 · What was actually wrong</h2>
+<div class="tw"><table>
+  <thead><tr><th>Before</th><th>Why it mattered</th></tr></thead>
+  <tbody>
+    <tr><td>Every blocker alert went to the CEO, hardcoded.</td><td>A manager could not be told about their own team's problem. The system had an org chart it never used for alerting.</td></tr>
+    <tr><td>SLA minutes were a TypeScript constant.</td><td>Changing a response window needed a deploy.</td></tr>
+    <tr><td><code>escalateBlocker</code> always escalated to <code>DEMO_CEO_ID</code>, and <code>slaSweep</code> only ever escalated blockers that had <em>never</em> escalated.</td><td>No blocker ever reached level 2. The ladder was a number that incremented and changed nothing.</td></tr>
+    <tr><td>Two identical "Escalation L1" messages appeared for what was one problem.</td><td>Nothing said two reports were the same problem, so each was paged separately.</td></tr>
+    <tr><td><code>notification_outbox</code> had <code>chat_id</code> and nothing else.</td><td>The outbox was structurally Telegram-only; any second channel meant changing business code, not adding a sender.</td></tr>
+    <tr><td>Acknowledging in the bot was CEO-only; in the dashboard it was a different rule written inline.</td><td>Two rules for one decision is how they drift apart.</td></tr>
+  </tbody>
+</table></div>
+
+<h2>2 · The design, and where it comes from</h2>
+<p>The decomposition is the one PagerDuty and Opsgenie converged on, because alerting really does have four
+independent parts and conflating any two of them is what makes alert systems unmaintainable.</p>
+<div class="tw"><table>
+  <thead><tr><th>Decision</th><th>Reference</th></tr></thead>
+  <tbody>
+    <tr><td>An escalation <b>policy</b> of ordered <b>levels</b>, each with a timeout, each naming <b>targets</b></td><td>PagerDuty escalation policies (their own default timeout is 30 min)</td></tr>
+    <tr><td><b>Symbolic targets</b> — "the manager of whoever raised it", not a uuid — resolved to people at fire time</td><td>Jira notification schemes (reporter, assignee, watchers, role), so rules survive staff changes</td></tr>
+    <tr><td>A level with nobody available is <b>skipped, not dropped</b>: recorded with <code>escalated_to NULL</code>, and the next rung is tried in the same call</td><td>PagerDuty's documented behaviour; the NULL row is what stops the sweep retrying the same empty rung forever</td></tr>
+    <tr><td><b>Alias de-duplication</b>: a repeat of the same problem while the alert is open increments <code>count</code></td><td>Opsgenie alias-based dedup. This is the direct answer to the two identical escalation messages</td></tr>
+    <tr><td>Three states: <b>triggered → acknowledged → resolved</b>. Acknowledged ≠ resolved</td><td>Standard across both; "somebody is on it" and "it is fixed" are different questions</td></tr>
+    <tr><td>Per-person <b>notification rules</b> (channel, mode, delay), separate from who is told</td><td>PagerDuty per-user notification rules</td></tr>
+    <tr><td>An <b>in-app notification store as the primary channel</b>, with Telegram/email/push as delivery hints</td><td>What Jira, Asana, GitLab and Discourse do. It is also the channel that needs no external service at all — the foundation of the resilience proposal</td></tr>
+  </tbody>
+</table></div>
+
+<h2>3 · What changed</h2>
+<div class="tw"><table>
+  <thead><tr><th>Where</th><th>Change</th></tr></thead>
+  <tbody>
+    <tr><td><code>migrations/0011_alerting.sql</code></td><td>
+      <code>notification_outbox</code> gains <code>channel</code> (telegram | inapp | email | webpush),
+      <code>recipient_employee_id</code>, <code>reason</code>, <code>read_at</code>, and a policy letting a
+      person read their own rows. New tables: <code>sla_policy</code> (seeded from the old constants, so day one
+      behaviour is identical), <code>escalation_policy</code> → <code>escalation_level</code> →
+      <code>escalation_target</code>, <code>alert</code> (with a <b>unique index on <code>alias</code> where
+      <code>state &lt;&gt; 'resolved'</code></b>), <code>task_watcher</code>, <code>notification_pref</code>.
+      <code>blocker.alert_id</code> ties every report to the problem it was folded into. RLS enabled and forced
+      on all of them, via <code>app_can_view_employee</code>.
+    </td></tr>
+    <tr><td><code>core/alerts.ts</code> (new)</td><td>
+      <code>resolveAlertRecipients(event)</code> — a pure table lookup returning
+      <code>{employeeId, channel, reason, ruleId, delayMinutes}[]</code>; <code>notify()</code> writes one outbox
+      row per (person, channel) with a structural idempotency key; <code>openAlert</code> (alias dedup),
+      <code>acknowledgeAlertOfBlocker</code>, <code>resolveAlertOfBlocker</code>,
+      <code>mayAcknowledgeBlocker</code> (one rule, used by both the bot and the API), watchers and preferences.
+    </td></tr>
+    <tr><td><code>core/routing.ts</code></td><td>
+      SLA minutes come from <code>sla_policy</code> (the constant remains as a fallback so routing can never fail
+      for want of a number). <code>escalateBlocker</code> walks the ladder, skipping empty rungs and stopping at the
+      top. <code>slaSweep</code> climbs <b>one rung per timeout</b> instead of only ever firing once.
+      <code>acknowledgeBlocker</code> also acknowledges the alert, and with it every other open report of the same problem.
+    </td></tr>
+    <tr><td><code>core/updates.ts</code>, <code>core/progress.ts</code></td><td>
+      Assignment, "task done" and "blocker resolved" all go through <code>notify()</code>. The assignment message
+      now names who actually gave the work, not "the CEO" regardless. Resolving a blocker tells the person who
+      raised it, in the resolver's words.
+    </td></tr>
+    <tr><td><code>worker/outbox-relay.ts</code>, <code>worker/index.ts</code></td><td>
+      The relay takes a <b>sender per channel</b> and claims only rows whose channel has one — so an email row
+      waits rather than failing until email exists. <code>inAppSender</code> is a no-op: the row <i>is</i> the
+      notification. A bare function still means "the Telegram sender", so every older caller and test is unchanged.
+    </td></tr>
+    <tr><td><code>api/routes/alerts.ts</code> (new)</td><td>
+      The inbox (<code>GET/POST /dashboard/notifications</code>), open alerts, the ladder, the SLA table, the
+      viewer's own rules (<code>GET/PUT /dashboard/me/notification-prefs</code>), and watch / unwatch / watchers.
+    </td></tr>
+    <tr><td><code>bot/bot.ts</code>, <code>api/routes/work.ts</code></td><td>Both acknowledge paths now call the same core <code>mayAcknowledgeBlocker</code>: the CEO, the assigned resolver, or the raiser's manager.</td></tr>
+    <tr><td>Dashboard</td><td>An inbox bell with an unread count in the header, and an <b>Alerts</b> tab: open problems with their repeat count and escalation level, the ladder in plain words, the response windows, and per-event Telegram rules. The task panel gains "who is told about this task" with watch/unwatch.</td></tr>
+    <tr><td><code>semantic/schema.yaml</code></td><td>All seven new tables, every new column, the new audit actions, and the join purposes — including the one that matters: <b>count blockers for "how often was this reported", count alerts for "how many problems were there"</b>.</td></tr>
+  </tbody>
+</table></div>
+
+<h3>The idempotency key is structural</h3>
+<pre>`${event.type}:${entityId}:${employeeId}:${channel}`
+  → "task.assigned:&lt;assignment&gt;:&lt;person&gt;:telegram"
+  → "blocker.escalated:&lt;blocker&gt;#2:&lt;person&gt;:inapp"</pre>
+<p>Because the outbox key is UNIQUE, processing the same event twice enqueues nothing twice — per person, per
+channel, per escalation level. That is the idempotency requirement met by construction rather than by a check.</p>
+
+<h2>Verification</h2>
+<div class="tw"><table>
+  <thead><tr><th>Check</th><th>Result</th></tr></thead>
+  <tbody>
+    <tr><td><code>core/alerts.test.ts</code> (16)</td><td class="good">One test per rule: resolver; watchers but never the raiser; no Telegram link → in-app only; disabled → nobody; L1 = resolver + the raiser's manager, L2 = the CEO, an unknown level = nobody; the same person named twice is told once with the first rule as the reason; resolved tells the raiser and not the resolver; done tells whoever assigned it; Telegram off → in-app only; a delay lands on the row; email opt-in produces nothing until the channel exists; sending twice enqueues nothing twice and the audit row lists every recipient, channel and rule; the alias; a retry is not a repeat but a second report is; one acknowledgement covers every folded report; resolving the last live report resolves the alert; who may acknowledge; RLS on the inbox and on alerts.</td></tr>
+    <tr><td><code>core/routing.test.ts</code> (12)</td><td class="good">Rungs recorded with one alert per level; <b>a rung with nobody available is skipped and recorded with a NULL target</b>; the ladder stops at the top and records nothing past it; the sweep climbs one rung per timeout and <b>not before the timeout has passed</b>; an acknowledged blocker is left alone.</td></tr>
+    <tr><td><code>api/alerts.test.ts</code> (6)</td><td class="good">An assignment lands in the assignee's inbox with the reason and nowhere else; marking read moves only the viewer's own rows (a stranger marks 0); a finished task tells the assigner; rules are per-person, validated, and honoured on the next assignment (the Telegram row is held 15 minutes); watching is refused on a task the viewer cannot see; the ladder and SLA table read back as seeded.</td></tr>
+    <tr><td>Real browser (headless Edge, CEO then employee)</td><td class="good">19/19 checks, no console errors, no HTTP errors: the Alerts tab lists open problems, the ladder in plain words and the response windows marked as placeholders; the CEO's notifications say <i>why</i> they were sent; work assigned from the UI appears in the employee's own inbox with "why: assignee"; marking read clears the badge; a person turns their own Telegram rule off.</td></tr>
+    <tr><td>Cross-channel, on the live database</td><td class="good">The assignment made in the browser produced <b>two</b> outbox rows for Hemanth — <code>inapp</code> and <code>telegram</code>, both <code>sent</code>, both carrying the reason "assignee".</td></tr>
+    <tr><td>Full suite + typecheck + dashboard build</td><td class="good">39 files · 283 passed · 1 skipped · typecheck clean · Vite build clean</td></tr>
+  </tbody>
+</table></div>
+
+<h2 class="bad">What we have not verified</h2>
+<div class="card unverified"><ul>
+  <li><b>Every timing in the ladder is assumed.</b> Rung 1 immediately, rung 2 after 30 minutes, rung 3 after 60.
+    FreshNow has not said what its real escalation timings are. They are rows in <code>escalation_level</code>,
+    changeable without a deploy — but they are placeholders.</li>
+  <li><b>The SLA windows are the old assumed constants</b> (15/60/240/1440 min), now in a table. Still assumed.</li>
+  <li><b>The ladder is degenerate in the seeded org</b>, because every employee's manager is the CEO. The
+    manager rung and the CEO rung resolve to the same person today. The <i>mechanism</i> is tested with a real
+    manager in the test fixtures; the <i>live org chart</i> is not yet real.</li>
+  <li><b>No department lead exists</b>, so the <code>department_lead</code> target type is exercised only by the
+    resolver returning nobody. It is in the ladder's vocabulary but not on the default ladder.</li>
+  <li><b>Email and web push are not built</b> — declaring a preference for them produces no row at all, by design.
+    The channel column and the per-channel sender are ready; the senders are not written.</li>
+  <li><b>"digest" mode is accepted and honoured as "not now".</b> No digest is ever assembled or sent. A person who
+    chooses digest is choosing silence on that channel until digests exist. The UI does not offer it for this reason.</li>
+  <li><b>The bot does not show the inbox.</b> Notifications reach Telegram as messages; the in-app inbox is
+    dashboard-only.</li>
+  <li><b>Alias de-duplication needs a named asset.</b> Without one, each report is its own alert — deliberately,
+    because guessing that two free-text reports are "the same problem" would suppress a real one. The failure mode
+    is one message too many, never one too few.</li>
+  <li><b>Dedup was not verified against a real repeat typed into the bot</b> — only through the core function with
+    two blockers naming the same asset.</li>
+</ul></div>
+
+<h2 class="bad">Security, privacy and honesty</h2>
+<div class="card danger"><ul>
+  <li><b>Every recipient is a table lookup.</b> No model call decides who is told, whether to escalate, or when.
+    The CLAUDE.md rule holds: the LLM never decides who or whether.</li>
+  <li><b>Every alert records why.</b> <code>alert.enqueued</code> carries each recipient, their channel and the
+    matched rule id; <code>alert.no_recipient</code> records the case worth knowing about — a rule that matched
+    nobody, meaning somebody should have been told and was not.</li>
+  <li><b>RLS on every new table, default deny.</b> A person reads their own inbox and their own rules; alerts are
+    visible to whoever may see the person they are about; policy tables are readable configuration like
+    <code>routing_rule</code>. Each of those has a test with a viewer who must see it and one who must not.</li>
+  <li><b>Nothing is sent on the CEO's behalf.</b> The acknowledge keyboard is still an explicit tap, and the
+    permission rule behind it is now one function shared by the bot and the dashboard rather than two.</li>
+  <li><b>No individual scoring.</b> The alert data supports "how often was this problem reported" and "how quickly
+    was it acknowledged". It is not, and must not become, a per-person responsiveness score.</li>
+  <li><b>One behaviour change worth stating plainly:</b> the sweep now climbs the ladder, so blockers that were
+    stuck at level 1 for days will escalate on the next sweep after this migration. On the live demo database five
+    genuinely-overdue open blockers moved to level 2 the moment the worker restarted. That is the system doing what
+    it was asked to do, but it is a visible change and not a silent one.</li>
+</ul></div>
+</body></html>

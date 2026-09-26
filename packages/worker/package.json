@@ -1,0 +1,21 @@
+{
+  "name": "@freshnow/worker",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts"
+  },
+  "dependencies": {
+    "@freshnow/core": "workspace:*",
+    "bullmq": "^6.3.4",
+    "dotenv": "^17.4.2",
+    "ioredis": "^6.0.0",
+    "nodemailer": "^7.0.13",
+    "web-push": "^3.6.7"
+  },
+  "devDependencies": {
+    "@types/nodemailer": "^8.0.2",
+    "@types/web-push": "^3.6.4"
+  }
+}

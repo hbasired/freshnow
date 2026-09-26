@@ -1,0 +1,1424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FreshNow Operations Platform — Complete System Blueprint</title>
+<style>
+:root{
+  --bg:#0b0f14; --bg2:#11161d; --card:#151b23; --bd:#26303b;
+  --fg:#e7edf4; --mut:#93a1b1; --dim:#66768a;
+  --acc:#3ecf8e; --acc2:#4aa8ff; --warn:#e0a33e; --dang:#e5534b; --pur:#a371f7;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--fg);
+  font:16px/1.7 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  -webkit-font-smoothing:antialiased}
+
+/* layout */
+.wrap{display:grid;grid-template-columns:250px 1fr;max-width:1500px;margin:0 auto;gap:0}
+nav{position:sticky;top:0;height:100vh;overflow-y:auto;padding:28px 18px;
+  border-right:1px solid var(--bd);background:var(--bg2)}
+nav h4{font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:var(--dim);
+  margin:22px 0 8px}
+nav a{display:block;color:var(--mut);text-decoration:none;font-size:.86rem;
+  padding:5px 10px;border-radius:6px;border-left:2px solid transparent}
+nav a:hover{color:var(--fg);background:#1b222c;border-left-color:var(--acc)}
+main{padding:44px 52px 120px;min-width:0;max-width:1100px}
+@media(max-width:940px){.wrap{grid-template-columns:1fr}nav{position:static;height:auto;border-right:0;border-bottom:1px solid var(--bd)}main{padding:28px 20px 80px}}
+
+/* type */
+h1{font-size:2.5rem;line-height:1.15;margin:0 0 10px;letter-spacing:-.02em}
+h2{font-size:1.6rem;margin:64px 0 6px;padding-top:20px;border-top:1px solid var(--bd);
+  letter-spacing:-.01em}
+h2 .n{color:var(--acc);font:600 .85rem/1 var(--mono);display:block;margin-bottom:8px;
+  letter-spacing:.12em;text-transform:uppercase}
+h3{font-size:1.15rem;margin:34px 0 8px;color:var(--fg)}
+h4{font-size:.98rem;margin:22px 0 6px;color:var(--acc2)}
+p{margin:12px 0;color:#cfd9e4}
+.lede{font-size:1.12rem;color:var(--mut);max-width:70ch}
+small,.small{font-size:.86rem;color:var(--mut)}
+strong{color:#fff;font-weight:600}
+code{font:.88em var(--mono);background:#1c242e;padding:2px 6px;border-radius:4px;color:#a8d5ff}
+pre{background:#080b0f;border:1px solid var(--bd);border-radius:10px;padding:16px;
+  overflow-x:auto;font:.84rem/1.6 var(--mono);color:#c9d6e3;margin:16px 0}
+pre .c{color:var(--dim)}
+pre .k{color:var(--pur)} pre .s{color:var(--acc)} pre .n{color:var(--warn)}
+ul,ol{color:#cfd9e4;padding-left:22px} li{margin:6px 0}
+a{color:var(--acc2)}
+
+/* cards */
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:20px;margin:18px 0}
+.card h4:first-child{margin-top:0}
+.grid{display:grid;gap:14px;margin:18px 0}
+.g2{grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
+.g3{grid-template-columns:repeat(auto-fit,minmax(210px,1fr))}
+.g4{grid-template-columns:repeat(auto-fit,minmax(165px,1fr))}
+.stat{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:16px;text-align:center}
+.stat b{display:block;font-size:1.7rem;color:var(--acc);font-weight:700;line-height:1.2}
+.stat span{font-size:.78rem;color:var(--mut);display:block;margin-top:4px}
+
+.note{border-left:3px solid var(--acc2);background:#101a26;padding:14px 18px;
+  border-radius:0 8px 8px 0;margin:18px 0}
+.warn{border-left:3px solid var(--warn);background:#1f1a0e;padding:14px 18px;
+  border-radius:0 8px 8px 0;margin:18px 0}
+.danger{border-left:3px solid var(--dang);background:#231313;padding:14px 18px;
+  border-radius:0 8px 8px 0;margin:18px 0}
+.good{border-left:3px solid var(--acc);background:#0f1d17;padding:14px 18px;
+  border-radius:0 8px 8px 0;margin:18px 0}
+
+/* tables */
+table{border-collapse:collapse;width:100%;margin:18px 0;font-size:.9rem}
+th,td{border:1px solid var(--bd);padding:9px 12px;text-align:left;vertical-align:top}
+th{background:#1b232d;font-weight:600;color:#fff;font-size:.84rem;
+  text-transform:uppercase;letter-spacing:.04em}
+td code{font-size:.85em}
+tr:nth-child(even) td{background:#12181f}
+
+/* diagrams */
+.dia{background:#080b0f;border:1px solid var(--bd);border-radius:12px;padding:24px;margin:22px 0;overflow-x:auto}
+.dia-t{font:600 .74rem/1 var(--mono);color:var(--dim);text-transform:uppercase;
+  letter-spacing:.12em;margin-bottom:18px}
+.row{display:flex;gap:10px;align-items:stretch;flex-wrap:wrap;justify-content:center;margin:8px 0}
+.box{background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:10px 14px;
+  font-size:.82rem;text-align:center;min-width:118px;flex:0 1 auto}
+.box b{display:block;color:#fff;font-size:.86rem;margin-bottom:2px}
+.box span{color:var(--mut);font-size:.72rem;line-height:1.35;display:block}
+.box.acc{border-color:var(--acc);background:#0f1d17}
+.box.acc2{border-color:var(--acc2);background:#101a26}
+.box.warnb{border-color:var(--warn);background:#1f1a0e}
+.box.dangb{border-color:var(--dang);background:#231313}
+.box.purb{border-color:var(--pur);background:#1a1426}
+.arw{display:flex;align-items:center;justify-content:center;color:var(--dim);
+  font-size:1.2rem;padding:2px 0}
+.lane{border:1px dashed var(--bd);border-radius:10px;padding:14px;margin:10px 0}
+.lane-t{font:600 .7rem/1 var(--mono);color:var(--acc);text-transform:uppercase;
+  letter-spacing:.1em;margin-bottom:10px}
+.asc{font:.78rem/1.5 var(--mono);color:#9fb3c8;white-space:pre;overflow-x:auto;display:block}
+
+/* pills */
+.pill{display:inline-block;font:600 .68rem/1 var(--mono);padding:4px 9px;border-radius:20px;
+  text-transform:uppercase;letter-spacing:.06em;margin:2px 4px 2px 0;border:1px solid}
+.p1{color:var(--acc);border-color:var(--acc);background:#0f1d17}
+.p2{color:var(--acc2);border-color:var(--acc2);background:#101a26}
+.p3{color:var(--warn);border-color:var(--warn);background:#1f1a0e}
+.p4{color:var(--pur);border-color:var(--pur);background:#1a1426}
+.p5{color:var(--dang);border-color:var(--dang);background:#231313}
+.p0{color:var(--mut);border-color:var(--bd);background:#161c24}
+
+hr{border:0;border-top:1px solid var(--bd);margin:40px 0}
+.foot{color:var(--dim);font-size:.84rem;margin-top:60px;padding-top:20px;border-top:1px solid var(--bd)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<nav>
+  <div style="font:700 1rem/1.2 system-ui;color:var(--acc);margin-bottom:4px">FreshNow</div>
+  <div class="small" style="margin-bottom:6px">System Blueprint v1.0</div>
+
+  <h4>Foundations</h4>
+  <a href="#s1">01 · What we are building</a>
+  <a href="#s2">02 · Principles</a>
+  <a href="#s3">03 · Why an LLM breaks on data</a>
+
+  <h4>Architecture</h4>
+  <a href="#s4">04 · High-level design</a>
+  <a href="#s5">05 · Deployment &amp; hosting</a>
+  <a href="#s6">06 · Low-level design</a>
+  <a href="#s7">07 · Database &amp; semantic layer</a>
+
+  <h4>Flows</h4>
+  <a href="#s8">08 · Telegram integration</a>
+  <a href="#s9">09 · Identity mapping</a>
+  <a href="#s10">10 · Capture → storage</a>
+  <a href="#s11">11 · Routing &amp; escalation</a>
+  <a href="#s12">12 · Jobs &amp; scheduling</a>
+  <a href="#s13">13 · Query &amp; validation</a>
+
+  <h4>Behaviour</h4>
+  <a href="#s14">14 · Learning &amp; adaptation</a>
+  <a href="#s15">15 · What gets automated</a>
+  <a href="#s16">16 · Do we need agents?</a>
+
+  <h4>Delivery</h4>
+  <a href="#s17">17 · Phases &amp; expansion</a>
+  <a href="#s18">18 · Capacity &amp; cost</a>
+  <a href="#s19">19 · Governance &amp; law</a>
+  <a href="#s20">20 · Reference systems</a>
+  <a href="#s21">21 · Required from company</a>
+  <a href="#s22">22 · Honest limitations</a>
+</nav>
+
+<main>
+
+<h1>FreshNow Operations Platform</h1>
+<p class="lede">A Telegram-first operations system for a Dubai fresh-juice vending,
+production and delivery business. Employees report daily status in a chat app they
+already have. Everything is stored, routed, escalated and reported by a system that
+runs on FreshNow's own server — deterministic, replayable, auditable and observable
+from day one.</p>
+
+<div class="grid g4">
+  <div class="stat"><b>1</b><span>VPS, 8 vCPU / 32 GB</span></div>
+  <div class="stat"><b>~$25</b><span>per month, Phase 1–2</span></div>
+  <div class="stat"><b>2</b><span>taps for a normal day</span></div>
+  <div class="stat"><b>5</b><span>phases to full expansion</span></div>
+</div>
+
+<div class="warn">
+<strong>Read this as a design document, not a report of a built system.</strong> Nothing
+described here has been implemented yet. Numbers marked as estimates are estimates.
+Everything dependent on FreshNow's own data — headcount, shifts, blocker categories,
+fleet size — is flagged as needing company input in §21, and must not be invented
+during the build.
+</div>
+
+<!-- ===================== 01 ===================== -->
+<h2 id="s1"><span class="n">01 · Orientation</span>What we are building</h2>
+
+<p>FreshNow runs fresh orange juice vending machines across Dubai and is expanding into
+in-store juice sales and home delivery of bottled juice. There is a warehouse where
+food-technology R&amp;D, juice production and bottle filling happen. Coordination today
+is informal, and the CEO has no single place to see what is happening across the
+operation.</p>
+
+<p>The system solves one problem first and is built so the rest attach to it without a
+rewrite:</p>
+
+<div class="grid g2">
+<div class="card">
+<h4>The problem being solved now</h4>
+<p class="small">Employees report daily task status. Blockers are captured in their own
+words, classified, routed to whoever can fix them, and escalated if nobody does. The
+CEO sees the whole picture and can message anyone — including someone <em>other</em>
+than the person who is stuck.</p>
+</div>
+<div class="card">
+<h4>The problems it must grow into</h4>
+<p class="small">Task assignment from the platform. Warehouse batch and QC traceability.
+Vending machine telemetry. Demand forecasting for a perishable product. Restock and
+delivery route optimisation. Inventory control.</p>
+</div>
+</div>
+
+<h3>The single architectural decision that makes this work</h3>
+
+<div class="good">
+<strong>Telegram is a channel, not the system.</strong> All logic lives in a Core API on
+the VPS. The bot translates Telegram messages into API calls and back. The web dashboard
+talks to the same API. Telemetry ingestion, a driver app, and a customer channel become
+additional adapters later. <strong>The core is never rewritten.</strong>
+</div>
+
+<p>This answers the question of why a server and a database are needed if Telegram is
+being used. Telegram stores messages; it cannot be queried, aggregated or reported on.
+It has no scheduler, so nothing in it can decide "it is 07:30, prompt the warehouse
+shift." And a Telegram bot is not a thing that lives inside Telegram — it is a program
+running on your own server that Telegram forwards messages to. There is nothing to
+deploy <em>into</em> Telegram.</p>
+
+<!-- ===================== 02 ===================== -->
+<h2 id="s2"><span class="n">02 · Principles</span>The four properties everything is built for</h2>
+
+<table>
+<tr><th style="width:150px">Property</th><th>What it means concretely</th><th>How it is enforced</th></tr>
+<tr><td><strong>Deterministic</strong></td>
+<td>Routing, escalation and assignment produce the same result from the same inputs, every time. No model participates in those decisions.</td>
+<td>Routing is a lookup on <code>(category, site, shift)</code>. Escalation is a rule on severity and age. Both unit-tested per rule.</td></tr>
+<tr><td><strong>Replayable</strong></td>
+<td>Any run can be reconstructed and re-executed from stored state and will reach the same decision.</td>
+<td><code>run_trace</code> stores input, each step, each rule that matched, each gate verdict, and the output. A replay test runs in CI.</td></tr>
+<tr><td><strong>Auditable</strong></td>
+<td>Every number the CEO sees traces back to the query that produced it. Every state change has a record.</td>
+<td>Append-only <code>audit_log</code> with a shared <code>correlation_id</code>. No UPDATE or DELETE grant. Fails closed if the audit write fails.</td></tr>
+<tr><td><strong>Observable</strong></td>
+<td>A stuck process is visible in stored traces, not inferred from a hanging request.</td>
+<td>Every job writes <code>job_run</code>. Every model call writes <code>llm_call</code> with tokens, cost and latency.</td></tr>
+</table>
+
+<h3>Three hard boundaries</h3>
+
+<div class="grid g3">
+<div class="card"><h4>The LLM translates; the engine computes</h4>
+<p class="small">The model never counts, sums or aggregates. It writes a query; Postgres
+executes over every row; the model narrates a bounded result. §03 explains why this is
+architectural rather than stylistic.</p></div>
+<div class="card"><h4>Every loop is bounded</h4>
+<p class="small">Hard iteration caps, result-row caps, token budgets, retry limits, and
+a repetition detector. Reaching a cap is a reportable outcome, never a reason to loop
+again or fabricate.</p></div>
+<div class="card"><h4>No autonomous action on the CEO's behalf</h4>
+<p class="small">Every outbound message under the CEO's name requires an explicit human
+tap and is recorded with the approver. This holds through Phase 3 at minimum.</p></div>
+</div>
+
+<!-- ===================== 03 ===================== -->
+<h2 id="s3"><span class="n">03 · The core problem</span>Why an LLM breaks when you point it at data</h2>
+
+<p>This section exists because it determines the shape of everything else. The failure
+being designed around is not "the model is not smart enough." It is architectural.</p>
+
+<p>A transformer is a sequence model. A table is a two-dimensional object with exact
+semantics. Five mismatches follow, and every practical failure traces to one of them.</p>
+
+<table>
+<tr><th style="width:29%">What a table is</th><th style="width:36%">What a transformer does</th><th>Consequence</th></tr>
+<tr><td><strong>Two-dimensional.</strong> A cell means something because of its row <em>and</em> its column header.</td>
+<td>Flattens to one dimension. A value can end up hundreds of tokens from the header that defines it.</td>
+<td>Column–value binding degrades as tables get wider.</td></tr>
+<tr><td><strong>Row order is meaningless.</strong> Rows are a set; shuffling changes nothing.</td>
+<td>Positional encodings make position meaningful. Row 1 and row 500 are not treated alike.</td>
+<td>Answers become sensitive to row order, which carries no information.</td></tr>
+<tr><td><strong>Arithmetic is exact.</strong> A sum is an algorithm with a carry.</td>
+<td>Approximates arithmetic from learned token patterns; tokenisation splits numbers unpredictably.</td>
+<td>Plausible totals that are quietly wrong.</td></tr>
+<tr><td><strong>Aggregation needs completeness.</strong> <code>COUNT</code> must see every qualifying row.</td>
+<td>Attention is a soft weighting designed to <em>focus</em> — to prefer some tokens over others.</td>
+<td>Focus and completeness are opposite objectives.</td></tr>
+<tr><td><strong>A number is right or wrong.</strong></td>
+<td>Generates the most probable next token. For prose, probable is good.</td>
+<td>No internal distinction between "I read this" and "this looks right."</td></tr>
+</table>
+
+<div class="danger">
+The fourth row is the deepest. Attention exists to decide what matters <em>more</em>;
+aggregation requires treating every qualifying row as equally mandatory. Ask a salience
+mechanism for exhaustiveness and it produces a number — and that number is
+<strong>an estimate shaped like an answer</strong>, delivered in exactly the same
+confident tone as a correct one.
+</div>
+
+<h3>The three specific failures this project was warned about</h3>
+
+<div class="grid g3">
+<div class="card"><h4>Looping on self-reference</h4>
+<p class="small">An employee's manager is also an employee — the same table joined to
+itself. Nothing in the column types signals that. A model that does not know it will
+retry variations forever.</p>
+<p class="small"><strong>Fix:</strong> a <code>purpose</code> string on every foreign key
+naming the join path, plus a hard iteration cap and a repetition detector.</p></div>
+
+<div class="card"><h4>Missing rows in the middle</h4>
+<p class="small">Attention over a long context is not uniform. Material at the start and
+end is recalled far more reliably than material in the middle — the
+<em>lost-in-the-middle</em> effect.</p>
+<p class="small"><strong>Fix:</strong> never paste rows into context at all. Aggregate in
+SQL. For documents, retrieve a few relevant passages rather than supplying everything.</p></div>
+
+<div class="card"><h4>Confidently wrong totals</h4>
+<p class="small">Correct query, correct rows returned, invented total in the narration.
+This produces no error and no signal that anything went wrong.</p>
+<p class="small"><strong>Fix:</strong> a deterministic numeric sanity gate — every number
+stated must literally appear in the returned rows.</p></div>
+</div>
+
+<h3>The resolution the architecture is built on</h3>
+
+<div class="dia">
+<div class="dia-t">The translation boundary</div>
+<span class="asc">   natural language  ──►  [ LLM: translate ]  ──►  SQL
+                                                    │
+                                                    ▼
+                              [ Postgres: compute exactly, over every row ]
+                                                    │
+                                                    ▼
+          answer  ◄──  [ LLM: narrate ]  ◄──  ≤ 50 rows</span>
+</div>
+
+<p><strong>The model never counts anything.</strong> It writes <code>COUNT(*)</code> and
+reads back one number. Three constraints follow, and all three are mandatory:</p>
+
+<ol>
+<li><strong>Translate, don't compute</strong> — a bounded tool loop; the model emits
+queries, never totals.</li>
+<li><strong>Give it meaning, not just types</strong> — the semantic layer, so translation
+has something to translate <em>into</em>.</li>
+<li><strong>Keep both ends small</strong> — schema pruning on the way in, a row cap on
+the way back.</li>
+</ol>
+
+<div class="note">
+<strong>Note on where this reasoning comes from.</strong> This framing is drawn from
+reference material supplied with the project, which attributes it to a lecture
+transcript. The reasoning is sound and matches documented behaviour of these systems.
+The specific measurements in that material — token counts, timings, chunk counts — are
+that project's own figures on its own corpus and are <strong>not</strong> targets for
+this build. Measure your own.
+</div>
+
+<!-- ===================== 04 ===================== -->
+<h2 id="s4"><span class="n">04 · Architecture</span>High-level design</h2>
+
+<div class="dia">
+<div class="dia-t">System context — who talks to what</div>
+
+<div class="row">
+  <div class="box acc"><b>Employees</b><span>warehouse · production<br>drivers · retail</span></div>
+  <div class="box acc"><b>Managers</b><span>assign · resolve</span></div>
+  <div class="box acc"><b>CEO</b><span>oversee · direct</span></div>
+</div>
+<div class="arw">│</div>
+<div class="row">
+  <div class="box acc2"><b>Telegram</b><span>1:1 chats<br>alerts · quick actions</span></div>
+  <div class="box acc2"><b>Web dashboard</b><span>boards · trends<br>queries · audit</span></div>
+  <div class="box p0" style="opacity:.55"><b>Driver PWA</b><span>Phase 4</span></div>
+  <div class="box p0" style="opacity:.55"><b>Customer channel</b><span>Phase 5</span></div>
+</div>
+<div class="arw">▼</div>
+<div class="lane">
+<div class="lane-t">Core — channel-agnostic, on the VPS</div>
+<div class="row">
+  <div class="box"><b>Identity</b><span>employees · roles<br>skills · sites</span></div>
+  <div class="box"><b>Tasks</b><span>assign · status<br>recurrence · SLA</span></div>
+  <div class="box"><b>Blockers</b><span>classify · route<br>escalate</span></div>
+</div>
+<div class="row">
+  <div class="box"><b>Outbox</b><span>idempotent<br>multi-channel</span></div>
+  <div class="box"><b>Insight</b><span>digests · trends<br>bounded query</span></div>
+  <div class="box"><b>Audit &amp; trace</b><span>append-only<br>replayable</span></div>
+</div>
+</div>
+<div class="arw">▼</div>
+<div class="row">
+  <div class="box warnb"><b>PostgreSQL</b><span>system of record<br>RLS · pgvector</span></div>
+  <div class="box warnb"><b>Redis</b><span>queues · delayed jobs<br>sessions</span></div>
+  <div class="box purb"><b>OpenRouter</b><span>parse · summarise<br>narrate only</span></div>
+</div>
+<div class="arw">▼</div>
+<div class="row">
+  <div class="box p0" style="opacity:.55"><b>Telemetry</b><span>Phase 4</span></div>
+  <div class="box p0" style="opacity:.55"><b>Forecasting</b><span>Phase 4</span></div>
+  <div class="box p0" style="opacity:.55"><b>Route optimiser</b><span>Phase 5</span></div>
+  <div class="box p0" style="opacity:.55"><b>Inventory &amp; lots</b><span>Phase 3</span></div>
+  <div class="box p0" style="opacity:.55"><b>Production &amp; QC</b><span>Phase 3</span></div>
+</div>
+</div>
+
+<p>Read it as three bands. The top is <strong>how humans reach the system</strong> —
+adapters, added over time. The middle is the <strong>core</strong>, built once in Phase 1
+and barely changed after. The bottom is <strong>operational domains</strong>, attached
+later. Nothing in the middle band gets rewritten when something is added above or below
+it.</p>
+
+<h3>Non-functional targets</h3>
+<table>
+<tr><th>Attribute</th><th>Target</th><th>How</th></tr>
+<tr><td>Webhook acknowledgement</td><td>&lt; 1 s</td><td>Persist and queue; slow work runs as a job</td></tr>
+<tr><td>Employee-visible response</td><td>Immediate</td><td>Acknowledge before parsing</td></tr>
+<tr><td>Blocker → resolver notification</td><td>&lt; 2 min (high/critical)</td><td>Outbox worker polls every 10 s</td></tr>
+<tr><td>Data loss on submitted updates</td><td>Zero</td><td>Write-raw-first ordering</td></tr>
+<tr><td>Duplicate notifications</td><td>Zero</td><td><code>idempotency_key</code> UNIQUE</td></tr>
+<tr><td>LLM spend</td><td>Under a configured daily cap</td><td>Budget check before every call; degrade to rules-only</td></tr>
+<tr><td>Answer auditability</td><td>100%</td><td>Executed SQL and row count attached to every answer</td></tr>
+</table>
+
+<!-- ===================== 05 ===================== -->
+<h2 id="s5"><span class="n">05 · Deployment</span>What is hosted where</h2>
+
+<div class="dia">
+<div class="dia-t">Hostinger KVM 8 — 8 vCPU · 32 GB RAM · 400 GB NVMe · no GPU</div>
+<span class="asc">                     internet
+                        │
+                        ▼  :443 only
+        ┌───────────────────────────────────┐
+        │  Caddy — TLS, reverse proxy       │
+        └───┬──────┬──────────┬─────────────┘
+            │      │          │
+   /tg/webhook   /api/*       /  and  /miniapp
+            │      │          │
+            ▼      ▼          ▼
+     ┌──────────┬────────┬───────────┐
+     │   bot    │  core  │ dashboard │   Docker Compose
+     │ (grammY) │  API   │ (Next.js) │
+     └────┬─────┴───┬────┴─────┬─────┘
+          │         │          │
+          └────┬────┴──────────┘
+               ▼
+        ┌─────────────┐      ┌──────────┐
+        │   worker    │◄────►│  Redis   │  queues, delayed jobs
+        │  (BullMQ)   │      │  :6379   │  localhost only
+        └──────┬──────┘      └──────────┘
+               │
+               ▼
+        ┌────────────────────────────┐
+        │ Supabase / PostgreSQL      │  system of record
+        │ :5432 — localhost only     │  RLS on · pgvector
+        └────────────────────────────┘
+
+  outbound only ──►  OpenRouter · Telegram Bot API · offsite backup</span>
+</div>
+
+<div class="grid g2">
+<div class="card">
+<h4>Hosting decisions and why</h4>
+<table style="margin:0">
+<tr><td><strong>Bot</strong></td><td>Runs on the VPS. There is no alternative — Telegram forwards messages to your server.</td></tr>
+<tr><td><strong>Database</strong></td><td>Self-hosted Supabase, already present. It is Postgres, so nothing is locked in. RLS maps exactly to the access model.</td></tr>
+<tr><td><strong>Jobs</strong></td><td>BullMQ + Redis, not crontab. Delayed jobs are what SLA escalation timers <em>are</em>.</td></tr>
+<tr><td><strong>LLM</strong></td><td>OpenRouter API. <strong>No local model</strong> — this VPS has no GPU, and CPU inference would starve Postgres while being slower and more expensive than the API at this volume.</td></tr>
+<tr><td><strong>TLS</strong></td><td>Caddy, automatic Let's Encrypt. Only port 443 is exposed.</td></tr>
+</table>
+</div>
+<div class="card">
+<h4>Hardening, before any real data</h4>
+<ul class="small">
+<li><code>ufw</code> allowing 22, 80, 443 only; SSH keys only; <code>fail2ban</code></li>
+<li>Every default Supabase JWT secret and API key rotated</li>
+<li>Supabase Studio bound to localhost, reached over an SSH tunnel</li>
+<li>Postgres and Redis bound to localhost, never exposed</li>
+<li>Containers run as non-root with resource limits so one runaway service cannot starve Postgres</li>
+<li>Nightly <code>pg_dump</code>, encrypted, pushed <strong>off the box</strong> — and a restore actually tested, not assumed</li>
+</ul>
+</div>
+</div>
+
+<div class="warn">
+<strong>A correction on the hardware.</strong> The VPS was described as "8 core 32 GB GPU."
+Hostinger KVM 8 is <strong>8 vCPU, 32 GB RAM, 400 GB NVMe, and no GPU</strong> — Hostinger
+VPS plans do not include GPUs. This matters: it rules out local model inference for
+anything interactive, which is fine because the API costs a few dollars a month at this
+volume.
+</div>
+
+<!-- ===================== 06 ===================== -->
+<h2 id="s6"><span class="n">06 · Architecture</span>Low-level design</h2>
+
+<h3>Package layout</h3>
+<pre><span class="c">/</span>
+├── CLAUDE.md                    <span class="c">project instructions</span>
+├── HONESTY-AND-ACCURACY.md      <span class="c">read first, every task</span>
+├── docker-compose.yml
+├── Caddyfile
+├── specs/                       <span class="c">SPEC-000 … SPEC-005 — source of truth</span>
+├── knowledge-base/              <span class="c">project memory, appended every task</span>
+├── docs/tasks/                  <span class="c">one HTML per completed task</span>
+├── migrations/                  <span class="c">numbered SQL, forward-only</span>
+├── semantic/schema.yaml         <span class="c">THE semantic layer — hand-maintained</span>
+└── packages/
+    ├── core/                    <span class="c">domain logic — the heart</span>
+    │   ├── identity/  tasks/  blockers/  escalations/
+    │   ├── notifications/       <span class="c">outbox</span>
+    │   ├── insights/            <span class="c">digests, bounded query</span>
+    │   └── llm/                 <span class="c">the single OpenRouter wrapper</span>
+    ├── api/                     <span class="c">Fastify HTTP layer over core</span>
+    ├── bot/                     <span class="c">grammY — translation only, no logic</span>
+    ├── worker/                  <span class="c">BullMQ processors</span>
+    └── dashboard/               <span class="c">Next.js</span></pre>
+
+<h3>The boundary rule, in code</h3>
+<div class="grid g2">
+<div class="card">
+<h4 style="color:var(--dang)">Wrong — logic in a bot handler</h4>
+<pre><span class="k">bot</span>.callbackQuery(<span class="s">/^status:(.+):(.+)$/</span>, <span class="k">async</span> (ctx) => {
+  <span class="k">const</span> [, taskId, status] = ctx.match;
+  <span class="k">if</span> (status === <span class="s">"blocked"</span>) {
+    <span class="k">const</span> r = <span class="k">await</span> db.query(<span class="s">"SELECT … routing"</span>);
+    <span class="k">await</span> db.insert(<span class="s">"blockers"</span>, { … });
+    <span class="k">await</span> bot.api.sendMessage(r.tg_id, <span class="s">"New blocker"</span>);
+  }
+});</pre>
+<p class="small">Three violations: business logic in the wrong package, a direct send
+bypassing the outbox, and routing that the dashboard will now have to duplicate.</p>
+</div>
+<div class="card">
+<h4 style="color:var(--acc)">Right — delegate, then render</h4>
+<pre><span class="k">bot</span>.callbackQuery(<span class="s">/^st:(.):(.+)$/</span>, <span class="k">async</span> (ctx) => {
+  <span class="k">const</span> [, code, taskId] = ctx.match;
+  <span class="k">const</span> res = <span class="k">await</span> core.tasks.recordStatus({
+    taskId, employeeId: ctx.state.employee.id,
+    status: expand(code),
+  });
+  <span class="k">await</span> ctx.answerCallbackQuery({ text: render.ack(res) });
+  <span class="k">await</span> ctx.editMessageReplyMarkup(render.keyboard(res.task));
+});</pre>
+<p class="small">The handler translates and renders. Everything else — routing,
+notification, audit — happens once, in core, for every channel.</p>
+</div>
+</div>
+
+<h3>Failure modes and designed behaviour</h3>
+<table>
+<tr><th style="width:32%">Failure</th><th>Behaviour</th></tr>
+<tr><td>OpenRouter down or slow</td><td>Raw text already persisted; update marked <code>needs_review</code>; hourly job retries; employee unaffected</td></tr>
+<tr><td>Telegram API down</td><td>Outbox rows accumulate with backoff; delivered when service returns; no duplicates on retry</td></tr>
+<tr><td>Employee blocked the bot</td><td>Terminal failure — abandon the row, mark the channel inactive, notify the manager. Never retry forever</td></tr>
+<tr><td>Worker restarts mid-job</td><td>BullMQ redelivers; processor checks whether the work is already done; idempotency key prevents a second message</td></tr>
+<tr><td>Tool loop hits its cap</td><td>Returns "could not complete" with partial findings. Never loops again, never fabricates</td></tr>
+<tr><td>Numeric sanity gate fails</td><td>Escalates to re-derivation by a different method, not to the user</td></tr>
+<tr><td>LLM daily budget exceeded</td><td>Degrades to rules-only parsing and a plain SQL digest; alerts an admin; does not fail the user</td></tr>
+<tr><td>Audit write fails</td><td>Operation fails closed. An unaudited action is not permitted</td></tr>
+<tr><td>Postgres unavailable</td><td>Bot replies with a plain outage message. It does <strong>not</strong> accept an update it cannot store</td></tr>
+</table>
+
+<!-- ===================== 07 ===================== -->
+<h2 id="s7"><span class="n">07 · Data</span>Database and the semantic layer</h2>
+
+<h3>Core entities, Phase 1</h3>
+<div class="dia">
+<div class="dia-t">Entity relationships</div>
+<span class="asc">  department ──┬──&lt; employee ──┬──&lt; employee_skill &gt;── skill
+               │          │  │
+               │          │  └──&lt; consent_record
+               │          │
+               │          ├──&lt; task ──┬──&lt; task_update
+               │          │            └──&lt; blocker ──&lt; escalation
+               │          │
+               │          └──&lt; message  (CEO ↔ employee, human-approved)
+               │
+               └── employee.manager_id ──► employee   ★ SELF-REFERENTIAL
+
+  site ──&lt; task              routing_rule: (category, site, shift) → resolver
+
+  blocker.raised_by         ──► employee   ★ TWO FKs TO THE SAME TABLE
+  blocker.assigned_resolver ──► employee   ★ requires two aliased joins
+
+  operational:  notification_outbox · audit_log · llm_call · job_run · run_trace</span>
+</div>
+
+<div class="danger">
+The two starred relationships are exactly where a language model loops or produces a
+wrong join. <code>employee.manager_id</code> points back at <code>employee</code>, and
+<code>blocker</code> references <code>employee</code> twice. Nothing in the column types
+signals either. Both must be documented explicitly in the semantic layer.
+</div>
+
+<h3>The semantic layer</h3>
+<p><code>semantic/schema.yaml</code> is <strong>hand-maintained</strong>, not introspected
+at runtime. Reflection gives you types; only a human gives you meaning. Every column
+carries a plain-business-language note. Every foreign key carries a
+<code>purpose</code> naming which question that join path answers.</p>
+
+<pre><span class="k">employee</span>:
+  foreign_keys:
+    - column: manager_id
+      references: employee.id
+      purpose: &gt;
+        <span class="n">SELF-REFERENTIAL.</span> The employee's line manager, who is also an
+        employee. Any question about managers, reporting lines, or
+        "escalate to my manager" requires joining employee to ITSELF
+        with two aliases:
+          FROM employee e JOIN employee m ON e.manager_id = m.id
+        Nothing in the column types signals this.
+
+<span class="k">blocker</span>:
+  columns:
+    severity:
+      notes: &gt;
+        low | medium | high | critical. "critical" means production
+        stopped, cold chain broken, or a safety issue. <span class="n">NOT</span> a priority
+        set by the CEO — that is task.priority.
+    status:
+      notes: &gt;
+        open | acknowledged | resolved | cancelled. "open" means nobody
+        has accepted it yet. Count open+acknowledged when asked
+        "how many blockers are outstanding".
+  foreign_keys:
+    - column: raised_by
+      references: employee.id
+      purpose: Who reported it. Use for "which employees are blocked".
+    - column: assigned_resolver
+      references: employee.id
+      purpose: &gt;
+        Who must fix it. <span class="n">NOTE:</span> blocker joins employee TWICE. A question
+        naming both reporter and fixer needs two aliased joins.</pre>
+
+<div class="note">
+<strong>Maintenance is part of the task, not a follow-up.</strong> A semantic layer left
+alone rots, and schema drift silently degrades query accuracy until someone notices.
+When a migration changes a table, updating <code>schema.yaml</code> is part of that
+migration. CI fails if a table exists in the database but not in the semantic layer.
+</div>
+
+<h3>Three operational tables that carry the system</h3>
+<div class="grid g3">
+<div class="card"><h4><code>notification_outbox</code></h4>
+<p class="small">Nothing sends a message directly. Business logic writes a row with a
+<code>UNIQUE idempotency_key</code>; the worker delivers it with
+<code>SELECT … FOR UPDATE SKIP LOCKED</code>. This is what makes delivery exactly-once
+from the employee's point of view and survives a Telegram outage.</p></div>
+<div class="card"><h4><code>audit_log</code></h4>
+<p class="small">Append-only, no UPDATE or DELETE grant. Every state change, consent
+event, approval and outbound message under the CEO's name, tied together by
+<code>correlation_id</code>. Under UAE data-protection law this is a requirement, not
+a convenience.</p></div>
+<div class="card"><h4><code>run_trace</code></h4>
+<p class="small">Input, every step with timing, every rule that matched and why, every
+gate verdict, every model call reference, the output. This is what makes a run
+replayable — and what lets the CEO ask "why did this go to Rashid?" and get a row
+rather than a guess.</p></div>
+</div>
+
+<h3>Access control</h3>
+<p>Row-Level Security on every table, default deny. Employees read and write only their
+own rows; managers read their department; the <code>ceo</code> role reads all; the
+worker's service role bypasses and therefore never accepts unvalidated input. Every
+policy has a test asserting both what is visible <em>and what is not</em> — a policy
+that silently returns zero rows looks correct and is not.</p>
+
+<!-- ===================== 08 ===================== -->
+<h2 id="s8"><span class="n">08 · Integration</span>How Telegram actually connects</h2>
+
+<div class="dia">
+<div class="dia-t">There is nothing to deploy "into" Telegram</div>
+<span class="asc">  Employee's phone        Telegram's servers          Your Hostinger VPS
+  ────────────────        ──────────────────          ──────────────────
+    Telegram app  ──────►  Bot API infrastructure ────►  your bot process
+         ▲                          │                          │
+         └──────────────────────────┘◄─────────────────────────┘
+              message delivered            sendMessage() call</span>
+</div>
+
+<h3>Setup, once</h3>
+<ol>
+<li><strong>Create the bot</strong> — message <code>@BotFather</code>, send
+<code>/newbot</code>, receive a token. That token is full control of the bot: it lives in
+<code>.env</code> at <code>chmod 600</code>, never in git, and is revoked immediately if
+it leaks.</li>
+<li><strong>Configure it</strong> — <code>/setcommands</code> for
+<code>/start /mytasks /status /blocked /language /privacy</code>;
+<code>/setprivacy</code> left <strong>enabled</strong> since the design uses 1:1 chats,
+not groups.</li>
+<li><strong>Register the webhook</strong> — tell Telegram where your server is.</li>
+</ol>
+
+<pre>POST https://api.telegram.org/bot&lt;TOKEN&gt;/setWebhook
+{
+  <span class="s">"url"</span>: <span class="s">"https://ops.freshnow.ae/tg/webhook"</span>,
+  <span class="s">"secret_token"</span>: <span class="s">"&lt;64 random characters&gt;"</span>,
+  <span class="s">"allowed_updates"</span>: [<span class="s">"message"</span>, <span class="s">"callback_query"</span>, <span class="s">"my_chat_member"</span>],
+  <span class="s">"max_connections"</span>: <span class="n">40</span>
+}</pre>
+
+<div class="danger">
+<strong>The secret token is not optional.</strong> Telegram returns it in the
+<code>X-Telegram-Bot-Api-Secret-Token</code> header on every request. Your server rejects
+anything that does not match. Without this check, anyone who discovers the URL can post
+fabricated employee updates straight into your database.
+</div>
+
+<h4>Webhook, not polling</h4>
+<p>Polling means your server repeatedly asks Telegram "anything new?" It works, and it is
+what you use locally because it needs no public URL. In production it wastes requests and
+adds latency. One trap worth knowing: if you point the webhook at a dev tunnel to test
+and forget to reset it, <strong>production silently stops receiving messages</strong>.
+<code>getWebhookInfo</code> reports where the webhook points, how many updates are
+pending, and the last error — it diagnoses most delivery problems in one call.</p>
+
+<h4>Respond fast, work later</h4>
+<p>Telegram retries if a webhook does not answer within roughly a minute, which causes
+duplicate processing. The handler persists, acknowledges, and queues:</p>
+<pre><span class="k">bot</span>.on(<span class="s">"message:text"</span>, <span class="k">async</span> (ctx) => {
+  <span class="k">const</span> u = <span class="k">await</span> core.taskUpdates.createRaw({ … });  <span class="c">// fast DB write</span>
+  <span class="k">await</span> ctx.reply(render.received());                <span class="c">// instant feedback</span>
+  <span class="k">await</span> queue.add(<span class="s">"parse_update"</span>, { updateId: u.id }); <span class="c">// slow work later</span>
+});</pre>
+
+<!-- ===================== 09 ===================== -->
+<h2 id="s9"><span class="n">09 · Identity</span>Mapping a Telegram account to an employee</h2>
+
+<p>Every Telegram account has a permanent numeric ID. It never changes and cannot be
+spoofed — Telegram vouches for it. Two things matter:</p>
+
+<div class="grid g2">
+<div class="card"><h4>It is a <code>bigint</code></h4>
+<p class="small">Telegram IDs passed 32-bit range years ago. Using <code>int</code> fails
+<em>silently</em> and corrupts your identity mapping. Same for
+<code>telegram_message_id</code> and <code>chat_id</code>. This is a real and common
+bug.</p></div>
+<div class="card"><h4>It is not an identity</h4>
+<p class="small">It tells you which <em>Telegram account</em> sent a message. It tells you
+nothing about which <em>employee</em> that is. Connecting the two is a deliberate,
+verified step — never a self-declaration.</p></div>
+</div>
+
+<div class="dia">
+<div class="dia-t">Onboarding — a manager vouches, the employee links</div>
+<span class="asc">  Manager          Dashboard        Core API         Employee      Bot      Postgres
+  ───────          ─────────        ────────         ────────      ───      ────────
+  Creates ────────► POST ──────────────────────────────────────────────────► INSERT
+  employee          /employees                                               status='pending'
+  (name, dept,          │
+   role, manager)       │
+                        ◄──── invite_code "K7M2QX"
+                              single-use · 72h · no 0/O/1/I
+  Gives code ──────────────────────────────────────►
+  in person                                        Opens bot, taps Start ──►
+                                                   ◄─── consent notice
+                                                        + "enter your code"
+                                                   Types K7M2QX ───────────►
+                                                                 Validates ─► UPDATE employee
+                                                                              telegram_user_id
+                                                                              status='active'
+                                                                            ─► INSERT consent_record
+                                                                            ─► INSERT audit_log
+                                                   ◄─── "Welcome Ahmed.
+                                                        You have 3 open tasks."</span>
+</div>
+
+<h3>Rules that make this trustworthy</h3>
+<ul>
+<li><strong>The bot never creates an employee record.</strong> Records originate only from
+a manager in the dashboard. This is what prevents a directory full of half-identified
+people.</li>
+<li><code>telegram_user_id</code> is <code>UNIQUE</code> — one account, one employee.</li>
+<li>The code is <strong>single-use</strong>, expires in 72 hours, and avoids visually
+ambiguous characters because people read these off paper.</li>
+<li><strong>Consent is captured at this exact moment</strong>, before the code is
+accepted: a plain notice in the employee's language, an explicit agreement, and a
+<code>consent_record</code> storing the policy version and a hash of the text they
+actually saw. That hash is what proves <em>which</em> notice they agreed to.</li>
+<li>Re-linking (new phone, new account) revokes the old link; both events are
+audited.</li>
+</ul>
+
+<p>After onboarding, every message carries the Telegram ID in the webhook payload. A
+middleware resolves it to the employee record once, and every handler downstream has the
+employee on hand. Employees never log in again — which is the entire point of using a
+messaging app they already have open.</p>
+
+<!-- ===================== 10 ===================== -->
+<h2 id="s10"><span class="n">10 · Capture</span>From a tap to a stored row</h2>
+
+<h3>What the employee sees</h3>
+<div class="card">
+<pre style="margin:0;background:#0d1117"><span class="c">Good morning Ahmed. 3 tasks for today:</span>
+
+1. Restock Deira metro machines     [Done] [In progress] [Blocked]
+2. Load van 2 for afternoon route   [Done] [In progress] [Blocked]
+3. Weekly chiller temperature check [Done] [In progress] [Blocked]</pre>
+</div>
+
+<p>Those are inline keyboard buttons. <strong>Two taps is a normal day.</strong> Free text
+is requested only when something is blocked, and then it is one question. Every extra
+question measurably reduces response rate, and response rate is the metric this project
+lives or dies by.</p>
+
+<h3>The sequencing rule that matters most</h3>
+<div class="dia">
+<div class="dia-t">Write first, parse later — always this order</div>
+<span class="asc">  1.  Write the raw text to Postgres        ◄── happens first, always
+  2.  Acknowledge to the employee           ◄── instant; they move on
+  3.  Queue a background parse job          ◄── may fail, may retry
+  4.  LLM extracts structured fields        ◄── minutes later is fine
+  5.  Rules route and notify                ◄── deterministic</span>
+</div>
+
+<div class="good">
+An employee's update is <strong>never</strong> lost because a model API timed out. If the
+parse fails, the row sits in <code>needs_review</code>, an hourly job retries it, and a
+human can resolve it from the dashboard. That state is normal, not an error.
+</div>
+
+<h3>What gets stored</h3>
+<pre><span class="k">task_update</span>
+  id, task_id, employee_id,
+  status,               <span class="c">-- from the button tap: deterministic, always correct</span>
+  note_raw,             <span class="c">-- exactly what they typed, kept verbatim</span>
+  note_parsed  jsonb,   <span class="c">-- what the LLM extracted, replaceable</span>
+  channel,              <span class="c">-- 'telegram'</span>
+  telegram_message_id,  <span class="c">-- a reference, not the data</span>
+  submitted_at</pre>
+
+<p>Keeping <code>note_raw</code> and <code>note_parsed</code> separate matters: when the
+parser improves in three months you can re-run it over the entire history. If you only
+kept the parse, that history is gone.</p>
+
+<h3>What is captured, and what deliberately is not</h3>
+<table>
+<tr><th>Captured</th><th>Not captured — by design</th></tr>
+<tr><td>Which task, which status, when</td><td>Location, unless an explicitly notified route feature is added</td></tr>
+<tr><td>The employee's own words, verbatim</td><td>Anything from outside the bot conversation</td></tr>
+<tr><td>Optional photos attached to a task</td><td>Sentiment, mood, or emotional inference</td></tr>
+<tr><td>Who was mentioned as needing to help</td><td>Productivity scores, rankings, league tables</td></tr>
+<tr><td>Response and resolution timing, as process metrics</td><td>Response timing used as an individual performance score</td></tr>
+</table>
+<p class="small">The right-hand column is a permanent design boundary, not a Phase 1
+limitation. It keeps this an operations tool rather than a surveillance tool, and it
+keeps the project on the right side of UAE employee-monitoring rules.</p>
+
+<!-- ===================== 11 ===================== -->
+<h2 id="s11"><span class="n">11 · The engine</span>Classification, routing and escalation</h2>
+
+<div class="dia">
+<div class="dia-t">From free text to a routed, escalating blocker</div>
+<span class="asc">  "chiller in van 2 not holding temp, juice at risk"
+                        │
+                        ▼
+     ┌──────────────────────────────────────┐
+     │  LLM: extract structured facts       │  ◄── the ONLY thing the model decides
+     └──────────────────────────────────────┘
+                        │
+                        ▼
+     { category: "equipment",  severity: "critical",
+       affected_asset: "van 2 chiller",
+       risk: "cold chain / spoilage" }
+                        │
+                        ▼
+     ┌──────────────────────────────────────┐
+     │  LOOKUP  routing_rule                │  ◄── deterministic · auditable
+     │  (category, site, shift) → resolver  │      explainable to the CEO
+     └──────────────────────────────────────┘
+                        │
+             ┌──────────┴───────────┐
+             ▼                      ▼
+      Notify resolver         Notify CEO  (severity ≥ high)
+      [Accept] [Decline]      [Reassign] [Message] [Ask someone else]
+             │
+             ▼
+      SLA timer armed ─── escalate to level 2 if unacknowledged
+                          cancelled on Accept
+                          re-checks state before firing (cancel/fire can race)
+                          periodic sweep as a safety net</span>
+</div>
+
+<div class="good">
+<strong>The model says what kind of problem it is. A lookup table decides who gets it.</strong>
+This is not a stylistic split. If the CEO asks "why did this go to Rashid?", the answer
+must be a row in a table — not a model's reasoning that may differ next time. It also
+means routing cannot hallucinate a person who does not exist.
+</div>
+
+<h3>The one-to-many and many-to-one requirement</h3>
+<p>This is where it is satisfied. The CEO addresses any employee, or several, from either
+surface. Every employee's updates flow into one queue the CEO sees. When a blocker needs
+someone <em>other</em> than the person who raised it, the system routes it there and
+tells both parties.</p>
+<p>None of this uses Telegram groups. Groups are noisy, they leak everyone's status to
+everyone, and they are a poor fit for anything a manager should see but a peer should
+not. The topology is <strong>private 1:1 chats, fanned out server-side</strong>.</p>
+
+<h3>Escalation mechanics</h3>
+<table>
+<tr><th style="width:32%">Mechanism</th><th>Why it is built this way</th></tr>
+<tr><td>Delayed job armed on blocker creation</td><td>"Escalate in 60 minutes unless acknowledged" is one line in BullMQ and survives a container restart. A <code>setTimeout</code> does not.</td></tr>
+<tr><td>Acknowledgement cancels the job</td><td>Removes the pending escalation rather than letting it fire and be ignored</td></tr>
+<tr><td>Processor re-checks state before acting</td><td>Cancel and fire can race. The processor asks the database, not the queue, what is true</td></tr>
+<tr><td>Periodic sweep every 5 minutes</td><td>Safety net for anything the delayed job missed — a Redis restart, a job removed by mistake</td></tr>
+<tr><td>Maximum escalation level</td><td>After the last level it stops and flags. It never loops</td></tr>
+<tr><td>SLA windows in configuration</td><td>They come from the company (question A9), not from a developer's guess</td></tr>
+</table>
+
+<!-- ===================== 12 ===================== -->
+<h2 id="s12"><span class="n">12 · Time</span>Jobs, schedules and cron</h2>
+
+<p>Everything that happens because a clock ticked is a job, not a cron script scattered
+across the box. The difference matters: BullMQ gives retries, backoff, observability
+and — crucially — <strong>delayed jobs</strong>, which is exactly what an SLA escalation
+timer is.</p>
+
+<table>
+<tr><th>Job</th><th>When</th><th>What it does</th></tr>
+<tr><td><code>daily_prompt</code></td><td>Per employee, at shift start</td><td>Queue the morning task message</td></tr>
+<tr><td><code>reminder_nudge</code></td><td>+3 h if no response</td><td>One nudge. Never a second</td></tr>
+<tr><td><code>parse_update</code></td><td>On each free-text update</td><td>LLM extraction into structured fields</td></tr>
+<tr><td><code>sla_sweep</code></td><td>Every 5 min</td><td>Escalate anything past its window</td></tr>
+<tr><td><code>escalate_blocker</code></td><td>Delayed, armed on creation</td><td>Move to the next escalation level</td></tr>
+<tr><td><code>outbox_deliver</code></td><td>Every 10 s and on enqueue</td><td>The only thing that sends messages</td></tr>
+<tr><td><code>executive_digest</code></td><td>18:00 daily</td><td>Aggregate in SQL, phrase with the LLM</td></tr>
+<tr><td><code>weekly_rollup</code></td><td>Sunday evening</td><td>Trends, recurring blockers, response rates</td></tr>
+<tr><td><code>reparse_failed</code></td><td>Hourly</td><td>Retry <code>needs_review</code> rows</td></tr>
+<tr><td><code>backup</code></td><td>02:00 daily</td><td><code>pg_dump</code>, encrypt, push off the box</td></tr>
+<tr><td><code>retention_sweep</code></td><td>Monthly</td><td>Enforce the retention policy</td></tr>
+</table>
+
+<h3>Shift-aware scheduling</h3>
+<p>Not everyone gets a 07:00 prompt. Production, drivers, warehouse and retail run
+different hours, and a message arriving at the wrong time is ignored. A repeating job
+asks every fifteen minutes: whose shift starts now? Each employee's
+<code>shift_pattern</code> is an RFC 5545 recurrence rule evaluated in their timezone.
+The <strong>UAE working week is Monday–Friday</strong> — nothing hardcodes a Saturday and
+Sunday weekend.</p>
+
+<h3>Idempotency, at two layers</h3>
+<p>Assume every job runs at least twice — retries happen, workers restart, schedules
+occasionally double-fire. A deterministic queue job ID deduplicates at the queue level;
+a <code>UNIQUE idempotency_key</code> on the outbox row deduplicates at the data level.
+Belt and braces, deliberately: the queue guard fails if Redis is flushed, the database
+guard does not.</p>
+
+<div class="note">
+<strong>Why not Temporal.</strong> Durable execution is the right answer for an enterprise
+with a large existing cron estate — which is what the original architecture documents
+were written for. FreshNow starts from zero. Temporal needs its own persistence store and
+production nodes sized around 4 vCPU / 8 GB each; on a shared 8-vCPU box already running
+Postgres, the bot and the dashboard, that is the wrong trade. A durable job queue gives
+most of the benefit at a fraction of the operational cost. Revisit in Phase 4–5 if many
+long-running interdependent workflows appear.
+</div>
+
+<!-- ===================== 13 ===================== -->
+<h2 id="s13"><span class="n">13 · Query</span>Answering the CEO's questions safely</h2>
+
+<p>From Phase 2 the CEO can ask questions in plain language. This is the riskiest feature
+in the product, because text-to-SQL fails by returning a query that <em>executes
+successfully and produces a plausible wrong number</em>. It does not error.</p>
+
+<div class="dia">
+<div class="dia-t">The query pipeline — compute spent in proportion to doubt</div>
+<span class="asc">  question
+     │
+     ▼
+  [ intent + scope check ]──── not in semantic layer ──► "I don't have that information"
+     │
+     ▼
+  [ clarify? ]──── one question, highest-severity ambiguity, max 3 rounds
+     │
+     ▼
+  [ read-back ]─── complex query? state the interpretation, wait for confirm
+     │
+     ▼
+  [ bounded tool loop ]  max 8 iterations · read-only connection · MAX_ROWS 50
+     │                   repeated identical call → break immediately
+     ▼
+  [ DETERMINISTIC GATES — pure code, no model ]
+     ├── numeric sanity: every stated number must appear in the returned rows
+     └── grounding:      a policy claim must cite a source record
+     │
+     ├── pass ──► [ critic ] ──confident──► finalise
+     │                       │
+     └── fail ──────────────►└──► [ cross-validator: re-derive by a DIFFERENT method ]
+                                        │
+                                   disagree ──► [ arbiter ] ──► finalise
+     │
+     ▼
+  answer + confidence + executed SQL + row count + correlation_id</span>
+</div>
+
+<h3>Why each guard exists</h3>
+<table>
+<tr><th style="width:26%">Guard</th><th>The failure it prevents</th></tr>
+<tr><td><strong>Scope check first</strong></td><td>Improvising an answer for data that was never collected. Checking the semantic layer is cheaper and safer than discovering mid-query that the table does not exist.</td></tr>
+<tr><td><strong>Schema pruning</strong></td><td>Pasting a whole schema into context, which stops working the moment the schema grows. Only the tables an intent needs, plus their one-hop neighbours.</td></tr>
+<tr><td><strong>Read-only connection</strong></td><td>An <code>UPDATE</code> or <code>DROP</code> reaching the database. It fails at the engine, not at a prompt instruction.</td></tr>
+<tr><td><strong>Curated views only</strong></td><td>Arbitrary table access. The query role has <code>SELECT</code> on views and nothing else.</td></tr>
+<tr><td><strong><code>MAX_ROWS = 50</code></strong></td><td>An unbounded result set blowing the context window. Aggregation is pushed into SQL so the model receives an answer, not a table. Truncation is stated in the answer.</td></tr>
+<tr><td><strong>Iteration cap + repetition detector</strong></td><td>The loop that never returns — usually triggered by a self-join the model cannot work out. Two identical consecutive tool calls is a loop signature, not progress.</td></tr>
+<tr><td><strong>Numeric sanity gate</strong></td><td>Correct query, correct rows, invented total. Pure code, so the judge cannot hallucinate.</td></tr>
+<tr><td><strong>Cross-validation by a different method</strong></td><td>Asking the same model to "check your work" on the same evidence reproduces the same reasoning and the same error. The re-derivation must take a different route.</td></tr>
+<tr><td><strong>Executed SQL shown</strong></td><td>An unauditable number reaching a decision. If the CEO cannot check it, the system should not print it.</td></tr>
+</table>
+
+<div class="good">
+<strong>Abstention is a correct answer.</strong> "I don't have that information" must be
+reachable in every query path. A system that always answers is a system that sometimes
+lies.
+</div>
+
+<!-- ===================== 14 ===================== -->
+<h2 id="s14"><span class="n">14 · Adaptation</span>What the system actually learns</h2>
+
+<p>"The system learns from the logs and adapts" is where these projects usually drift
+into vagueness. Here is the concrete list, in order of real value.</p>
+
+<table>
+<tr><th style="width:24%">What is learned</th><th>How</th><th>What changes</th></tr>
+<tr><td><strong>Routing accuracy</strong></td><td>Every blocker records who it was routed to and who actually resolved it. A monthly <code>GROUP BY</code> finds categories where those differ repeatedly</td><td>A human corrects the routing table. The system gets visibly better every month</td></tr>
+<tr><td><strong>Recurrence clusters</strong></td><td>Group blockers by asset and category over time; semantic similarity over free text once there is enough of it</td><td>"Van 2 chiller: 3 blockers in 11 days" surfaces in the weekly rollup — equipment gets fixed before a batch is lost</td></tr>
+<tr><td><strong>Task duration baselines</strong></td><td>Measured time from assignment to completion, per category, per site</td><td>Realistic due-date defaults in Phase 2; route timing in Phase 5</td></tr>
+<tr><td><strong>Response rate and friction</strong></td><td>Who responds, when, and who stops</td><td><strong>The project health metric.</strong> Below ~70% the workflow is wrong and must change</td></tr>
+<tr><td><strong>Severity calibration</strong></td><td>Assigned severity compared against actual resolution time</td><td>If "high" blockers resolve in five minutes the classifier is over-firing; the prompt is re-tuned with real examples</td></tr>
+<tr><td><strong>Forecast features</strong> <span class="pill p3">Phase 4</span></td><td>Task and blocker history as inputs</td><td>Demand forecasting and predictive maintenance</td></tr>
+</table>
+
+<h3>How adaptation actually happens — honestly</h3>
+<div class="note">
+<strong>Mostly by a human reading a monthly report and changing a table.</strong> The
+system surfaces the pattern; a person makes the change. That is a feature, not a
+limitation — an escalation table that rewrites itself is an escalation table nobody can
+predict or audit, and the CEO would rightly stop trusting it.
+</div>
+
+<p>The parts that adapt automatically are narrow and safe by design: due-date defaults
+from measured durations, prompt timing from observed response patterns, severity
+thresholds tuned against resolution times. Everything with consequences stays under
+human control.</p>
+
+<p>Note what is <em>not</em> on the list: fine-tuning a model. At this data volume,
+better prompts with real examples beat fine-tuning on both cost and effort, for a long
+time.</p>
+
+<!-- ===================== 15 ===================== -->
+<h2 id="s15"><span class="n">15 · Scope</span>What gets automated, and what does not</h2>
+
+<div class="grid g2">
+<div class="card">
+<h4 style="color:var(--acc)">Automated</h4>
+<ul class="small">
+<li>Daily prompting, timed to each employee's shift</li>
+<li>Status capture and storage</li>
+<li>One reminder for non-response</li>
+<li>Free-text parsing into structured fields</li>
+<li>Blocker classification and severity</li>
+<li>Routing to the right resolver</li>
+<li>SLA timers and escalation levels</li>
+<li>CEO alerting above a severity threshold</li>
+<li>Daily executive digest and weekly rollup</li>
+<li>Recurrence and pattern detection</li>
+<li>Backups, retention sweeps, health monitoring</li>
+<li><span class="pill p3">P3</span> QC fail → automatic critical blocker</li>
+<li><span class="pill p3">P3</span> Cold-chain excursion → blocker routed to the PIC</li>
+<li><span class="pill p3">P4</span> Telemetry anomaly detection</li>
+<li><span class="pill p3">P4</span> Demand forecasts and restock suggestions</li>
+<li><span class="pill p3">P5</span> Route proposals</li>
+</ul>
+</div>
+<div class="card">
+<h4 style="color:var(--warn)">Stays human</h4>
+<ul class="small">
+<li>Creating an employee record and vouching for identity</li>
+<li>Approving any message sent under the CEO's name</li>
+<li>Deciding what a blocker category means and who owns it</li>
+<li>Setting SLA windows</li>
+<li>Correcting the routing table when the data says it is wrong</li>
+<li>Resolving <code>needs_review</code> parses</li>
+<li>Accepting or overriding a forecast or a proposed route</li>
+<li>Anything irreversible, financial, or contractual</li>
+<li>Any decision affecting an individual's employment</li>
+</ul>
+</div>
+</div>
+
+<div class="danger">
+<strong>Never automated, in any phase:</strong> individual sentiment analysis,
+productivity scoring, employee ranking, location tracking outside an explicitly notified
+route feature, storing HR-sensitive categories, or autonomous action on the CEO's behalf.
+These are permanent design boundaries. A request to add one is escalated, not
+implemented.
+</div>
+
+<!-- ===================== 16 ===================== -->
+<h2 id="s16"><span class="n">16 · The question</span>Do we need agents — now or later?</h2>
+
+<p>The word carries a lot of weight, so here is a precise answer per phase.</p>
+
+<table>
+<tr><th style="width:8%">Phase</th><th style="width:42%">What you have</th><th>Is it an agent?</th></tr>
+<tr><td><span class="pill p1">1</span></td><td>Scheduled jobs, an LLM parsing step, a rules engine</td><td><strong>No.</strong> This is a pipeline with a smart parser. Anthropic's own guidance calls this a <em>workflow</em>, and it is the right choice</td></tr>
+<tr><td><span class="pill p2">2</span></td><td>Same, plus task assignment and a bounded query pipeline with gates</td><td><strong>Still no.</strong> A bounded tool loop with deterministic gates is not an autonomous agent — it cannot choose its own goals or take consequential action</td></tr>
+<tr><td><span class="pill p3">3</span></td><td>A CEO assistant that calls four to six read-only tools and loops</td><td><strong>Yes — one narrow, single-purpose agent.</strong> Read-only tools, one write tool requiring human approval, hard iteration cap</td></tr>
+<tr><td><span class="pill p4">4</span></td><td>An ops agent explaining telemetry anomalies and proposing route changes</td><td><strong>Yes — a second narrow agent.</strong> The optimiser decides; the agent explains and handles exceptions</td></tr>
+<tr><td><span class="pill p5">5</span></td><td>A supervisor routing across HR / finance / ops domain agents</td><td><strong>Only on a named failure mode.</strong> Most companies this size never need it</td></tr>
+</table>
+
+<h3>Why not start now</h3>
+<div class="grid g2">
+<div class="card">
+<p class="small"><strong>The evidence is blunt.</strong> MIT's Project NANDA reported that
+95% of enterprise GenAI pilots produce no measurable P&amp;L impact, and Gartner projects
+over 40% of agentic AI projects cancelled by end of 2027 — with failure causes that are
+organisational and architectural rather than model quality.</p>
+<p class="small" style="color:var(--dim)">Both figures are single-source and
+vendor- or study-reported. Treat them as directional, not as measurements.</p>
+</div>
+<div class="card">
+<p class="small"><strong>The practical reason matters more.</strong> Phase 1 succeeds or
+fails on whether employees send their updates. An agent adds cost, latency, and failure
+modes to a system whose actual risk is that people stop replying to a chat message.</p>
+<p class="small">Build the boring pipeline first. <strong>Earn</strong> the agent — and
+when you do, note that the same evidence shows buying beats building where a mature
+vendor exists.</p>
+</div>
+</div>
+
+<!-- ===================== 17 ===================== -->
+<h2 id="s17"><span class="n">17 · Delivery</span>Phases and expansion</h2>
+
+<div class="dia">
+<div class="dia-t">Five phases · the core is built once</div>
+<span class="asc">  P1  Weeks 1–4     Bot · onboarding · daily capture · blockers · escalation
+                    CEO alerts · dashboard v1 · audit + replay spine
+                    ══ exit: response rate ≥70% for 4 weeks ══
+
+  P2  Months 2–3    Task assignment in-platform · notifications · Mini App
+                    bounded NL query with gates · learning reports
+                    ══ exit: CEO stops using the old method ══
+
+  P3  Months 4–6    Warehouse: batch + lot traceability · QC · R&D logging
+                    inventory · cold chain · CEO assistant (read-only tools)
+                    ══ exit: two-way recall query answerable in one step ══
+
+  P4  Months 7–12   Vending telemetry (buy, don't build) · demand forecasting
+                    predictive maintenance · driver PWA · infra split
+                    ══ exit: forecasts beat static schedule in shadow mode ══
+
+  P5  Months 12–18  Route optimisation · delivery ops · customer channel
+                    POS integration · cloud migration if required</span>
+</div>
+
+<h3>Phase notes worth acting on</h3>
+<div class="grid g2">
+<div class="card"><h4>Phase 1 — prove the loop</h4>
+<p class="small">Ten volunteers, one department. Success is <strong>not</strong> "the AI
+works" — it is response rate above 70% for four consecutive weeks and the CEO opening the
+digest daily. If either fails, change the workflow. Do not add features.</p></div>
+
+<div class="card"><h4>Phase 3 — the warehouse is a compliance requirement</h4>
+<p class="small">Batch and lot traceability with expiry tracking is mandated, not
+optional. Dubai Municipality requires a HACCP-based food safety system, cold storage of
+high-risk food at or below 5 °C, a certified Person-in-Charge, and registration on the
+DMChecked platform — with delivery vehicles in scope. Building it into the tool staff
+already use daily is far more likely to be complied with than a separate paper
+process.</p></div>
+
+<div class="card"><h4>Phase 4 — buy telemetry, don't build it</h4>
+<p class="small">Nayax has reported UAE market activity and Vendekin reported EMEA
+presence. A retrofit device plus a vendor API is dramatically cheaper and faster than
+building DEX/MDB ingestion. Pull their data into your database via API and keep your
+system as the brain. <strong>Verify current availability and API access directly with
+each vendor.</strong></p></div>
+
+<div class="card"><h4>Phase 4 — fresh juice is not a snack machine</h4>
+<p class="small">Short shelf life makes this a perishable-inventory problem where
+over-stocking causes <em>spoilage</em>, not just holding cost. The right framing is the
+newsvendor problem. Start with statistical baselines and track waste from day one — no
+spoilage baseline means no way to prove the forecasting improved anything.</p></div>
+</div>
+
+<!-- ===================== 18 ===================== -->
+<h2 id="s18"><span class="n">18 · Constraints</span>Capacity and cost</h2>
+
+<h3>Will the VPS hold?</h3>
+<table>
+<tr><th style="width:10%">Phase</th><th style="width:40%">Workload added</th><th>Estimated RAM</th><th>Verdict</th></tr>
+<tr><td><span class="pill p1">1</span></td><td>Supabase, bot, API, worker, Redis, dashboard, Caddy</td><td>~6–8 GB</td><td>Comfortable</td></tr>
+<tr><td><span class="pill p2">2</span></td><td>Mini App, more jobs, larger tables</td><td>~8–10 GB</td><td>Comfortable</td></tr>
+<tr><td><span class="pill p3">3</span></td><td>pgvector, CEO assistant, richer dashboard</td><td>~10–14 GB</td><td>Fine</td></tr>
+<tr><td><span class="pill p4">4</span></td><td>Telemetry ingest, time-series data, forecasting jobs</td><td>~18–24 GB, CPU spikes</td><td><strong>Tight — monitor closely</strong></td></tr>
+<tr><td><span class="pill p5">5</span></td><td>Route solving, delivery ops, customer channel</td><td>Exceeds headroom</td><td><strong>Split required</strong></td></tr>
+</table>
+<p class="small"><strong>These are estimates, not measurements.</strong> They are reasoned
+from typical container footprints and should be replaced with real figures once Phase 1
+is running.</p>
+
+<div class="warn">
+<strong>The failure mode will be CPU contention, not RAM exhaustion.</strong> A forecasting
+job or a route solve pinning all eight shared vCPUs while Postgres serves the dashboard
+and the bot times out on a webhook. Shared vCPU makes noisy-neighbour effects worse.
+<br><br>
+<strong>Migration path, cheapest first:</strong> move Postgres to managed (biggest single
+relief, and it brings real backups and point-in-time recovery) → add a second VPS for
+compute-heavy work → move to a cloud provider with a UAE region when data residency,
+uptime SLA, or horizontal scale become genuine requirements.
+</div>
+
+<h3>Cost</h3>
+<table>
+<tr><th>Item</th><th>Phase 1–2</th><th>Phase 3–4</th><th>Phase 5</th></tr>
+<tr><td>Hostinger KVM 8</td><td>$20–50 (already paid)</td><td>$20–50</td><td>$20–50</td></tr>
+<tr><td>Second node / managed Postgres</td><td>—</td><td>$25–60</td><td>$60–150</td></tr>
+<tr><td>Domain + TLS</td><td>~$1 (Caddy TLS free)</td><td>~$1</td><td>~$1</td></tr>
+<tr><td>Telegram</td><td><strong>$0</strong></td><td>$0</td><td>$0</td></tr>
+<tr><td>OpenRouter</td><td><strong>$2–5</strong></td><td>$8–20</td><td>$20–50</td></tr>
+<tr><td>Offsite backups</td><td>$2–5</td><td>$5–10</td><td>$10–20</td></tr>
+<tr><td>Route optimisation</td><td>—</td><td>—</td><td>$0 self-hosted, or $150+ commercial</td></tr>
+<tr><td>Telemetry hardware / SIM</td><td>—</td><td colspan="2">Per machine — vendor quote required</td></tr>
+<tr><th>Monthly total (software/infra)</th><th>~$25–60</th><th>~$60–140</th><th>~$110–290</th></tr>
+</table>
+
+<div class="note">
+<strong>LLM spend is not a constraint on this project.</strong> At 60 employees × 2 updates
+per working day, parsing costs roughly a few tens of cents per month at current cheap-tier
+pricing; digests and queries add a little more. Budget $5 and cap at $20 and you will
+never think about it again. <em>Pricing changes frequently — re-verify before
+budgeting.</em>
+<br><br>
+<strong>The real cost is developer time</strong>: roughly 2–3 weeks for Phase 1, 3–4 for
+Phase 2, and about 0.2 FTE ongoing maintenance thereafter.
+</div>
+
+<!-- ===================== 19 ===================== -->
+<h2 id="s19"><span class="n">19 · Law</span>Governance and UAE compliance</h2>
+
+<p>This system records employee work activity in the UAE and, from Phase 3, food-safety
+records. Both are regulated. None of what follows is expensive — roughly a day of work —
+but skipping it is the one category of mistake that can stop the project.</p>
+
+<div class="grid g2">
+<div class="card">
+<h4>Employee data — PDPL</h4>
+<p class="small">Federal Decree-Law No. 45 of 2021 requires a lawful basis, transparency,
+purpose limitation, data minimisation, and consent that is freely given, specific,
+informed and withdrawable. UAE legal commentary treats <strong>covert or unnotified
+workplace monitoring as a real legal risk</strong>.</p>
+<p class="small">A bot that records what every employee did each day, whether they
+responded, and how long their blockers took <em>is</em> workplace monitoring. It is
+treated as such from day one.</p>
+<p class="small" style="color:var(--dim)">The executive regulations were still pending as
+of 2025, so specifics may tighten. The principles are stable and safe to act on. If a
+FreshNow entity sits in DIFC or ADGM, those free zones run their own regimes — confirm
+the legal entity before finalising the notice.</p>
+</div>
+<div class="card">
+<h4>Food safety — Dubai Municipality</h4>
+<p class="small">A HACCP-based food safety management system under the Dubai Food Code,
+cold storage of high-risk food at or below 5 °C with records, a certified Person-in-
+Charge, and registration on <strong>DMChecked</strong> (which replaced FoodWatch Connect).
+Delivery vehicles are in scope.</p>
+<p class="small"><strong>Two-way traceability is the core requirement</strong> — from a
+complaint back to a batch and its inputs, and from a suspect input lot forward to every
+unit that used it. Design the schema for this from the start; retrofitting it is painful.</p>
+<p class="small" style="color:var(--dim)">Verify current requirements directly with the
+Municipality. This area changed recently and secondhand summaries go stale.</p>
+</div>
+</div>
+
+<h3>What is implemented, not just documented</h3>
+<ul>
+<li><strong>A one-page notice in English and Arabic</strong>, shown by the bot before the
+invite code is accepted — what is collected, why, who sees it, how long it is kept, how to
+request access or erasure.</li>
+<li><strong>Consent recorded with a policy version and a hash of the text shown</strong>,
+so it is provable which notice the employee agreed to. Version bump means re-consent.</li>
+<li><strong>Withdrawal works</strong> — <code>/privacy</code> offers it, and withdrawal
+actually stops collection rather than just logging a request.</li>
+<li><strong>Human approval before any message under the CEO's name</strong>, recorded with
+the approver.</li>
+<li><strong>Data minimisation in prompts</strong> — task context and message text only;
+never phone numbers, never full employee records.</li>
+<li><strong>Read-only role against curated views</strong> for anything answering questions.</li>
+<li><strong>Retention sweep from Phase 1</strong>, not retrofitted. Erasure anonymises
+rather than deletes, so activity history and food-safety traceability survive.</li>
+<li><strong>Append-only audit log</strong> that fails closed.</li>
+</ul>
+
+<!-- ===================== 20 ===================== -->
+<h2 id="s20"><span class="n">20 · Benchmarks</span>Systems to learn from</h2>
+
+<p>Studied for their workflow design and — more usefully — their documented failure
+modes. <em>Re-verify current state before relying on any of this; products and pricing
+change.</em></p>
+
+<table>
+<tr><th style="width:22%">Category</th><th style="width:30%">Systems</th><th>What to take from them</th></tr>
+<tr><td>Chat status collection</td><td>Geekbot, DailyBot, Standuply, Range</td><td>Few questions, consistent per-user timing, one reminder. Their documented failure — people reduce to one-word answers and managers stop reading — is the exact risk Phase 1 fights</td></tr>
+<tr><td>Escalation and on-call</td><td>PagerDuty, Opsgenie, Grafana OnCall</td><td>Escalation levels with timeouts, acknowledge as distinct from resolve, routing keys, suppression and deduplication. Alert fatigue is the failure to design against</td></tr>
+<tr><td>Semantic layers</td><td>dbt Semantic Layer, Cube, LookML</td><td>Define meaning once, centrally; expose a bounded curated surface rather than the raw schema</td></tr>
+<tr><td>Text-to-SQL</td><td>Vanna, Dataherald; Spider / BIRD benchmarks</td><td>Which guardrails proved necessary in practice, and the well-discussed gap between benchmark accuracy and real-schema performance</td></tr>
+<tr><td>Reliable messaging</td><td>Transactional outbox pattern; BullMQ</td><td>Exactly what <code>notification_outbox</code> implements, and why delayed jobs are the right primitive for SLA timers</td></tr>
+<tr><td>Validated agent pipelines</td><td>LangGraph; the TechNova reference material; Anthropic's <em>Building Effective Agents</em></td><td>Typed state through a graph, checkpointed human-in-the-loop, gates before model validation, compute spent in proportion to doubt</td></tr>
+<tr><td>Vending telemetry</td><td>Nayax, Cantaloupe, Parlevel, Vendekin</td><td>DEX/EVA-DTS and MDB basics; BLE capture where there is no cellular coverage; pre-kitting from forecasts</td></tr>
+<tr><td>Route optimisation</td><td>Google OR-Tools, VROOM</td><td>The Inventory Routing Problem framing — not just the route but which machines to visit and how much to load</td></tr>
+</table>
+
+<!-- ===================== 21 ===================== -->
+<h2 id="s21"><span class="n">21 · Inputs</span>What is required from FreshNow</h2>
+
+<div class="danger">
+<strong>None of this can be invented.</strong> A guessed blocker category or shift pattern
+gets wired into routing rules and is quietly wrong forever. Anything unanswered is built
+against a marked placeholder and logged as an assumption, so it stays visible.
+</div>
+
+<h3>Blocking — needed before the first line of code</h3>
+<div class="grid g2">
+<div class="card"><h4>People and work</h4>
+<ul class="small">
+<li>Total headcount and split by function</li>
+<li><strong>Which languages staff actually use</strong> day to day — not what is on paper</li>
+<li>Shift patterns per group, and confirmation of the working week</li>
+<li>The first 5–10 volunteers and their manager</li>
+<li>Confirmation that everyone has and uses Telegram</li>
+<li>Ten real daily tasks, in their own words</li>
+<li><strong>Six to ten real things that go wrong</strong> and stop someone working</li>
+<li><strong>Who fixes each one — first person and backup</strong> (this is the routing table)</li>
+<li>How fast each kind of problem needs a response (these are the SLA windows)</li>
+</ul></div>
+<div class="card"><h4>CEO and legal</h4>
+<ul class="small">
+<li>Does the CEO want Telegram alerts, or dashboard only? At which severities?</li>
+<li>Does the CEO accept approving each message sent under his name?</li>
+<li>Which legal entity — mainland Dubai or a free zone?</li>
+<li>Who signs off the employee privacy notice?</li>
+</ul>
+<h4>Cost baselines — ask early even though not needed to build</h4>
+<ul class="small">
+<li>Cost per service visit · cost of a stockout</li>
+<li>Monthly spoilage cost</li>
+<li>Hours per week spent on manual coordination</li>
+</ul>
+<p class="small" style="color:var(--dim)">Without a baseline recorded <em>before</em>
+anything changes, the project cannot demonstrate financial impact later — and that is the
+most common reason these projects lose funding.</p>
+</div>
+</div>
+
+<h3>Later phases</h3>
+<p class="small"><strong>Phase 2:</strong> how tasks are assigned today · which tasks recur
+and on what cadence · who may assign to whom · existing SLAs with site owners · what the
+CEO looks at today · existing tools to read from · non-response policy · whether photo
+evidence is wanted.</p>
+<p class="small"><strong>Phase 3:</strong> how batches are tracked today · QC checks and
+thresholds · shelf life per product · current DMChecked and HACCP position · what R&amp;D
+logs · current spoilage rate.</p>
+<p class="small"><strong>Phase 4–5:</strong> machine count, makes, models and age · existing
+telemetry vendor if any · DEX/MDB support · connectivity per site ·
+<strong>transaction-level sales history and its format</strong> (the single most important
+Phase 4 item) · how routes are planned today · vehicle count · how delivery orders arrive ·
+in-store POS.</p>
+
+<!-- ===================== 22 ===================== -->
+<h2 id="s22"><span class="n">22 · Honesty</span>Limitations and what could go wrong</h2>
+
+<div class="warn">
+<strong>What this document is.</strong> A design, not a description of something built.
+Every architecture decision here is defensible and grounded in how comparable systems
+work, but none of it has been implemented or measured. Capacity figures are estimates.
+Cost figures reflect pricing believed accurate at the time of writing and change
+frequently.
+</div>
+
+<h3>Where the evidence is thin</h3>
+<ul>
+<li><strong>FreshNow's own operating profile is thinly sourced.</strong> Public information
+about machine count, locations and headcount is inconsistent across sources and none of it
+is audited. Everything in §21 exists because it cannot be researched, only asked.</li>
+<li><strong>Reference-material measurements are not benchmarks.</strong> The token counts,
+timings and chunk counts in the supplied TechNova material are that project's figures on
+its own corpus. They inform the design; they are not targets.</li>
+<li><strong>Lecture quotations in that material are unverified.</strong> They are
+auto-transcribed and lightly corrected by the document's own admission. Useful as design
+rationale, not citable as evidence.</li>
+<li><strong>Industry statistics are single-source.</strong> The MIT NANDA 95% figure, the
+Gartner 40% projection, IBM's 94% containment — all vendor- or single-study-reported and
+directional only.</li>
+<li><strong>Regulatory detail needs primary confirmation.</strong> PDPL executive
+regulations were pending; DMChecked replaced its predecessor recently. Confirm both
+directly rather than relying on any summary, including this one.</li>
+</ul>
+
+<h3>The risks that would actually derail this</h3>
+<table>
+<tr><th style="width:26%">Risk</th><th style="width:26%">Early signal</th><th>Response</th></tr>
+<tr><td><strong>Adoption collapse</strong> — employees stop responding</td><td>Response rate below 70% after week 3</td><td>Fix the workflow: fewer questions, better timing, shift-aware scheduling, local language. <strong>Do not add features</strong></td></tr>
+<tr><td>Parsing quality poor on mixed-language input</td><td>High <code>needs_review</code> rate</td><td>Add few-shot examples in the actual languages used; shift more capture to buttons, less to free text</td></tr>
+<tr><td>CEO stops reading digests</td><td>Open rate drops</td><td>The digest is too long or too generic. Cut to five lines, exceptions only</td></tr>
+<tr><td>Alert fatigue</td><td>CEO dismisses alerts without acting</td><td>Raise the severity threshold; recalibrate the classifier against resolution times</td></tr>
+<tr><td>VPS saturation in Phase 4</td><td>Sustained CPU above 70%, webhook timeouts</td><td>Execute the split before it becomes an incident, not after</td></tr>
+<tr><td>Building what a vendor already sells</td><td>Phase 4 estimates ballooning</td><td>Buy telemetry. The evidence on build-vs-buy success rates is not close</td></tr>
+<tr><td>Requirements invented rather than asked</td><td>Assumptions accumulating in the knowledge base without answers</td><td>Stop and get Block A answered. A system built on invented requirements is worse than an unfinished one, because nobody knows which parts are real</td></tr>
+</table>
+
+<div class="good" style="margin-top:30px">
+<strong>The one thing to hold onto.</strong> Response rate is the metric that decides
+whether this project succeeds. The LLM, the dashboard, the telemetry, the routing — all of
+it is downstream of employees actually sending their updates. Design for that first, and
+everything else follows.
+</div>
+
+<div class="foot">
+FreshNow Operations Platform · System Blueprint v1.0 · 2026-09-02<br>
+Companion documents: <code>01-COMBINED-MASTER-REFERENCE.md</code> ·
+<code>02-FRESHNOW-TELEGRAM-SOLUTION.md</code> ·
+<code>04-QUESTIONS-FOR-COMPANY.md</code> ·
+<code>05-TELEGRAM-DATA-FLOW.md</code> ·
+<code>06-REFERENCE-SYSTEMS-BENCHMARKS.md</code> ·
+<code>specs/</code> · <code>tasks/TASK-BOARD.md</code> · <code>claude-code/</code>
+</div>
+
+</main>
+</div>
+</body>
+</html>

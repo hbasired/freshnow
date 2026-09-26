@@ -1,0 +1,164 @@
+@import "tailwindcss";
+
+/* Two themes, one set of names.
+   ─────────────────────────────────────────────────────────────────────────────
+   Every colour in the app is a token. `@theme` below declares the DARK values (the
+   default, and what the dashboard has always looked like); the `[data-theme="light"]`
+   block further down redefines the same names for light. No component knows which theme
+   is on — it asks for `bg-panel` or `text-mut` and gets whatever the root says today.
+
+   That is the whole trick, and it only works if nothing hardcodes a colour. A hex literal
+   in a class is invisible in dark and a black hole in light, so all 26 of them were
+   replaced with tokens when light was added. Keep it that way: if a colour is needed that
+   is not here, add a token with BOTH values rather than a literal in a class.
+
+   Never name a colour after a Tailwind size keyword (base, sm, lg, xl...). This palette
+   once had `--color-base`, which turned `text-base` from a font size into a colour: every
+   `text-base` element was painted in the background colour, the page title and the Ask
+   answer included. Build and typecheck both passed; a screenshot caught it. */
+@theme {
+  /* Surfaces, from furthest back to nearest front. */
+  --color-canvas: #0d1117;  /* the page itself */
+  --color-panel: #161b22;   /* cards standing on it */
+  --color-sunken: #1f2630;  /* inputs, chips, hovered rows — set INTO a panel */
+  --color-well: #010409;    /* quoted text and code — deeper still */
+  --color-edge: #30363d;    /* every border */
+
+  /* Text. */
+  --color-ink: #e6edf3;     /* what you read */
+  --color-mut: #8b949e;     /* what you read second */
+  --color-on-accent: #0d1117; /* text ON a solid ok/warn/crit fill */
+
+  /* Meaning. Used for text, borders and small solid fills.
+     `ok` and `warn` are FreshNow's own green and orange, stepped for this surface:
+     the brand hues themselves are far too light to read as text (white on #97d700 is
+     1.7:1 — the marketing site can do that, a dashboard people read all day cannot).
+     Measured on the panel: ok 8.37:1, warn 7.89:1, crit 5.16:1, link 6.85:1. */
+  --color-ok: #8bc53f;
+  --color-warn: #f39c12;
+  --color-crit: #f85149;
+  --color-link: #58a6ff;
+
+  /* Severity pills: a tinted background with its own readable foreground. Kept as pairs
+     because a single colour at 10% opacity is legible in dark and invisible in light. */
+  --color-crit-bg: #4a1210;
+  --color-crit-fg: #ff9b95;
+  --color-high-bg: #3a2a05;
+  --color-high-fg: #f39c12;
+  --color-med-bg: #12283a;
+  --color-med-fg: #88c0f0;
+  --color-demo-edge: #6b5200;
+
+  /* The scrim behind the task drawer. */
+  --color-scrim: rgb(0 0 0 / 0.5);
+
+  /* Chart MARKS — bars and dots, not text. The text tokens above are too light to be
+     marks on the dark surface (they fail the lightness band of the data-viz checks), so
+     the chart has its own three steps, validated 2026-09-19 with the dataviz validator
+     in both themes against the panel surface: all six checks pass. Completed / pending /
+     blocked are states, so they wear status colours, never a categorical rainbow.
+
+     The green is FreshNow's, stepped into the validator's lightness band. The middle
+     series stays BLUE and not the brand orange on purpose: brand green beside brand
+     orange measures ΔE 0.4–3.6 under simulated red-green colour blindness — a
+     colourblind reader cannot tell "completed" from "pending" at all. The brand carries
+     the chrome; the chart carries the meaning. */
+  --color-mark-ok: #6ea329;
+  --color-mark-info: #388bfd;
+  --color-mark-crit: #da3633;
+  /* Hairline gridlines and the baseline — recessive, one step off the surface. */
+  --color-grid: #2c323a;
+
+  /* ── FreshNow's own colours ────────────────────────────────────────────────
+     Sampled from the company's website (freshnow.ae) on 2026-09-19: the hero green
+     #9bca3c, the call-to-action green #97d700, the button orange #f39c12.
+
+     These three are FILLS, never text. Dark ink on them measures 9.8–10.9:1; white on
+     them measures 1.7–2.2:1, which is why `--color-on-brand` is near-black in BOTH
+     themes — a brand fill looks the same on a light page and a dark one, so the text on
+     it must too. The readable steps of the same hues live in `ok` and `warn` above. */
+  --color-brand: #97d700;      /* the CTA green — primary fill */
+  --color-brand-2: #9bca3c;    /* the hero green — the gradient's other end */
+  --color-accent: #f39c12;     /* the button orange — secondary fill */
+  --color-on-brand: #0d1117;   /* the only text colour allowed on those three */
+
+  /* Kept for the existing gradient users; now the brand's own two greens. */
+  --color-brand-a: #97d700;
+  --color-brand-b: #6ea329;
+}
+
+/* ── Light ──────────────────────────────────────────────────────────────────
+   Set by `data-theme="light"` on <html>, written by the theme toggle before React
+   mounts (see index.html) so there is no dark flash on a light-theme reload.
+
+   The values are GitHub's light palette, because the dark side already is GitHub dark —
+   so the two themes are siblings rather than two different products. Every text/surface
+   pair here clears WCAG AA at body size; the muted-on-canvas pair is the tightest at
+   about 5.6:1, which is why `--color-mut` is #59636e and not something prettier. */
+:root[data-theme="light"] {
+  --color-canvas: #ffffff;
+  --color-panel: #f6f8fa;
+  --color-sunken: #eaeef2;
+  --color-well: #f6f8fa;
+  --color-edge: #d0d7de;
+
+  --color-ink: #1f2328;
+  --color-mut: #59636e;
+  --color-on-accent: #ffffff;
+
+  /* Darker than GitHub's own light accents, deliberately and for a measured reason.
+     These are used as 14px text on their OWN 15% tint — the selected tab, the active nav
+     item, the theme button. GitHub's values are fine on white (≈5.1:1) but only reach
+     ≈4.15:1 on that tint, just under the 4.5:1 AA needs for body text. Darkening takes
+     them to ≈5.9:1 on the tint and ≈7.4:1 on white.
+     Check it with the contrast pass in the browser check before changing these. */
+  /* FreshNow's green and orange, darkened until they are readable on a white page.
+     Measured: ok 6.35:1 on white / 5.96 on a card / 5.44 on a chip; warn 5.67 / 5.33 /
+     4.86; both clear AA everywhere they are set. The brand hues themselves are fills
+     only — see `--color-brand` below. */
+  --color-ok: #3d6b10;
+  --color-warn: #9d5404;
+  --color-crit: #a40e26;
+  --color-link: #0550ae;
+
+  --color-crit-bg: #ffebe9;
+  --color-crit-fg: #a40e26;
+  --color-high-bg: #ffeeda;
+  --color-high-fg: #9d5404;
+  --color-med-bg: #ddf4ff;
+  --color-med-fg: #0550ae;
+  --color-demo-edge: #d4a72c;
+
+  --color-scrim: rgb(31 35 40 / 0.4);
+
+  --color-mark-ok: #3d6b10;
+  --color-mark-info: #0550ae;
+  --color-mark-crit: #a40e26;
+  --color-grid: #e1e4e8;
+
+  /* The brand fills are mode-invariant: the same green is the same green on both pages,
+     and the ink on it is near-black either way. */
+  --color-brand: #97d700;
+  --color-brand-2: #9bca3c;
+  --color-accent: #f39c12;
+  --color-on-brand: #0d1117;
+
+  --color-brand-a: #97d700;
+  --color-brand-b: #6ea329;
+}
+
+html, body, #root { height: 100%; }
+body { background: var(--color-canvas); color: var(--color-ink); }
+
+/* Tell the browser which theme is on, so form controls, scrollbars and the native date
+   picker are drawn to match. Without this the date input in the header stays dark on a
+   light page — the one piece of the UI CSS cannot reach. */
+:root { color-scheme: dark; }
+:root[data-theme="light"] { color-scheme: light; }
+
+/* Every clickable thing shows the same focus ring, so keyboard users always know where
+   they are — and nothing relies on colour alone to say "you can press this". */
+:where(button, a, [role="button"], input, select, textarea):focus-visible {
+  outline: 2px solid var(--color-link);
+  outline-offset: 2px;
+}

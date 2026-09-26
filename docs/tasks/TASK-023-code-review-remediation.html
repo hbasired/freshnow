@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TASK-023 — Full Code Review &amp; Remediation</title>
+<style>
+  :root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#3fb950;--warn:#d29922;--bad:#f85149;--card:#161b22;--bd:#30363d}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+       font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+       max-width:940px;padding:48px 24px;margin-inline:auto}
+  h1{font-size:1.9rem;margin:0 0 4px} h2{margin-top:2.5rem;color:var(--acc);font-size:1.25rem}
+  h3{margin-top:1.6rem;font-size:1.02rem}
+  .meta{color:var(--mut);font-size:.9rem;margin-bottom:2rem}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:18px;margin:14px 0}
+  .unverified{border-left:3px solid var(--warn)}
+  .ok{border-left:3px solid var(--acc)}
+  .danger{border-left:3px solid var(--bad)}
+  code{background:#1f2630;padding:2px 6px;border-radius:4px;font-size:.88em}
+  pre{background:#010409;border:1px solid var(--bd);border-radius:8px;padding:14px;overflow-x:auto;font-size:.83rem}
+  table{border-collapse:collapse;width:100%;margin:14px 0}
+  th,td{border:1px solid var(--bd);padding:7px 9px;text-align:left;font-size:.88rem;vertical-align:top}
+  th{background:#1f2630}
+  .sev{font-weight:700;white-space:nowrap}
+  .s1{color:var(--bad)}.s2{color:var(--warn)}.s3{color:var(--mut)}
+  ul{padding-left:1.1rem}
+</style></head><body>
+<h1>TASK-023 — Full Code Review &amp; Remediation</h1>
+<p class="meta">2026-09-09 · <code>/code-review high packages/</code> over ~7 000 lines ·
+15 findings, 15 verified real, 15 fixed · 197 tests green</p>
+
+<div class="card ok"><strong>One-sentence summary:</strong> A full review of the codebase found
+fifteen defects — including an outbox that could starve itself so no message was ever delivered,
+executable attachments passing the safety gate as "safe", a row cap escapable by a subquery, and
+a rate limiter that counted nothing — every one verified against the running system before being
+fixed.</div>
+
+<h2>Method</h2>
+<p>The repository is not a git repository, so there was no diff; the review took
+<code>packages/</code> as an explicit target. <strong>Every finding was reproduced against the
+running system before any code was changed</strong> — an agent's report is a hypothesis, not a
+result. All fifteen held up. No false positives.</p>
+
+<h2>Findings and fixes</h2>
+<table>
+<tr><th>#</th><th class="sev">Sev</th><th>Defect</th><th>Fix</th></tr>
+
+<tr><td>1</td><td class="sev s1">High</td>
+<td><strong>The outbox could starve itself.</strong> The relay claims the oldest
+<code>batchSize</code> pending rows; a failing row stayed pending and was re-claimed on the next
+poll, so <code>batchSize</code> bad rows filled every batch forever and <em>no other message was
+ever delivered</em>. Telegram's <code>retry_after</code> was captured and then discarded.</td>
+<td>Migration 0006 adds <code>next_attempt_at</code>; the relay only claims due rows; failures back
+off exponentially (2s→5min) or honour the server's own <code>retry_after</code>. Test: one poisoned
+row + two good ones at <code>batchSize: 1</code>, both good ones delivered.</td></tr>
+
+<tr><td>2</td><td class="sev s1">High</td>
+<td><strong>Executables passed the safety gate.</strong> <code>.bat</code>, <code>.js</code>,
+<code>.ps1</code>, <code>.sh</code>, <code>.vbs</code>, <code>.msi</code>, <code>.lnk</code>,
+<code>.apk</code> have no signature we check, so they returned <code>verdict: safe</code>,
+<code>mayForward: true</code> — a working payload forwardable to an employee's phone. Reproduced
+directly.</td>
+<td>Extension-based refusal, precisely because byte inspection cannot help. An unidentifiable
+format is now <code>suspicious</code> (readable, never forwardable) rather than safe.</td></tr>
+
+<tr><td>3</td><td class="sev s1">High</td>
+<td><strong>Every day window was four hours out.</strong> The container's Postgres runs
+<code>Etc/UTC</code>, so <code>'2026-09-09'::date</code> meant midnight UTC — 04:00 Dubai. The
+previous fix corrected which date <em>string</em> we ask for, not what it <em>means</em>.</td>
+<td><code>connection: { timezone: "Asia/Dubai" }</code> on both pools — one place, not 21 queries.
+Verified: the window now starts at <code>2026-09-08T20:00Z</code>, exactly Dubai midnight.</td></tr>
+
+<tr><td>4</td><td class="sev s1">High</td>
+<td><strong>The rate limiter counted nothing.</strong> <code>document.planned</code> was logged as
+<code>actor: "system"</code> while the limiter counts <code>employee:&lt;id&gt;</code>, so the
+20/hour cap could never fire. The unit test passed because it wrote the audit rows itself.</td>
+<td>Attributed to the person; <code>uploadedBy</code> threaded from the bot.</td></tr>
+
+<tr><td>5</td><td class="sev s2">Med</td>
+<td><strong>MAX_ROWS was escapable.</strong> The guard accepted any <code>limit n</code> in the
+text, so a LIMIT in a subquery suppressed the outer cap and Postgres materialised every row.</td>
+<td>Wrap rather than append: <code>select * from (&lt;sql&gt;) as bounded_result limit 50</code>. A
+subquery cannot escape its own parentheses.</td></tr>
+
+<tr><td>6</td><td class="sev s2">Med</td>
+<td><strong>Anyone could acknowledge a blocker.</strong> The <code>ack:</code> callback had no
+<code>role !== "ceo"</code> check, unlike every other CEO action — so an employee could
+permanently suppress escalation of their own blocker.</td>
+<td>Role check added, with an alert explaining why.</td></tr>
+
+<tr><td>7</td><td class="sev s2">Med</td>
+<td><strong>"Which task?" silently ate the reply.</strong> When an employee typed instead of
+tapping, the handler filed the held text and discarded what they had just typed — the comment
+claimed the opposite.</td>
+<td>Their answer now resolves against their open tasks; the original words are still filed.</td></tr>
+
+<tr><td>8</td><td class="sev s2">Med</td>
+<td><strong>Photos never reached blocker reports.</strong> <code>processNote</code> never took the
+held files, so a photo sent with a fault description stayed on the session and surfaced attached to
+whatever the person did next.</td>
+<td><code>takePendingFiles</code> called on the update the words belong to.</td></tr>
+
+<tr><td>9</td><td class="sev s2">Med</td>
+<td><strong>Markdown 400s made the bot look dead.</strong> An odd <code>_</code> in a filename —
+<code>q3_report_final.pdf</code> — makes Telegram reject the whole message, so the CEO saw
+"Reading…" and then nothing, with no error visible anywhere.</td>
+<td><code>escapeMarkdown()</code> on every filename, title, summary and name.</td></tr>
+
+<tr><td>10</td><td class="sev s2">Med</td>
+<td><strong>The same photo delivered once per task.</strong> <code>pendingFiles</code> was passed
+inside the multi-item assignment loop, so "tell Rashid X and Priya Y" sent the picture twice.</td>
+<td>Files taken once, attached to the first item — matching the document path, which already got
+this right.</td></tr>
+
+<tr><td>11</td><td class="sev s2">Med</td>
+<td><strong>A typo could assign work to the wrong person.</strong> Name resolution was
+first-substring-match with no ambiguity check — with a Sara and a Sarah, whoever sorted first
+won, silently.</td>
+<td>Exact match wins; otherwise a unique match is required, and an ambiguous one lists the
+candidates and asks.</td></tr>
+
+<tr><td>12</td><td class="sev s3">Low</td>
+<td><strong>The SLA timer was dead code.</strong> <code>armEscalation</code>/
+<code>cancelEscalation</code> had zero non-test call sites, yet the bot told the CEO "the
+escalation timer is cancelled".</td>
+<td>See the note below — the sweep is the real mechanism, now stated plainly and tightened from
+5 minutes to 60 seconds.</td></tr>
+
+<tr><td>13</td><td class="sev s3">Low</td>
+<td><strong><code>documentSemaphore</code> was never applied</strong>, so <code>/health</code>
+reported a bound nothing enforced.</td>
+<td>Wrapped around the download and the parse — the two heavy halves.</td></tr>
+
+<tr><td>14</td><td class="sev s3">Low</td>
+<td><strong>Two page limits, one true.</strong> <code>MAX_DOC_PAGES = 20</code> set a
+<code>truncated</code> flag nobody read while the enforced cap was 50.</td>
+<td>Removed; <code>MAX_PDF_PAGES</code> is the single number.</td></tr>
+
+<tr><td>15</td><td class="sev s3">Low</td>
+<td><strong>The dashboard has no authentication</strong> and binds <code>0.0.0.0</code>, so anyone
+on the wifi can read every employee's data and run the NL-query box, which executes generated SQL
+as the BYPASSRLS service role.</td>
+<td>See below — a real optional gate rather than a fake one.</td></tr>
+</table>
+
+<h2>Two findings that deserved a judgement, not just a patch</h2>
+
+<div class="card"><h3 style="margin-top:0">The escalation timer</h3>
+<p><code>armEscalation</code> lives in the worker; the code that routes a blocker lives in core;
+core must not depend on the worker. <strong>That dependency direction is why it was never
+wired</strong> — not an oversight so much as a design that never met itself.</p>
+<p>Rather than invert package dependencies late in the day, the sweep interval went from 5 minutes
+to 60 seconds. Escalation is now at most a minute late instead of five, which for a 15-minute
+critical SLA is the difference that matters, and it costs one indexed query a minute. The timer
+path also gained the same "already escalated?" guard the sweep has, so it is safe if it is ever
+armed. <strong>Wiring it properly means moving the queue into core — recorded as not done rather
+than implied.</strong> The misleading "the escalation timer is cancelled" message is gone.</p></div>
+
+<div class="card"><h3 style="margin-top:0">Dashboard authentication</h3>
+<p>Adding a <code>viewer=ceo</code> check would have been theatre: <code>viewer</code> is a query
+parameter anyone can set. The honest position is that <strong>this demo has no authentication at
+all</strong>, on purpose, so a phone can reach it.</p>
+<p><code>DASHBOARD_TOKEN</code> is a real gate: set it and every <code>/dashboard/*</code> request
+must carry it (<code>?k=</code> or <code>X-Dashboard-Key</code>, constant-time compared); leave it
+unset and the demo behaves exactly as before. A gate that can be switched on is worth more than a
+comment saying one is needed, and the default keeps the trade-off visible.</p></div>
+
+<h2>A defect the fixes themselves surfaced</h2>
+<div class="card danger">
+<p>Two tests failed after the fixes, and both were <strong>encoding the old buggy behaviour</strong>
+rather than catching a regression — <code>"keeps an existing LIMIT"</code> asserted the exact string
+that made the cap bypassable. They were rewritten to assert the property (the result is capped)
+rather than the implementation.</p>
+<p>A third failure was real and unrelated: the outbox tests assert on counts, but the relay claims
+from the <em>whole</em> queue, so any other suite's leftover pending row was silently counted. Fixed
+with a <code>beforeEach</code> that empties pending rows.</p>
+</div>
+
+<h2>Verification</h2>
+<ul>
+<li><strong>197 tests pass, typecheck clean</strong> (31 files, 1 skipped) — up from 182.</li>
+<li>New coverage: outbox backoff, 429 <code>retry_after</code>, head-of-line starvation, dangerous
+extensions, unidentifiable formats, Markdown escaping, subquery LIMIT bypass.</li>
+<li>Every finding reproduced <em>before</em> the fix — the timezone offset, the
+<code>safe/mayForward</code> verdicts on <code>.bat</code>/<code>.js</code>/<code>.sh</code>, the
+zero call sites, the missing role check.</li>
+<li>All services restarted and confirmed: worker sweeping every 60s, bot polling concurrently,
+<code>/health</code> and <code>/dashboard/day</code> both responding.</li>
+</ul>
+
+<h2 class="unverified" style="color:var(--bad)">What we have not verified</h2>
+<div class="card unverified">
+<ul>
+<li><strong>None of these fixes has been exercised from a real phone.</strong></li>
+<li><strong>The dashboard remains open by default.</strong> <code>DASHBOARD_TOKEN</code> is unset,
+so on an untrusted network this is a real exposure — the gate exists, it is simply not switched
+on.</li>
+<li><strong>The escalation timer is still unarmed.</strong> Escalation latency is now bounded by
+the 60s sweep, which has not been measured under load.</li>
+<li><strong>The dangerous-extension list is a denylist</strong>, and denylists are never complete.
+A format not on it that some phone treats as executable would still pass.</li>
+<li><strong>The review covered <code>packages/</code> only</strong> — <code>scripts/</code>,
+<code>migrations/</code> and the docker configuration were cross-referenced but not reviewed line
+by line.</li>
+<li>Carried over: voice accuracy unmeasured; <code>llm_call.cost_usd</code> reports 0; the NL-query
+box still runs as the service role rather than under the viewer's RLS context.</li>
+</ul>
+</div>
+</body></html>

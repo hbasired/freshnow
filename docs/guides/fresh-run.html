@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FreshNow — Fresh Run (test guide)</title>
+<style>
+  :root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#3fb950;--warn:#d29922;--crit:#f85149;
+        --card:#161b22;--bd:#30363d;--blue:#88c0f0}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+       font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+       max-width:940px;padding:40px 22px 80px;margin-inline:auto}
+  h1{font-size:1.9rem;margin:0 0 6px}
+  h2{margin-top:2.6rem;color:var(--acc);font-size:1.3rem;border-bottom:1px solid var(--bd);padding-bottom:6px}
+  h3{margin-top:1.7rem;font-size:1.04rem}
+  p.lead{color:var(--mut);font-size:.92rem}
+  blockquote{margin:12px 0;padding:10px 14px;border-left:3px solid var(--warn);background:var(--card);border-radius:0 8px 8px 0}
+  blockquote p{margin:4px 0}
+  code{background:#1f2630;padding:2px 6px;border-radius:4px;font-size:.9em}
+  pre{background:#010409;border:1px solid var(--bd);border-radius:8px;padding:14px;
+      overflow-x:auto;font-size:.83rem;line-height:1.5}
+  pre code{background:none;padding:0}
+  table{border-collapse:collapse;width:100%;margin:14px 0}
+  th,td{border:1px solid var(--bd);padding:8px 10px;text-align:left;font-size:.88rem;vertical-align:top}
+  th{background:#1f2630}
+  hr{border:0;border-top:1px solid var(--bd);margin:2rem 0}
+  a{color:var(--blue)}
+  .back{color:var(--mut);font-size:.88rem;margin-bottom:1.2rem;display:block}
+</style></head><body>
+<a class="back" href="index.html">← All guides</a>
+<h1>Fresh Run — the test guide (one phone, two Telegram accounts, one browser)</h1>
+<p class="lead"><em>Updated 2026-09-19 against the running bot and dashboard. Bot wording below is quoted from
+the code; dashboard tabs are the ones that exist today.</em></p>
+<p><strong>This works on your phone alone.</strong> Telegram lets you hold several accounts and switch
+between them. The bot identifies people by <strong>Telegram user id</strong>, so your two accounts are two
+different people to the system. Switching accounts is a genuine test, not a shortcut.</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Account A — CEO</strong></td>
+<td>id <code>6051615734</code> (linked to the <code>DEMO CEO</code> row)</td>
+</tr>
+<tr>
+<td><strong>Account B — Employee</strong></td>
+<td>your other account (Hemanth, id <code>8903000291</code>, is registered right now — see "Reset" to start him fresh)</td>
+</tr>
+<tr>
+<td><strong>Bot</strong></td>
+<td>@freshnow1bot</td>
+</tr>
+<tr>
+<td><strong>Dashboard</strong></td>
+<td><code>pnpm urls</code> prints the address to use right now (the Wi-Fi IP changes)</td>
+</tr>
+</tbody>
+</table>
+<h3>Do both accounts need to be on the same Wi-Fi?</h3>
+<p><strong>No — not for the bot.</strong> Telegram relays every message over the internet; the bot works on
+mobile data from anywhere.</p>
+<p><strong>Yes — for the dashboard.</strong> The phone browser talks straight to this PC on ports <strong>3001</strong>
+(dashboard) and <strong>54321</strong> (sign-in). Same Wi-Fi, and the firewall rule in <code>COMMANDS.md</code> §3.</p>
+<h3>How to switch accounts in Telegram</h3>
+<p>Tap the <strong>☰ menu</strong> (or your avatar) → your accounts are listed → tap the other one.</p>
+<hr />
+<h2>0 · Pre-flight (on the PC, 30 seconds)</h2>
+<pre><code class="language-bash">pnpm urls                                  # every address, whether each service answers, containers
+curl -s http://localhost:3001/health        # {&quot;status&quot;:&quot;ok&quot;,&quot;db&quot;:&quot;ok&quot;,&quot;redis&quot;:&quot;ok&quot;, ...}
+</code></pre>
+<p>If anything is down, start it (<code>COMMANDS.md</code> §1): Supabase, then <code>pnpm start:api</code>,
+<code>pnpm start:worker</code>, <code>pnpm start:bot</code> — one terminal each, <code>start:*</code> never <code>dev:*</code>.</p>
+<p>Open the dashboard on the PC, sign in as the CEO (password in <code>CREDENTIALS.local.md</code>), and
+leave it visible: it updates live, no refresh needed.</p>
+<hr />
+<h2>What you are testing, in order</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Loop</th>
+<th>Proves</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1–2</td>
+<td>Invite → register → consent → profile</td>
+<td>Onboarding, PDPL consent record</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Log a status, raise a problem (text or voice)</td>
+<td>Capture, extraction, routing, alerting</td>
+</tr>
+<tr>
+<td>4</td>
+<td>CEO acknowledges</td>
+<td>Escalation stops, audit records who</td>
+</tr>
+<tr>
+<td>5–6</td>
+<td>CEO assigns, employee closes</td>
+<td>Outbox delivery, the full loop</td>
+</tr>
+<tr>
+<td>7</td>
+<td>Dashboard</td>
+<td>Same data, live, access-controlled</td>
+</tr>
+<tr>
+<td>8</td>
+<td>A manager in Telegram</td>
+<td>Org roles reach the bot</td>
+</tr>
+<tr>
+<td>9</td>
+<td>Ask a question</td>
+<td>Text-to-SQL with both gates</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>1 · CEO creates the invite  ← <em>Account A</em></h2>
+<p>Switch to <strong>Account A (CEO)</strong>, open @freshnow1bot. <strong>Send:</strong> <code>/invite Hemanth</code></p>
+<p><strong>Expect:</strong> 🔑 <strong>Invite code for Hemanth</strong> · an 8-character code · "Tap the code above to copy it."</p>
+<p>👉 Tap the code to copy it. (Or <code>/start</code> → <strong>➕ Create invite code</strong> → send the name.)</p>
+<p><em>Behind it:</em> a row in <code>invite_code</code>; audit <code>invite.created</code>.</p>
+<h2>2 · Switch to Account B and register  ← <em>Account B</em></h2>
+<p><strong>a)</strong> <code>/start</code> → a welcome with your Telegram id and a button <strong>🔑 I have an invite code</strong>.
+<strong>b)</strong> Tap it → <em>"Please type your invite code and send it."</em> → paste the code.
+<strong>c) Expect the privacy notice</strong> — what is recorded, what is not (no location tracking, no
+productivity scoring, no sentiment analysis) — with <strong>✅ I agree</strong>.
+<strong>d)</strong> Tap ✅ I agree → <em>"✅ Thank you, Hemanth. You are now registered."</em> then the first question.
+<strong>e)</strong> Answer the four questions one message at a time:</p>
+<table>
+<thead>
+<tr>
+<th>Bot asks</th>
+<th>Send</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>1/4 · Which department do you work in?</code></td>
+<td><code>production</code></td>
+</tr>
+<tr>
+<td><code>2/4 · What is your role or job title?</code></td>
+<td><code>juice production operator</code></td>
+</tr>
+<tr>
+<td><code>3/4 · Which site do you work at?</code></td>
+<td><code>warehouse</code></td>
+</tr>
+<tr>
+<td><code>4/4 · Which shift do you work?</code></td>
+<td><code>day</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>f)</strong> Language: tap <strong>English</strong> (or हिंदी / മലയാളം) → <em>"Language set to English. ✅"</em> and the employee menu:
+📋 Log daily tasks · ➕ Add a task · 👤 Update my details.</p>
+<p>✅ <strong>Dashboard → People</strong>: Hemanth is listed with <strong>no DEMO badge</strong>, Access <em>Employee</em>, Reports
+to <em>DEMO CEO</em>. <strong>Activity</strong> shows <code>invite.redeemed</code> (the consent itself is a row in <code>consent_record</code>, with the
+notice's hash).</p>
+<h2>3 · Log a status and raise a problem  ← <em>Account B</em></h2>
+<p><strong>a)</strong> <code>/start</code> → <strong>📋 Log daily tasks</strong> → <em>"You have no open tasks yet."</em> with <strong>➕ Add a task</strong>.
+<strong>b)</strong> Tap <strong>➕ Add a task</strong>, send: <code>Restock Deira metro machines</code>
+<strong>c)</strong> Tap <strong>📋 Log daily tasks</strong> → the task card with <strong>✅ Done · ⏳ Pending · 🚫 Blocker</strong>.
+<strong>d)</strong> Tap <strong>🚫 Blocker</strong> → <em>"🚫 Recorded as blocked: "Restock Deira metro machines" — What is stopping it?"</em>
+<strong>e)</strong> Reply — type it, <strong>or hold the mic and send a voice note</strong>:</p>
+<pre><code>van 2 ka chiller thanda nahi ho raha juice kharab ho jayega
+</code></pre>
+<p><strong>Expect:</strong></p>
+<blockquote>
+<p>✅ Saved your words. Checking…
+🚨 Logged a <strong>high</strong> equipment problem.
+<em>The chiller on van 2 is not cooling, risking juice spoilage.</em>
+The CEO has been alerted.</p>
+</blockquote>
+<p><em>Behind it:</em> <code>task_update</code> with your exact words in <code>note_raw</code> (before the model is called);
+<code>blocker</code> routed by <code>routing_rule</code>; <code>alert</code> created (a repeat of the same problem increments
+<code>count</code> instead of paging again); two <code>notification_outbox</code> rows for the CEO — Telegram and
+in-app; audit rows all sharing one <code>correlation_id</code>; a <code>run_trace</code> row with the routing input.</p>
+<blockquote>
+<p>A voice note takes the same path: the bot first replies <em>"I heard: …"</em> so you see the
+transcription before it acts. <strong>Note:</strong> transcription and extraction are currently done by
+AI services outside the UAE — see <code>docs/reports/uae-data-residency-and-llm-analysis.html</code>.</p>
+</blockquote>
+<h2>4 · Switch back to CEO — the alert is waiting  ← <em>Account A</em></h2>
+<p><strong>Expect</strong> a message that arrived on its own:</p>
+<blockquote>
+<p>⚠️ HIGH · equipment — van 2 chiller
+👤 Hemanth (production · warehouse)
+📋 Task: Restock Deira metro machines
+💬 "van 2 ka chiller thanda nahi ho raha juice kharab ho jayega"
+📝 The chiller on van 2 is not cooling, risking juice spoilage.
+[ ✅ Acknowledge ]</p>
+</blockquote>
+<p>Your own words come first, the model's paraphrase after — the reader should read the person.</p>
+<p>Tap <strong>✅ Acknowledge</strong> → <em>"✅ Blocker acknowledged — it will no longer escalate."</em></p>
+<p>Also: <code>/blockers</code> lists every open problem with its own Acknowledge button. The dashboard
+bell (top right) shows the same alert; <strong>Alerts</strong> tab lists it with who acknowledged and when.</p>
+<p><em>Behind it:</em> <code>blocker.acknowledged</code> with <strong>your</strong> employee id as actor — never "system".
+Only the CEO, the assigned resolver or the raiser's manager can acknowledge; anyone else
+tapping a crafted button is refused.</p>
+<h2>5 · CEO assigns work back  ← <em>Account A</em></h2>
+<p><strong>Send:</strong> <code>/assign</code> → a list of people as buttons → tap <strong>Hemanth</strong>
+→ <em>"What should Hemanth do? Send the task description."</em> → send:</p>
+<pre><code>Swap the van 2 chiller unit before the afternoon route
+</code></pre>
+<p><strong>Expect:</strong> <em>"📌 Assigned to Hemanth. They have been notified in Telegram."</em></p>
+<p>Or do it from the browser: <strong>Assignments</strong> tab → assign — it lands in the same tables and
+reaches the phone by the same outbox.</p>
+<h2>6 · Employee receives it and closes the loop  ← <em>Account B</em></h2>
+<p><strong>Expect</strong> an incoming message: <em>"📌 New task from the CEO: Swap the van 2 chiller unit …"</em>
+Then <code>/start</code> → <strong>📋 Log daily tasks</strong> → the new task is in the list → tap <strong>✅ Done</strong> →
+<em>"Anything to add about it? Send it now — or tap /skip."</em></p>
+<p>That is the full loop: CEO → employee → report → CEO → assign → employee → done. At end of
+day, <code>/eod</code> on Account B asks "Anything to add before I write your end-of-day report?" and
+then writes it; on Account A it writes everyone's.</p>
+<h2>7 · Show it on the dashboard (PC, signed in as the CEO)</h2>
+<table>
+<thead>
+<tr>
+<th>Tab</th>
+<th>Point out</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Overview</strong></td>
+<td>The greeting, the six status cards (urgent open, open problems, carried over, pending/completed today, need a human), the <strong>last-seven-days chart</strong> (click a column to open that day; the Table button shows the same numbers as text), the <strong>Needs a human</strong> list, and below it the day's board — every number is a SQL count</td>
+</tr>
+<tr>
+<td><strong>Alerts</strong></td>
+<td>The alert, its count, who acknowledged, when; the bell shows unread</td>
+</tr>
+<tr>
+<td><strong>Assignments</strong></td>
+<td>The task you assigned, its progress (<em>counted</em> from steps, or <em>self-reported</em> with the note)</td>
+</tr>
+<tr>
+<td><strong>Activity</strong></td>
+<td>Every step, timestamped, in order, with the actor</td>
+</tr>
+<tr>
+<td><strong>People</strong></td>
+<td>Hemanth with no DEMO badge; <strong>Access</strong> and <strong>Reports to</strong> editable by the CEO; <strong>Has left…</strong> (anonymises — do not click during a test)</td>
+</tr>
+<tr>
+<td><strong>End of day</strong></td>
+<td>Generate → the counts, and the narrative only if it passed the numeric gate</td>
+</tr>
+<tr>
+<td><strong>Ask</strong></td>
+<td><em>"How many equipment blockers are open?"</em> → the answer, <strong>the SQL used</strong>, and both gate verdicts</td>
+</tr>
+<tr>
+<td><strong>Projects</strong> (top-left switch)</td>
+<td>The second portal: needs, milestones, issues; progress computed by the views</td>
+</tr>
+</tbody>
+</table>
+<p>Then sign out and sign in as <strong>Hemanth</strong> (phone or PC): he sees only his own rows, one
+person under People, and <strong>no Ask box and no report button</strong>. Enforced by the database, not
+hidden by the page.</p>
+<h2>8 · A manager in Telegram (optional, 2 minutes)</h2>
+<p>As the CEO on the dashboard: <strong>People</strong> → set Hemanth's <strong>Access</strong> to <em>Manager</em>, and set
+<strong>DEMO – Priya Nair</strong>'s <strong>Reports to</strong> to Hemanth. On Account B: <code>/start</code>.</p>
+<p><strong>Expect:</strong> <em>"You are signed in as </em><em>manager</em><em>"</em> with <strong>🚨 My team's blockers</strong> and
+<strong>📌 Assign a task to my team</strong>. <code>/assign</code> offers <strong>Priya only</strong>; <code>/blockers</code> shows problems
+raised by his team, not everyone's. Revert both on People afterwards.</p>
+<h2>9 · Ask the data a question (CEO only)</h2>
+<p>Dashboard → <strong>Ask</strong>: <em>"Which blockers are still open and who must fix them?"</em> The model
+writes SQL against the semantic layer; Postgres runs it under the CEO's row-level rules; the
+model narrates a bounded result; the numeric-sanity gate checks every number appeared in the
+rows and the grounding gate checks any policy claim came from a policy table. A failed gate
+shows a withheld answer and the SQL — never an invented number.</p>
+<hr />
+<h1>🔄 RESET — do the whole thing again from scratch</h1>
+<p>One command on the PC. <strong>Always dry-run first:</strong></p>
+<pre><code class="language-bash">npx tsx scripts/reset-employee.ts --all-real --dry-run    # shows what would be removed, changes nothing
+npx tsx scripts/reset-employee.ts --all-real              # removes every real (non-DEMO) employee
+</code></pre>
+<p>One person, or just their activity:</p>
+<pre><code class="language-bash">npx tsx scripts/reset-employee.ts --telegram 8903000291              # unregister Hemanth (register again from step 1)
+npx tsx scripts/reset-employee.ts --telegram 8903000291 --activity   # keep him registered, wipe what he did
+npx tsx scripts/reset-employee.ts --ceo --activity                   # wipe what the CEO did (assignments, files, reports)
+npx tsx scripts/reset-employee.ts --name &quot;Their Name&quot;
+</code></pre>
+<p><strong>What it does:</strong> deletes that person and their tasks, updates, blockers, escalations,
+alerts, assignments, voice notes, consent record, queued messages and conversation state —
+children before parents. <strong>What it protects:</strong> the CEO row; DEMO staff (add <code>--include-demo</code>
+to remove them); and <strong><code>audit_log</code>, which is never touched</strong> — history is not rewritten
+because a test was re-run. <strong>This is the DEMO tool only.</strong> When a real person leaves, use
+<strong>People → Has left…</strong>, which anonymises and keeps every row.</p>
+<p>After a reset Account B is unknown to the bot again. Make a new invite (there are none unused
+right now) and start at step 1. No service restart needed.</p>
+<hr />
+<h1>If something goes wrong mid-run</h1>
+<table>
+<thead>
+<tr>
+<th>Symptom</th>
+<th>Fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Bot says <em>"Send /start to see your menu"</em> when you expected a question</td>
+<td>Its step was reset (a question left too long expires). <code>/cancel</code>, then <code>/start</code>, redo that part.</td>
+</tr>
+<tr>
+<td>Bot silent</td>
+<td><code>pnpm urls</code> — if Telegram is unreachable it is the Wi-Fi and the bot retries by itself; otherwise the bot process died: <code>pnpm start:bot</code>.</td>
+</tr>
+<tr>
+<td>Stuck half-way through registration</td>
+<td><code>docker exec supabase_db_freshnow psql -U postgres -d postgres -c "delete from bot_session where key = '&lt;your telegram id&gt;';"</code> then <code>/start</code>.</td>
+</tr>
+<tr>
+<td>"Could not use that code (already_used)"</td>
+<td>Each code works once. <code>/invite</code> a new one.</td>
+</tr>
+<tr>
+<td>CEO menu missing on Account A</td>
+<td><code>CEO_TELEGRAM_USER_ID=6051615734</code> in <code>.env</code> <strong>and</strong> the <code>ceo</code> role on that row; restart the bot.</td>
+</tr>
+<tr>
+<td>Dashboard blank on the phone</td>
+<td>The Wi-Fi IP changed — <code>pnpm urls</code>. Sign-in spins → port 54321 blocked (<code>COMMANDS.md</code> §3).</td>
+</tr>
+<tr>
+<td>Alert never reaches the CEO</td>
+<td>The worker is not running (<code>pnpm start:worker</code>). <code>select status, count(*) from notification_outbox group by 1;</code> — <code>pending</code> rows are waiting for it; <code>abandoned</code> means it gave up and audited why.</td>
+</tr>
+<tr>
+<td>Voice note misheard</td>
+<td>The transcript is shown first as <em>"I heard: …"</em>. Send it again or type it; either way the words are saved.</td>
+</tr>
+<tr>
+<td>"Only the CEO or a manager can assign tasks."</td>
+<td>Account B is an employee — expected. Step 8 makes him a manager.</td>
+</tr>
+<tr>
+<td>Model slow or "could not understand"</td>
+<td><code>curl localhost:3001/health</code> → <code>load.llm</code>; the daily budget cap or a provider outage degrades to rules-only and marks the update <em>needs a human</em> rather than failing.</td>
+</tr>
+</tbody>
+</table>
+</body></html>

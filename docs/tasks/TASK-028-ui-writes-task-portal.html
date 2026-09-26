@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TASK-028 — The Dashboard Can Create Work (Task Portal, Phase 1)</title>
+<style>
+  :root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#3fb950;--warn:#d29922;--bad:#f85149;--card:#161b22;--bd:#30363d}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;max-width:940px;padding:48px 24px;margin-inline:auto}
+  h1{font-size:1.9rem;margin:0 0 4px} h2{margin-top:2.5rem;color:var(--acc);font-size:1.25rem} h3{margin-top:1.6rem;font-size:1.02rem}
+  .meta{color:var(--mut);font-size:.9rem;margin-bottom:2rem}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:18px;margin:14px 0}
+  .unverified{border-left:3px solid var(--warn)} .ok{border-left:3px solid var(--acc)} .danger{border-left:3px solid var(--bad)}
+  code{background:#1f2630;padding:2px 6px;border-radius:4px;font-size:.9em}
+  pre{background:#010409;border:1px solid var(--bd);border-radius:8px;padding:14px;overflow-x:auto;font-size:.84rem}
+  .tw{overflow-x:auto} table{border-collapse:collapse;width:100%;margin:14px 0}
+  th,td{border:1px solid var(--bd);padding:7px 9px;text-align:left;font-size:.88rem;vertical-align:top} th{background:#1f2630}
+  .bad{color:var(--bad);font-weight:600}.good{color:var(--acc);font-weight:600}.warn{color:var(--warn);font-weight:600}
+  ul{padding-left:1.1rem}
+</style></head><body>
+<h1>TASK-028 — The Dashboard Can Create Work (Task Portal, Phase 1)</h1>
+<p class="meta">2026-09-14 · Phase 1 of the task &amp; project portal plan · 5 new write routes, 2 document routes,
+form primitives, three tab rewrites · 14 new API tests · two real-browser runs (19 + 10 checks) · one Telegram
+message per browser assignment actually delivered</p>
+
+<div class="card ok"><strong>One-sentence summary:</strong> Everything the CEO does in Telegram — assign work, add a
+person, turn a document into tasks, acknowledge a blocker — and everything an employee does — report a status, raise a
+blocker in their own words — can now be done in the dashboard, and it lands in the same tables, the same audit trail
+and the same Telegram delivery as the bot, because the UI calls the same core functions the bot calls.</div>
+
+<h2>1 · Why</h2>
+<p>The dashboard could read everything and write almost nothing: its only actions were "generate reports" and "ask a
+question". The plan approved on 2026-09-14 makes the UI a second channel with one database and one outbox behind it,
+then adds depth (progress, problems, reporting lines, alert routing) and a project portal. This is the first phase.</p>
+
+<h2>2 · Design rule that shaped every line</h2>
+<div class="card"><p><b>The UI never calls Telegram, and never re-implements a rule.</b> A route is a Zod-validated shell over
+<code>assignTask</code>, <code>recordTaskUpdate</code>, <code>createTask</code>, <code>acknowledgeBlocker</code>,
+<code>planDocumentTasks</code> — the functions the bot already calls. Telegram delivery happens because
+<code>assignTask</code> writes an outbox row and the worker delivers it. "In sync" is not a feature; it is the absence of
+a second code path.</p>
+<p><b>Writes are authorised in the handler, not by Postgres.</b> Core writes run as the BYPASSRLS service role, so a
+permission check the route forgets is a permission nobody enforces. Every check has a test that proves the refusal.</p></div>
+
+<h2>3 · What changed</h2>
+<div class="tw"><table>
+  <thead><tr><th>Where</th><th>Change</th><th>Why</th></tr></thead>
+  <tbody>
+    <tr><td><code>core/updates.ts</code></td><td><code>recordTaskUpdate</code> takes <code>channel</code> (<code>telegram | web</code>) and an optional <code>correlationId</code>; <code>assignTask</code> takes a <code>correlationId</code>; <code>createTask</code> takes <code>{ correlationId, createdBy }</code> and writes a <code>task.created</code> audit row.</td><td>The channel was hardcoded to Telegram; requests and their writes could not be joined in the audit log; a task created outside an assignment left no trace.</td></tr>
+    <tr><td><code>core/routing.ts</code></td><td><code>acknowledgeBlocker(id, corr, { by })</code> records the person who tapped.</td><td>The audit said "system" for an action a human took. The bot now passes the CEO's id too.</td></tr>
+    <tr><td><code>api/viewer.ts</code> (new)</td><td><code>viewerContext</code>, <code>viewerOf</code>, <code>actorOf</code>, <code>isCeo</code>, <code>forbid</code> — moved out of <code>dashboard.ts</code> and shared.</td><td>Two definitions of "who is asking" would be the split truth the design exists to avoid. <code>forbid</code> includes the correlation id, which the old ad-hoc 403s omitted.</td></tr>
+    <tr><td><code>api/routes/work.ts</code> (new)</td><td><code>POST /dashboard/tasks</code>, <code>/assignments</code>, <code>/task-updates</code>, <code>/blockers/:id/ack</code>.</td><td>Under <code>/dashboard/*</code> deliberately, so the shared-secret and JWT hooks cover them; a new prefix would be unauthenticated by default.</td></tr>
+    <tr><td><code>api/routes/documents.ts</code> (new) + <code>@fastify/multipart</code></td><td><code>POST /dashboard/documents/plan</code> (upload → safety gate on the bytes → extract inside the document semaphore → proposal) and <code>/apply</code> (one <code>assignTask</code> per confirmed row, note carries the source file).</td><td>Same order as the bot, same reasons. The dependency is for the upload itself.</td></tr>
+    <tr><td><code>api/routes/dashboard.ts</code></td><td><code>/dashboard/me</code> returns <code>employeeId</code>; open-tasks returns <code>employee_id</code>; employees returns <code>linked</code>.</td><td>The browser needs its own id to tell "mine" from "theirs", and needs to know whether the bot can reach a person <i>before</i> assigning to them.</td></tr>
+    <tr><td><code>dashboard/components/form.tsx</code> (new)</td><td>Button, TextField, TextArea, Select, PersonPicker, Toast, <code>useAction</code>.</td><td>No form primitive existed; every input was inline Tailwind.</td></tr>
+    <tr><td><code>dashboard/App.tsx</code></td><td>New <b>My work</b> tab (✅/⏳/🚫 mirroring the bot, blocker asks for the person's words); <b>Assignments</b> tab gains assign, add-a-person and from-a-document cards; <b>Status</b> tab gains Acknowledge.</td><td>The browser half of the bot's board.</td></tr>
+    <tr><td><code>dashboard/lib/api.ts</code></td><td>Writes carry the viewer; refusals surface the server's message; JSON content-type only with a body; multipart helper.</td><td>See the bug below.</td></tr>
+    <tr><td><code>semantic/schema.yaml</code></td><td><code>task_update.channel</code> documents both values; audit action catalogue gains the work actions.</td><td>The layer rots otherwise.</td></tr>
+  </tbody>
+</table></div>
+
+<h3>The document limitation, stated</h3>
+<p>Attachments in this system are Telegram <code>file_id</code>s, not bytes. A browser upload has none, so a document
+read in the dashboard produces tasks — with the file name in each note as provenance — and <b>the file itself is not
+forwarded</b>. The route returns <code>fileForwarded: false</code> and the card says so before the user presses anything.
+Forwarding needs the worker to upload bytes to Telegram and store the returned id: planned, not built.</p>
+
+<h2>4 · What the browser found that the tests did not</h2>
+<div class="card danger"><h3 style="margin-top:0">Every body-less POST from the browser returned 400</h3>
+<p>The client always sent <code>Content-Type: application/json</code>. Fastify refuses an empty body that claims to be
+JSON. So <b>Acknowledge</b> failed in the browser — and so did the existing <b>Generate end-of-day reports</b> button,
+which nobody had pressed from the React app before. The route tests passed because <code>inject</code> sends no
+content-type. Fixed in the client; recorded as G70.</p></div>
+<div class="card danger"><h3 style="margin-top:0">The document confirmation toast was never visible</h3>
+<p>After Create, the card resets to the upload form, and the success toast lived inside the review branch that had just
+unmounted. The user would have created three tasks and seen nothing. Moved the toast outside the branch.</p></div>
+<div class="card unverified"><h3 style="margin-top:0">Two test-harness mistakes, for the record</h3>
+<p>"Task left the list" checked the page text, and the toast quotes the title. A shared <code>busy</code> flag briefly
+disables every button on a tab, and clicking a disabled button passes silently. Both were the harness, not the app;
+both are fixed in the harness.</p></div>
+
+<h2>Verification</h2>
+<div class="tw"><table>
+  <thead><tr><th>Check</th><th>Result</th></tr></thead>
+  <tbody>
+    <tr><td>API tests — <code>work.test.ts</code> (9), <code>documents.test.ts</code> (5, one real model call)</td><td class="good">14/14: happy paths, Zod rejection, six permission refusals, channel = web, audit actors, one outbox row per assignment, executable rejected by the gate before parsing, both named people resolved from a text work order</td></tr>
+    <tr><td>Browser — write flows (headless Edge, real sign-in)</td><td class="good">19/19: assign → toast → row; invite code; employee sees it in My work → Done → gone; add task → Blocker → Hindi note → "Saved as a blocker (high) — the CEO has been alerted"; CEO acknowledges from Status</td></tr>
+    <tr><td>Browser — document flow</td><td class="good">10/10: upload a work order naming Hemanth, Ahmed Khan and "Atif" → 3 tasks, two owners recognised, Atif returned as "not on the list" not invented, Create disabled until an owner is chosen, then created and queued</td></tr>
+    <tr><td>Cross-channel, in the database</td><td class="good">Three browser assignments: outbox <code>sent</code> within seconds (delivered to Hemanth's Telegram). Browser reports: <code>channel = web</code>. Browser blocker: severity high, category equipment, CEO alert <code>sent</code>, acknowledged with actor <code>employee:&lt;ceo&gt;</code>. One correlation id per request across <code>task.created</code> → <code>task.assigned</code>.</td></tr>
+    <tr><td>Full suite + typecheck</td><td class="good">See SESSION-STATUS for the count at the time of writing</td></tr>
+  </tbody>
+</table></div>
+
+<h2 class="bad">What we have not verified</h2>
+<div class="card unverified"><ul>
+  <li><b>Phone use of the new forms.</b> Every browser check ran at 1280 px on this laptop. The forms use wrapping flex
+    and the phone-width layout was reasoned about, not seen.</li>
+  <li><b>A real PDF through the browser route.</b> The document tests and the browser run used text files; PDF
+    extraction is covered by the existing core tests, and the route calls the same function, but the multipart → PDF path
+    has not been exercised end to end.</li>
+  <li><b>The assignment rate limit from the UI.</b> Enforced (100/hour) and unit-tested in core; not driven to the limit
+    through the route. The bot's assignment path remains unbounded — recorded, not implied.</li>
+  <li><b>Behaviour when the recipient has no Telegram.</b> The picker warns, and <code>assignTask</code> still queues a row
+    with a null chat id, which the worker will fail and retry. That is the pre-existing behaviour; a cleaner "held until
+    they join" state belongs to the alerting phase.</li>
+  <li><b>Managers.</b> Every write is CEO-gated or self-only. The manager and department-lead rules you chose are
+    Phase 2, and the routes say so in their comments rather than pretending.</li>
+</ul></div>
+
+<h2 class="bad">Security</h2>
+<div class="card danger"><ul>
+  <li>Six refusal paths are tested (task for a colleague, assignment by an employee, report on a colleague's task, acknowledge by an unrelated employee, document plan and apply by a non-CEO). These are the only defence for writes.</li>
+  <li>The upload runs the same byte-level safety gate as the bot before any parser sees the file, inside the same size cap; an executable renamed <code>.pdf</code> is rejected with the same reason text.</li>
+  <li>Prompt-injection scanning and spotlighting apply unchanged; the response tells the CEO when instruction-shaped text was found and ignored.</li>
+  <li>The three probe Telegram messages sent to Hemanth's phone during verification are real deliveries; the probe rows were removed afterwards, the audit log was left as it was.</li>
+</ul></div>
+</body></html>

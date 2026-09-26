@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TASK-001 — Foundation</title>
+<style>
+  :root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#3fb950;--warn:#d29922;--card:#161b22;--bd:#30363d}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+       font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+       max-width:860px;padding:48px 24px;margin-inline:auto}
+  h1{font-size:1.9rem;margin:0 0 4px} h2{margin-top:2.5rem;color:var(--acc);font-size:1.25rem}
+  .meta{color:var(--mut);font-size:.9rem;margin-bottom:2rem}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:18px;margin:14px 0}
+  .unverified{border-left:3px solid var(--warn)}
+  code{background:#1f2630;padding:2px 6px;border-radius:4px;font-size:.9em}
+  pre{background:#010409;border:1px solid var(--bd);border-radius:8px;padding:14px;overflow-x:auto}
+  table{border-collapse:collapse;width:100%;margin:14px 0}
+  th,td{border:1px solid var(--bd);padding:8px 10px;text-align:left;font-size:.94rem}
+  th{background:#1f2630}
+  .warn{color:var(--warn)}
+</style></head><body>
+<h1>TASK-001 — Foundation</h1>
+<p class="meta">Phase 1 (demo) · 2026-09-04 · Satisfies the Task-board T1 and the CLAUDE.md stack/layout rules · Sets up the monorepo, local infrastructure, typed config, test harness, knowledge base, and the demo↔production deviation record.</p>
+
+<h2>What was done</h2>
+<div class="card">
+<ul>
+  <li><strong>pnpm monorepo</strong> — <code>package.json</code>, <code>pnpm-workspace.yaml</code>, strict <code>tsconfig.base.json</code> + root <code>tsconfig.json</code>, with five workspace packages: <code>@freshnow/core</code>, <code>/api</code>, <code>/bot</code>, <code>/worker</code>, <code>/dashboard</code> (the last four are typecheck-clean placeholders until their tasks).</li>
+  <li><strong>Local infrastructure</strong> — <code>docker-compose.yml</code> running <code>pgvector/pgvector:pg17</code> and <code>redis:7-alpine</code>, both bound to <code>127.0.0.1</code>, with health checks. Postgres is published on host port <strong>5433</strong> (see gotcha below).</li>
+  <li><strong>Typed configuration</strong> — <code>packages/core/src/config.ts</code> parses the environment through Zod; <code>config.test.ts</code> covers defaults, the bigint coercion of the CEO id, and rejection of bad input (5 tests).</li>
+  <li><strong>Environment</strong> — <code>.env.example</code> (documented placeholders, no secrets) and a gitignored <code>.env</code> for local dev.</li>
+  <li><strong>Knowledge base</strong> — <code>knowledge-base/</code> with <code>00-INDEX.md</code>, <code>decisions.md</code>, <code>assumptions.md</code>, <code>verified-facts.md</code>, <code>gotchas.md</code>.</li>
+  <li><strong>DEVIATIONS.md</strong> — every demo↔production difference with a one-line switch-back.</li>
+  <li><strong>Test runner</strong> — Vitest at the workspace root.</li>
+</ul>
+</div>
+
+<h2>Why it was done</h2>
+<div class="card">
+<p>CLAUDE.md rule&nbsp;1 ("Telegram is a channel, not the system") requires all domain logic to live in <code>packages/core</code>, called identically by the bot, API, worker, and dashboard. A workspace with a shared core is the structure that makes that rule enforceable and makes the later Phase-4/5 adapters additive rather than a rewrite.</p>
+<p>The company has not supplied real data, so this is a <strong>local demo that mirrors production</strong>. The honest way to do that is to keep the behaviour real and record every place the demo diverges — hence <code>DEVIATIONS.md</code>. The four divergences (polling vs webhook, plain Postgres vs Supabase, Groq/NVIDIA vs OpenRouter, local Whisper/Piper) are transport/packaging/vendor choices, not behavioural fakes.</p>
+<p><strong>Build-free TypeScript.</strong> Each package's <code>exports</code> points at <code>./src/index.ts</code> and dev runs through <code>tsx</code>; typecheck is a single root <code>tsc --noEmit</code>. This removes a build step for the demo. The trade-off: the packages are only consumable from within this workspace (fine here).</p>
+</div>
+
+<h2>How it works</h2>
+<div class="card">
+<pre>host (Windows) ── docker compose ──▶  freshnow-db   (Postgres+pgvector)  127.0.0.1:5433
+                                      freshnow-redis (Redis)             127.0.0.1:6379
+
+pnpm workspace
+  @freshnow/core   ← loadConfig() (Zod), later: db, llm, domain logic
+  @freshnow/api    → imports core            (Fastify server: Task 003)
+  @freshnow/bot    → imports core            (grammY bot:     Task 006)
+  @freshnow/worker → imports core            (BullMQ jobs:    Task 005)
+  @freshnow/dashboard                        (Next.js:        Task 012)</pre>
+<p><code>loadConfig()</code> validates <code>process.env</code> and fails with a readable, field-by-field message. Telegram ids are coerced to <code>bigint</code> at this boundary (32-bit truncation is a known identity-corruption bug — gotcha G2).</p>
+</div>
+
+<h2>Concepts and techniques used</h2>
+<div class="card">
+<ul>
+  <li><strong>pnpm workspaces</strong> — one lockfile, symlinked internal packages via the <code>workspace:*</code> protocol.</li>
+  <li><strong>ESM + NodeNext resolution</strong> — relative imports carry a <code>.js</code> suffix even for <code>.ts</code> sources; <code>verbatimModuleSyntax</code> forces explicit <code>import type</code>.</li>
+  <li><strong>Boundary validation with Zod</strong> — untrusted input (the environment) is parsed into a typed value once, at the edge.</li>
+  <li><strong>Documented deviation register</strong> — a demo that mirrors production is only honest if every difference is written down with how to revert it.</li>
+</ul>
+</div>
+
+<h2>Research findings</h2>
+<div class="card">
+<p>Web-searched at task start (2026-09-04); versions to re-verify in their own tasks:</p>
+<table>
+<tr><th>Thing</th><th>Finding</th></tr>
+<tr><td>pgvector image</td><td><code>pgvector/pgvector:pg17</code> (pgvector 0.8.6) — adopted</td></tr>
+<tr><td>BullMQ / Fastify / Next.js</td><td>6.2.0 / 5.6.2 / 16.2.7 — pinned inside their own tasks</td></tr>
+<tr><td>Groq vs xAI Grok</td><td>The user's <code>gsk_…</code> key is <strong>GroqCloud</strong> (OpenAI-compatible, <code>api.groq.com</code>), <em>not</em> xAI Grok (<code>xai-…</code>, <code>api.x.ai</code>). Recorded as gotcha G1.</td></tr>
+<tr><td>Whisper / Piper (voice, later)</td><td>faster-whisper ≈2× real-time on CPU; Arabic weak (dropped from scope, English+Hindi only). No accuracy claimed until measured.</td></tr>
+</table>
+</div>
+
+<h2 class="warn">What we have not verified</h2>
+<div class="card unverified">
+<ul>
+  <li>No Telegram <strong>bot token</strong> or <strong>CEO/employee user id</strong> supplied yet — nothing Telegram-facing has run.</li>
+  <li><strong>No LLM call has been made</strong> — the Groq/NVIDIA keys are stored but unused until Task 004; model ids are placeholders to be verified then.</li>
+  <li>The service placeholders (<code>api</code>/<code>bot</code>/<code>worker</code>) <strong>typecheck but have not been run</strong>.</li>
+  <li>The pnpm workaround <code>verify-deps-before-run=false</code> was needed to run scripts past a build-approval gate (gotcha G5); its wider implications for CI are untested.</li>
+  <li>Behaviour under load, on a clean machine, or on non-Windows hosts is untested.</li>
+  <li>CI (<code>pnpm verify</code>) has been run locally but not in a hosted CI runner (no git remote yet).</li>
+</ul>
+</div>
+
+<h2>Open questions</h2>
+<div class="card">
+<ul>
+  <li>Company Block A (headcount, shifts, blocker categories, SLAs) — still unanswered; the demo proceeds on labelled synthetic data.</li>
+  <li>Bot token + the two Telegram user ids (which is the CEO) — needed before Task 006.</li>
+</ul>
+</div>
+</body></html>

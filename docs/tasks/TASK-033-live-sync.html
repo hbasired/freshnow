@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TASK-033 — Live sync: the board stops guessing when to look again</title>
+<style>
+  :root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#3fb950;--warn:#d29922;--bad:#f85149;--card:#161b22;--bd:#30363d}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;max-width:940px;padding:48px 24px;margin-inline:auto}
+  h1{font-size:1.9rem;margin:0 0 4px} h2{margin-top:2.5rem;color:var(--acc);font-size:1.25rem} h3{margin-top:1.6rem;font-size:1.02rem}
+  .meta{color:var(--mut);font-size:.9rem;margin-bottom:2rem}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:18px;margin:14px 0}
+  .unverified{border-left:3px solid var(--warn)} .ok{border-left:3px solid var(--acc)} .danger{border-left:3px solid var(--bad)}
+  code{background:#1f2630;padding:2px 6px;border-radius:4px;font-size:.9em}
+  pre{background:#1f2630;border:1px solid var(--bd);border-radius:8px;padding:12px;overflow-x:auto;font-size:.85rem}
+  .tw{overflow-x:auto} table{border-collapse:collapse;width:100%;margin:14px 0}
+  th,td{border:1px solid var(--bd);padding:7px 9px;text-align:left;font-size:.88rem;vertical-align:top} th{background:#1f2630}
+  .bad{color:var(--bad);font-weight:600}.good{color:var(--acc);font-weight:600}.warn{color:var(--warn);font-weight:600}
+  ul{padding-left:1.1rem}
+</style></head><body>
+<h1>TASK-033 — Live sync: the board stops guessing when to look again</h1>
+<p class="meta">2026-09-14 · Phase 6 of the task &amp; project portal plan · migration 0013 · core <code>changes.ts</code> ·
+<code>GET /dashboard/events</code> · dashboard <code>live.ts</code> · 3 tests · 9/9 browser checks · 310 tests green</p>
+
+<div class="card ok"><strong>One-sentence summary:</strong> Postgres now tells the API when something changed, the API
+fans that out to every open board over Server-Sent Events, and a change made in one place appears in another in about
+<b>780 ms</b> instead of up to twenty seconds — while the event itself carries no row content at all, so the stream
+cannot become a way around row-level security.</div>
+
+<h2>1 · The one security decision</h2>
+<div class="card danger">
+<p><b>The notification payload carries the table name and the operation. Nothing else.</b> No id, no employee, no project.</p>
+<p><code>LISTEN</code> is a connection-level mechanism with no row security of its own: whatever goes into a payload is
+visible to every listener, and the API holds <b>one</b> listening connection shared by every signed-in viewer. Any
+identifier in that payload would therefore be a channel straight past RLS — an employee could learn that a blocker had
+been raised about a colleague simply by watching the stream.</p>
+<p>So the event says only <em>"something in <code>task</code> changed"</em>. Every client then re-fetches through the
+ordinary RLS-scoped endpoints and Postgres decides what each person actually sees. <b>The stream is a doorbell, never a
+delivery.</b> Two tests assert the payload has exactly the keys <code>at</code>, <code>op</code>, <code>table</code> —
+one on the listener, one on what crosses the wire — so anyone who later adds an id "just for convenience" gets a red test.</p>
+<p><b>The cost, stated plainly:</b> every connected client re-fetches on every change to a watched table, including
+changes it cannot see. At FreshNow's size (tens of employees, a few changes a minute) that is cheaper than the polling
+it replaces. At hundreds of concurrent viewers it would not be, and the fix then is per-viewer filtering
+<em>in the API</em> — not a richer payload.</p>
+</div>
+
+<h2>2 · What was built</h2>
+<div class="tw"><table>
+  <thead><tr><th>Where</th><th>Change</th></tr></thead>
+  <tbody>
+    <tr><td><code>migrations/0013_live_sync.sql</code></td><td>
+      <code>notify_change()</code> plus a trigger on each of 19 tables a dashboard actually renders.
+      <b>Statement-level, not row-level</b>: one notification per statement however many rows it touched, so a bulk
+      update of 200 tasks rings the bell once. Deliberately excluded: <code>audit_log</code>, <code>run_trace</code>,
+      <code>llm_call</code> (the highest-volume writes in the system and nobody watches them live), invites and consent
+      records, and the alerting policy tables.
+    </td></tr>
+    <tr><td><code>core/changes.ts</code></td><td>
+      One listening connection, fanned out to many in-process subscribers. It gets its <b>own single connection</b>,
+      never a pooled one — <code>LISTEN</code> occupies a connection for as long as it listens, and a pool of 5 with one
+      permanently blocked is a pool of 4 whose failure looks like unrelated queries hanging.
+    </td></tr>
+    <tr><td><code>api/routes/events.ts</code></td><td>
+      <code>GET /dashboard/events</code>. Under <code>/dashboard/*</code> so it inherits the existing auth hooks.
+      Capped at 50 concurrent streams (503 with a message telling the client to keep polling), a 25-second comment
+      heartbeat so a proxy never cuts an idle stream, <code>X-Accel-Buffering: no</code>, a <code>retry:</code> hint,
+      and cleanup on both <code>close</code> and <code>error</code>.
+    </td></tr>
+    <tr><td><code>dashboard/lib/live.ts</code></td><td>
+      Reads the stream, debounces 400 ms, and keeps the poll — at 120 s while live, back to 20 s the moment it is not.
+    </td></tr>
+    <tr><td><code>dashboard/App.tsx</code></td><td>The status line reads <b>live</b> or <b>polling</b>, so the state of the stream is visible rather than assumed.</td></tr>
+  </tbody>
+</table></div>
+
+<h3>Why <code>fetch</code> and not <code>EventSource</code></h3>
+<p>This was found by the browser check failing, and it is worth recording because the obvious tool is the wrong one:
+<b><code>EventSource</code> cannot send an <code>Authorization</code> header.</b> Its only way to carry a token is the
+URL — where it would be written into every access log, proxy cache and browser history entry on the way. The dashboard
+authenticates with a Bearer token, so the stream is read with <code>fetch</code> and a streaming body reader instead,
+carrying exactly the same headers as every other call. The cost is that reconnection is ours rather than the browser's,
+which is the capped backoff (1 s → 30 s); the benefit is that a session token never appears in a URL.</p>
+
+<h2>Verification</h2>
+<div class="tw"><table>
+  <thead><tr><th>Check</th><th>Result</th></tr></thead>
+  <tbody>
+    <tr><td><code>api/events.test.ts</code> (3)</td><td class="good">A write reaches a listener through Postgres with nobody polling, and the event has exactly three keys; one UPDATE touching five rows produces exactly one notification, not five; and — over a <b>real socket</b> on an ephemeral port, because <code>inject</code> waits for a response to end and a stream never does — the endpoint returns <code>text/event-stream</code>, announces itself, and pushes a change down the open connection, whose payload is again asserted to carry nothing but the table.</td></tr>
+    <tr><td>Real browser, two independent sessions</td><td class="good">9/9, no console errors, no HTTP errors. Tab A (CEO) shows <b>live</b>; tab B (employee, a separate signed-in session standing in for the bot or a colleague) creates a task; <b>tab A shows it 780 ms later without being touched</b> — comfortably inside the 9-second bound that distinguishes the stream from the 20-second poll. A second change also arrives, and tab A still reads live afterwards.</td></tr>
+    <tr><td>Full suite + typecheck + build</td><td class="good">42 files · 310 passed · 1 skipped · typecheck clean · Vite build clean</td></tr>
+  </tbody>
+</table></div>
+
+<h2 class="bad">What we have not verified</h2>
+<div class="card unverified"><ul>
+  <li><b>A Telegram-originated change was not separately observed arriving live.</b> The trigger is on the table, so any
+    writer fires it and the bot writes to the same tables — but the browser check drove both sides from the dashboard.
+    What is proven is write → Postgres → stream → a different session; the bot is one such writer, untested as such here.</li>
+  <li><b>Reconnection after a genuine network drop is untested.</b> The backoff is written and the poll takes over in the
+    meantime, but no test kills the connection and watches it come back. The "polling" badge is the honest signal if it
+    ever fails to.</li>
+  <li><b>The 50-stream cap has never been reached.</b> It is a guess at a sensible bound for a box with 8 shared vCPUs,
+    not a measured limit.</li>
+  <li><b>Behaviour behind Caddy in production is untested.</b> The headers that matter (<code>no-transform</code>,
+    <code>X-Accel-Buffering</code>, the heartbeat) are set, but this ran without a reverse proxy in front.</li>
+  <li><b>The project portal does not subscribe.</b> Live updates refresh the task board's data; a project page reloads
+    when you act on it or revisit it. Nothing about projects updates live yet.</li>
+  <li><b>Every client refetches everything on any change.</b> Correct and cheap here, but it is the thing that would need
+    to change first under load — see the cost note above.</li>
+</ul></div>
+</body></html>

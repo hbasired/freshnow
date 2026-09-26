@@ -1,0 +1,891 @@
+# semantic/schema.yaml — hand-maintained meaning layer for the FreshNow schema.
+# Reflection gives you types; only a human gives you meaning. Every column carries a
+# plain-business-language `notes`. Every foreign key carries a `purpose` naming the
+# business question its join answers — INCLUDING self-referential keys, because nothing
+# in the column types tells a model that a self-join is required.
+#
+# A migration that changes a table MUST update this file in the same task. The
+# `semantic layer stays in sync` test fails if a base table is missing here.
+
+version: 1
+
+tables:
+  employee:
+    notes: One row per worker (warehouse, production, drivers, retail) and the CEO. Identity is linked to a Telegram account only after an invite code is redeemed.
+    columns:
+      id: Primary key (uuid).
+      display_name: The person's name as shown to the CEO. Demo rows are prefixed "DEMO".
+      telegram_user_id: The permanent numeric Telegram id (bigint — exceeds int32). NULL until the account is linked.
+      manager_employee_id: Who this person reports to. Since migration 0009 this decides visibility — a manager or lead sees their direct reports. A trigger refuses a reporting line that loops.
+      access_role: >
+        What the person may DO — ceo | manager | lead | employee. Distinct from role_title (the
+        job title they typed). manager sees and assigns to their direct reports; lead also sees
+        everyone in their department (compared case-insensitively); employee sees only themselves.
+        Every read policy goes through app_can_view_employee(target), which is where this is enforced.
+      role_title: >
+        Their JOB TITLE, in free text ("Production Supervisor"). NOT a permission. `access_role`
+        beside it is what decides what a person may see and do — these two are the pair most
+        easily confused, and filtering on role_title to find managers returns whatever somebody
+        happened to type.
+      department: Function, e.g. production, warehouse, delivery, retail.
+      site: Physical location the person works at.
+      shift: Working pattern; drives daily-prompt timing.
+      language: Preferred language (English or Hindi in the demo).
+      status: pending | active | disabled. Active only after onboarding completes.
+      is_synthetic: TRUE for demo/seed rows. Never present a synthetic row as a real fact.
+      email: Work address for the email channel. NULL means no email. Added 2026-09-19; the consent notice must name email before an address is stored (docs/EMAIL-SETUP-GUIDE.md section 4).
+      auth_user_id: The Supabase Auth account this person signs in to the dashboard with (uuid). NULL means no dashboard login. The API maps a verified sign-in token to an employee through this column only. It is not a Telegram identity and says nothing about work done.
+      created_at: When this employee RECORD was created — not when the person joined the company.
+    foreign_keys:
+      manager_employee_id:
+        references: employee.id
+        purpose: >
+          SELF-REFERENTIAL. "Who does X report to / who is on Y's team" requires a self-join:
+          FROM employee e JOIN employee m ON e.manager_employee_id = m.id. Seeded staff report
+          to the CEO; the CEO changes reporting lines on the People tab (audited as
+          employee.org_updated with before/after).
+
+  task:
+    notes: >
+      A unit of work owned by one employee. Daily status is reported against tasks. Since
+      migration 0010 a task also carries how far along it is and on what EVIDENCE — a
+      percentage here is always one of three things, named in progress_source, and never a
+      number a model produced.
+    columns:
+      id: Primary key.
+      employee_id: The employee responsible for the task.
+      title: Short description of the work.
+      details: Longer description, optional.
+      status: open | pending | in_progress | done | cancelled — a key into task_status, whose category (todo / in_progress / done) is what reports should group by.
+      resolution: WHY the task stopped, set together with a closing status — done | wont_do | duplicate | cancelled. NULL while open. Status says where it is; resolution says why it ended.
+      resolved_at: When it stopped.
+      progress_pct: 0–100. Meaningless without progress_source.
+      progress_source: >
+        counted (done steps / total steps — the strongest evidence), status (the percentage the
+        status implies, task_status.pct_when_here, used when there are no steps), or
+        self_reported (a person typed it, with a mandatory note in progress_note; shown
+        labelled, replaced by the next counted change). "Is this task really 90% done" is
+        answered by this column, not by the number.
+      progress_note: The reason a person gave for a self-reported figure.
+      progress_updated_at: When the percentage last changed.
+      started_at: First time work was reported on it. With due_at, gives the elapsed fraction that the "behind" warning compares against progress.
+      priority: low | normal | high | urgent.
+      parent_task_id: The task this is a step of, when task_type is subtask. One recursive table, not a table per level.
+      task_type: task | subtask.
+      estimate_minutes: Optional size, for weighted rollups later.
+      due_at: Optional deadline (timestamptz, stored UTC).
+      created_at: >
+        When the task was created. With resolved_at this is the cycle time `flow_metrics`
+        measures; against now() it is how long an open task has been waiting.
+      project_id: >
+        The project this work belongs to, or NULL for ordinary operational work. The task table
+        is the unit of work for projects TOO — there is no parallel project-task system — so a
+        person's list is one list whichever it came from.
+      milestone_id: The milestone within that project, when it is filed under one.
+      is_synthetic: TRUE for demo/seed rows.
+    foreign_keys:
+      employee_id:
+        references: employee.id
+        purpose: "Whose task is this / list a person's tasks."
+      project_id:
+        references: project.id
+        purpose: "The work under project X — and, aggregated, its computed progress. NULL means ordinary operational work, which is how flow_metrics separates the two."
+      milestone_id:
+        references: milestone.id
+        purpose: "Is milestone X's work actually finished: count tasks under it whose status category is not 'done'."
+      status:
+        references: task_status.key
+        purpose: "Group or count by CATEGORY (todo / in_progress / done): JOIN task_status s ON s.key = task.status and use s.category, never the raw status name."
+      parent_task_id:
+        references: task.id
+        purpose: "SELF-REFERENTIAL. Subtasks of a task: FROM task child JOIN task parent ON child.parent_task_id = parent.id."
+
+  task_status:
+    notes: Lookup of the five task statuses, each mapped to a reporting category and to the percentage a task is considered to be at merely by being in that status (status-based progress, used when a task has no steps). The percentages are assumed placeholders until the company sets its own.
+    columns:
+      key: The status value stored on task.status.
+      label: How it is shown.
+      category: todo | in_progress | done — what reports and boards run on.
+      pct_when_here: Percentage implied by this status when a task has no steps to count.
+      position: Display order.
+
+  project:
+    notes: >
+      Work that has a plan, a shape and an end — as opposed to a task, which is a thing
+      somebody does today. Progress is NEVER stored here: query the `project_progress` view,
+      which computes it from milestone weights or the tasks' own percentages. `health` is the
+      one judgement on the row (whether a slip is worrying is a human call, not arithmetic),
+      and it always carries a note saying why.
+    columns:
+      id: Primary key.
+      name: What the project is called.
+      code: Short human handle used in conversation ("NB-01"). Unique when present.
+      purpose: WHY it exists, in the business's own words.
+      status: draft | active | on_hold | done | cancelled. Only 'active' projects are swept.
+      start_date: Planned start — with target_date, what schedule_elapsed_pct is computed from.
+      target_date: Planned finish.
+      sponsor_employee_id: Who wants it delivered.
+      lead_employee_id: Who is running it.
+      health: green | amber | red. Set by a person, never computed.
+      health_note: Why the health is what it is. Required when setting it.
+      health_updated_at: When the judgement was last made — an old green is worth less than a new one.
+      created_by: Who started it.
+      created_at: When.
+      is_synthetic: TRUE for demo/seed rows.
+    foreign_keys:
+      lead_employee_id:
+        references: employee.id
+        purpose: "What is person X running; and, with app_can_view_employee, who may see the project."
+      sponsor_employee_id:
+        references: employee.id
+        purpose: "What has person X sponsored."
+
+  project_requirement:
+    notes: >
+      What the project must deliver, prioritised MoSCoW. 'wont' is the half people forget:
+      recording what is explicitly OUT of scope is what stops it being argued back in later.
+      `acceptance` is how we will know it is met — a requirement nobody can test is not one.
+    columns:
+      id: Primary key.
+      project_id: The project.
+      kind: need | requirement | constraint | assumption.
+      text: The requirement in plain words.
+      priority: must | should | could | wont (MoSCoW).
+      acceptance: How we will know it is met.
+      status: open | met | dropped.
+      raised_by: Who asked for it.
+      position: Order within the project.
+      created_at: When.
+      is_synthetic: TRUE for demo/seed rows.
+    foreign_keys:
+      project_id:
+        references: project.id
+        purpose: "What must project X deliver: group by priority to see the musts first."
+
+  milestone:
+    notes: >
+      When. `weight` is its share of the project's progress, so a two-month milestone need not
+      count the same as a two-day one — this is what makes the rollup weighted rather than a
+      count. A milestone cannot be marked done while tasks under it are open unless the person
+      doing it explicitly forces it, and the audit records that they did.
+    columns:
+      id: Primary key.
+      project_id: The project.
+      name: What is being reached.
+      due_date: When it is due.
+      weight: Share of the rollup, 1-100. Equal unless somebody says otherwise.
+      status: open | done | cancelled.
+      done_at: When it was reached.
+      position: Order within the project.
+      created_at: When.
+      is_synthetic: TRUE for demo/seed rows.
+    foreign_keys:
+      project_id:
+        references: project.id
+        purpose: "The milestones of project X, and the weighted rollup that is its progress."
+
+  project_member:
+    notes: Who is on a project. Drives both visibility (a member may see it) and who is told when it turns red or hits a serious issue.
+    columns:
+      id: Primary key.
+      project_id: The project.
+      employee_id: The person.
+      role: sponsor | lead | member | watcher.
+      created_at: When they joined.
+    foreign_keys:
+      project_id:
+        references: project.id
+        purpose: "Who is on project X — and therefore who is told about it."
+      employee_id:
+        references: employee.id
+        purpose: "What projects is person X on."
+
+  project_update:
+    notes: >
+      The status log, append-only — a status history that can be edited is not a history.
+      `pct_reported` is what a person SAYS; `project_progress.progress_pct` is what the tasks
+      actually show. Both are kept deliberately: the GAP between them is the most useful number
+      on the page, and the audit row for each update records the computed figure at that moment.
+    columns:
+      id: Primary key.
+      project_id: The project.
+      author_id: Who wrote it.
+      narrative: What happened, in their words.
+      pct_reported: Where they say they are. NOT the project's progress.
+      health: The health they are claiming, if they set one.
+      period_start: Optional period the update covers.
+      period_end: Optional period end.
+      created_at: When.
+      correlation_id: The run that wrote it.
+      is_synthetic: TRUE for demo/seed rows.
+    foreign_keys:
+      project_id:
+        references: project.id
+        purpose: "The story of project X over time; and, with project_progress, claimed against measured."
+      author_id:
+        references: employee.id
+        purpose: "Who reports on projects."
+
+  project_issue:
+    notes: >
+      Risks and obstacles to the PLAN — deliberately NOT the `blocker` table. A broken chiller
+      is an operational blocker with a response window measured in minutes and an escalation
+      ladder; "the supplier may not deliver in time" is a project risk reviewed weekly. One
+      table for both would give one of them the wrong urgency and would corrupt the blocker
+      SLA statistics. A high or critical issue tells everyone on the project.
+    columns:
+      id: Primary key.
+      project_id: The project.
+      milestone_id: The milestone it threatens, when it threatens one.
+      kind: issue | risk | dependency | decision.
+      title: What the problem is.
+      description: The detail.
+      severity: low | medium | high | critical. high/critical tell the project's members.
+      status: open | mitigating | resolved | accepted. 'accepted' means we decided to live with it.
+      owner_id: Who is handling it.
+      raised_by: Who spotted it.
+      mitigation: What is being done about it (set while mitigating).
+      due_date: When it must be settled by; the sweep flags it once past.
+      resolved_at: When it was settled.
+      resolution_note: How it was settled.
+      created_at: When.
+      correlation_id: The run that raised it.
+      is_synthetic: TRUE for demo/seed rows.
+    foreign_keys:
+      project_id:
+        references: project.id
+        purpose: "What is threatening project X, worst first."
+      owner_id:
+        references: employee.id
+        purpose: "What risks is person X carrying."
+
+  project_progress:
+    notes: >
+      A VIEW, one row per project — the only correct source for "how far along is project X".
+      Every number is SQL over every row. `progress_pct` is the weighted milestone rollup when
+      the project has milestones and the average of its tasks' own evidence-based percentages
+      otherwise; `progress_source` says WHICH, so the number is never read without its basis.
+      A task in the 'done' category counts as 100 whatever its stored percentage says.
+      `schedule_elapsed_pct` is NULL when the dates are not set — an unknown is not zero.
+      Compare it against progress_pct for "behind"; never turn that into a prediction.
+    columns:
+      project_id: The project.
+      name: Its name.
+      status: The project's status.
+      health: The human judgement.
+      start_date: Planned start.
+      target_date: Planned finish.
+      tasks_total: Tasks under it.
+      tasks_done: Tasks whose status category is 'done'.
+      tasks_in_progress: Tasks whose status category is 'in_progress'.
+      milestones_total: Milestones.
+      milestones_done: Milestones reached.
+      milestones_overdue: Open milestones whose due_date has passed.
+      issues_open: Issues open or being mitigated.
+      issues_serious: Of those, the high and critical ones.
+      progress_pct: The computed percentage. Read `progress_source` with it, always.
+      progress_source: milestones (weighted rollup) | tasks (average of task percentages).
+      schedule_elapsed_pct: How much of the planned time has been used, or NULL without dates.
+      last_update_at: When somebody last wrote a status update. NULL means never.
+      updates_total: How many status updates exist.
+
+  flow_metrics:
+    notes: >
+      A VIEW of the Kanban Guide's four flow metrics, per project (project_id NULL = ordinary
+      operational work). Cycle time is given as PERCENTILES, never a mean: the distribution is
+      skewed and the mean of a skewed distribution describes nobody's experience. Work Item Age
+      (oldest_open_days) is the only LEADING indicator here — it is about work still open,
+      while throughput and cycle time describe work already finished.
+      Deliberately absent: SPI, CPI, earned value, velocity, burndown. They need a time-phased
+      cost baseline FreshNow does not have, and inventing one would be a fabricated number.
+    columns:
+      project_id: The project, or NULL for ordinary operational work.
+      wip: Work started and not finished — the number the Kanban Guide says to limit.
+      open_total: All unfinished work, started or not.
+      oldest_open_days: Work Item Age of the oldest unfinished item.
+      avg_open_days: Mean age of unfinished work.
+      throughput_7d: Items finished in the last 7 days.
+      throughput_28d: Items finished in the last 28 days.
+      cycle_p50_days: Median time from start to finish.
+      cycle_p85_days: 85th percentile — the number to quote when forecasting a single item.
+      cycle_p95_days: 95th percentile.
+      finished_total: Items finished, all time.
+
+  task_step:
+    notes: A checklist item under a task. Counting done steps against all steps is what makes a task's percentage evidence rather than opinion. Deleted with its task.
+    columns:
+      id: Primary key.
+      task_id: The task it belongs to.
+      title: The step, in plain words.
+      position: Order within the task.
+      done: Whether it is ticked.
+      done_at: When it was ticked.
+      done_by: Who ticked it (kept NULL if that person is later removed).
+      created_by: Who added the step.
+      created_at: When.
+      is_synthetic: TRUE for demo/seed rows.
+    foreign_keys:
+      task_id:
+        references: task.id
+        purpose: "How far along is task X: count(*) filter (where done) / count(*) over its steps."
+      done_by:
+        references: employee.id
+        purpose: "Who ticked this step off."
+
+  task_relation:
+    notes: >
+      A directional or symmetric link between two tasks — blocks / blocked_by, precedes /
+      follows, relates, duplicates. Every directional link is stored TWICE, once in each
+      direction with the inverse kind, written together, so either task answers "what am I
+      waiting on" alone. Ordering links cannot form a loop; a task has at most 30 relations.
+    columns:
+      id: Primary key.
+      from_task_id: The task the sentence starts from.
+      to_task_id: The other task.
+      kind: blocks | blocked_by | precedes | follows | relates | duplicates.
+      created_by: Who linked them.
+      created_at: When.
+      is_synthetic: TRUE for demo/seed rows.
+    foreign_keys:
+      from_task_id:
+        references: task.id
+        purpose: "What is task X waiting on: WHERE from_task_id = X AND kind = 'blocked_by' — the inverse row is always present, so no need to search both columns."
+      to_task_id:
+        references: task.id
+        purpose: "The other end of the link; join to task for its title and status."
+
+  progress_event:
+    notes: Append-only history of every change to a task's percentage, with its source and, for a self-reported figure, the person's note. "It sat at 90% for three weeks" is a query over this table. Deleted with its task.
+    columns:
+      id: Primary key.
+      task_id: The task.
+      employee_id: Who caused the change (NULL for a purely derived recompute, or if that person was later removed).
+      pct: The new percentage.
+      source: counted | status | self_reported.
+      note: The reason, for a self-reported figure.
+      correlation_id: Ties the change to the request or message that caused it.
+      created_at: When.
+      is_synthetic: TRUE for demo/seed rows.
+    foreign_keys:
+      task_id:
+        references: task.id
+        purpose: "Progress over time for task X, ordered by created_at."
+
+  task_update:
+    notes: A single status report against a task. The raw employee text is stored before any LLM parse, so an update is never lost to an API timeout.
+    columns:
+      id: Primary key.
+      task_id: The task being reported on (nullable for a general update).
+      employee_id: Who submitted the update.
+      status: done | pending | blocker | in_progress — the deterministic button tap.
+      note_raw: Exactly what the employee typed/said, kept forever.
+      note_parsed: LLM-extracted structure (jsonb); replaceable by re-running the parser.
+      channel: Where the report came from — telegram (the bot) or web (the dashboard). The end-of-day counts do not distinguish; the record does.
+      telegram_message_id: Reference to the source message (bigint).
+      correlation_id: Ties every step of this run together in audit_log / run_trace.
+      submitted_at: When it arrived (timestamptz, UTC).
+      is_synthetic: TRUE for demo/seed rows.
+    foreign_keys:
+      employee_id:
+        references: employee.id
+        purpose: "Whose update is this — the basis for RLS employee isolation."
+      task_id:
+        references: task.id
+        purpose: "Which task this update reports on."
+
+  blocker:
+    notes: An obstacle stopping a task. Extracted from a task_update. Routed by a deterministic lookup and escalated on SLA. In the demo everything routes to the CEO.
+    columns:
+      id: Primary key.
+      task_update_id: The update the blocker was extracted from.
+      raised_by: The employee who reported the blocker.
+      assigned_resolver: The employee who must fix it (the CEO in the demo).
+      category: Kind of problem, e.g. equipment, supply, staffing, quality.
+      severity: low | medium | high | critical.
+      status: open | acknowledged | resolved | cancelled.
+      risk: Free-text consequence, e.g. "cold chain / spoilage".
+      affected_asset: What is affected, e.g. "van 2 chiller".
+      correlation_id: Run correlation id.
+      sla_due_at: When escalation fires if unacknowledged.
+      resolved_at: When the problem was closed (status resolved).
+      resolved_by: Who closed it.
+      resolution_note: How it was resolved — required when closing, because the next person to hit the same problem will ask.
+      alert_id: >
+        The alert this report was folded into. Several reports of the same problem share one
+        alert: acknowledging it acknowledges all of them, and only the first climbs the
+        escalation ladder. Count blockers for "how often was this reported", count alerts for
+        "how many problems were there" — they are different questions.
+      raised_at: When the blocker was created.
+      is_synthetic: TRUE for demo/seed rows.
+    foreign_keys:
+      alert_id:
+        references: alert.id
+        purpose: "Every report folded into one problem: FROM blocker b JOIN alert a ON b.alert_id = a.id."
+      raised_by:
+        references: employee.id
+        purpose: >
+          TWO joins to employee are needed. raised_by answers "who reported it":
+          FROM blocker b JOIN employee reporter ON b.raised_by = reporter.id.
+      assigned_resolver:
+        references: employee.id
+        purpose: >
+          The SECOND join to employee, aliased separately, answers "who must fix it":
+          JOIN employee resolver ON b.assigned_resolver = resolver.id.
+
+  escalation:
+    notes: >
+      History of escalation steps for a blocker (level, who it went to, why). One row per
+      person told at that level, so a level with two targets writes two rows. A row with
+      escalated_to NULL records a rung that had nobody available and was skipped — kept
+      deliberately, so the ladder is not retried forever and the gap is visible.
+    columns:
+      id: Primary key.
+      blocker_id: The blocker being escalated.
+      level: Escalation level (1, 2, ...). Bounded by the ladder; never loops.
+      escalated_to: Who it was escalated to. NULL means the rung was skipped for want of a target.
+      reason: Why it escalated (e.g. SLA breach).
+      created_at: When. The clock the next rung's timeout is measured from.
+      correlation_id: The run that caused this escalation, so it joins to audit_log, run_trace and the outbox row the person actually received. NULL on rows written before migration 0015.
+      is_synthetic: TRUE for demo/seed rows.
+    foreign_keys:
+      blocker_id:
+        references: blocker.id
+        purpose: "Which blocker this escalation belongs to."
+      escalated_to:
+        references: employee.id
+        purpose: "How often did work escalate to person X, and at which level."
+
+  alert:
+    notes: >
+      One row per PROBLEM, not per report. A second report of the same problem while the
+      first is still open increments count instead of paging anyone again (alias-based
+      de-duplication, as Opsgenie does it) — this is why two identical escalation messages
+      no longer appear. Three states: triggered -> acknowledged -> resolved. Acknowledged
+      means somebody said they are on it; resolved means it is fixed. They are different
+      questions and different columns.
+    columns:
+      id: Primary key.
+      alias: >
+        What counts as "the same problem": the person, the category and the named asset,
+        lowercased. Without a named asset there is no safe way to call two reports the same,
+        so the alias falls back to the blocker's own id — the failure mode is one message
+        too many, never one too few.
+      kind: What sort of thing it is about (blocker).
+      entity: The table the alert is about.
+      entity_id: The id of the FIRST occurrence; later ones are folded in and counted.
+      employee_id: Who the alert is about (the raiser). Drives who may see the row.
+      state: triggered | acknowledged | resolved.
+      count: How many times this problem was reported while the alert was open.
+      first_seen: The first report.
+      last_seen: The most recent report.
+      acked_by: Who said they were on it.
+      acked_at: When.
+      resolved_at: When the last live report of it was resolved.
+      correlation_id: The run that opened it.
+      is_synthetic: TRUE for demo/seed rows.
+    foreign_keys:
+      employee_id:
+        references: employee.id
+        purpose: "Whose problems are these — and, with count, which problems keep coming back."
+      acked_by:
+        references: employee.id
+        purpose: "Who responds to problems, and how quickly (acked_at - first_seen)."
+
+  sla_policy:
+    notes: >
+      How long a problem of each severity may wait for an acknowledgement before it
+      escalates. Was a constant in TypeScript; now a table, so the window changes without a
+      deploy. Seeded with the old constants, which are [assumed] until FreshNow supplies real
+      service levels.
+    columns:
+      severity: low | medium | high | critical (primary key).
+      minutes: The response window in minutes.
+      updated_at: When it was last changed.
+      is_synthetic: TRUE for the seeded placeholder values.
+
+  escalation_policy:
+    notes: A named ladder of escalation levels. Exactly one row may be the default (a partial unique index enforces it).
+    columns:
+      id: Primary key.
+      name: What the ladder is called.
+      is_default: The ladder unacknowledged problems climb.
+      is_synthetic: TRUE for demo/seed rows.
+      created_at: When.
+
+  escalation_level:
+    notes: One rung of a ladder. Level 1 fires timeout_minutes after the response window runs out; each later rung that long after the previous one fired.
+    columns:
+      id: Primary key.
+      policy_id: The ladder this rung belongs to.
+      level_no: Position on the ladder, 1-10 (the CHECK is what bounds escalation).
+      timeout_minutes: How long to wait before this rung fires.
+    foreign_keys:
+      policy_id:
+        references: escalation_policy.id
+        purpose: "The rungs of ladder X, in order."
+
+  escalation_target:
+    notes: >
+      Who a rung tells, named symbolically — the resolver, the manager of whoever raised it,
+      the department lead, the CEO, or one named person. Symbolic so the ladder survives
+      staff changes: it is resolved to actual people at the moment it fires.
+    columns:
+      id: Primary key.
+      level_id: The rung.
+      target_type: resolver | manager_of_raiser | department_lead | ceo | employee.
+      target_employee_id: The named person, and only when target_type is 'employee' (a CHECK ties the two together).
+      position: Order within the rung; the first rule that names a person is the reason recorded.
+    foreign_keys:
+      level_id:
+        references: escalation_level.id
+        purpose: "Who is told at rung X."
+      target_employee_id:
+        references: employee.id
+        purpose: "Which ladders name person X directly (as opposed to by role)."
+
+  task_watcher:
+    notes: >
+      Who else is told about a task besides its owner. reason records why they are on the
+      list, so an assignee or a manager added automatically reads differently from somebody
+      who chose to follow it.
+    columns:
+      id: Primary key.
+      task_id: The task.
+      employee_id: The person following it.
+      reason: assignee | manager | raised_by | watcher.
+      created_at: When.
+    foreign_keys:
+      task_id:
+        references: task.id
+        purpose: "Who is told when task X changes."
+      employee_id:
+        references: employee.id
+        purpose: "What is person X following."
+
+  notification_pref:
+    notes: >
+      One person's rule for one event on one channel. No row means the default: Telegram
+      immediately if they are linked, and the in-app inbox always. 'digest' is honoured as
+      "not now" — digests are not built yet, and sending immediately anyway would make the
+      preference a lie.
+    columns:
+      id: Primary key.
+      employee_id: Whose rule it is.
+      event_type: Which event (blocker.raised, blocker.escalated, blocker.resolved, task.assigned, task.done).
+      channel: telegram | email | webpush. The in-app inbox is not optional and has no rule.
+      mode: immediate | digest | off.
+      delay_minutes: Hold the message this long (0-1440) — the message waits, it is not dropped.
+      updated_at: When it was last changed.
+    foreign_keys:
+      employee_id:
+        references: employee.id
+        purpose: "How does person X want to be told — and who has turned a channel off."
+
+  channel_setting:
+    notes: >
+      The company's switch for each delivery channel, flipped by the CEO in the dashboard.
+      A channel needs THREE things to carry a message: keys on the server (environment),
+      this row set true, and — for everything except the in-app inbox — the person's own
+      notification_pref. Ships with telegram and inapp on and email, webpush and chat off,
+      so turning one on is a deliberate act by a named person, recorded as channel.toggled
+      in audit_log.
+    columns:
+      channel: telegram | inapp | email | webpush | chat. The primary key.
+      enabled: Whether the company is using it. Not whether it is configured.
+      updated_by: Who flipped it. Null for the seeded defaults, which nobody chose.
+      updated_at: When it was last flipped.
+    foreign_keys:
+      updated_by:
+        references: employee.id
+        purpose: "Who switched a channel on or off, and when — asked after the first unexpected message."
+
+  push_subscription:
+    notes: >
+      One browser's web-push endpoint. One row per DEVICE, not per person: somebody with a
+      phone and a desktop has two. The payload is encrypted to p256dh/auth (RFC 8291), so
+      the push relay in the middle — Google, Apple or Mozilla — carries ciphertext it cannot
+      read. A device that answers 404 or 410 is deleted rather than retried forever.
+      Visible only to its owner: which devices a person carries is not an operational fact,
+      and the platform does not collect it for anyone else to see.
+    columns:
+      id: Primary key.
+      employee_id: Whose device it is.
+      endpoint: The push service's URL for this device. Unique — re-subscribing returns the same one.
+      p256dh: The device's public key. Used to encrypt the payload, never read by us.
+      auth: The device's auth secret, same purpose.
+      user_agent: For the person's own list of their devices. Never parsed or analysed.
+      created_at: When the device subscribed.
+      last_seen_at: The last time a push to it succeeded.
+      is_synthetic: True for demo rows.
+    foreign_keys:
+      employee_id:
+        references: employee.id
+        purpose: "Which devices should a web-push notification for this person go to."
+
+  routing_rule:
+    notes: The single source of truth for routing. Deterministic lookup (category, site, shift) -> resolver. Seeded degenerate in the demo — every rule resolves to the CEO.
+    columns:
+      id: Primary key.
+      category: Blocker category the rule matches (NULL = catch-all).
+      site: Site the rule matches (NULL = any).
+      shift: Shift the rule matches (NULL = any).
+      resolver_employee_id: Who resolves a matching blocker (the CEO in the demo).
+      is_synthetic: TRUE for demo/seed rows.
+    foreign_keys:
+      resolver_employee_id:
+        references: employee.id
+        purpose: '"Why did this blocker go to X?" — answered by a row here, never by a model.'
+
+  assignment:
+    notes: A task the CEO assigned to an employee, delivered via Telegram. The employee reports status back, closing the loop.
+    columns:
+      id: Primary key.
+      task_id: The task created for the assignment.
+      assigned_by: Who assigned it (the CEO).
+      assigned_to: Who received it.
+      note: What the CEO asked for.
+      status: assigned | accepted | done | cancelled.
+      created_at: When.
+      is_synthetic: TRUE for demo/seed rows.
+    foreign_keys:
+      assigned_by:
+        references: employee.id
+        purpose: "Who assigned the task (first join to employee)."
+      assigned_to:
+        references: employee.id
+        purpose: "Who received it (second, separately-aliased join to employee)."
+
+  consent_record:
+    notes: PDPL consent captured at onboarding — the policy version and a hash of the exact notice text the employee saw.
+    columns:
+      id: Primary key.
+      employee_id: Who consented.
+      policy_version: Version of the privacy notice.
+      notice_hash: Hash of the notice text actually displayed.
+      consented_at: When.
+      is_synthetic: TRUE for demo/seed rows.
+    foreign_keys:
+      employee_id:
+        references: employee.id
+        purpose: "Whose consent this records."
+
+  invite_code:
+    notes: A single-use code the CEO issues so a real person can link their Telegram account. Preserves the "identity is never self-declared" rule while letting the employee self-fill their profile.
+    columns:
+      id: Primary key.
+      code: The unambiguous single-use code.
+      display_name: The name the CEO entered when issuing it.
+      employee_id: The employee row created/linked on redemption.
+      issued_by: Who issued the code (the CEO).
+      expires_at: Expiry (single-use, time-limited).
+      redeemed_at: When redeemed (NULL until used).
+      created_at: When issued.
+      is_synthetic: TRUE for demo/seed rows.
+    foreign_keys:
+      employee_id:
+        references: employee.id
+        purpose: "Which employee this code onboards."
+      issued_by:
+        references: employee.id
+        purpose: "Who issued the code (the CEO)."
+
+  voice_asset:
+    notes: A Telegram voice message. The row is written BEFORE transcription so audio is never lost. Feeds the same parse pipeline as typed text.
+    columns:
+      id: Primary key.
+      employee_id: Who sent the voice message.
+      file_id: Telegram file id for the audio.
+      local_path: Where the downloaded audio was stored.
+      transcript_raw: Whisper transcript (kept verbatim).
+      status: pending | transcribed | failed.
+      created_at: When.
+      is_synthetic: TRUE for demo/seed rows.
+    foreign_keys:
+      employee_id:
+        references: employee.id
+        purpose: "Whose voice message this is."
+
+  notification_outbox:
+    notes: Every outbound message is written here first and delivered by the worker — exactly-once via idempotency_key. Business logic never calls Telegram directly.
+    columns:
+      id: Primary key.
+      idempotency_key: UNIQUE — makes delivery exactly-once from the employee's view.
+      chat_id: Telegram chat to deliver to (bigint). NULL on every channel but telegram.
+      payload: The message content (jsonb).
+      status: pending | sent | failed | abandoned.
+      human_approved: TRUE only when the CEO explicitly tapped to send on their behalf.
+      attempts: Delivery attempts (bounded).
+      created_at: When queued.
+      sent_at: When delivered.
+      channel: >
+        Which sender delivers it: telegram | inapp | email | webpush. The worker claims only
+        channels it has a sender for, so a row for a channel that is not switched on waits
+        rather than failing. 'inapp' IS the notification — the row itself is what the person
+        reads in the dashboard, and it needs no external service at all.
+      recipient_employee_id: >
+        Who this message is for. Set on everything written since the alert rules landed; NULL
+        on older rows and on anything addressed only by chat_id.
+      reason: >
+        The rule that chose this recipient, in plain words ("assignee", "resolver",
+        "escalation level 2 -> ceo"). This is what makes "who was told, and why" a query.
+      read_at: When the recipient read it (the inapp channel only).
+      next_attempt_at: >
+        The relay may not claim this row again before this time. Carries both the delivery
+        backoff and a person's own "hold it for N minutes" rule — so a pending row that is not
+        being sent is usually waiting, not stuck.
+      correlation_id: >
+        The run that produced this message. This is what answers "the CEO received this
+        alert — what caused it?", by joining to audit_log and run_trace. NULL on rows written
+        before migration 0015.
+      is_synthetic: TRUE for demo/seed rows.
+    foreign_keys:
+      recipient_employee_id:
+        references: employee.id
+        purpose: "What was person X told, and why: their inbox, and every channel they were reached on."
+
+  audit_log:
+    notes: Append-only record of every state change. No UPDATE/DELETE for the app role. Any number shown to the CEO traces back here via correlation_id.
+    columns:
+      id: Primary key.
+      correlation_id: Ties all steps of one run together.
+      actor: Who/what performed the action (e.g. "employee:<uuid>", "system").
+      action: >
+        What happened (e.g. blocker.routed). Security-relevant actions worth querying on
+        their own: security.injection_detected (a document contained text aimed at the
+        model rather than at a person), security.rate_limited (someone hit a per-person
+        cap), document.blocked (a file was refused outright — wrong type, executable,
+        oversize), document.flagged (a file carries active content so it may be read but
+        never forwarded), attachment.stored, eod.generated, invite.cancelled. Work actions:
+        task.created (who put a task on whose list — actor is the creator, detail names
+        the owner), task.assigned, task_update.recorded (detail.channel says which
+        channel), blocker.acknowledged (actor is the person who tapped, "system" only for
+        the sweep), employee.org_updated (a role or reporting-line change, with before and
+        after in detail). Alerting: alert.enqueued (detail.recipients lists every person,
+        channel and matched rule — the answer to "who was told what and why"),
+        alert.deduplicated (a repeat of a problem already open was counted, not sent again),
+        alert.acknowledged, alert.resolved, alert.no_recipient (a rule matched nobody — worth
+        querying, it means somebody should have been told and was not),
+        blocker.escalation_skipped (a ladder rung had nobody available and was passed over),
+        notification_pref.set (someone changed how they are told). Failure and reconciliation
+        (added 2026-09-18): blocker.routing_failed (a problem was recorded but no rule could place
+        it — a human was alerted instead), blocker.rerouted (the reconciliation sweep placed a
+        previously unrouted blocker), blocker.still_unroutable (it tried and could not),
+        notification.abandoned (delivery gave up after the attempt limit — THIS MESSAGE WAS NEVER
+        RECEIVED; detail names the recipient and the last error), consent.missing (an update was
+        captured for a person with no consent record — at most once per person per day),
+        eod.gate_failed (the model's end-of-day narrative stated a number that appeared in no
+        computed count, so the prose was withheld and only the counts were shown — detail lists
+        the unsourced numbers), webhook.rejected (a request reached the Telegram webhook path
+        without the right secret token; the token itself is never recorded). Data protection
+        (PDPL): retention.notes_aged (the free text of updates older than RETENTION_DAYS was
+        redacted — detail carries the window and a count, never the words),
+        employee.erased (a person was anonymised — name, Telegram, login and every note replaced,
+        every row kept; detail carries the reason and counts, never content).
+      entity: The kind of thing acted on.
+      entity_id: Its id.
+      detail: Extra structured context (jsonb).
+      created_at: When.
+
+  run_trace:
+    notes: >
+      Step-by-step record of a run — the INPUTS each step consumed and the output it produced,
+      which is what makes a run replayable rather than merely logged. Written by the real code
+      paths since 2026-09-18 (parse_update, route_blocker); before that only the seeder wrote it
+      and the table held two rows. Append-only: one run may perform the same step for several
+      entities, and a retry appears twice because it happened twice.
+    columns:
+      id: Primary key.
+      correlation_id: The run this step belongs to.
+      step: Name of the step.
+      input: Step input (jsonb).
+      output: Step output (jsonb).
+      created_at: When.
+
+  llm_call:
+    notes: One row per LLM invocation — model, tokens, cost, latency, success. Backs the daily budget cap and cost observability.
+    columns:
+      id: Primary key.
+      correlation_id: The run this call belongs to.
+      provider: groq | nvidia (the wrapper's active provider).
+      model: Model id used.
+      prompt_tokens: Input tokens.
+      completion_tokens: Output tokens.
+      cost_usd: Estimated cost.
+      latency_ms: Round-trip latency.
+      success: Whether the call succeeded.
+      created_at: When.
+
+  job_run:
+    notes: One row per scheduled/background job execution — outcome and duration. Makes a stuck or looping job visible in stored state.
+    columns:
+      id: Primary key.
+      job_name: Which job ran.
+      status: Outcome.
+      detail: Structured context (jsonb).
+      started_at: Start time.
+      finished_at: End time.
+      created_at: When the row was written.
+
+  daily_report:
+    notes: One end-of-day report per employee per day. The counts are computed in SQL over every row; the summary is written by the model from those already-final numbers, so a report can never contain an invented total. Regenerating a day replaces it (unique on employee_id + report_date).
+    columns:
+      id: Primary key.
+      employee_id: Whose day this describes.
+      report_date: The day being reported (date, not timestamp).
+      completed: How many updates that day reported 'done'. Computed in SQL.
+      pending: How many reported 'pending' or 'in_progress'. Computed in SQL.
+      blockers: How many reported 'blocker'. Computed in SQL.
+      reports_made: Total updates submitted that day. Computed in SQL.
+      summary: Model-written narrative, grounded in the counts above. Never a source of numbers.
+      detail: jsonb breakdown — every update with the person's own words, blockers raised, and tasks still open.
+      generated_at: When the report was last (re)generated.
+      is_synthetic: TRUE for demo/seed rows.
+    foreign_keys:
+      employee_id:
+        references: employee.id
+        purpose: "Whose end-of-day report this is. Join to employee for their name/department."
+
+  attachment:
+    notes: Files sent with an assignment or a status report — a spec sheet with an instruction, a photo of a fault with a breakdown report. Only Telegram's file_id and the metadata are stored, never the bytes, so no employee document sits on this machine. A file_id is re-sendable by the same bot, which is how an attachment reaches the assignee without being downloaded.
+    columns:
+      id: Primary key.
+      assignment_id: The assignment this file came with, when it was sent with an instruction.
+      task_id: The task this file belongs to.
+      task_update_id: The status report this file was filed against.
+      uploaded_by: Who sent the file.
+      file_id: Telegram's handle for the file. Re-sendable by this bot; not a durable archive.
+      file_unique_id: Stable identifier across bots — used to notice the same file arriving twice.
+      file_name: Original filename, when Telegram supplied one (documents only).
+      mime_type: Content type as Telegram reported it.
+      file_size: Size in bytes as Telegram reported it.
+      kind: document | photo | voice | video | audio — decides which Bot API method re-sends it.
+      caption: What the sender wrote on the file itself, if anything.
+      created_at: When it arrived.
+      is_synthetic: TRUE for demo/seed rows.
+    foreign_keys:
+      assignment_id:
+        references: assignment.id
+        purpose: "Which instruction this file was sent with. Join to assignment to answer 'what was Rashid actually given?'"
+      task_id:
+        references: task.id
+        purpose: "Which job this file relates to. Join to task for the title."
+      task_update_id:
+        references: task_update.id
+        purpose: "Which status report this file was evidence for. Join to task_update to show the photo beside the words."
+      uploaded_by:
+        references: employee.id
+        purpose: "Who sent the file. Join to employee for their name."
+
+  bot_session:
+    notes: Which question the Telegram bot is mid-way through for one chat. Not employee data — only a conversation pointer — and safe to delete to unstick someone. Every actual answer is written to its own table as it arrives.
+    columns:
+      key: grammY session key (chat/user scoped). Primary key.
+      value: jsonb holding the current conversation step.
+      updated_at: When the step last changed.
+
+  schema_migrations:
+    notes: Ledger of which migration files have been applied. Never edit — deleting a row makes a migration re-run and corrupt the schema.
+    columns:
+      version: Supabase's own migration version string; unused by this project's runner.
+      name: The migration file that was applied, e.g. "0014_privilege_hardening.sql".
+      applied_at: When it ran.

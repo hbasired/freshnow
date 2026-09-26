@@ -1,0 +1,13 @@
+{
+  "name": "@freshnow/core",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "postgres": "^3.4.9",
+    "zod": "^3.25.76"
+  }
+}

@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TASK-026 — OpenRouter Fallback, Benchmark, Pricing &amp; the FastAPI Answer</title>
+<style>
+  :root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#3fb950;--warn:#d29922;--bad:#f85149;--card:#161b22;--bd:#30363d}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+       font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+       max-width:940px;padding:48px 24px;margin-inline:auto}
+  h1{font-size:1.9rem;margin:0 0 4px} h2{margin-top:2.5rem;color:var(--acc);font-size:1.25rem}
+  h3{margin-top:1.6rem;font-size:1.02rem}
+  .meta{color:var(--mut);font-size:.9rem;margin-bottom:2rem}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:18px;margin:14px 0}
+  .unverified{border-left:3px solid var(--warn)}
+  .ok{border-left:3px solid var(--acc)}
+  .danger{border-left:3px solid var(--bad)}
+  code{background:#1f2630;padding:2px 6px;border-radius:4px;font-size:.9em}
+  pre{background:#010409;border:1px solid var(--bd);border-radius:8px;padding:14px;overflow-x:auto;font-size:.84rem}
+  .tw{overflow-x:auto}
+  table{border-collapse:collapse;width:100%;margin:14px 0}
+  th,td{border:1px solid var(--bd);padding:7px 9px;text-align:left;font-size:.88rem;vertical-align:top}
+  th{background:#1f2630}
+  td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .bad{color:var(--bad);font-weight:600}.good{color:var(--acc);font-weight:600}.warn{color:var(--warn);font-weight:600}
+  ul{padding-left:1.1rem}
+</style></head><body>
+<h1>TASK-026 — OpenRouter Fallback, Benchmark, Pricing &amp; the FastAPI Answer</h1>
+<p class="meta">2026-09-12 · New OpenRouter key stored and failover proven · 12 OpenRouter models graded on the
+real tasks, plus a 5-repeat latency pass over 18 models · OpenRouter's own bill recorded per call · monthly cost
+calculated · 213 tests pass on Supabase Postgres</p>
+
+<div class="card ok"><strong>One-sentence summary:</strong> The fallback provider works again and is proven end
+to end, every model now has the S3 lab's speed numbers and a measured cost per call, the cost log records real
+money instead of zero — and at any plausible FreshNow size the model bill is under a few dollars a month, so
+the choice between models is about correctness and speed, not price.</div>
+
+<h2>1 · What you asked for</h2>
+<ul>
+  <li>Store the new OpenRouter key and the credentials, and fix what was outstanding.</li>
+  <li>Benchmark with the price calculation — with latency, TTFT and the other details the S3 lab report showed.</li>
+  <li>What to say about FastAPI.</li>
+  <li>Make sure everything works, then stop all the services.</li>
+</ul>
+
+<h2>2 · Research</h2>
+<ul>
+  <li><b>OpenRouter pricing</b> (web, 2026-09-12): no per-token markup — provider prices pass through — and a
+    <b>5.5% fee on buying credits</b>, minimum $0.80. The report adds that fee to every OpenRouter row.</li>
+  <li><b>Groq pricing</b> (web, 2026-09-12): gpt-oss-120b $0.15 in / $0.60 out, gpt-oss-20b $0.075 / $0.30 per
+    million tokens. The account is on the free tier, so these are what the calls <i>would</i> cost on a paid tier.</li>
+  <li><b>OpenRouter catalogue</b> (<code>/api/v1/models</code>, read at run time): 443 models, 19 free. Both free
+    variants tried were withdrawn — "unavailable for free" (G65). Prices in the benchmark come from this catalogue,
+    not from typing.</li>
+</ul>
+
+<h2>3 · Credentials</h2>
+<div class="tw"><table>
+  <thead><tr><th>What</th><th>Where</th><th>Why there</th></tr></thead>
+  <tbody>
+    <tr><td>OpenRouter key (new, ending …096d)</td><td><code>.env</code> → <code>OPENROUTER_API_KEY</code></td>
+      <td>The only place the services read it. The dead key it replaced ended …ecb4.</td></tr>
+    <tr><td>Dashboard logins (CEO, Hemanth)</td><td><code>CREDENTIALS.local.md</code> — new, git-ignored (<code>*.local.md</code>)</td>
+      <td>They existed nowhere but chat. The file also says where every API key lives, without copying them.</td></tr>
+  </tbody>
+</table></div>
+<p>API keys were deliberately <b>not</b> duplicated into the credentials file: two copies of a secret are two
+places to leak it and two places to forget when rotating.</p>
+
+<h2>4 · The fallback works again (G54 resolved)</h2>
+<p>Tested through the real client, against the real providers:</p>
+<pre>1. Normal order            Groq answered in 883 ms          logged $0.000117 (list price; was $0 before)
+2. Groq key deliberately   Groq failed twice, ~50 ms each
+   broken                  OpenRouter gpt-4o-mini: 1 282 ms  logged $0.000027 (OpenRouter's own bill)</pre>
+<div class="card unverified"><b>One caution (G66):</b> the OpenRouter account reports <b>no purchased credits</b>
+and the free-tier flag, yet every paid call went through. Why is unknown. If it starts returning <code>402</code>
+the fallback silently stops again — buy a little credit before relying on it in front of anyone.</div>
+
+<h2>5 · The benchmark</h2>
+<h3>Correctness — the five real tasks, 12 OpenRouter models (60 calls, one sample each)</h3>
+<div class="tw"><table>
+  <thead><tr><th>Result</th><th>Models</th></tr></thead>
+  <tbody>
+    <tr><td class="good">5/5</td><td>gpt-4o-mini (the configured fallback) · gemini-2.5-flash-lite · gemini-3.1-flash-lite ·
+      deepseek-v3.2 · claude-haiku-4.5 · gpt-oss-120b</td></tr>
+    <tr><td class="bad">Obeyed the prompt injection</td><td>gpt-4.1-nano · llama-3.3-70b · mistral-small-3.2 (G67)</td></tr>
+    <tr><td class="warn">Invented a person, or dropped a task</td><td>gpt-oss-20b · gpt-5-nano · qwen3-235b</td></tr>
+  </tbody>
+</table></div>
+
+<h3>Speed — the S3 lab's numbers, as medians of 5 identical runs</h3>
+<p>TTFT, inter-token latency, decode tokens/s, prefill tokens/s and total, plus the min→max spread — for every
+Groq and OpenRouter model, on the Hindi status message (the most frequent real call). Selected rows:</p>
+<div class="tw"><table>
+  <thead><tr><th>Model</th><th class="n">TTFT</th><th class="n">Total</th><th class="n">Spread</th><th>Note</th></tr></thead>
+  <tbody>
+    <tr><td>Groq gpt-oss-120b <i>(primary)</i></td><td class="n">976 ms</td><td class="n">1 083 ms</td><td class="n">1.1×</td><td>Steadiest of all</td></tr>
+    <tr><td>OpenRouter gpt-4o-mini <i>(fallback)</i></td><td class="n">917 ms</td><td class="n">1 030 ms</td><td class="n">2.6×</td><td>Fast median, occasional 2.4 s</td></tr>
+    <tr><td>OpenRouter gemini-2.5-flash-lite</td><td class="n">1 156 ms</td><td class="n">1 329 ms</td><td class="n">2.5×</td><td>Candidate (D67)</td></tr>
+    <tr><td>OpenRouter claude-haiku-4.5</td><td class="n">1 040 ms</td><td class="n">1 349 ms</td><td class="n">1.1×</td><td>Steady, ~10× the price</td></tr>
+    <tr><td>OpenRouter gpt-oss-120b</td><td class="n">8 959 ms</td><td class="n">11.7 s</td><td class="n">1.7×</td><td class="bad">Same model as the primary — ten times slower (G63)</td></tr>
+    <tr><td>OpenRouter gpt-5-nano</td><td class="n">10.8 s</td><td class="n">10.9 s</td><td class="n">1.4×</td><td class="bad">1 187 hidden reasoning tokens per answer (G64)</td></tr>
+  </tbody>
+</table></div>
+<p><b>How many calls:</b> Groq's own headers say 1 000 requests a day and 8 000 tokens a minute for the gpt-oss
+models (compound-mini: 250 a day, 70 000 tokens a minute). OpenRouter sends no rate-limit headers.</p>
+
+<h2>6 · What it costs</h2>
+<p>Cost per call comes from the tokens each model actually used, times its price; the month multiplies that by a
+workload of 22 working days. Team sizes and volumes are <b>assumptions</b> — FreshNow has not shared real ones.</p>
+<div class="tw"><table>
+  <thead><tr><th>Model</th><th class="n">Today's demo</th><th class="n">25 staff</th><th class="n">100 staff</th></tr></thead>
+  <tbody>
+    <tr><td>Groq gpt-oss-120b (primary, list price — $0 today on the free tier)</td><td class="n">$0.15</td><td class="n">$0.65</td><td class="n">$2.29</td></tr>
+    <tr><td>OpenRouter gpt-4o-mini (fallback, incl. 5.5% fee)</td><td class="n">$0.11</td><td class="n">$0.45</td><td class="n">$1.51</td></tr>
+    <tr><td>OpenRouter gemini-2.5-flash-lite</td><td class="n">$0.07</td><td class="n">$0.31</td><td class="n">$1.03</td></tr>
+    <tr><td>OpenRouter claude-haiku-4.5</td><td class="n">$0.84</td><td class="n">$3.51</td><td class="n">$11.86</td></tr>
+  </tbody>
+</table></div>
+<ul>
+  <li><b>Agents:</b> at 25 staff on the primary, status messages cost $0.29 a month single-shot and $1.17 as a
+    4-step agent; CEO questions $0.14 and $0.55. The multiple is real (~4×) but the money is not — the reason to
+    keep routine extraction single-shot is speed and predictability.</li>
+  <li><b>Checked against the real bill:</b> OpenRouter charged <b>$0.011330</b> for 58 benchmark calls; tokens ×
+    catalogue price gave <b>$0.010827</b> — 4.6% apart.</li>
+  <li><b>Your OpenRouter-credits question:</b> $10 of credit covers roughly two years of the fallback at 25 staff.</li>
+</ul>
+
+<h2>7 · The cost log records real money (D66)</h2>
+<p>All 296 model calls logged before today said <code>cost_usd = 0</code>: the price table was empty, so the daily
+budget cap could never trip. Now the client records OpenRouter's own <code>usage.cost</code> when it is sent, and
+otherwise tokens × list price from <code>cost.ts</code>. Three new tests cover the billed path, the estimated path
+and the price table.</p>
+
+<h2>8 · FastAPI — what to say</h2>
+<div class="card ok">
+  <p>"We evaluated FastAPI and kept the current TypeScript backend. It already does everything FastAPI would give
+    us, the whole system is one language, and a rewrite would cost weeks without changing anything a user sees. We
+    will add Python where it earns its place — forecasting and route optimisation — as a separate service, not a
+    rewrite."</p>
+  <p>The three reasons behind it, and what would change the answer, are in a card in
+    <code>docs/reports/architecture-recommendation.html</code>, section 03 (D68).</p>
+</div>
+
+<h2>9 · A test that failed at midnight (G68)</h2>
+<p>The first full run failed 7 end-of-day tests at 00:35 Dubai. The test took "today" as the UTC date; the code
+correctly uses the company day. Between midnight and 4 a.m. they disagree. The test now uses
+<code>companyToday()</code>; nothing in production was wrong.</p>
+
+<h2>Files changed</h2>
+<div class="tw"><table>
+  <thead><tr><th>File</th><th>Change</th></tr></thead>
+  <tbody>
+    <tr><td><code>packages/core/src/llm/client.ts</code>, <code>cost.ts</code></td><td>Record the provider's bill; list prices for the configured models</td></tr>
+    <tr><td><code>packages/core/src/llm/client.test.ts</code></td><td>3 tests for real cost</td></tr>
+    <tr><td><code>packages/core/src/eod.test.ts</code></td><td>Company day, not UTC day</td></tr>
+    <tr><td><code>scripts/bench-models.ts</code></td><td><code>BENCH_ONLY</code>, <code>BENCH_TASKS</code>, <code>BENCH_REPEAT</code>; live OpenRouter prices; billed cost and upstream per call</td></tr>
+    <tr><td><code>scripts/bench-report.mjs</code></td><td>Dead-key rows dropped; billed cost preferred; speed section (S3 metrics); monthly cost section; slow models flagged</td></tr>
+    <tr><td><code>bench/model-benchmark-pass3.json</code>, <code>bench/latency/latency-2026-09-12.json</code></td><td>The raw data</td></tr>
+    <tr><td><code>docs/reports/model-benchmark.html</code>, <code>architecture-recommendation.html</code></td><td>Regenerated / updated: OpenRouter rows, fallback fixed, FastAPI card, measured agent costs</td></tr>
+    <tr><td><code>.env</code>, <code>.env.example</code>, <code>CREDENTIALS.local.md</code>, <code>.gitignore</code>, <code>DEVIATIONS.md</code></td><td>Key stored; OpenRouter documented; credentials file; ignore rule; provider row</td></tr>
+    <tr><td><code>knowledge-base/*</code></td><td>D66–D68, G63–G68, G54 resolved, VF24, A-T4.1 update</td></tr>
+  </tbody>
+</table></div>
+
+<h2>Verification</h2>
+<div class="tw"><table>
+  <thead><tr><th>Check</th><th>Result</th></tr></thead>
+  <tbody>
+    <tr><td>Full test suite on Supabase Postgres</td><td class="good">32 files · 213 passed · 1 skipped</td></tr>
+    <tr><td>Failover through the real client</td><td class="good">Broken Groq key → OpenRouter answered correctly, billed cost logged</td></tr>
+    <tr><td>Benchmark report renders</td><td class="good">Speed and cost sections checked in a real browser capture</td></tr>
+    <tr><td>Estimate vs OpenRouter's bill</td><td class="good">4.6% apart over 58 calls</td></tr>
+    <tr><td>Services after restart with the new key</td><td class="good">API healthy on Supabase · bot polling · worker running · browser sign-in check passed for CEO and employee</td></tr>
+    <tr><td>Key hygiene</td><td class="good">The key appears in <code>.env</code> only — not in <code>.env.example</code>, any report, or the knowledge base</td></tr>
+  </tbody>
+</table></div>
+
+<h2 class="bad">What we have not verified</h2>
+<div class="card unverified"><ul>
+  <li><b>Correctness is one sample per task.</b> gemini-2.5-flash-lite's 5/5 needs a repeat before it replaces
+    gpt-4o-mini (D67); G51 showed a single sample can mislead in either direction.</li>
+  <li><b>Why paid OpenRouter calls work with no purchased credit</b> — and how long they will (G66).</li>
+  <li><b>The monthly figures rest on assumed volumes</b> (staff count, three updates each a day, EOD and question
+    sizes). Replace them with real counts once the bot has run for a few weeks.</li>
+  <li><b>Latency is from one machine, in one hour, on one Wi-Fi.</b> Another time of day, or a server in a data
+    centre, will differ.</li>
+  <li><b>NVIDIA and local models were not in the repeat pass</b> — NIM calls take 12–100 s, and the Ollama container
+    was not running. Their single-sample numbers from TASK-024 stand.</li>
+  <li><b>Pinning an OpenRouter upstream</b> (<code>provider.order</code>) was recommended for open-weight models but not tried.</li>
+  <li><b>The budget cap with real costs</b> has only been exercised by the synthetic test; at the measured rates it is
+    far above a day's spend.</li>
+</ul></div>
+
+<h2 class="bad">Security</h2>
+<div class="card danger"><ul>
+  <li>The new OpenRouter key was pasted into chat, like the ones before it. Rotate every key — Groq, both OpenRouter
+    keys, the NVIDIA keys, the bot token — before this runs anywhere but this laptop.</li>
+  <li><code>CREDENTIALS.local.md</code> holds two passwords in plain text. It is git-ignored and local, which is what
+    you asked for; it is not a password manager, and the passwords should change before a wider demo.</li>
+  <li>The benchmark sent only synthetic prompts. In production the fallback's upstream (OpenAI or Azure, for
+    gpt-4o-mini) would receive real employee messages — that belongs in the PDPL notice as a named processor.</li>
+</ul></div>
+</body></html>

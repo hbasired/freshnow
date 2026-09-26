@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TASK-005 — Outbox Worker</title>
+<style>
+  :root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#3fb950;--warn:#d29922;--card:#161b22;--bd:#30363d}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+       font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+       max-width:860px;padding:48px 24px;margin-inline:auto}
+  h1{font-size:1.9rem;margin:0 0 4px} h2{margin-top:2.5rem;color:var(--acc);font-size:1.25rem}
+  .meta{color:var(--mut);font-size:.9rem;margin-bottom:2rem}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:18px;margin:14px 0}
+  .unverified{border-left:3px solid var(--warn)}
+  code{background:#1f2630;padding:2px 6px;border-radius:4px;font-size:.9em}
+  pre{background:#010409;border:1px solid var(--bd);border-radius:8px;padding:14px;overflow-x:auto}
+  table{border-collapse:collapse;width:100%;margin:14px 0}
+  th,td{border:1px solid var(--bd);padding:8px 10px;text-align:left;font-size:.94rem}
+  th{background:#1f2630}
+  .warn{color:var(--warn)} .ok{color:var(--acc)}
+</style></head><body>
+<h1>TASK-005 — Outbox Worker</h1>
+<p class="meta">Phase 1 (demo) · 2026-09-04 · Satisfies SPEC-000 R24 (loss of Telegram must not lose a notification) and the "outbox pattern for every outbound message" rule · A transactional outbox relay with idempotent, at-least-once delivery. <span class="ok">34/34 tests green.</span></p>
+
+<h2>What was done</h2>
+<div class="card">
+<ul>
+  <li><strong><code>packages/core/src/outbox.ts</code></strong> — <code>enqueueNotification()</code>: inserts a row with <code>ON CONFLICT (idempotency_key) DO NOTHING</code>, so a duplicate enqueue is a no-op.</li>
+  <li><strong><code>packages/worker/src/outbox-relay.ts</code></strong> — <code>deliverOutboxBatch(deliver)</code>: claims pending rows with <code>FOR UPDATE SKIP LOCKED</code>, delivers each, marks <code>sent</code>; a hard failure retries up to <code>maxAttempts</code> then <code>abandoned</code>; a <code>RateLimitError</code> (429) leaves the row <code>pending</code> and never abandons.</li>
+  <li><strong><code>telegram-sender.ts</code></strong> — the real Telegram <code>sendMessage</code> deliverer (maps 429 → <code>RateLimitError</code>); injected at runtime, stubbed in tests.</li>
+  <li><strong><code>worker/src/index.ts</code></strong> — the poll loop.</li>
+  <li><strong>5 tests</strong> against the real DB with a stub deliverer: delivers+marks sent, idempotent enqueue, no re-delivery of a sent row, abandon-after-max, and 429-stays-pending.</li>
+</ul>
+</div>
+
+<h2>Why it was done</h2>
+<div class="card">
+<p><strong>Never call Telegram from business logic.</strong> A handler that sends directly loses the message if Telegram is momentarily down, and can double-send on a retry. Writing a row and letting one worker deliver it makes delivery survive restarts and be exactly-once from the recipient's point of view (the <code>idempotency_key</code> guarantees one logical message is enqueued once).</p>
+<p><strong>SKIP LOCKED for safe concurrency.</strong> Multiple workers can poll at once; each locks a disjoint batch, so no message is delivered twice by racing workers.</p>
+</div>
+
+<h2>How it works</h2>
+<div class="card">
+<pre>business logic ─▶ enqueueNotification({idempotencyKey, chatId, payload})
+                    insert … on conflict (idempotency_key) do nothing   ← dedupe at enqueue
+
+worker poll (every ~3s):
+  BEGIN
+    select … from notification_outbox
+      where status='pending' order by created_at
+      limit N FOR UPDATE SKIP LOCKED           ← claim a batch, skip locked rows
+    for each row:
+       deliver(row)                            ← Telegram sendMessage
+         ok        → status='sent', sent_at=now()
+         429       → leave 'pending' (retry later), never abandon
+         error     → attempts++ ; ≥max → 'abandoned' else stay 'pending'
+  COMMIT</pre>
+</div>
+
+<h2>Concepts and techniques used</h2>
+<div class="card">
+<ul>
+  <li><strong>Transactional outbox</strong> — outbound intent is a database row; a relay delivers it, decoupling the write from the send.</li>
+  <li><strong><code>FOR UPDATE SKIP LOCKED</code></strong> — lock-free-ish batch claiming so parallel workers never double-deliver.</li>
+  <li><strong>Idempotency key + at-least-once</strong> — the outbox guarantees at-least-once; the UNIQUE key makes the recipient see one logical message. Consumers (Telegram) are treated as idempotent-enough at demo volume.</li>
+  <li><strong>Injectable deliverer</strong> — the relay takes a <code>Deliverer</code> function, so tests use a stub and no bot token is needed to prove the mechanics.</li>
+  <li><strong>Rate-limit backoff</strong> — a 429 is a distinct error that pauses, never abandons.</li>
+</ul>
+</div>
+
+<h2>Research findings</h2>
+<div class="card">
+<p>Reviewed the transactional-outbox pattern (multiple 2025–2026 write-ups). Key confirmations: the pattern is <strong>at-least-once, not exactly-once</strong> — if the relay delivers then crashes before marking sent, it re-delivers on restart, so consumers must tolerate a duplicate; and <code>SKIP LOCKED</code> is the standard mechanism for multi-worker claiming.</p>
+<p><strong>Deviation from the task-board wording.</strong> The board said "Outbox worker: BullMQ". The canonical, more reliable implementation here is a <strong>DB-polling relay with SKIP LOCKED</strong> (which the system blueprint's own timeline describes). BullMQ + Redis is reserved for what it is genuinely best at — <em>delayed</em> SLA/escalation jobs (Task 009). Recorded as decision D14.</p>
+</div>
+
+<h2 class="warn">What we have not verified</h2>
+<div class="card unverified">
+<ul>
+  <li><strong>No real Telegram delivery yet</strong> — <code>telegram-sender.ts</code> is unexercised because no <code>BOT_TOKEN</code> has been supplied. Tests use a stub deliverer.</li>
+  <li><strong>Delivery happens inside the DB transaction</strong>, holding the row lock during the HTTP call. Fine at demo volume; for scale, claim-then-deliver outside the lock (needs a <code>sending</code> status + a stale-row reaper).</li>
+  <li><strong>Double-send on crash</strong> (deliver succeeds, worker dies before COMMIT) is possible — at-least-once by design. Not reproduced or measured.</li>
+  <li>Real 429 handling has not been observed against live Telegram, only simulated.</li>
+  <li>Throughput / backpressure under many pending rows is untested.</li>
+</ul>
+</div>
+
+<h2>Open questions</h2>
+<div class="card">
+<ul>
+  <li><strong>Bot token needed</strong> to actually deliver (Task 006 onward).</li>
+  <li>Move delivery outside the lock (claim-then-send) before any real load?</li>
+</ul>
+</div>
+</body></html>

@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FreshNow — what to build next, and whether RAG is part of it</title>
+<style>
+  :root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#3fb950;--warn:#d29922;--bad:#f85149;--card:#161b22;--bd:#30363d;--link:#58a6ff}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.7 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;max-width:920px;padding:48px 24px;margin-inline:auto}
+  h1{font-size:2rem;margin:0 0 6px;line-height:1.25} h2{margin-top:2.8rem;color:var(--acc);font-size:1.3rem}
+  h3{margin-top:1.8rem;font-size:1.05rem}
+  .meta{color:var(--mut);font-size:.9rem;margin-bottom:2rem}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:20px;margin:16px 0}
+  .key{border-left:3px solid var(--acc)} .warnbox{border-left:3px solid var(--warn)} .danger{border-left:3px solid var(--bad)}
+  code{background:#1f2630;padding:2px 6px;border-radius:4px;font-size:.9em}
+  .tw{overflow-x:auto} table{border-collapse:collapse;width:100%;margin:16px 0}
+  th,td{border:1px solid var(--bd);padding:9px 11px;text-align:left;font-size:.9rem;vertical-align:top} th{background:#1f2630}
+  .bad{color:var(--bad);font-weight:600}.good{color:var(--acc);font-weight:600}.warn{color:var(--warn);font-weight:600}
+  ul,ol{padding-left:1.2rem} li{margin:.35rem 0}
+  .lead{font-size:1.08rem;color:#c9d4df}
+  .phase{display:inline-block;min-width:2.2rem;padding:0 .5rem;height:1.7rem;line-height:1.7rem;text-align:center;border-radius:4px;background:#1f2630;font-weight:700;font-size:.8rem;margin-right:.5rem}
+</style></head><body>
+
+<h1>What to build next</h1>
+<p class="meta">FreshNow Operations Platform · 18 September 2026 · written after a full audit of the running
+system and a review of how comparable production systems are actually built</p>
+
+<div class="card key">
+<p class="lead"><b>The headline answer on RAG: not yet, and not for the operational data — probably never for
+that part.</b> The system's operational data is <em>structured</em>, and for structured data a semantic layer
+with text-to-SQL beats retrieval, because a query computes an exact answer over every row while retrieval
+returns whatever looked similar. That architecture is already built here and working.</p>
+<p class="lead">RAG becomes the right tool the moment FreshNow hands over its <b>documents</b> — HACCP plans,
+equipment manuals, supplier contracts, the food-safety code. Those are unstructured, they are what people
+actually need answers from, and nothing in the current design can touch them. <b>That is the trigger to
+watch for, and it is a question to ask the company rather than a date to put in a plan.</b></p>
+</div>
+
+<h2>1 · Why RAG is the wrong tool for the data we have today</h2>
+
+<div class="card danger">
+<h3>The measurement that settles it</h3>
+<p>Queried against the live database on 18 September 2026:</p>
+<ul>
+  <li><b>7 rows</b> of employee free text (<code>task_update.note_raw</code>)</li>
+  <li><b>Average length: 28 characters.</b> "van 2 ka chiller theek nahi hai" is a typical one.</li>
+  <li><b>0 stored documents.</b></li>
+</ul>
+<p><b>There is no corpus.</b> A retrieval system over 7 short sentences is not a retrieval system; it is a
+<code>WHERE</code> clause with a vector index bolted on, and it would be slower, less accurate and less
+explainable than the SQL that already answers those questions.</p>
+</div>
+
+<h3>The structural argument, independent of size</h3>
+<p>Even at a thousand times the volume, the operational data would be the wrong shape for RAG. The current
+industry consensus is unambiguous on this split: <b>use retrieval for unstructured text, and a semantic layer
+with text-to-SQL for structured data</b> — because text-to-SQL guarantees an exact match from database fields
+rather than depending on finding something semantically similar, and it reads live data with no re-indexing.</p>
+<p>That is precisely what this system already does, and it is the architecture <code>CLAUDE.md</code> commits
+to in its second rule — <em>"the LLM translates; the engine computes"</em>:</p>
+<pre style="background:#1f2630;border:1px solid var(--bd);border-radius:8px;padding:12px;overflow-x:auto;font-size:.85rem">natural language → [model: translate] → SQL
+                                          ↓
+                    [Postgres: compute exactly, over every row]
+                                          ↓
+              answer ← [model: narrate] ← ≤ 50 rows</pre>
+<p>Ask "how many blockers are open right now" and the current design counts them. A RAG design retrieves some
+blocker records and asks a model to count what it was handed — which is the single failure mode
+<code>HONESTY-AND-ACCURACY.md</code> exists to prevent. <b>Replacing SQL with retrieval here would be a
+downgrade dressed as an upgrade.</b></p>
+
+<h2>2 · When RAG becomes right — the trigger conditions</h2>
+
+<div class="card">
+<p>Build it when <b>any two</b> of these are true, not before:</p>
+<ol>
+  <li><b>FreshNow hands over its document set</b> — HACCP plan, SOPs, equipment manuals, supplier contracts,
+    the Dubai Municipality Food Code sections that apply. This is the strongest trigger on its own.</li>
+  <li><b>Employee free text passes roughly 5,000 entries</b> and people start asking "has this happened
+    before?" — a question SQL answers badly and retrieval answers well.</li>
+  <li><b>Somebody asks a question no table can answer</b> — "what does the manual say to do when the filler
+    head jams?" There is no column for that.</li>
+</ol>
+<p>Until then, every hour spent on retrieval is an hour not spent on the routing table, the reporting lines,
+or food-safety records — all of which are worth more.</p>
+</div>
+
+<h3>What a correct RAG build would look like here</h3>
+<p>Recorded now so it is designed rather than improvised later. Current production practice has converged on a
+multi-stage retrieval pipeline rather than naive embed-and-search:</p>
+<div class="tw"><table>
+  <thead><tr><th>Decision</th><th>What and why</th></tr></thead>
+  <tbody>
+    <tr><td><b>Store</b></td><td><code>pgvector</code> in the Postgres we already run — <b>confirmed installed and available</b>. No new container, no new vendor, no second source of truth, and retrieval can be filtered by the same RLS-scoped tables in one query. A dedicated vector database is not earned at this scale.</td></tr>
+    <tr><td><b>Hybrid retrieval</b></td><td>Vector <em>plus</em> keyword search, not vector alone. Combining the two is reported to improve retrieval accuracy by roughly 15–25% in production deployments, and keyword search is what catches the exact part number or batch code that semantic similarity misses.</td></tr>
+    <tr><td><b>Reranking</b></td><td>A cross-encoder pass over the top candidates. Raw vector similarity retrieves documents that are topically related but contextually wrong — this is named as one of the four structural causes of RAG failure in production.</td></tr>
+    <tr><td><b>Chunking</b></td><td>Structure-aware, never fixed-size. Fixed-size chunking on mixed document types splits semantic meaning across boundaries and destroys retrieval quality at scale. An SOP's steps must not be cut in half.</td></tr>
+    <tr><td><b>Access control</b></td><td><b>Filter at retrieval, and verify every cited chunk after.</b> This is the single most important security control for enterprise RAG. It maps directly onto the RLS model already in place — and given the audit found the question box running as a BYPASSRLS role, this system has already learned that lesson once.</td></tr>
+    <tr><td><b>Citations</b></td><td>Every claim cites a source document and section. This also finally implements the <b>grounding gate</b> that <code>CLAUDE.md</code> specifies and that is currently not built.</td></tr>
+    <tr><td><b>Evaluation</b></td><td>A fixed question set, scored on every change. Retrieval that worked on day one degrades silently as the corpus grows; without continuous evaluation you find out when somebody complains. Langfuse is already wired and would carry this.</td></tr>
+    <tr><td><b>Embedding model</b></td><td>Pin it, and treat a change as a full re-index. Switching embedding models without re-indexing corrupts similarity scores — a documented way to break a working system invisibly.</td></tr>
+  </tbody>
+</table></div>
+<p><b>Rough size:</b> two to three weeks once documents exist. Roughly a third of that is ingestion and
+chunking, a third retrieval and reranking, a third evaluation — and the evaluation third is the one usually
+skipped and the one that determines whether it still works in six months.</p>
+
+<h2>3 · The plan, in the order it should happen</h2>
+
+<div class="card danger">
+<h3><span class="phase">NOW</span> Close what the audit found</h3>
+<p>An adversarial audit on 18 September found six critical items. <b>Three are already fixed</b> (see
+§4); the rest belong at the front of any plan because they are correctness and safety, not features.</p>
+<ol>
+  <li><b>Replay does not replay.</b> It re-reads live mutable state instead of the recorded inputs, so 90% of
+    real runs report "diverged" — and a <em>nonexistent</em> run reports "no divergence". Store the inputs in
+    the audit detail and replay from those.</li>
+  <li><b>The observability spine is written only by the seeder.</b> <code>run_trace</code> has two rows, both
+    from <code>seed.ts</code>. No production path writes it, so "every run is reconstructible" is not true today.</li>
+  <li><b>A routing failure loses a blocker permanently.</b> If routing throws, the blocker exists with no
+    resolver and no SLA, and the sweep filters those out — nobody is ever told. Needs a catch and a
+    reconciliation query for unrouted blockers.</li>
+  <li><b>Abandoned messages vanish silently.</b> Five delivery attempts, then a console line and nothing else —
+    including for escalation alerts to the CEO.</li>
+  <li><b>No correlation id on the outbox or escalation tables</b>, so the message a person actually receives
+    cannot be traced back to the run that produced it.</li>
+</ol>
+</div>
+
+<div class="card">
+<h3><span class="phase">1</span> Make it FreshNow's system rather than a demo (needs the company)</h3>
+<p>Gated on <code>docs/WHAT-WE-NEED-FROM-FRESHNOW.md</code>. Nothing here is hard; all of it is blocked on
+answers.</p>
+<ul>
+  <li>Real reporting lines, roles, departments — <b>the highest-leverage single input</b></li>
+  <li>The real routing table, and the code change to read site and shift (currently ignored)</li>
+  <li>Real SLA windows and escalation rungs, including whether they run out of hours</li>
+  <li>Remove the hardcoded demo CEO id from the escalation ladder and the audit actor</li>
+  <li>Consent for everyone already in the system, and a check before capture</li>
+</ul>
+</div>
+
+<div class="card">
+<h3><span class="phase">2</span> Production deployment</h3>
+<ul>
+  <li><b>Telegram webhook mode and its secret-token check.</b> Neither exists — the bot only long-polls. This
+    is presented in <code>DEVIATIONS.md</code> as a configuration switch; it is a code change, and the audit
+    was right to call that out.</li>
+  <li>Caddy, TLS, a domain</li>
+  <li>Retention and erasure (PDPL requires it; currently not built at all)</li>
+  <li>Backups, and a restore actually tested</li>
+  <li>Uptime monitoring, and a <code>/health</code> that checks Redis and Telegram rather than only Postgres</li>
+</ul>
+</div>
+
+<div class="card">
+<h3><span class="phase">3</span> Food safety — the largest unbuilt opportunity</h3>
+<p>FreshNow produces juice in Dubai under HACCP obligations, and Dubai Municipality now runs a digital
+food-safety platform that inspectors check on every visit. The platform records <b>none</b> of this.</p>
+<ul>
+  <li>Critical control points, their limits, and who is told when one is breached — reusing the existing
+    alerting machinery, which is exactly what it is for</li>
+  <li>Temperature and cooling logs against the published rules (≤ 5 °C storage; 60 °C → 5 °C within 6 hours)</li>
+  <li>Batch and lot traceability, already sketched in the Phase 3 specification</li>
+  <li>Retention to whatever period the inspector requires</li>
+</ul>
+<p><b>Deliberately not built speculatively.</b> A temperature log that does not match how you are actually
+inspected is worse than none.</p>
+</div>
+
+<div class="card">
+<h3><span class="phase">4</span> RAG over documents — <em>only once documents exist</em></h3>
+<p>As designed in §2. The trigger is the document set arriving, not a date.</p>
+</div>
+
+<div class="card">
+<h3><span class="phase">5</span> Vending telemetry</h3>
+<p>Standing recommendation unchanged: <b>check whether Nayax or Vendekin expose an API before building
+anything.</b> Buying is the recommended path; building telemetry from scratch is a project in its own right.</p>
+</div>
+
+<h2>4 · What was fixed today, in response to the audit</h2>
+<div class="tw"><table>
+  <thead><tr><th>Finding</th><th>Fix</th></tr></thead>
+  <tbody>
+    <tr><td class="bad"><b>The question box ran model-written SQL as a BYPASSRLS role</b> that can read <code>auth.users</code> — password hashes and refresh tokens. <code>CLAUDE.md</code> claimed it used "a read-only role against pre-approved views"; neither half was true.</td><td class="good">Now runs as the RLS-enforced app role inside the <em>asker's own</em> context — that role has no privileges on the <code>auth</code> schema at all. Plus a schema and catalogue denylist in the guard, with 11 tests.</td></tr>
+    <tr><td class="bad"><b>An employee could promote themselves to CEO</b> at the RLS layer — the UPDATE policy had no column restriction.</td><td class="good">Migration 0014 adds a trigger refusing changes to <code>access_role</code>, <code>auth_user_id</code>, <code>manager_employee_id</code>, <code>department</code>, <code>status</code> and <code>telegram_user_id</code> from anyone but the CEO or the service role. Verified as the real app role: blocked, while ordinary profile edits still work.</td></tr>
+    <tr><td class="bad"><b>Routing was not deterministic</b> — no uniqueness on <code>routing_rule</code>, so duplicate rules made the winner arbitrary.</td><td class="good">Unique index on (category, site, shift), <code>NULLS NOT DISTINCT</code>.</td></tr>
+    <tr><td class="bad"><b>The semantic-layer test checked table names only</b>, so a documented column that did not exist and four real columns that were undocumented all passed.</td><td class="good">Now checks every column in both directions. It immediately caught <code>schema_migrations.filename</code> (the real column is <code>name</code>), a phantom <code>project_member.is_synthetic</code>, and <code>employee.role_title</code> — the column a model most easily confuses with <code>access_role</code>.</td></tr>
+    <tr><td class="bad">Six unindexed foreign keys on hot paths, including <code>escalation.blocker_id</code>, joined every 60 seconds by the SLA sweep.</td><td class="good">Indexed.</td></tr>
+  </tbody>
+</table></div>
+
+<h2 class="bad">What we have not verified</h2>
+<div class="card warnbox"><ul>
+  <li><b>The RAG recommendation is an architectural judgement, not a benchmark.</b> Nobody has built both and
+    measured them on FreshNow's data — because FreshNow's document data does not exist yet. The reasoning rests
+    on the structured-versus-unstructured split and on the current corpus being 7 rows.</li>
+  <li><b>The 15–25% hybrid-retrieval figure is quoted from published practice</b>, not measured here.</li>
+  <li><b>Effort estimates are rough</b> and assume the documents arrive in a readable form. Scanned PDFs needing
+    OCR would change them materially.</li>
+  <li><b>The audit's remaining findings are recorded, not fixed</b> — replay, <code>run_trace</code>, the
+    routing-failure path, abandoned-message alerting and the missing correlation ids are all still open.</li>
+  <li><b>The food-safety section assumes the published Dubai Municipality rules apply as written.</b> Nobody has
+    confirmed with an inspector which specific records FreshNow is held to.</li>
+  <li><b>No load testing at any point.</b> Every "this scales" claim in this document is reasoning, not
+    measurement.</li>
+</ul></div>
+
+<h2>Sources</h2>
+<ul style="font-size:.9rem">
+  <li><a href="https://www.gigaspaces.com/blog/text-to-sql-vs-rag-for-structured-data">Text-to-SQL vs RAG for structured data — GigaSpaces</a></li>
+  <li><a href="https://docs.getdbt.com/blog/semantic-layer-vs-text-to-sql-2026">Semantic Layer vs. Text-to-SQL, 2026 benchmark update — dbt</a></li>
+  <li><a href="https://www.dawiso.com/blog-post/rag-vs-semantic-layer-whats-the-difference">RAG vs Semantic Layer — Dawiso</a></li>
+  <li><a href="https://ailearningguides.com/rag-production-patterns-2026/">RAG in Production 2026: GraphRAG, hybrid retrieval and evals</a></li>
+  <li><a href="https://www.looming.tech/post/rag-in-production-lessons-enterprise-deployments">RAG in Production: lessons from 10 enterprise deployments</a></li>
+  <li><a href="https://aivanguard.tech/rag-in-production-2026-enterprise-guide/">RAG in Production: what nobody tells you before you deploy</a></li>
+  <li><a href="https://www.agileinfoways.com/blog/building-production-ready-rag-systems-2026">Production-ready RAG architecture patterns for 2026</a></li>
+  <li><a href="https://cxfoundation.com/blog/escalation-management">Escalation management: frameworks and best practices</a></li>
+  <li><a href="https://www.fieldproxy.ai/articles/field-service-sla-definition-best-practices">Defining SLAs for field service contracts — Fieldproxy</a></li>
+  <li><a href="https://chillextech.com/2026/08/05/dubai-municipality-cooling-rules/">Dubai Municipality cooling rules: 60 °C to 5 °C in 6 hours</a></li>
+  <li><a href="https://horex.ae/blog/haccp-checklist-uae-restaurants/">HACCP checklist for UAE food businesses — inspector's guide</a></li>
+  <li><a href="https://www.dm.gov.ae/wp-content/uploads/2024/10/Food-Code-2013-English.pdf">Dubai Municipality Food Code (PDF)</a></li>
+</ul>
+
+<p class="meta" style="margin-top:2.5rem">Written as a proposal for discussion. Nothing in sections 2–5 has been
+implemented.</p>
+</body></html>

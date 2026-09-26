@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TASK-019 — EOD Reports, Attachments, Multi-Item Messages &amp; the Operations Dashboard</title>
+<style>
+  :root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#3fb950;--warn:#d29922;--bad:#f85149;--card:#161b22;--bd:#30363d}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+       font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+       max-width:900px;padding:48px 24px;margin-inline:auto}
+  h1{font-size:1.9rem;margin:0 0 4px} h2{margin-top:2.5rem;color:var(--acc);font-size:1.25rem}
+  h3{margin-top:1.6rem;font-size:1.02rem}
+  .meta{color:var(--mut);font-size:.9rem;margin-bottom:2rem}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:18px;margin:14px 0}
+  .unverified{border-left:3px solid var(--warn)}
+  .ok{border-left:3px solid var(--acc)}
+  .danger{border-left:3px solid var(--bad)}
+  code{background:#1f2630;padding:2px 6px;border-radius:4px;font-size:.9em}
+  pre{background:#010409;border:1px solid var(--bd);border-radius:8px;padding:14px;overflow-x:auto;font-size:.84rem}
+  table{border-collapse:collapse;width:100%;margin:14px 0}
+  th,td{border:1px solid var(--bd);padding:7px 9px;text-align:left;font-size:.9rem;vertical-align:top}
+  th{background:#1f2630}
+  .bad{color:var(--bad);font-weight:600}.good{color:var(--acc);font-weight:600}
+  ul{padding-left:1.1rem}
+</style></head><body>
+<h1>TASK-019 — EOD Reports, Attachments, Multi-Item Messages &amp; the Operations Dashboard</h1>
+<p class="meta">Phase 1–2 (demo fast-follow) · 2026-09-07 · Extends T12 (dashboard) and T13
+(assignment) · Satisfies CLAUDE.md rule 2 (the engine computes, the model narrates) and rule 4
+(every loop is bounded)</p>
+
+<div class="card ok"><strong>One-sentence summary:</strong> Made the CEO's view actually answerable —
+alerts that name who is stuck and quote them, an end-of-day report per person computed in SQL,
+assignments that carry documents and can name several people at once, and a dashboard rebuilt around
+Completed / Pending / Blockers tables with carry-over by date — and in the process found three real
+defects that no existing test could have caught.</div>
+
+<h2>What was asked for</h2>
+<ul>
+<li>Ask the right person a question when something is missing, instead of guessing.</li>
+<li>The CEO's blocker alert must say <em>who</em> and give the details.</li>
+<li>An assignment must not parrot the CEO's sentence back at the employee.</li>
+<li>Assignments may carry <strong>documents</strong>, and may contain <strong>several tasks</strong>.</li>
+<li>A full <strong>end-of-day report per employee</strong>, stored in the database, readable by the CEO
+    in the bot and on the dashboard.</li>
+<li>A dashboard that actually populates <strong>completed / pending / blocker</strong> tables with notes,
+    is clickable, shows who was assigned what that day, and surfaces anything carried over from earlier
+    dates with names and reasons, segregated by date.</li>
+</ul>
+
+<h2>What was built</h2>
+<h3>1 · CEO alerts that identify a person</h3>
+<p>The alert used to carry a category and a severity and nothing else — the CEO could see that
+<em>something</em> equipment-related was critical, but not who was stuck or what they said.
+<code>routeAndAlert</code> now joins the raiser and the originating update:</p>
+<pre>⚠️ CRITICAL · equipment — van 2 chiller
+
+👤 VERIFY Rashid (delivery · Al Quoz warehouse)
+📋 Task: Afternoon Marina route
+
+💬 "boss van 2 ka chiller kaam nahi kar raha, juice kharab ho jayega"
+⚠️ Risk: cold chain / spoilage</pre>
+<p>Their exact words are reproduced verbatim, in whatever language they wrote — the CEO reads what
+was actually said, not a translation of it.</p>
+
+<h3>2 · Titles are extracted, questions get asked</h3>
+<p>"Assign hemanth the task of demo presentation" used to create a task literally called
+<em>"Assign hemanth the task of demo presentation"</em>. The context prompt now carries explicit
+title-extraction rules, and the result is <code>Demo presentation</code>.</p>
+<p>When something is missing the system asks rather than guesses: no assignee named → the extracted
+title is held on the session (<code>assign_pending</code>) and the CEO is asked <em>who</em>; a report
+that matches none of an employee's tasks and they have more than one open → the words are held
+(<code>which_task</code>) and they are asked <em>which</em>. Nothing is filed loose and nothing is
+invented — with exactly one open task the answer is obvious and no question is asked.</p>
+
+<h3>3 · Several work items in one message</h3>
+<p><code>resolveMessage</code> returns <code>items[]</code>, each with its own task, title and assignee.
+Every index is still validated against the lists supplied to the model, so a multi-item message can no
+more invent a person than a single-item one could. Capped at <code>MAX_ITEMS = 8</code> — an unbounded
+list from a model is an unbounded number of writes.</p>
+<pre>"tell Rashid to fix the van 2 chiller and ask Priya to restock the Marina machine"
+  → Fix van 2 chiller            → Rashid
+  → Restock the Marina machine   → Priya</pre>
+
+<h3>4 · Documents and photos</h3>
+<p>New <code>attachment</code> table (migration 0004). We store Telegram's <code>file_id</code> and the
+metadata — <strong>never the bytes</strong>. Telegram accepts a file_id wherever an upload is expected,
+so sending the spec sheet on to the assignee is a reference pass: nothing is downloaded and no employee
+document sits on this machine. That is also the better PDPL position.</p>
+<p>Telegram delivers a file and the message explaining it as two separate updates, so a caption-less
+file is held on the session until the next message says what it is for. Each file is queued as its
+<em>own</em> outbox row, so one failing attachment cannot block the instruction and a retry cannot
+double-send.</p>
+
+<h3>5 · End-of-day report per employee</h3>
+<p>New <code>daily_report</code> table (migration 0003), one row per person per day, regeneration
+replaces rather than duplicates. <strong>Every number is computed by Postgres over every row.</strong>
+The model receives the already-final counts and writes only the prose; if it is unavailable the report
+is still produced, just without the narrative. Readable by the CEO via <code>/eod</code> in the bot and
+on the dashboard; an employee sees only their own, enforced by RLS.</p>
+
+<h3>6 · The dashboard, rebuilt</h3>
+<p>Structure follows operations-dashboard practice: at most nine headline metrics, ordered so the ones
+that change what the CEO does <em>today</em> come first (urgent open, open blockers, carried over), each
+clickable straight through to the table that explains it; detail tables underneath; and a
+data-freshness line that is always visible — a stale number that looks live is the failure mode that
+matters.</p>
+<table>
+<tr><th>Tab</th><th>Answers</th></tr>
+<tr><td>Today</td><td>Completed / Pending / Blockers as three real tables — person, task, time; click a row for their exact words. Plus "could not be read — needs a human".</td></tr>
+<tr><td>Carry-over</td><td>Everything still open, grouped by the day it was raised, with an age column. "What is still hanging over from Tuesday" at a glance.</td></tr>
+<tr><td>Assignments</td><td>Who gave what to whom, with a file count, delivery state and the task's current status.</td></tr>
+<tr><td>End of day</td><td>Stored reports with counts and narrative; a button regenerates them.</td></tr>
+<tr><td>People / Activity / Ask / How it works</td><td>Directory, audit stream, guarded NL→SQL, and the flow diagrams.</td></tr>
+</table>
+<p>Every table is filtered by a date picker and a viewer selector, and the viewer selector is not
+cosmetic — reads run under that person's RLS context, so the page shows exactly what they are allowed
+to see.</p>
+
+<h2>Three defects found while verifying</h2>
+
+<div class="card danger"><h3 style="margin-top:0">A · A whole class of tables was unreadable (G28)</h3>
+<p>Migration 0001 ran <code>grant … on ALL TABLES IN SCHEMA public</code>. That grants on the tables
+that exist <em>at that moment</em> — it is not a standing rule. Every table added since
+(<code>bot_session</code>, <code>daily_report</code>, <code>attachment</code>) had a correct RLS policy
+and <strong>no privilege behind it</strong>. The policy said yes; the grant said nothing.</p>
+<p>It surfaced as a bare HTTP 500 on the CEO's end-of-day view. <strong>Every unit test passed</strong>,
+because tests run as the service role — which is <code>BYPASSRLS</code> and had its own grants.</p>
+<p><strong>Fixed</strong> by migration 0005, which re-grants and adds
+<code>alter default privileges</code> so later migrations are covered automatically, then re-revokes
+<code>update, delete</code> on <code>audit_log</code> — the blanket re-grant would otherwise hand back
+the ability to rewrite history. <strong>Guarded</strong> by
+<code>db.grants.test.ts</code>, which fails if any base table lacks SELECT for the app role.</p></div>
+
+<div class="card danger"><h3 style="margin-top:0">B · The test database had stopped at migration 0001 (G29)</h3>
+<p><code>vitest.global-setup.ts</code> applied only <code>0001_init.sql</code>, so three migrations'
+worth of tables simply did not exist in the test database — and the "semantic layer stays in sync"
+test had been checking the yaml against a stale schema. The setup now applies every migration in
+order.</p></div>
+
+<div class="card danger"><h3 style="margin-top:0">C · The first EOD report told the CEO the wrong numbers (G30)</h3>
+<p>It reported that Hemanth had <strong>five pending items</strong>. He had <strong>two</strong> — he
+had sent five messages about them. And it reported <strong>0 blockers</strong> on a day a high-severity
+blocker was raised and escalated, because it counted the button tap
+(<code>task_update.status = 'blocker'</code>) while the blocker had been detected by the parser inside a
+message tapped "pending".</p>
+<p>Both numbers were computed in SQL exactly as the rules require — they were the wrong queries.
+Determinism buys nothing if the thing being computed is not the thing the CEO means. Completed and
+pending now count <em>distinct work items</em>; blockers are counted from the <code>blocker</code>
+table. Pinned by two tests.</p></div>
+
+<h2>Verification</h2>
+<ul>
+<li><strong>100 tests pass, typecheck clean</strong> (23 files; 1 skipped — the live multilingual parse
+contract test). New: 4 attachment tests, 5 EOD tests, 2 privilege tests.</li>
+<li><strong>CEO alert verified against the test database</strong> — all six assertions passed: names the
+person, says where they work, names the task, quotes their words verbatim (Hindi included), states
+severity, names the affected asset.</li>
+<li><strong>Title extraction verified live</strong> — "Assign hemanth the task of demo presentation" →
+<code>Demo presentation</code>, and with no matching colleague it returned <em>no</em> assignee rather
+than guessing.</li>
+<li><strong>Multi-item verified live</strong> — the two-person message produced exactly two assignments
+with the right titles and the right people.</li>
+<li><strong>All 8 dashboard endpoints return 200</strong> and respect RLS: as CEO, 6 open tasks and 7 EOD
+reports; as Hemanth, 2 open tasks and 1 EOD report — his own.</li>
+<li><strong>The dashboard's embedded script parses</strong> (checked with <code>new Function</code>) and
+every element id it addresses exists in the markup.</li>
+<li>Verification ran against the <strong>test</strong> database so no message reached a real phone.</li>
+</ul>
+
+<h2 class="bad">What we have not verified</h2>
+<div class="card unverified">
+<ul>
+<li><strong>No real document or photo has been sent through Telegram to this build.</strong> The
+attachment path is covered by tests against the database and by the documented Bot API contract, but
+the round trip on a real phone — send a PDF, watch it arrive with the assignee — is untested.</li>
+<li><strong>A <code>file_id</code> is not a durable archive.</strong> It is scoped to this bot and
+Telegram makes no permanent-retention promise. If an attachment ever needs to <em>be</em> the record,
+production must mirror the bytes and set a retention policy. Treating a file_id as permanent storage
+would be a mistake.</li>
+<li><strong>Multi-item splitting is verified on one message, not a corpus.</strong> Where the boundary
+falls between "two jobs" and "one job described in two clauses" is a model judgement, and it has not
+been measured across the phrasings a real workforce uses — particularly in Hindi and Malayalam.</li>
+<li><strong>The EOD narrative is model-written.</strong> The counts cannot be wrong, but the prose can
+still emphasise the wrong thing. It has not been reviewed by anyone who runs the operation.</li>
+<li><strong>No scheduled EOD job yet.</strong> Reports are generated on demand — by
+<code>/eod</code> or the dashboard button. Nothing runs them automatically at end of shift.</li>
+<li><strong>The dashboard has been verified endpoint-by-endpoint and by parsing its script, not by a
+human clicking through it in a browser</strong> on a phone.</li>
+<li><strong>Voice accuracy remains unmeasured.</strong> No WER figure exists for Hindi or accented
+English on this setup.</li>
+<li><strong><code>llm_call.cost_usd</code> still reports 0</strong> — no pricing entry for the current
+model ids. Latency and counts are real; cost is not.</li>
+<li><strong>The NL-query box still runs as the service role</strong>, not under the viewer's RLS
+context (carried over from TASK-014). An employee must not be given that box until it does.</li>
+</ul>
+</div>
+
+<h2>Files touched</h2>
+<table>
+<tr><th>File</th><th>Change</th></tr>
+<tr><td><code>migrations/0003_daily_report.sql</code></td><td>new — one EOD report per person per day</td></tr>
+<tr><td><code>migrations/0004_attachment.sql</code></td><td>new — file references, RLS-scoped to owner / assignee / CEO</td></tr>
+<tr><td><code>migrations/0005_grants_for_new_tables.sql</code></td><td>new — repairs G28 and closes the class</td></tr>
+<tr><td><code>packages/core/src/eod.ts</code></td><td>new — counts in SQL, model narrates only</td></tr>
+<tr><td><code>packages/core/src/attachments.ts</code></td><td>new — store the reference, never the bytes</td></tr>
+<tr><td><code>packages/core/src/context.ts</code></td><td><code>items[]</code>, title-extraction rules</td></tr>
+<tr><td><code>packages/core/src/routing.ts</code></td><td>alert names the person and quotes them</td></tr>
+<tr><td><code>packages/core/src/updates.ts</code></td><td><code>assignTask</code> takes attachments</td></tr>
+<tr><td><code>packages/bot/src/bot.ts</code></td><td>document/photo capture, multi-item assignment, <code>/eod</code></td></tr>
+<tr><td><code>packages/worker/src/telegram-sender.ts</code></td><td>delivers documents/photos by file_id</td></tr>
+<tr><td><code>packages/api/src/routes/dashboard.ts</code></td><td>5 new endpoints, attachment counts</td></tr>
+<tr><td><code>packages/api/src/dashboard-page.ts</code></td><td>rebuilt around tables + carry-over</td></tr>
+<tr><td><code>vitest.global-setup.ts</code></td><td>applies every migration, not just 0001</td></tr>
+<tr><td><code>semantic/schema.yaml</code></td><td><code>attachment</code> documented</td></tr>
+</table>
+</body></html>

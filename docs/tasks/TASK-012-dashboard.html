@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TASK-012 — Role-based Dashboard</title>
+<style>
+  :root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#3fb950;--warn:#d29922;--card:#161b22;--bd:#30363d}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+       font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+       max-width:860px;padding:48px 24px;margin-inline:auto}
+  h1{font-size:1.9rem;margin:0 0 4px} h2{margin-top:2.5rem;color:var(--acc);font-size:1.25rem}
+  .meta{color:var(--mut);font-size:.9rem;margin-bottom:2rem}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:18px;margin:14px 0}
+  .unverified{border-left:3px solid var(--warn)}
+  code{background:#1f2630;padding:2px 6px;border-radius:4px;font-size:.9em}
+  pre{background:#010409;border:1px solid var(--bd);border-radius:8px;padding:14px;overflow-x:auto}
+  .warn{color:var(--warn)} .ok{color:var(--acc)}
+</style></head><body>
+<h1>TASK-012 — Role-based Dashboard</h1>
+<p class="meta">Phase 1–2 (demo) · 2026-09-04 · Satisfies SPEC-000 R9–R11 (a place to see everything; every number traceable) · A browser-viewable dashboard with RLS-enforced role scoping and the NL-query box. <span class="ok">3 RLS tests green; live HTTP health ok.</span></p>
+
+<h2>What was done</h2>
+<div class="card">
+<ul>
+  <li><strong><code>packages/api/src/routes/dashboard.ts</code></strong> — RLS-scoped JSON endpoints: <code>/dashboard/employees</code>, <code>/dashboard/blockers</code>, <code>/dashboard/tasks</code> (each read under the viewer's context via <code>withContext</code>), and <code>POST /dashboard/query</code> (the NL-query).</li>
+  <li><strong><code>packages/api/src/dashboard-page.ts</code></strong> — a self-contained HTML page served at <code>/</code>: a "view as" role switcher, KPI cards, blocker/task/employee tables with <code>SYNTH</code> badges, and the natural-language query box that shows the answer, row count, gate verdict, and the executed SQL.</li>
+  <li><strong>Tests</strong> — 3 <code>inject()</code> tests: serves the HTML; CEO sees all blockers while an employee sees only their own; an employee sees only their own employee row. Verified live over HTTP (health ok/ok).</li>
+</ul>
+</div>
+
+<h2>Why it was done</h2>
+<div class="card">
+<p><strong>The CEO needs one place to see everything; an employee must not see another's data.</strong> That boundary is enforced by Postgres RLS at the query, not by the handler: each read runs under <code>withContext({employeeId | isCeo})</code> on the RLS-enforced app role, so a bug in a route cannot leak another employee's rows.</p>
+<p><strong>Deviation from the spec's Next.js dashboard</strong> (recorded in DEVIATIONS.md): for the demo it is served as a self-contained page from the existing Fastify API — same "see everything + ask in natural language" value with none of the Next.js/React/build weight. Production would use Next.js.</p>
+</div>
+
+<h2>How it works</h2>
+<div class="card">
+<pre>browser (view as CEO / employee)
+   │  GET /dashboard/blockers?viewer=…
+   ▼
+withContext({isCeo|employeeId}) → app role → RLS filters rows in Postgres
+   │
+   ▼  tables + KPIs (synthetic rows badged)
+POST /dashboard/query {question} → answerQuestion → answer + SQL + gate verdict</pre>
+<p>Run it: <code>pnpm dev:api</code> then open <code>http://localhost:3001</code>. Live check: server listened on :3001 and <code>/health</code> returned <code>ok/ok</code>; the RLS tests confirmed CEO=all, employee=own.</p>
+</div>
+
+<h2>Concepts and techniques used</h2>
+<div class="card">
+<ul>
+  <li><strong>RLS at the read boundary</strong> — role scoping is a database guarantee, not application logic.</li>
+  <li><strong><code>withContext</code></strong> — per-request transaction-local identity, pooling-safe.</li>
+  <li><strong>Self-contained page</strong> — no build step, no CDN; opens straight from the API.</li>
+  <li><strong>Evidence in the UI</strong> — the NL-query box always shows the SQL and the gate verdict.</li>
+</ul>
+</div>
+
+<h2>Research findings</h2>
+<div class="card">
+<p>No new external research; reused SPEC-003 and the T14 query core. The design choice (Fastify-served page vs Next.js) is a demo-scope trade-off, recorded as a deviation.</p>
+</div>
+
+<h2 class="warn">What we have not verified</h2>
+<div class="card unverified">
+<ul>
+  <li><strong>No real authentication</strong> — the "viewer" is a request parameter, so anyone could pass <code>viewer=ceo</code>. The RLS scoping is real, but who may claim to be the CEO is not enforced yet (a login/session is future work).</li>
+  <li><strong>Browser JS rendering not verified in an actual browser</strong> — the endpoints are proven via <code>inject()</code> and live HTTP health, but the page's client-side fetch/render was not exercised in a real browser here.</li>
+  <li>The NL-query still runs as the service role (not per-viewer RLS-scoped) — see TASK-014.</li>
+  <li>No pagination, no charts/trends, no auth-gated write actions.</li>
+  <li>This is a deliberate deviation from the Next.js dashboard in the spec.</li>
+</ul>
+</div>
+
+<h2>Open questions</h2>
+<div class="card">
+<ul>
+  <li>Real auth (session/login) so "view as CEO" is a right, not a URL parameter.</li>
+  <li>Move to Next.js for production, or keep the served page for the pilot?</li>
+</ul>
+</div>
+</body></html>

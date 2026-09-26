@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TASK-041 — The provider decision, the cost model, and the dashboard redesign</title>
+<style>
+  :root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#3fb950;--warn:#d29922;--bad:#f85149;--card:#161b22;--bd:#30363d}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;max-width:960px;padding:48px 24px;margin-inline:auto}
+  h1{font-size:1.9rem;margin:0 0 4px} h2{margin-top:2.5rem;color:var(--acc);font-size:1.25rem} h3{margin-top:1.6rem;font-size:1.02rem}
+  .meta{color:var(--mut);font-size:.9rem;margin-bottom:2rem}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:18px;margin:14px 0}
+  .unverified{border-left:3px solid var(--warn)} .ok{border-left:3px solid var(--acc)} .danger{border-left:3px solid var(--bad)}
+  code{background:#1f2630;padding:2px 6px;border-radius:4px;font-size:.9em}
+  .tw{overflow-x:auto} table{border-collapse:collapse;width:100%;margin:14px 0}
+  th,td{border:1px solid var(--bd);padding:7px 9px;text-align:left;font-size:.88rem;vertical-align:top} th{background:#1f2630}
+  .bad{color:var(--bad);font-weight:600}.good{color:var(--acc);font-weight:600}.warn{color:var(--warn);font-weight:600}
+  ul{padding-left:1.1rem} li{margin:3px 0}
+  a{color:#88c0f0}
+</style></head><body>
+<h1>TASK-041 — The provider decision, the cost model, and the dashboard redesign</h1>
+<p class="meta">2026-09-19 · no migration · api: one new route · dashboard: new shell, icon set, week chart, search ·
+two reports · <b>376 tests green</b> (from 375)</p>
+
+<div class="card ok"><strong>One-sentence summary:</strong> Answered four questions the company asked — which AI
+provider is lawful for real employee data, what it will cost at 100 assignments and 200 status updates a day,
+whether Telegram may be used at all, and whether the dashboard can look like a modern operations product — and the
+last one was built, not described.</div>
+
+<h2>1 · The provider verdict</h2>
+<p><b>Groq, OpenRouter and NVIDIA are out for production employee data; Core42 Compass is in, with OpenAI's UAE
+endpoint second.</b> Four reasons, each tied to an article of the law rather than to a preference: no processor
+contract is possible on self-serve terms (Art. 7(5), Art. 8(1)); they process outside the UAE with no adequacy
+route available while the Executive Regulations are unissued (Art. 22); the consent employees gave never mentioned
+an AI service abroad; and the fallback chain silently sends the same text to a second and third US company when the
+first rate-limits. The reasoning, with the law quoted, is in
+<a href="llm-provider-decision-and-costs.html">the report</a>.</p>
+<p>The practical point: Core42 hosts <em>the same model we already run</em> (<code>openai/gpt-oss-120b</code>), so
+this is a base URL, a key, and <code>LLM_PROVIDER_ORDER=core42</code> with the US providers removed — then re-run the
+contract tests and the benchmark. Not a rewrite.</p>
+
+<h2>2 · The cost model — measured, not guessed</h2>
+<p>Token counts per operation came from our own <code>llm_call</code> table, joined to <code>audit_log</code> by
+correlation id so each call could be attributed to what the run actually did (72 status-update calls, 3 document
+plans). Prices came from the vendors' own pages the same day. At 100 assignments + 200 status updates + 40 EOD
+narratives + 10 questions per day:</p>
+<div class="tw"><table>
+  <thead><tr><th>Assignment channel</th><th>Core42 (our model)</th><th>OpenAI UAE <code>gpt-5.6-luna</code></th><th>OpenAI UAE <code>gpt-5.5</code></th></tr></thead>
+  <tbody>
+    <tr><td>All by Telegram message</td><td class="good">$0.13/day</td><td>$0.31</td><td>$7.64</td></tr>
+    <tr><td>All on the dashboard / buttons</td><td class="good">$0.11/day</td><td>$0.26</td><td>$6.43</td></tr>
+    <tr><td>All by PDF (5 tasks per PDF)</td><td class="good">$0.12/day</td><td>$0.28</td><td>$6.98</td></tr>
+    <tr><td>One third each</td><td class="good">$0.12/day</td><td>$0.28</td><td>$7.02</td></tr>
+    <tr><td>+ voice notes, 20 min/day</td><td colspan="3">+$0.12/day at $0.006/min, any provider</td></tr>
+  </tbody>
+</table></div>
+<p>Two findings worth stating plainly. <b>The channel barely matters</b> — the dashboard and the <code>/assign</code>
+buttons use no model at all, and assignments are the cheap operation either way; status updates dominate because
+each carries two calls. <b>Evidence PDFs cost nothing today</b> because nothing reads them — they are stored and
+forwarded. And the whole thing lands at roughly <b>$7–8 a month on Core42</b>, well inside the existing
+<code>LLM_DAILY_BUDGET_USD=2</code> circuit breaker.</p>
+
+<h2>3 · The Telegram verdict</h2>
+<p><b>Lawful, conditionally.</b> The TDRA regulates VoIP, not text — our bot never calls. The PDPL does not ban the
+transfer; it permits it on express consent (Art. 23(1)(b)). The condition is the one thing we do not yet have: a
+notice that says Telegram stores messages outside the UAE. Until that is re-consented, every message is a transfer
+with no ground we can point at. The open question a lawyer must settle is whether a regulator would treat Telegram
+as an appointed <em>processor</em> (which would need a contract Telegram does not offer) or as an independent
+service like an email provider — my reading is the latter, and I have said so as a reading, not a finding.</p>
+
+<h2>4 · The dashboard redesign</h2>
+<p>The reference screenshot showed a product with a persistent sidebar, a search bar, coloured status cards and a
+chart. Ours had a text-emoji nav strip and six flat tiles. What was built:</p>
+<div class="tw"><table>
+  <thead><tr><th>Piece</th><th>What it does</th><th>Why that way</th></tr></thead>
+  <tbody>
+    <tr><td><b>Sidebar shell</b><br><small>App.tsx</small></td>
+        <td>Persistent 248px rail: gradient logo mark, a Tasks/Projects switch, grouped navigation with icons and
+          live counts, an active-item gradient bar, and the signed-in person with their role and Sign out at the
+          foot. Below 1024px it collapses to the icon grid that was already there.</td>
+        <td>The portal switch and the section list were competing for the header; moving them out gives the content
+          the full width and makes "where am I" answerable at a glance.</td></tr>
+    <tr><td><b>Icon set</b><br><small>components/icons.tsx</small></td>
+        <td>24 inline line icons, 1.75 stroke, <code>currentColor</code>, <code>aria-hidden</code>.</td>
+        <td>No dependency, and no emoji — emoji render differently per platform and are read aloud by screen
+          readers. Every icon sits beside a text label, so it never carries meaning alone.</td></tr>
+    <tr><td><b>Status cards</b></td>
+        <td>Six cards with a coloured left edge, an icon badge, the number, and the definition underneath
+          ("critical or high problems nobody has resolved"). A "View →" affordance appears on hover and keyboard
+          focus.</td>
+        <td>The old tiles showed a number and a two-word label; the definition is what stops a number being
+          misread. Colour is status — red act now, amber watch, green done, blue information — never decoration.</td></tr>
+    <tr><td><b>Last-seven-days chart</b><br><small>components/week-chart.tsx</small></td>
+        <td>Stacked columns, completed / pending / blocked. Legend, one direct label (the day's total on the cap),
+          tooltip on hover <em>and</em> keyboard focus, a Table toggle showing the same numbers as text, and a click
+          that opens that day.</td>
+        <td>Per the data-viz rules: states wear status colours (not a categorical rainbow), ≤24px columns, a 2px
+          surface gap between segments, 4px rounded cap only on the top segment, hairline gridlines, and nothing
+          reachable by colour alone.</td></tr>
+    <tr><td><b>Search</b><br><small>components/search.tsx</small></td>
+        <td>One box over people, open tasks, open blockers and assignments, with ↑↓/Enter/Esc, ARIA combobox roles,
+          and a jump to whatever shows the result.</td>
+        <td>Client-side over data already loaded — which means the results are exactly what this viewer may see,
+          with no new endpoint to get RLS wrong in.</td></tr>
+    <tr><td><b>Needs a human panel</b></td>
+        <td>Urgent open problems and updates the parser could not read, in one list, each a button to the tab that
+          handles it. Empty state says why it is empty.</td>
+        <td>These were previously two numbers on two tiles with no way to see <em>which</em> items they counted.</td></tr>
+    <tr><td><b><code>GET /dashboard/week</code></b><br><small>api/routes/dashboard.ts</small></td>
+        <td>Seven company days, three counts each, computed in SQL under the viewer's row-level rules. Days with
+          nothing reported still appear.</td>
+        <td>The engine computes, the browser draws — the chart cannot show a number the viewer may not see, and the
+          browser never adds anything up. Day boundaries are Dubai midnight, not UTC.</td></tr>
+  </tbody>
+</table></div>
+
+<h2>5 · How it was verified</h2>
+<div class="tw"><table>
+  <thead><tr><th>Check</th><th>Result</th></tr></thead>
+  <tbody>
+    <tr><td>New API test: seven days, contiguous and ending today, zeros kept, and an employee's totals strictly
+      less than the CEO's (RLS proven, not assumed)</td><td class="good">passes</td></tr>
+    <tr><td>Full suite + typecheck + build</td><td class="good">47 files · <b>376 passed</b> · 1 skipped · clean</td></tr>
+    <tr><td><b>Chart colours run through the data-viz validator</b>, not eyeballed: <code>#2ea043 / #388bfd /
+      #da3633</code> on the dark card and <code>#116329 / #0550ae / #a40e26</code> on the light one</td>
+      <td class="good">all six checks pass in both modes (lightness band, chroma floor, CVD separation, normal-vision
+      floor, contrast)</td></tr>
+    <tr><td>Headless Edge as the CEO: sign-in, greeting, sidebar icons, seven chart columns, legend, hover tooltip
+      listing every series, Table toggle, search finding a person and Enter jumping to People, a status card opening
+      Carry-over, light theme, and a second pass on a week that has data</td><td class="good">all pass; zero console
+      errors and zero failed requests</td></tr>
+    <tr><td>Phone (390×844): no horizontal overflow, icon-grid nav, cards stack</td><td class="good">passes</td></tr>
+    <tr><td>Contrast, <b>sampled from the rendered light page</b> (not computed from tokens): card numbers
+      6.66 / 6.94 / 14.84:1, hint text 5.74:1, and the three chart fills 6.94 / 7.13 / 7.39:1 against the card
+      surface. Dark computed from the tokens: 5.16–6.85:1</td><td class="good">every value above 4.5:1</td></tr>
+    <tr><td>Services after the change</td><td class="good">API <code>ok</code>, week route live, worker sweeping,
+      bot polling (it logged 6 Telegram fetch errors during a Wi-Fi blip at 10:19 and recovered by itself)</td></tr>
+  </tbody>
+</table></div>
+<div class="card danger">
+<h3>A typecheck the test run was hiding</h3>
+<p>Yesterday's <code>bot/roles.test.ts</code> passed <code>vitest</code> but had never been typechecked: grammY's
+<code>UserFromGetMe</code> and <code>PrivateChat</code> want more fields than my fixtures carried. It surfaced only
+when this task ran <code>pnpm typecheck</code> across the workspace. Fixed with an explicit fixture cast and the
+missing <code>first_name</code>. Worth remembering that a green test run is not a green typecheck.</p>
+</div>
+
+<h2 class="bad">What we have not verified</h2>
+<div class="card unverified"><ul>
+  <li><b>Nobody has signed up to Core42.</b> The price, the model id and the UAE-jurisdiction claim are from their
+    pages; that their API accepts our prompts unchanged is an expectation the contract tests will settle, not a
+    finding. The same goes for OpenAI's UAE endpoint, which needs approval we have not requested.</li>
+  <li><b>The cost model's assumptions are mine</b>, not the company's: 40 employees, 10 questions a day, 20% of
+    updates as 30-second voice notes, 5 tasks per PDF. The arithmetic is linear — change a number, scale the line.</li>
+  <li><b>Token counts come from mostly English and transliterated Hinglish.</b> Native Devanagari or Malayalam
+    script tokenises 2–3× worse; the worst case doubles the status-update line and is still cents.</li>
+  <li><b>The chart has only ever been seen with demo data</b> — at most 4 reports in a day. A day with 200 updates
+    has not been rendered, so column scaling at real volume is untested (the y-axis rounds to a nice max, which
+    should hold, but "should" is the word).</li>
+  <li><b>The first light-theme screenshot was a stale frame.</b> Setting <code>data-theme</code> directly and
+    shooting 400ms later produced a dark image although the assertion was true. Re-run through the app's own theme
+    button with a longer wait: the page really is light, the chart really does use the light palette, and the
+    contrast numbers above were sampled from that render. Worth remembering that a passing assertion and a
+    screenshot can disagree — the screenshot lags.</li>
+  <li><b>Dark-mode contrast was computed from the tokens, not sampled</b> from a render, unlike light.</li>
+  <li><b>No colour-blind person has looked at this.</b> The palette passes the simulation-based checks; that is a
+    model of CVD, not a user test.</li>
+  <li><b>The Telegram-as-processor question is a reading, not an opinion from counsel.</b></li>
+</ul></div>
+</body></html>

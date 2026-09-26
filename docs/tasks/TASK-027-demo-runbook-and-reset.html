@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TASK-027 — Demo Runbook, Commands File &amp; Reset Tooling</title>
+<style>
+  :root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#3fb950;--warn:#d29922;--bad:#f85149;--card:#161b22;--bd:#30363d}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+       font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+       max-width:940px;padding:48px 24px;margin-inline:auto}
+  h1{font-size:1.9rem;margin:0 0 4px} h2{margin-top:2.5rem;color:var(--acc);font-size:1.25rem}
+  h3{margin-top:1.6rem;font-size:1.02rem}
+  .meta{color:var(--mut);font-size:.9rem;margin-bottom:2rem}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:18px;margin:14px 0}
+  .unverified{border-left:3px solid var(--warn)}
+  .ok{border-left:3px solid var(--acc)}
+  .danger{border-left:3px solid var(--bad)}
+  code{background:#1f2630;padding:2px 6px;border-radius:4px;font-size:.9em}
+  pre{background:#010409;border:1px solid var(--bd);border-radius:8px;padding:14px;overflow-x:auto;font-size:.84rem}
+  .tw{overflow-x:auto}
+  table{border-collapse:collapse;width:100%;margin:14px 0}
+  th,td{border:1px solid var(--bd);padding:7px 9px;text-align:left;font-size:.88rem;vertical-align:top}
+  th{background:#1f2630}
+  .bad{color:var(--bad);font-weight:600}.good{color:var(--acc);font-weight:600}.warn{color:var(--warn);font-weight:600}
+  ul{padding-left:1.1rem}
+</style></head><body>
+<h1>TASK-027 — Demo Runbook, Commands File &amp; Reset Tooling</h1>
+<p class="meta">2026-09-12 · System restarted on Supabase · Two operational documents written ·
+<code>reset-employee.ts</code> extended and a latent foreign-key defect fixed</p>
+
+<div class="card ok"><strong>One-sentence summary:</strong> The demo now has a runbook someone can
+follow under pressure, a commands file for starting the system without help, and a reset tool that
+actually works on the current schema — proven on a throwaway employee rather than assumed.</div>
+
+<h2>1 · What was asked</h2>
+<ul>
+  <li>Start the system and finish anything outstanding.</li>
+  <li>A detailed, step-by-step guide for today's demo.</li>
+  <li>A commands file for starting the system without assistance.</li>
+  <li>A way to delete the test data created while practising, so the demo starts clean — including
+    registering a colleague from the office live.</li>
+</ul>
+
+<h2>2 · What was built</h2>
+<div class="tw"><table>
+  <thead><tr><th>File</th><th>What it contains</th></tr></thead>
+  <tbody>
+    <tr><td><code>DEMO-GUIDE.md</code></td>
+      <td>Pre-flight (start, addresses, phone checks), a rehearsal instruction, wiping practice data,
+        the demo in eight acts with what to tap and what to say, registering a colleague live, what to
+        do when something fails mid-demo, the questions an audience asks, and the after-demo reset.</td></tr>
+    <tr><td><code>COMMANDS.md</code></td>
+      <td>Start order with the ready-line for each service, health checks, dashboard addresses and the
+        firewall rule a phone needs, stop commands, reset table, account management, tests and reports,
+        and a symptom-to-fix table.</td></tr>
+    <tr><td><code>scripts/reset-employee.ts</code></td>
+      <td><code>--activity</code> (wipe what a person did, keep them registered), <code>--ceo --activity</code>
+        (clear the CEO test artefacts; the CEO row can never be deleted), richer <code>--dry-run</code> output
+        that counts what is actually there, and the foreign-key fix below.</td></tr>
+  </tbody>
+</table></div>
+
+<h2>3 · The defect the reset tool was carrying (G69)</h2>
+<p>The script was written before <code>daily_report</code> (migration 0003) and <code>attachment</code>
+(0004), and <b>no foreign key in this schema uses <code>on delete cascade</code></b>. Deleting an
+employee who had filed an end-of-day report or uploaded a file would have failed with a foreign-key
+error — at the worst possible moment, leaving a half-deleted person. Attachments are now deleted
+first (they reference assignments, tasks, updates <i>and</i> the uploader), then the rest in
+dependency order, then daily reports, then the employee.</p>
+<div class="card unverified"><b>Rule to carry forward:</b> when a migration adds a table with an
+employee foreign key, add it to this script — or give the key a cascade and say so in the migration.
+A cleanup script is invisible until the day it fails.</div>
+
+<h2>Verification</h2>
+<p>A throwaway employee was created carrying one of every attached row, then the three modes were run
+against it:</p>
+<div class="tw"><table>
+  <thead><tr><th>Step</th><th>Result</th></tr></thead>
+  <tbody>
+    <tr><td>Fixture built</td><td>1 task · 1 update · 1 blocker · 1 escalation · 1 assignment · 2 attachments · 1 report · 1 bot session · 1 queued message</td></tr>
+    <tr><td><code>--dry-run</code></td><td class="good">Counted all of them and changed nothing</td></tr>
+    <tr><td><code>--activity</code></td><td class="good">Employee still registered; every attached row gone, including attachments and the report</td></tr>
+    <tr><td>Full delete (after re-adding rows)</td><td class="good">Employee gone, no orphans, no foreign-key error</td></tr>
+    <tr><td>Real accounts</td><td class="good">Untouched — 7 employees before and after; Hemanth and the CEO still present</td></tr>
+    <tr><td><code>--ceo</code> without <code>--activity</code></td><td class="good">Refused, with the reason</td></tr>
+  </tbody>
+</table></div>
+<p>Also confirmed today: the stack restarts cleanly (5 Supabase + 3 Compose containers), API health
+ok on Supabase, bot polling, worker running, and the browser sign-in check passes for both the CEO
+and the employee, including a live question in the Ask box. 213 tests and the typecheck passed
+earlier in the day on this same code.</p>
+
+<h2 class="bad">What we have not verified</h2>
+<div class="card unverified"><ul>
+  <li><b>The bot tap-through on a phone, end to end.</b> Still nobody has walked the whole flow on a
+    handset — which is why Part 1 of the guide is a rehearsal, not an option.</li>
+  <li><b>Phone access to the sign-in port (54321).</b> It answers on the laptop's Wi-Fi address from
+    the laptop; no phone has tried. The firewall rule is in the guide in case it is blocked.</li>
+  <li><b>The document act with a real PDF today</b> — the code path is covered by automated tests,
+    but not rehearsed with the file that will be used on stage.</li>
+  <li><b>Registering a colleague live</b> — the flow is tested in code; the live run will be its first
+    outing in front of people.</li>
+  <li><b>Timings in the guide</b> are estimates, not measured rehearsal times.</li>
+</ul></div>
+
+<h2 class="bad">Security and data protection</h2>
+<div class="card danger"><ul>
+  <li>The reset tool <b>never touches <code>audit_log</code></b>: history is not rewritten because a
+    test was re-run. It also never deletes the CEO row, and keeps the synthetic DEMO staff.</li>
+  <li>The guide tells the presenter to state, unprompted, that the <code>DEMO –</code> people and their
+    history are synthetic — the badge alone is not enough when a room is watching a screen.</li>
+  <li>Consent is part of the live registration act, including that declining stops the process. That is
+    the PDPL story shown rather than described.</li>
+  <li>Outstanding, unchanged: buy a little OpenRouter credit, rotate every key pasted into chat, and
+    change the two dashboard passwords before a wider audience sees the system.</li>
+</ul></div>
+</body></html>

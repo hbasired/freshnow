@@ -1,0 +1,48 @@
+{
+  "name": "freshnow-ops",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.25.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "description": "FreshNow Operations Platform — local demo. Telegram-first daily task capture, blocker detection, deterministic routing/escalation to the CEO, auditable dashboard. See CLAUDE.md and DEVIATIONS.md.",
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "verify": "pnpm typecheck && pnpm test",
+    "migrate": "tsx scripts/migrate.ts",
+    "seed": "tsx scripts/seed.ts",
+    "infra:up": "docker compose up -d",
+    "infra:down": "docker compose down",
+    "infra:logs": "docker compose logs -f",
+    "dev:api": "tsx watch packages/api/src/index.ts",
+    "dev:bot": "tsx watch packages/bot/src/index.ts",
+    "dev:worker": "tsx watch packages/worker/src/index.ts",
+    "start:api": "tsx packages/api/src/index.ts",
+    "start:bot": "tsx packages/bot/src/index.ts",
+    "start:worker": "tsx packages/worker/src/index.ts",
+    "e2e": "tsx scripts/e2e-demo.ts",
+    "reset:employee": "tsx scripts/reset-employee.ts",
+    "link:user": "tsx scripts/link-dashboard-user.ts",
+    "urls": "node scripts/urls.mjs",
+    "dev:web": "pnpm --filter @freshnow/dashboard dev",
+    "build:web": "pnpm --filter @freshnow/dashboard build",
+    "bench": "tsx scripts/bench-models.ts",
+    "bench:report": "node scripts/bench-report.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.1",
+    "dotenv": "^17.4.2",
+    "postgres": "^3.4.9",
+    "tsx": "^4.23.13",
+    "typescript": "^5.9.3",
+    "vitest": "~2.1.9"
+  },
+  "dependencies": {
+    "@grammyjs/runner": "^2.0.3",
+    "unpdf": "^1.8.1"
+  }
+}

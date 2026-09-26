@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TASK-038 — Erasure has a caller, and the system finds the real CEO</title>
+<style>
+  :root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#3fb950;--warn:#d29922;--bad:#f85149;--card:#161b22;--bd:#30363d}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;max-width:940px;padding:48px 24px;margin-inline:auto}
+  h1{font-size:1.9rem;margin:0 0 4px} h2{margin-top:2.5rem;color:var(--acc);font-size:1.25rem} h3{margin-top:1.6rem;font-size:1.02rem}
+  .meta{color:var(--mut);font-size:.9rem;margin-bottom:2rem}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:18px;margin:14px 0}
+  .unverified{border-left:3px solid var(--warn)} .ok{border-left:3px solid var(--acc)} .danger{border-left:3px solid var(--bad)}
+  code{background:#1f2630;padding:2px 6px;border-radius:4px;font-size:.9em}
+  pre{background:#1f2630;padding:12px 14px;border-radius:8px;overflow-x:auto;font-size:.85em;line-height:1.5}
+  .tw{overflow-x:auto} table{border-collapse:collapse;width:100%;margin:14px 0}
+  th,td{border:1px solid var(--bd);padding:7px 9px;text-align:left;font-size:.88rem;vertical-align:top} th{background:#1f2630}
+  .bad{color:var(--bad);font-weight:600}.good{color:var(--acc);font-weight:600}.warn{color:var(--warn);font-weight:600}
+  ul{padding-left:1.1rem}
+</style></head><body>
+<h1>TASK-038 — Erasure has a caller, and the system finds the real CEO</h1>
+<p class="meta">2026-09-18 · no migration · api <code>work.ts</code> (one route) · core <code>org.ts</code>
+(<code>ceoEmployeeId</code>) · dashboard People tab · semantic catalogue · <b>362 tests green</b> (from 360)</p>
+
+<div class="card ok"><strong>One-sentence summary:</strong> The PDPL erasure function built in TASK-037 can now be
+invoked — by the CEO, from the People tab, through a route that refuses everyone and everything else — and the four
+places that still assumed the CEO is the seeded demo row now look the real one up, so nothing in the system files
+work under, tells, or parents to a person who may not exist on a real org chart.</div>
+
+<h2>1 · Why</h2>
+<p>TASK-037 left two things open by its own admission. <code>eraseEmployee</code> existed with tests and no caller,
+which means the only "this person left" tool was the reset script's hard delete — the exact thing that broke replay
+in TASK-036 and the opposite of what PDPL and <code>CLAUDE.md</code> require ("erasure = anonymise, not delete").
+And a grep for <code>DEMO_CEO_ID</code> found the seeded CEO row still hardcoded where the system needs
+<em>a</em> CEO: the needs-review alert, the parent of every newly onboarded employee, and the issuer recorded on
+every invite. On day one those are all the same row. On a real org chart — where the CEO role has been handed to a
+real person through the People tab — they would have alerted, parented and attributed to a demo record.</p>
+
+<h2>2 · What was built</h2>
+<div class="tw"><table>
+  <thead><tr><th>Piece</th><th>What it does</th><th>Why that way</th></tr></thead>
+  <tbody>
+    <tr><td><code>POST /dashboard/people/:id/erase</code><br><small>api/routes/work.ts</small></td>
+        <td>Body <code>{reason: left | consent_withdrawn | request}</code>. CEO only. Refuses self, refuses any CEO row
+          (409: hand the role over first), 404 for an unknown id, 400 for any other reason. Calls
+          <code>eraseEmployee</code> with the viewer's id and the request's correlation id.</td>
+        <td>Under <code>/dashboard/*</code> so the shared-secret and JWT hooks cover it — a new prefix would be
+          unauthenticated by default. Authorization is explicit in the handler because core writes run as the service
+          role and Postgres will not refuse them. The CEO-row rule is what keeps <code>ceoEmployeeId()</code> always
+          able to find someone.</td></tr>
+    <tr><td>People tab → <b>Leaving</b> column<br><small>dashboard/App.tsx</small></td>
+        <td>Visible to the CEO only. "Has left…" on every row except the CEO's and already-disabled people. The
+          first click opens an inline confirmation — a reason select and a red "Erase — cannot be undone" — with
+          Cancel. The toast reports how many notes were erased and that tasks and counts are kept.</td>
+        <td>Two steps because it is irreversible and there is no backup of the words. The reason is chosen by a human
+          and recorded, never inferred.</td></tr>
+    <tr><td><code>ceoEmployeeId()</code><br><small>core/org.ts</small></td>
+        <td>The active employee with <code>access_role = 'ceo'</code>, preferring the seeded row when it is one of
+          them, falling back to the seeded id only when no CEO row exists.</td>
+        <td>Same ordering as the alert ladder's <code>ceo</code> target (TASK-036), so both agree. Preferring the
+          seeded row means nothing changes on day one.</td></tr>
+    <tr><td>Four call sites moved onto it</td>
+        <td><code>alertNeedsReview</code> (a blocker nobody could route) now alerts the real CEO and carries the
+          correlation id; <code>completeOnboarding</code> parents new employees to the real CEO; the invite route
+          records the actual signed-in issuer as <code>issued_by</code> and audit actor; <code>IS_DEMO</code> reads
+          the environment instead of being a constant.</td>
+        <td>Each was a "who" decision made by a constant. Now each is a lookup — still deterministic, still no model.</td></tr>
+    <tr><td>Semantic catalogue</td>
+        <td><code>eod.gate_failed</code>, <code>webhook.rejected</code>, <code>retention.notes_aged</code>,
+          <code>employee.erased</code> added to the <code>audit_log.action</code> notes.</td>
+        <td>TASK-037 introduced them and did not document them; the question box cannot explain an action the
+          semantic layer does not know.</td></tr>
+  </tbody>
+</table></div>
+
+<h2>3 · How it was verified</h2>
+<div class="tw"><table>
+  <thead><tr><th>Check</th><th>Result</th></tr></thead>
+  <tbody>
+    <tr><td>Two new route tests (<code>api/work.test.ts</code>): every refusal — manager, self, a CEO row, unknown id,
+      bad reason — leaves the person untouched; the happy path anonymises, keeps the task and the update, audits actor
+      + correlation id + reason + counts and never the words, and is idempotent.</td><td class="good">15/15 in the file</td></tr>
+    <tr><td>Full suite + typecheck + dashboard build</td><td class="good">46 files · <b>362 passed</b> · 1 skipped · clean</td></tr>
+    <tr><td>Live API, signed in as the real CEO through Supabase Auth: erase self → 403 "You cannot erase yourself";
+      bad reason → 400; unknown id → 404; no token → 401. Audit log checked afterwards: zero <code>employee.erased</code> rows.</td>
+      <td class="good">All four refusals; nothing written</td></tr>
+    <tr><td>Headless Edge as the CEO: portal picker → sign-in → People. The Leaving column is there, the CEO row
+      shows "—", an ordinary row shows "Has left…", the first click opens the three-reason confirmation, Cancel
+      backs out, nobody is erased. Screenshot inspected.</td><td class="good">Passed (two harness checks misfired on
+      CSS uppercase and a row-lookup collision; the screenshot shows both facts they were checking)</td></tr>
+    <tr><td>Services restarted on the new build</td><td class="good">API <code>ok</code>, Redis <code>ok</code>, tracing on; worker; bot polling</td></tr>
+  </tbody>
+</table></div>
+
+<div class="card danger">
+<h3>A restart that was not a restart</h3>
+<p>Stopping the three background <code>pnpm start:*</code> tasks ended the pnpm wrappers and left every
+<code>tsx</code> child alive: the new API died with <code>EADDRINUSE</code> on 3001, and for a minute there were
+<b>two workers</b> polling the same outbox. The relay uses <code>for update skip locked</code> so nothing was
+delivered twice, but two SLA sweeps racing is not a state to leave running. The stale trees were ended by pid and
+the ports confirmed free before starting again. Recorded because "I restarted the services" would have been false
+without checking the listener.</p>
+</div>
+
+<h2>4 · What was deliberately not built</h2>
+<ul>
+  <li><b>Managers acting as managers on Telegram.</b> The bot's <code>resolveRole</code> is still config-CEO or
+    employee, so a manager can report their own work in the bot but cannot assign or see their reports' blockers
+    there — the dashboard does that. Making the bot role-aware touches the directory, the assign callback, the
+    blocker queue and the menu, each needing a refusal test; it is a task of its own, not an addendum to this one.
+    It fails closed today, which is the acceptable direction.</li>
+  <li><b>Moving the bot's CEO identity off config.</b> <code>TELEGRAM_CEO_USER_ID</code> + the seeded row remain the
+    anchor for who the bot treats as CEO (<code>ensureCeoLinked</code>). Handing the role over in the dashboard does
+    not change who the bot believes is CEO. That is two sources of truth, listed below as an assumption, and left
+    because the alternative — the bot's CEO being whatever the database says — makes the dashboard's role control
+    also the bot's identity control.</li>
+  <li>A CEO-row erasure path. Handing the role over first is the rule, and the route says so.</li>
+</ul>
+
+<h2 class="bad">What we have not verified</h2>
+<div class="card unverified"><ul>
+  <li><b>The erase button has not been clicked through to completion in a browser.</b> The confirmation and Cancel
+    were exercised; the final "Erase" was not, because the only people on the live database are the demo cast and the
+    user's own row. The route's happy path is proven by the suite against a synthetic person.</li>
+  <li><b>Erasure does not touch <code>attachment</code> rows, project narratives, or issue descriptions.</b>
+    <code>eraseEmployee</code> redacts <code>task_update</code> notes and assignment notes. A person's words in a
+    <code>project_update.narrative</code>, a <code>project_issue.description</code>, or a document caption survive
+    erasure today. Not a regression — nothing erased them before either — but it is a gap a data-subject request
+    would expose.</li>
+  <li><b>An erased person's Supabase Auth user still exists.</b> <code>auth_user_id</code> is nulled so they can no
+    longer reach any employee row, but the login itself is not deleted from <code>auth.users</code>; that needs the
+    service-role Admin API and a decision about whether the email is personal data to be removed.</li>
+  <li><b>The bot's CEO and the database's CEO are assumed to be the same person</b> (A-T38.1). Nothing checks it.</li>
+  <li><b>The "two workers" minute</b> produced no visible duplicate, but I did not audit every outbox row for that
+    window; the row-lock design is what I am relying on.</li>
+</ul></div>
+</body></html>

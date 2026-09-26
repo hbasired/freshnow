@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TASK-042 — FreshNow's own green and orange, applied without breaking readability</title>
+<style>
+  :root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#3fb950;--warn:#d29922;--bad:#f85149;--card:#161b22;--bd:#30363d}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;max-width:960px;padding:48px 24px;margin-inline:auto}
+  h1{font-size:1.9rem;margin:0 0 4px} h2{margin-top:2.5rem;color:var(--acc);font-size:1.25rem} h3{margin-top:1.6rem;font-size:1.02rem}
+  .meta{color:var(--mut);font-size:.9rem;margin-bottom:2rem}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:18px;margin:14px 0}
+  .unverified{border-left:3px solid var(--warn)} .ok{border-left:3px solid var(--acc)} .danger{border-left:3px solid var(--bad)}
+  code{background:#1f2630;padding:2px 6px;border-radius:4px;font-size:.9em}
+  .tw{overflow-x:auto} table{border-collapse:collapse;width:100%;margin:14px 0}
+  th,td{border:1px solid var(--bd);padding:7px 9px;text-align:left;font-size:.88rem;vertical-align:top} th{background:#1f2630}
+  td.n{text-align:right;font-variant-numeric:tabular-nums}
+  .bad{color:var(--bad);font-weight:600}.good{color:var(--acc);font-weight:600}.warn{color:var(--warn);font-weight:600}
+  ul{padding-left:1.1rem} li{margin:3px 0}
+  .sw{display:inline-block;width:14px;height:14px;border-radius:3px;vertical-align:-2px;margin-right:6px;border:1px solid #0006}
+</style></head><body>
+<h1>TASK-042 — FreshNow's own green and orange, applied without breaking readability</h1>
+<p class="meta">2026-09-19 · no migration, no API change · dashboard tokens, hero band, branded entry screens ·
+<b>376 tests green</b> (unchanged — this is presentation)</p>
+
+<div class="card ok"><strong>One-sentence summary:</strong> The dashboard now wears the company's colours, sampled
+pixel-by-pixel from the FreshNow website rather than guessed — used as <em>fills</em> where they are beautiful and as
+darkened <em>steps</em> where they have to be read, because the brand greens fail contrast as text by a factor of
+three.</div>
+
+<h2>1 · Where the colours came from</h2>
+<p>Sampled directly from the screenshot of <code>freshnow.ae</code> with a pixel reader, so these are the company's
+actual values and not an eyeballed approximation:</p>
+<div class="tw"><table>
+  <thead><tr><th>Role on the website</th><th>Value</th><th>Where it is used here</th></tr></thead>
+  <tbody>
+    <tr><td>Hero band behind "TASTE THE NATURAL GOODNESS"</td><td><span class="sw" style="background:#9bca3c"></span><code>#9bca3c</code></td><td><code>--color-brand-2</code> — the softer end of the hero gradient</td></tr>
+    <tr><td>"Contact Us" call-to-action</td><td><span class="sw" style="background:#97d700"></span><code>#97d700</code></td><td><code>--color-brand</code> — the logo mark, the hero, the portal tile</td></tr>
+    <tr><td>"BUY NOW" button</td><td><span class="sw" style="background:#f39c12"></span><code>#f39c12</code></td><td><code>--color-accent</code> — the primary action button, the citrus, the Projects tile</td></tr>
+  </tbody>
+</table></div>
+<p class="meta">I tried to read the values from the site's own CSS as well; the fetch returns the page as text and
+does not carry the stylesheet, so the screenshot sample is the source. If the company has a brand guide with exact
+values, those should replace these three — everything else follows from them.</p>
+
+<h2>2 · The problem with brand colours in a dashboard, and what was done about it</h2>
+<div class="card danger">
+<p><b>All three brand colours are unreadable as text.</b> Measured: white on <code>#97d700</code> is <b>1.74:1</b>,
+on <code>#9bca3c</code> <b>1.93:1</b>, on <code>#f39c12</code> <b>2.19:1</b> — against the 4.5:1 that body text
+needs. The website uses white on green in its header, which is fine for a marketing page nobody reads for eight
+hours; it is not fine for an operations screen.</p>
+<p>But the same colours are <b>excellent as fills with dark ink</b>: near-black on them measures
+<b>8.6–10.9:1</b>. So the rule for this theme is: <b>brand colours are fills, never text</b>, and the ink on them is
+near-black in <em>both</em> themes — a brand fill is the same green on a light page and a dark one, so the text on
+it must be too.</p>
+</div>
+<p>Where the colours have to be read — a number on a card, a label, a chart bar — the same hues were stepped until
+they passed, and every step was measured against every surface it actually lands on:</p>
+<div class="tw"><table>
+  <thead><tr><th>Token</th><th>Light</th><th class="n">on white / card / chip</th><th>Dark</th><th class="n">on page / card / chip</th></tr></thead>
+  <tbody>
+    <tr><td><code>--color-ok</code> (brand green)</td><td><span class="sw" style="background:#3d6b10"></span><code>#3d6b10</code></td><td class="n">6.35 / 5.96 / 5.44</td><td><span class="sw" style="background:#8bc53f"></span><code>#8bc53f</code></td><td class="n">9.15 / 8.37 / 7.37</td></tr>
+    <tr><td><code>--color-warn</code> (brand orange)</td><td><span class="sw" style="background:#9d5404"></span><code>#9d5404</code></td><td class="n">5.67 / 5.33 / 4.86</td><td><span class="sw" style="background:#f39c12"></span><code>#f39c12</code></td><td class="n">8.63 / 7.89 / 6.95</td></tr>
+    <tr><td><code>--color-crit</code> (unchanged)</td><td><code>#a40e26</code></td><td class="n">7.87 / 7.39 / 6.75</td><td><code>#f85149</code></td><td class="n">5.65 / 5.16 / 4.55</td></tr>
+  </tbody>
+</table></div>
+<p>Note that dark mode gets the <em>exact</em> brand orange <code>#f39c12</code> as a text colour — on a dark
+surface it measures 7.89:1, so no stepping is needed there at all.</p>
+
+<h2>3 · The chart: where the brand had to stop</h2>
+<div class="card danger">
+<p>The obvious move was green + orange bars — the brand's two colours. <b>The data-viz validator refused it.</b>
+Brand green beside brand orange measures <b>ΔE 0.4–3.6</b> under simulated red-green colour blindness, against a
+floor of 8: a colourblind reader would not be able to tell "completed" from "pending" <em>at all</em>. Three
+variations were tried and all three failed.</p>
+<p>So the chart keeps <b>green / blue / red</b>, with the green stepped into the validator's lightness band
+(<code>#3d6b10</code> light, <code>#6ea329</code> dark — both pass all six checks). <b>The brand carries the chrome;
+the chart carries the meaning.</b> That boundary is now written into <code>index.css</code> so the next person does
+not undo it.</p>
+</div>
+<p>A second finding from the same measurements, worth recording because it predates this task: in light mode
+<code>warn</code> and <code>crit</code> have <em>never</em> cleared the separation floor — the shipped
+<code>#7d4e00</code> vs <code>#a40e26</code> measured ΔE 13.4 (normal vision) and 1.7 (deutan). The brand orange
+<code>#9d5404</code> is <b>better</b> on both counts, and every status in this app already ships with an icon and a
+word beside it, which is the documented mitigation. It is an improvement on the old palette, not a new problem.</p>
+
+<h2>4 · What changed on screen</h2>
+<div class="tw"><table>
+  <thead><tr><th>Screen</th><th>Before</th><th>Now</th></tr></thead>
+  <tbody>
+    <tr><td><b>Overview (the "boring" one)</b></td><td>A plain heading and a grey paragraph over six cards</td>
+        <td>A brand-green hero band with the greeting, <b>the day in words</b> ("Saturday 12 September"), the day's
+          shape in one counted sentence ("2 completed · 1 still going"), three quick actions — Assign work in the
+          brand orange — and a citrus slice drawn from the brand's own imagery</td></tr>
+    <tr><td><b>Portal picker</b> (the literal first screen)</td><td>Two grey cards with emoji</td>
+        <td>A green→orange rule across the top, the logo mark, and two tiles with brand-filled icon badges and a
+          coloured edge stripe — green for Tasks, orange for Projects</td></tr>
+    <tr><td>Sign-in</td><td>Plain frame</td><td>Same branded frame</td></tr>
+    <tr><td>Sidebar and cards</td><td>Generic green/amber</td><td>The brand's green and orange throughout: logo
+      mark, active-item bar, card edges, badges</td></tr>
+  </tbody>
+</table></div>
+
+<h2>5 · How it was verified</h2>
+<div class="tw"><table>
+  <thead><tr><th>Check</th><th>Result</th></tr></thead>
+  <tbody>
+    <tr><td>Every candidate palette through <code>validate_palette.js</code> in both themes</td><td class="good">the
+      shipped chart set passes all six checks; the green+orange sets were rejected and are not used</td></tr>
+    <tr><td>Contrast of every token against every surface it lands on</td><td class="good">computed, all ≥ 4.55:1;
+      table above</td></tr>
+    <tr><td>Headless Edge, <b>both themes driven through the app's own toggle</b> and sampled from the rendered
+      page</td><td class="good">dark: KPI green <code>rgb(139,197,63)</code>, warn <code>rgb(243,156,18)</code>,
+      chart <code>110,163,41 / 56,139,253 / 218,54,51</code>; light: page white, KPI <code>61,107,16</code>, warn
+      <code>157,84,4</code>, chart <code>61,107,16 / 5,80,174 / 164,14,38</code> — every value the one intended</td></tr>
+    <tr><td>Hero ink on the brand fill, both themes</td><td class="good">near-black in both, as designed</td></tr>
+    <tr><td>Entry screens</td><td class="good">brand rule renders, both tiles carry brand fills, sign-in keeps the frame</td></tr>
+    <tr><td>Phone 390×844</td><td class="good">no horizontal overflow; the citrus scales down and the heading clears it</td></tr>
+    <tr><td>Typecheck, build, full suite</td><td class="good">clean · 47 files · <b>376 passed</b> · 1 skipped</td></tr>
+    <tr><td>Console errors / failed requests during every run</td><td class="good">none</td></tr>
+  </tbody>
+</table></div>
+
+<h2 class="bad">What we have not verified</h2>
+<div class="card unverified"><ul>
+  <li><b>The three hexes are sampled from a screenshot, not from a brand guide.</b> They are exact pixel values of
+    what the website renders, which is not the same as what the company's designer would call the brand colours.
+    If a guide exists, replace the three <code>--color-brand*</code> / <code>--color-accent</code> values and
+    re-run the contrast pass — nothing else needs to change.</li>
+  <li><b>Nobody has seen this on a real monitor yet</b> — only headless screenshots at 1440×1000 and 390×844. Colour
+    on a phone in Dubai daylight is a different question from colour in a virtual framebuffer.</li>
+  <li><b>No colourblind person has looked at it.</b> The validator simulates protan/deutan/tritan; that is a model,
+    not a user.</li>
+  <li><b>The citrus slice is my drawing, not the brand's asset.</b> If FreshNow has the real artwork, it would be
+    better.</li>
+  <li><b>Only the Overview got the hero.</b> The Projects portal still opens on its own plainer header.</li>
+  <li><b>The old KPI screenshot in TASK-041 is now out of date</b> — that document describes the structure, which
+    has not changed, but its colours in any future screenshot will differ.</li>
+</ul></div>
+</body></html>

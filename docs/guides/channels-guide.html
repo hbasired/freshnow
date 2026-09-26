@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FreshNow — Channels (how people are reached)</title>
+<style>
+  :root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#3fb950;--warn:#d29922;--crit:#f85149;
+        --card:#161b22;--bd:#30363d;--blue:#88c0f0}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+       font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+       max-width:940px;padding:40px 22px 80px;margin-inline:auto}
+  h1{font-size:1.9rem;margin:0 0 6px}
+  h2{margin-top:2.6rem;color:var(--acc);font-size:1.3rem;border-bottom:1px solid var(--bd);padding-bottom:6px}
+  h3{margin-top:1.7rem;font-size:1.04rem}
+  p.lead{color:var(--mut);font-size:.92rem}
+  blockquote{margin:12px 0;padding:10px 14px;border-left:3px solid var(--warn);background:var(--card);border-radius:0 8px 8px 0}
+  blockquote p{margin:4px 0}
+  code{background:#1f2630;padding:2px 6px;border-radius:4px;font-size:.9em}
+  pre{background:#010409;border:1px solid var(--bd);border-radius:8px;padding:14px;
+      overflow-x:auto;font-size:.83rem;line-height:1.5}
+  pre code{background:none;padding:0}
+  table{border-collapse:collapse;width:100%;margin:14px 0}
+  th,td{border:1px solid var(--bd);padding:8px 10px;text-align:left;font-size:.88rem;vertical-align:top}
+  th{background:#1f2630}
+  hr{border:0;border-top:1px solid var(--bd);margin:2rem 0}
+  a{color:var(--blue)}
+  .back{color:var(--mut);font-size:.88rem;margin-bottom:1.2rem;display:block}
+</style></head><body>
+<a class="back" href="index.html">← All guides</a>
+<h1>Channels — how FreshNow reaches people</h1>
+<p><em>Written 2026-09-19. Telegram is the only live channel today; the others are built, switched
+off, and waiting for you.</em></p>
+<p>Every message this system sends — a problem raised, a task assigned, an escalation nobody
+answered — leaves by a <strong>channel</strong>. There are five. This guide says what each is for, who
+should use it, what it costs, and exactly what to click.</p>
+<hr />
+<h2>The short answer</h2>
+<table>
+<thead>
+<tr>
+<th>If you are…</th>
+<th>Use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A <strong>driver or anyone in the field</strong></td>
+<td><strong>Telegram.</strong> Already on their phone, works on mobile data, no password, one tap. Do not move them.</td>
+</tr>
+<tr>
+<td><strong>Office, warehouse or a manager</strong> who already signs in to the dashboard</td>
+<td><strong>The dashboard inbox + notifications on your device.</strong> Nothing to install, stays inside the country.</td>
+</tr>
+<tr>
+<td>Somebody <strong>outside the company</strong> — a supplier, an auditor, a new starter</td>
+<td><strong>Email.</strong></td>
+</tr>
+<tr>
+<td>A team that already lives in a <strong>company chat room</strong></td>
+<td><strong>The chat channel</strong>, if you decide to run a chat server.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Nothing here has a per-message cost.</strong> The only thing in this platform you pay for by use
+is the AI, and none of these channels involves it.</p>
+<hr />
+<h2>The five channels</h2>
+<table>
+<thead>
+<tr>
+<th>Channel</th>
+<th>Reaches</th>
+<th>Where the words live</th>
+<th>Cost</th>
+<th>Needs</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Telegram</strong></td>
+<td>Anyone with the bot</td>
+<td>Telegram's servers, <strong>outside the UAE</strong></td>
+<td>free</td>
+<td>nothing — it works today</td>
+</tr>
+<tr>
+<td><strong>This dashboard</strong> (the bell)</td>
+<td>Anyone who signs in</td>
+<td><strong>our own server</strong></td>
+<td>free</td>
+<td>nothing — always on</td>
+</tr>
+<tr>
+<td><strong>Phone &amp; desktop notifications</strong> (web push)</td>
+<td>Anyone who signs in, with the app closed</td>
+<td><strong>our own server</strong>; the relay carries encrypted text it cannot read</td>
+<td>free</td>
+<td>an <strong>https</strong> address</td>
+</tr>
+<tr>
+<td><strong>Email</strong></td>
+<td>Anyone with an address</td>
+<td>the email provider</td>
+<td>free at our volume (Brevo: 300/day)</td>
+<td>a domain + a free provider account</td>
+</tr>
+<tr>
+<td><strong>Company chat</strong></td>
+<td>A team room</td>
+<td><strong>our own server</strong></td>
+<td>free software, ~2 GB of RAM</td>
+<td>a Mattermost server you run</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>Three switches, not one</h2>
+<p>A message only goes out if <strong>all three</strong> of these are true. This is deliberate: it means no
+one person can accidentally start messaging the whole company.</p>
+<ol>
+<li><strong>Set up on the server</strong> — the keys exist. A developer's job, done in <code>.env</code>.</li>
+<li><strong>Switched on by the company</strong> — the CEO's job, in the dashboard. Described below.</li>
+<li><strong>Wanted by the person</strong> — each employee's own choice, also in the dashboard.</li>
+</ol>
+<p>If a channel is not working, the dashboard tells you <em>which</em> of the three is missing rather
+than leaving you guessing.</p>
+<hr />
+<h2>For the CEO — switching a channel on</h2>
+<p><strong>Dashboard → Alerts → Channels.</strong></p>
+<p>You will see all five with a coloured dot and a badge:</p>
+<ul>
+<li>🟢 <strong>LIVE</strong> — set up, switched on, sending.</li>
+<li>🟠 <strong>NOT SET UP</strong> — you switched it on, but the server has no keys for it. Nothing is
+  being sent. The line underneath says exactly what is missing.</li>
+<li>⚪ <strong>OFF</strong> — you have not switched it on.</li>
+</ul>
+<p>Flip the switch on the right. <strong>Every change is recorded</strong> with your name and the time, so
+"who turned email on?" is always answerable.</p>
+<blockquote>
+<p><strong>Nothing is sent to anyone until you do this.</strong> Email, notifications and chat all ship
+off. Telegram is on because it is what the company uses today.</p>
+</blockquote>
+<hr />
+<h2>For everyone — turning on notifications on your phone or computer</h2>
+<p><strong>Dashboard → Alerts → Notifications on this device → Turn on for this device.</strong></p>
+<p>Your browser will ask permission once. Say yes and that device will buzz when something
+needs you, <strong>even with the app closed</strong>.</p>
+<h3>There is no app to install</h3>
+<p>No app store, no APK, no download. The web page <em>becomes</em> the app:</p>
+<ul>
+<li><strong>Android / Chrome / Edge:</strong> open the dashboard → menu <strong>⋮</strong> → <strong>Install app</strong> (or
+  "Add to Home screen"). It then opens like any other app, without the browser bar.</li>
+<li><strong>iPhone / iPad:</strong> open the dashboard <strong>in Safari</strong> → <strong>Share</strong> ⬆️ → <strong>Add to Home
+  Screen</strong> → open FreshNow from the Home Screen → <em>then</em> turn notifications on.
+  <strong>On iPhone this order matters</strong>: Apple does not allow notifications from a Safari tab, only
+  from an app that has been added to the Home Screen. This is Apple's rule, not a setting we
+  can change.</li>
+<li><strong>Windows / Mac:</strong> the same install button in Chrome or Edge, or just leave the tab open.</li>
+</ul>
+<h3>What each person can choose</h3>
+<p><strong>Dashboard → Alerts → How you are told.</strong> Per event — a problem raised, an escalation, a
+task assigned — each person chooses their own channel and can hold messages for a few
+minutes. Your inbox in the dashboard always gets everything; that one cannot be switched off,
+because it is the record rather than a copy of it.</p>
+<hr />
+<h2>Should drivers move off Telegram?</h2>
+<p><strong>No.</strong> This is the clearest recommendation in this guide.</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Telegram</th>
+<th>The app + notifications</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Already installed</td>
+<td>✅ every time</td>
+<td>❌ must be added to the Home Screen</td>
+</tr>
+<tr>
+<td>Needs a password</td>
+<td>❌ no</td>
+<td>✅ yes, once</td>
+</tr>
+<tr>
+<td>Works on mobile data</td>
+<td>✅</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Reporting a blocker</td>
+<td>one tap</td>
+<td>sign in, open, tap</td>
+</tr>
+<tr>
+<td>Proof somebody read it</td>
+<td>✅ the Acknowledge tap</td>
+<td>❌ we only know it was delivered</td>
+</tr>
+</tbody>
+</table>
+<p>A driver at a vending machine with one hand free will use the thing already open on their
+phone. The app is better for people who are <strong>already signed in to the dashboard anyway</strong> —
+managers, the warehouse, the office.</p>
+<p><strong>The sensible shape:</strong> Telegram for the field, the app and notifications for everyone at a
+desk, email for people outside the company, and the dashboard inbox underneath all of it as
+the record.</p>
+<hr />
+<h2>Assigning work by email</h2>
+<p>You can forward an email — or a document — to a company address and have it become a
+<strong>proposed</strong> list of tasks, which you then confirm in the dashboard. The same flow as
+dropping a PDF into the bot.</p>
+<p><strong>Set-up is free</strong>: Cloudflare Email Routing receives mail on your domain at no cost and
+hands it to us.</p>
+<p><strong>Five things must be true before an email can create anything</strong>, because email is the one
+way in from outside the company and anybody can put your address in a <code>From:</code> line:</p>
+<ol>
+<li>It carries the shared secret only our mail edge knows.</li>
+<li><strong>SPF, DKIM and DMARC all pass</strong> — this is what proves the sender is really who they say.
+   A message missing any of them is refused.</li>
+<li>The sender's address belongs to an <strong>active employee who is allowed to give work</strong>. An
+   ordinary employee cannot assign by email, exactly as they cannot in the dashboard.</li>
+<li>It is not an out-of-office or a bulk message.</li>
+<li>Even then, it becomes a <strong>proposal a human confirms</strong> — never a silent write.</li>
+</ol>
+<p>Every refusal is recorded with the reason (but never the message body).</p>
+<hr />
+<h2>Running a company chat server</h2>
+<p>Only if you want one. <code>docker-compose.mattermost.yml</code> and
+<code>docs/MATTERMOST-SETUP-GUIDE.md</code> are ready; nothing starts unless you start it.</p>
+<p>Mattermost Team Edition is MIT-licensed, free, and has no user limit. The costs are not in
+money: <strong>~2 GB of RAM, its own database, a server to keep patched and backed up, an account
+for every employee, and another app for staff to install and learn.</strong></p>
+<p>My recommendation is still that you do not need it: the dashboard inbox plus notifications
+already give you a channel that is ours, in the country, and free — with nothing to run.
+The option exists because you asked for it.</p>
+<hr />
+<h2>What you need before any of this works</h2>
+<p><strong>One domain name (about $10–15 a year) is the only thing on this page that costs money.</strong>
+It unlocks four things at once:</p>
+<ul>
+<li><strong>Notifications</strong> — browsers only allow them on an <code>https://</code> address. On the office
+  Wi-Fi address (<code>http://10.x.x.x:3001</code>) they cannot work at all. This is a browser rule.</li>
+<li><strong>Email</strong>, in and out.</li>
+<li><strong>The Telegram webhook</strong>, which is faster and cleaner than the current polling.</li>
+<li><strong>A proper address for staff</strong>, instead of an IP that changes.</li>
+</ul>
+<p>Until then everything above is built and tested, but notifications can only be demonstrated
+on the developer's own machine — not on a phone.</p>
+<hr />
+<h2>If something is not working</h2>
+<table>
+<thead>
+<tr>
+<th>What you see</th>
+<th>What it means</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A channel says <strong>NOT SET UP</strong></td>
+<td>Switched on, but the server has no keys. The line underneath names the missing one.</td>
+</tr>
+<tr>
+<td>"Notifications need a secure (https) address"</td>
+<td>You are on the Wi-Fi IP. Nothing to fix until there is a domain.</td>
+</tr>
+<tr>
+<td>"On iPhone, tap Share → Add to Home Screen first"</td>
+<td>Exactly that, then come back and turn them on.</td>
+</tr>
+<tr>
+<td>"Notifications are blocked for this site"</td>
+<td>You said no to the browser once. Allow them in the browser's own site settings.</td>
+</tr>
+<tr>
+<td>Somebody is not getting Telegram messages</td>
+<td>They may not be linked to Telegram yet, or have turned that event off under <strong>How you are told</strong>.</td>
+</tr>
+<tr>
+<td>An email was sent and nothing happened</td>
+<td>Check <strong>Activity</strong> for <code>inbound_email.refused</code> — the reason is recorded.</td>
+</tr>
+</tbody>
+</table>
+</body></html>

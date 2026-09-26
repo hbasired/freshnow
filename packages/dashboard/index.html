@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>FreshNow Operations</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ctext y=%22.9em%22 font-size=%2290%22%3E%F0%9F%8D%8A%3C/text%3E%3C/svg%3E" />
+    <!--
+      Installable, so the board can be added to a phone's Home Screen and receive
+      notifications with the browser closed. `apple-touch-icon` is separate because iOS
+      ignores the manifest's icons, and `apple-mobile-web-app-capable` is what makes iOS
+      open it as an app rather than a Safari tab.
+      NOTE: service workers, and therefore push, only run in a secure context — HTTPS, or
+      localhost. Over the LAN on http://<ip>:3001 none of this activates.
+    -->
+    <link rel="manifest" href="/app/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/app/apple-touch-icon.png" />
+    <meta name="theme-color" content="#97d700" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="FreshNow" />
+    <meta name="description" content="Daily status, problems and assignments for FreshNow." />
+    <!--
+      Decide the theme BEFORE the first paint, so a light-theme reload never flashes dark.
+      This has to be inline and synchronous: anything deferred runs after the browser has
+      already painted the default. It mirrors `resolveTheme()` in src/lib/theme.ts — an
+      explicit choice wins, otherwise follow the operating system.
+    -->
+    <script>
+      (function () {
+        try {
+          var stored = localStorage.getItem("fn.theme");
+          var theme =
+            stored === "light" || stored === "dark"
+              ? stored
+              : window.matchMedia("(prefers-color-scheme: light)").matches
+                ? "light"
+                : "dark";
+          document.documentElement.dataset.theme = theme;
+        } catch (e) {
+          document.documentElement.dataset.theme = "dark";
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

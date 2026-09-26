@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FreshNow — Backend Operations</title>
+<style>
+  :root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#3fb950;--warn:#d29922;--crit:#f85149;
+        --card:#161b22;--bd:#30363d;--blue:#88c0f0}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+       font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+       max-width:940px;padding:40px 22px 80px;margin-inline:auto}
+  h1{font-size:1.9rem;margin:0 0 6px}
+  h2{margin-top:2.6rem;color:var(--acc);font-size:1.3rem;border-bottom:1px solid var(--bd);padding-bottom:6px}
+  h3{margin-top:1.7rem;font-size:1.04rem}
+  p.lead{color:var(--mut);font-size:.92rem}
+  blockquote{margin:12px 0;padding:10px 14px;border-left:3px solid var(--warn);background:var(--card);border-radius:0 8px 8px 0}
+  blockquote p{margin:4px 0}
+  code{background:#1f2630;padding:2px 6px;border-radius:4px;font-size:.9em}
+  pre{background:#010409;border:1px solid var(--bd);border-radius:8px;padding:14px;
+      overflow-x:auto;font-size:.83rem;line-height:1.5}
+  pre code{background:none;padding:0}
+  table{border-collapse:collapse;width:100%;margin:14px 0}
+  th,td{border:1px solid var(--bd);padding:8px 10px;text-align:left;font-size:.88rem;vertical-align:top}
+  th{background:#1f2630}
+  hr{border:0;border-top:1px solid var(--bd);margin:2rem 0}
+  a{color:var(--blue)}
+  .back{color:var(--mut);font-size:.88rem;margin-bottom:1.2rem;display:block}
+</style></head><body>
+<a class="back" href="index.html">← All guides</a>
+<h1>FreshNow — Backend Operations Guide</h1>
+<p><em>Updated 2026-09-19. Everything an operator can do behind the bot and the dashboard: inspect
+the database, change data safely, trace what happened, replay a decision, back up and
+restore, and know what must never be touched. Every command marked <strong>verified</strong> was run
+against this system today, not written from memory.</em></p>
+<hr />
+<h2>1. Three ways in</h2>
+<p>The live database is <strong>Supabase Postgres</strong> on <code>127.0.0.1:54322</code>, database <code>postgres</code>.</p>
+<h3>A. Supabase Studio — browser (easiest)</h3>
+<p>http://localhost:54323 → <strong>Table Editor</strong> to click through rows, <strong>SQL Editor</strong> to paste any
+query in this guide. No login on the local stack.</p>
+<h3>B. psql — command line <strong>(verified)</strong></h3>
+<pre><code class="language-bash">docker exec -it supabase_db_freshnow psql -U postgres -d postgres          # interactive
+docker exec supabase_db_freshnow psql -U postgres -d postgres -c &quot;select count(*) from blocker;&quot;
+</code></pre>
+<p>Inside psql: <code>\dt</code> list tables · <code>\d employee</code> describe · <code>\x</code> wide output · <code>\q</code> quit.</p>
+<h3>C. Any GUI client (DBeaver, TablePlus, pgAdmin)</h3>
+<p>Host <code>127.0.0.1</code> · Port <strong>54322</strong> · Database <code>postgres</code> · User <code>postgres</code> · Password: the one in
+<code>DATABASE_URL_SERVICE</code> in <code>.env</code>.</p>
+<blockquote>
+<p><strong>Adminer at http://localhost:8080 is the OLD database</strong> (<code>freshnow-db</code>, port 5433, user
+<code>freshnow</code>) — kept only as a rollback copy from before 2026-09-11. It has none of the tables
+added since. Nothing in this guide applies to it.</p>
+<p><strong>Redis is on 6380</strong> (another project on this PC holds 6379). The worker's SLA timers and
+the <code>/health</code> endpoint's <code>redis</code> probe use it.</p>
+</blockquote>
+<hr />
+<h2>2. The two database roles — read this before changing anything</h2>
+<table>
+<thead>
+<tr>
+<th>Role</th>
+<th>Bypasses RLS?</th>
+<th>Sees</th>
+<th>Used by</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong><code>postgres</code></strong></td>
+<td>yes (<code>BYPASSRLS</code>, <strong>not</strong> a superuser on Supabase)</td>
+<td>everything</td>
+<td>you (operator), migrations, seed, the worker and the API's service writes</td>
+</tr>
+<tr>
+<td><strong><code>freshnow_app</code></strong></td>
+<td>no — row-level security enforced, default deny</td>
+<td>only what the current person may see</td>
+<td>the API's reads, the question box, RLS tests</td>
+</tr>
+</tbody>
+</table>
+<p>Verified today as the real app role (password from <code>DATABASE_URL</code> in <code>.env</code>):</p>
+<pre><code class="language-bash">A=&quot;docker exec -e PGPASSWORD=&lt;app password&gt; supabase_db_freshnow psql -h 127.0.0.1 -U freshnow_app -d postgres -Atc&quot;
+
+$A &quot;select count(*) from employee&quot;                                  # -&gt; 0   (no context: nothing)
+$A &quot;begin; select set_config('app.is_ceo','on',true); select count(*) from employee; commit;&quot;   # -&gt; 7
+</code></pre>
+<p>To see exactly what one person sees:</p>
+<pre><code class="language-sql">begin;
+  select set_config('app.employee_id', '&lt;employee uuid&gt;', true);
+  select set_config('app.is_ceo', 'off', true);
+  select set_config('app.access_role', 'employee', true);   -- or 'manager' / 'lead'
+  select set_config('app.department', '', true);            -- the lead's department, if any
+  select count(*) from employee;  select count(*) from task;
+commit;
+</code></pre>
+<p>As Priya (an employee) today: 1 employee, 1 task. The whole rule lives in one SQL function,
+<code>app_can_view_employee(target)</code> (migration 0009): CEO → everyone; manager → their direct
+reports; lead → their reports plus their department; everyone → themselves. <code>canAssignTo</code> in
+<code>packages/core/src/org.ts</code> is the same rule for writes, which run as <code>postgres</code> and therefore
+get no help from RLS — every write route checks it explicitly.</p>
+<blockquote>
+<p>The app role cannot connect over the Unix socket (peer auth) — always <code>-h 127.0.0.1</code>.</p>
+</blockquote>
+<hr />
+<h2>3. What each table holds</h2>
+<p>36 tables and 2 views (migrations 0001–0016). Grouped by what they are for.</p>
+<p><strong>The chain</strong></p>
+<table>
+<thead>
+<tr>
+<th>Table</th>
+<th>What it is</th>
+<th>Safe to edit?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>employee</code></td>
+<td>People. <code>access_role</code> (ceo/manager/lead/employee), <code>manager_employee_id</code>, <code>department</code>, <code>site</code>, <code>shift</code>, <code>telegram_user_id</code> (bigint), <code>auth_user_id</code> (dashboard login).</td>
+<td>✅ yes — but role and manager changes should go through the People tab so they are audited</td>
+</tr>
+<tr>
+<td><code>task</code></td>
+<td>Work. <code>status</code>, <code>resolution</code>, <code>priority</code>, <code>due_at</code>, <code>progress_pct</code> + <code>progress_source</code>, <code>parent_task_id</code>, <code>project_id</code>, <code>milestone_id</code>.</td>
+<td>✅ yes</td>
+</tr>
+<tr>
+<td><code>task_update</code></td>
+<td>Each report. <strong><code>note_raw</code> = their exact words</strong>, <code>note_parsed</code> = what the model understood, <code>channel</code> (telegram/web), <code>correlation_id</code>.</td>
+<td>⚠️ never edit <code>note_raw</code> / <code>note_parsed</code></td>
+</tr>
+<tr>
+<td><code>blocker</code></td>
+<td>A problem extracted from an update. <code>assigned_resolver</code>, <code>sla_due_at</code>, <code>resolved_by</code>, <code>resolution_note</code>, <code>alert_id</code>.</td>
+<td>✅ status/resolution only</td>
+</tr>
+<tr>
+<td><code>escalation</code></td>
+<td>Each rung climbed, with <code>correlation_id</code>.</td>
+<td>⚠️ read-only in practice</td>
+</tr>
+<tr>
+<td><code>assignment</code></td>
+<td>Who gave work to whom.</td>
+<td>✅ yes</td>
+</tr>
+<tr>
+<td><code>daily_report</code></td>
+<td>End-of-day per person per day; the model's narrative is gate-checked.</td>
+<td>✅ regenerate rather than edit</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Task depth (0010)</strong>: <code>task_status</code> (lookup: key → category → <code>pct_when_here</code>), <code>task_step</code>
+(checklists), <code>task_relation</code> (blocks / precedes / relates / duplicates; inverse written
+automatically; max 30), <code>progress_event</code> (append-only progress history — ❌ never edit).</p>
+<p><strong>Alerting (0011)</strong>: <code>sla_policy</code> (severity → minutes — <strong>the SLA dial, editable</strong>),
+<code>escalation_policy</code> → <code>escalation_level</code> (<code>timeout_minutes</code>) → <code>escalation_target</code>
+(<code>target_type</code>: resolver / manager_of_raiser / department_lead / ceo / employee),
+<code>alert</code> (de-dup by <code>alias</code>; <code>count</code>, <code>state</code>, <code>acked_by</code>), <code>task_watcher</code>, <code>notification_pref</code>.</p>
+<p><strong>Projects (0012)</strong>: <code>project</code>, <code>project_requirement</code>, <code>milestone</code>, <code>project_member</code>,
+<code>project_update</code> (append-only status log), <code>project_issue</code>; views <code>project_progress</code> and
+<code>flow_metrics</code> (computed, <code>security_invoker</code>).</p>
+<p><strong>Evidence</strong></p>
+<table>
+<thead>
+<tr>
+<th>Table</th>
+<th>What it is</th>
+<th>Safe to edit?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>audit_log</code></td>
+<td>Append-only record of every change, with <code>correlation_id</code>. Actor is tied to the session by trigger (0016).</td>
+<td>❌ <strong>never</strong></td>
+</tr>
+<tr>
+<td><code>run_trace</code></td>
+<td>What each step consumed and produced — replay reads this. Append-only.</td>
+<td>❌ never</td>
+</tr>
+<tr>
+<td><code>llm_call</code></td>
+<td>Every model call: provider, model, tokens, <code>cost_usd</code>, latency, success.</td>
+<td>❌ never</td>
+</tr>
+<tr>
+<td><code>consent_record</code></td>
+<td>PDPL consent: <code>policy_version</code> + hash of the exact notice shown.</td>
+<td>❌ <strong>never</strong> — legal record</td>
+</tr>
+<tr>
+<td><code>job_run</code></td>
+<td>Background job outcomes.</td>
+<td>❌ never</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Plumbing</strong>: <code>notification_outbox</code> (<code>channel</code> telegram/inapp, <code>status</code>, <code>attempts</code>,
+<code>recipient_employee_id</code>, <code>reason</code>, <code>read_at</code> — ✅ status only), <code>bot_session</code> (✅ safe to delete
+a row: resets one chat), <code>invite_code</code> (✅), <code>attachment</code>, <code>voice_asset</code> (⚠️ don't edit
+transcripts), <code>schema_migrations</code> (❌ never; columns <code>name</code>, <code>applied_at</code>).</p>
+<p><strong>Telling real from demo:</strong> every business table has <code>is_synthetic</code>. <code>true</code> = seeded demo
+row (badged DEMO in the dashboard). Never present a synthetic row as a company fact.</p>
+<hr />
+<h2>4. Reading and inspecting <strong>(verified)</strong></h2>
+<p><strong>System health at a glance</strong></p>
+<pre><code class="language-sql">select 'employees' t, count(*) from employee where status = 'active'
+union all select 'open blockers', count(*) from blocker where status='open'
+union all select 'open alerts', count(*) from alert where state &lt;&gt; 'resolved'
+union all select 'tasks to do', count(*) from task where status not in ('done','cancelled')
+union all select 'outbox pending', count(*) from notification_outbox where status='pending'
+union all select 'needs human review', count(*) from task_update where note_parsed-&gt;&gt;'needs_review'='true';
+</code></pre>
+<p>Or, without SQL: <code>curl http://localhost:3001/health</code> → <code>db</code>, <code>redis</code>, load, tracing and
+trace-write counters, in one JSON.</p>
+<p><strong>Every blocker, who raised it and who must fix it</strong> — <code>employee</code> joined twice:</p>
+<pre><code class="language-sql">select b.severity, b.category, raiser.display_name as raised_by, resolver.display_name as must_fix,
+       b.status, b.raised_at, b.sla_due_at
+from blocker b
+join employee raiser on raiser.id = b.raised_by
+left join employee resolver on resolver.id = b.assigned_resolver
+order by b.raised_at desc;
+</code></pre>
+<p><strong>What one person actually said</strong> (their own words, never rewritten)</p>
+<pre><code class="language-sql">select u.submitted_at, u.channel, u.status, u.note_raw, u.note_parsed-&gt;&gt;'summary' as understood_as
+from task_update u join employee e on e.id = u.employee_id
+where e.display_name ilike '%ahmed%'
+order by u.submitted_at desc;
+</code></pre>
+<p><strong>Messages the system could not understand</strong> (these need a human)</p>
+<pre><code class="language-sql">select u.submitted_at, e.display_name, u.note_raw
+from task_update u join employee e on e.id = u.employee_id
+where u.note_parsed-&gt;&gt;'needs_review' = 'true'
+order by u.submitted_at desc;
+</code></pre>
+<p><strong>Who is a manager, and who reports to them</strong></p>
+<pre><code class="language-sql">select e.display_name, e.access_role, m.display_name as reports_to, e.department
+from employee e left join employee m on m.id = e.manager_employee_id
+where e.status = 'active' order by e.access_role, e.display_name;
+</code></pre>
+<hr />
+<h2>5. Changing data safely</h2>
+<p>Prefer the dashboard for anything a person did — it is audited with who did it. Use SQL for
+operator fixes. <strong>Always <code>select</code> first, always with a <code>where</code>.</strong></p>
+<p><strong>Fix a person's details</strong></p>
+<pre><code class="language-sql">select id, display_name, department, site, shift from employee where display_name ilike '%ahmed%';
+update employee set department = 'production', site = 'warehouse', shift = 'day' where id = '&lt;uuid&gt;';
+</code></pre>
+<p><strong>Roles and reporting lines</strong> — do these on the dashboard's <strong>People</strong> tab (CEO sign-in), not
+in SQL: the API checks the loop guard and writes <code>employee.org_updated</code> with before/after.
+The Telegram bot reads the same column, so a manager made on the dashboard gets the manager
+menu on their next message. If you must do it in SQL, the cycle guard trigger (0009) still
+refuses a loop, and the privilege trigger (0014) refuses self-promotion from the app role.</p>
+<p><strong>Change who a blocker category routes to</strong> (the main operational dial)</p>
+<pre><code class="language-sql">select coalesce(r.category,'*') category, coalesce(r.site,'*') site, coalesce(r.shift,'*') shift, e.display_name resolver
+from routing_rule r join employee e on e.id = r.resolver_employee_id order by 1,2,3;
+
+-- equipment problems at the warehouse, day shift → a specific person
+insert into routing_rule (category, site, shift, resolver_employee_id)
+values ('equipment', 'warehouse', 'day', (select id from employee where display_name ilike '%ahmed%'));
+</code></pre>
+<p>Most specific rule wins (category + site + shift beats category alone; <code>null</code> = any). This is
+a data change, not a code change: the next blocker routes differently, and "why did this go
+to Ahmed?" is answered by that row. Replay re-derives past decisions from what was recorded
+at the time, so changing the table does not rewrite history.</p>
+<p><strong>Change the SLA windows</strong> — now a table, not code:</p>
+<pre><code class="language-sql">select severity, minutes from sla_policy order by minutes;
+update sla_policy set minutes = 30 where severity = 'high';   -- takes effect on the next blocker
+</code></pre>
+<p>Today: critical 15 · high 60 · medium 240 · low 1440 — placeholders until FreshNow supplies
+real ones (<code>docs/WHAT-WE-NEED-FROM-FRESHNOW.md</code> §1).</p>
+<p><strong>Change the escalation ladder</strong></p>
+<pre><code class="language-sql">select p.name, l.level_no, l.timeout_minutes, t.target_type
+from escalation_policy p join escalation_level l on l.policy_id = p.id
+join escalation_target t on t.level_id = l.id order by p.name, l.level_no;
+update escalation_level set timeout_minutes = 45 where level_no = 2;
+</code></pre>
+<p>Targets are symbolic; a level with nobody available is skipped, never dropped.</p>
+<p><strong>Resolve a blocker</strong> — prefer the dashboard (note required, resolver recorded). SQL:</p>
+<pre><code class="language-sql">update blocker set status='resolved', resolved_at=now(), resolution_note='&lt;why&gt;' where id='&lt;uuid&gt;';
+</code></pre>
+<p><strong>Unstick a chat</strong> (someone stuck mid-question in Telegram) <strong>(verified)</strong></p>
+<pre><code class="language-sql">delete from bot_session where key = '&lt;telegram user id&gt;';   -- the key is the chat id
+</code></pre>
+<p>They then send <code>/start</code>. Safe: only conversation state lives here.</p>
+<p><strong>Re-issue an invite</strong></p>
+<pre><code class="language-sql">select code, display_name, redeemed_at, expires_at from invite_code order by created_at desc;
+update invite_code set expires_at = now() + interval '72 hours' where code = 'K7M2QXAB';
+</code></pre>
+<p><strong>Stop a queued message from being sent</strong></p>
+<pre><code class="language-sql">update notification_outbox set status='abandoned' where status='pending' and id='&lt;uuid&gt;';
+</code></pre>
+<p><strong>Set the retention window</strong> — in <code>.env</code>, not SQL: <code>RETENTION_DAYS=&lt;n ≥ 30&gt;</code>, restart the
+worker. Until it is set the hourly sweep logs that it is disabled and ages nothing out.</p>
+<p><strong>When somebody leaves</strong> — the CEO's <strong>People → Has left…</strong> action anonymises them (name,
+Telegram, login, every note) and keeps every row. Do not delete employee rows: every
+foreign key and the audit trail point at them. The reset script is for DEMO data only.</p>
+<hr />
+<h2>6. What you must NOT change</h2>
+<table>
+<thead>
+<tr>
+<th>Never touch</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>audit_log</code></td>
+<td>The tamper-evidence record. Every number the CEO sees traces back to it.</td>
+</tr>
+<tr>
+<td><code>run_trace</code></td>
+<td>Replay reconstructs decisions from it. Editing it makes replay lie.</td>
+</tr>
+<tr>
+<td><code>consent_record</code></td>
+<td>Legal proof of PDPL consent, including a hash of the exact notice text.</td>
+</tr>
+<tr>
+<td><code>progress_event</code>, <code>project_update</code></td>
+<td>Append-only histories the progress views are computed from.</td>
+</tr>
+<tr>
+<td><code>llm_call</code>, <code>job_run</code></td>
+<td>The cost and job records.</td>
+</tr>
+<tr>
+<td><code>schema_migrations</code></td>
+<td>Deleting a row re-runs a migration and corrupts the schema.</td>
+</tr>
+<tr>
+<td><code>note_raw</code> / <code>note_parsed</code> / <code>transcript_raw</code></td>
+<td>A person's own words. The design keeps them verbatim; only the retention sweep and erasure may replace them, and both audit a count, never content.</td>
+</tr>
+<tr>
+<td>Applied migration files</td>
+<td>Forward-only. Add <code>0017_*.sql</code>; never edit an applied one.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Enforced, not just a convention</strong> — verified today as the app role:</p>
+<pre><code>update audit_log …        ERROR:  permission denied for table audit_log
+delete from audit_log …   ERROR:  permission denied for table audit_log
+insert … actor='employee:&lt;the CEO&gt;' with no session context
+                          ERROR:  audit_log: an app session with no employee context may only act as system
+</code></pre>
+<p>⚠️ <strong>Honest caveat:</strong> that protection applies to the <em>application</em>. The <code>postgres</code> role you use
+as an operator bypasses RLS and owns the tables, so it <strong>can</strong> modify <code>audit_log</code>. The
+guarantee is "the running system cannot rewrite history", not "nobody can". In production the
+operator account should not be the service account.</p>
+<hr />
+<h2>7. Tracing, auditing and replay <strong>(verified)</strong></h2>
+<p>Every run — one employee report from message to alert — shares a <strong><code>correlation_id</code></strong>.</p>
+<p><strong>Find a run, then read the ordered story</strong></p>
+<pre><code class="language-sql">select id, correlation_id, severity, category, raised_at from blocker order by raised_at desc limit 5;
+
+select created_at, actor, action, entity, entity_id
+from audit_log where correlation_id = '&lt;correlation-id&gt;' order by created_at;
+</code></pre>
+<p><strong>See what each step consumed</strong> — the inputs, not just the outcome:</p>
+<pre><code class="language-sql">select step, input, output, created_at from run_trace
+where correlation_id = '&lt;correlation-id&gt;' order by created_at;
+
+select provider, model, prompt_tokens, completion_tokens, cost_usd, latency_ms, success
+from llm_call where correlation_id = '&lt;correlation-id&gt;';
+</code></pre>
+<p><code>run_trace</code> is written by the real code paths (<code>parse_update</code>, <code>route_blocker</code>) since
+2026-09-18. It is append-only: a retried step appears twice because it happened twice.</p>
+<p><strong>Replay a past decision and check it still holds.</strong> From the project folder:</p>
+<pre><code class="language-bash">npx tsx --import dotenv/config -e &quot;import('./packages/core/src/index.ts').then(async c =&gt; { console.log(JSON.stringify(await c.replayRun('&lt;correlation-id&gt;'), null, 2)); await c.closeDb(); })&quot;
+</code></pre>
+<p>The report says <code>found</code>, how many <code>steps</code> were re-derived from the recorded inputs, one
+<code>checks</code> entry per blocker (original resolver vs re-derived), and <code>diverged: true</code> if the
+routing table or ladder has changed since — which is the point. Runs from before 2026-09-18
+answer honestly instead: <code>"unreplayable": "run predates input recording (migration 0015);
+the decision's inputs were never stored"</code> (verified today on the newest demo blocker).</p>
+<p><strong>Every action by one person, or every action in the last day</strong></p>
+<pre><code class="language-sql">select created_at, action, entity, entity_id from audit_log
+where actor = 'employee:&lt;uuid&gt;' order by created_at desc limit 50;
+
+select created_at, actor, action, entity from audit_log
+where created_at &gt; now() - interval '24 hours' order by created_at desc limit 100;
+</code></pre>
+<p>The action catalogue — what every <code>action</code> value means — is in <code>semantic/schema.yaml</code> under
+<code>audit_log.columns.action.notes</code>.</p>
+<p><strong>Langfuse</strong> — every model call is also a trace in Langfuse Cloud (EU), metadata only
+(<code>captureContent: false</code> on <code>/health</code>). Filter by the correlation id as the trace name.</p>
+<hr />
+<h2>8. Monitoring <strong>(verified)</strong></h2>
+<p><strong>Model spend and reliability</strong></p>
+<pre><code class="language-sql">select provider, model, count(*) calls, round(sum(cost_usd)::numeric, 4) usd,
+       round(avg(latency_ms)) avg_ms, count(*) filter (where not success) failures
+from llm_call
+where created_at &gt;= date_trunc('day', now() at time zone 'Asia/Dubai')
+group by provider, model order by calls desc;
+</code></pre>
+<p><code>cost_usd</code> is real for models in the pricing table (<code>openai/gpt-oss-120b</code> is; a model
+without a price row logs 0 and warns once). All-time to date: 322 calls, $0.0076.</p>
+<p><strong>Delivery health</strong></p>
+<pre><code class="language-sql">select channel, status, count(*) from notification_outbox group by channel, status order by 1,2;
+select created_at, detail from audit_log where action = 'notification.abandoned' order by created_at desc limit 10;
+</code></pre>
+<p><code>abandoned</code> = retried to the cap and given up — that message was never received; the audit
+row names the recipient and the last error.</p>
+<p><strong>Escalation and routing failures worth a look every day</strong></p>
+<pre><code class="language-sql">select created_at, action, detail from audit_log
+where action in ('blocker.routing_failed','blocker.still_unroutable','alert.no_recipient','eod.gate_failed','consent.missing')
+order by created_at desc limit 20;
+</code></pre>
+<p><strong>Background jobs</strong>: <code>select job_name, status, started_at, finished_at from job_run order by created_at desc limit 20;</code>
+The worker also prints, hourly, whether the retention sweep is enabled.</p>
+<p><strong>Service health</strong>: <code>curl http://localhost:3001/health</code> — <code>status</code>, <code>db</code>, <code>redis</code> (a real TCP
+ping), model/document load, tracing queue, trace-write counters.</p>
+<hr />
+<h2>9. Changing the schema</h2>
+<p>Migrations are <strong>forward-only and numbered</strong>. Never edit one that has run.</p>
+<ol>
+<li>Create <code>migrations/0017_your_change.sql</code> — plain SQL, idempotent where possible
+   (<code>add column if not exists</code>, <code>drop policy if exists</code> before <code>create policy</code>).</li>
+<li>New table? Enable <strong>and force</strong> RLS, add the select policy in terms of
+   <code>app_can_view_employee</code>, grant to <code>freshnow_app</code>, add <code>is_synthetic</code>.</li>
+<li><code>pnpm migrate</code> <strong>(verified)</strong> — applies anything new, skips what is applied, records
+   <code>name</code> + <code>applied_at</code> in <code>schema_migrations</code>.</li>
+<li><strong>Update <code>semantic/schema.yaml</code> in the same change</strong> — <code>semantic.test.ts</code> fails on any
+   table or column missing from it, in either direction; <code>db.grants.test.ts</code> fails on a table
+   without a grant.</li>
+<li><code>pnpm verify</code>.</li>
+</ol>
+<p>Currently applied: 0001–0016 (0014 privilege hardening, 0015 traceability, 0016 audit-actor
+integrity, all on 2026-09-18).</p>
+<hr />
+<h2>10. Backup and restore <strong>(verified today: 332 KB dump, 36 tables; restored into a scratch database with 7 employees and 386 audit rows intact)</strong></h2>
+<p><strong>Back up</strong> (public schema + all data):</p>
+<pre><code class="language-bash">mkdir -p backups
+docker exec supabase_db_freshnow pg_dump -U postgres -d postgres --schema=public --clean --if-exists \
+  &gt; backups/freshnow-$(date +%Y%m%d-%H%M).sql
+</code></pre>
+<p><strong>Restore into a scratch database first — never straight over the live one:</strong></p>
+<pre><code class="language-bash">docker exec supabase_db_freshnow psql -U postgres -d postgres -c &quot;create database restore_test;&quot;
+docker exec -i supabase_db_freshnow psql -U postgres -d restore_test &lt; backups/&lt;file&gt;.sql
+docker exec supabase_db_freshnow psql -U postgres -d restore_test -c &quot;select count(*) from employee;&quot;
+docker exec supabase_db_freshnow psql -U postgres -d postgres -c &quot;drop database restore_test;&quot;
+</code></pre>
+<p>Expect two kinds of harmless noise on a fresh scratch database: <code>relation "public.x" does not
+exist</code> (from <code>--clean</code> dropping tables that are not there yet) and <code>permission denied to
+change default privileges</code> (Supabase-owned defaults; <code>postgres</code> is not a superuser there).
+The data lands regardless — check the counts.</p>
+<p>Restore over the live database (destructive — stop the API, worker and bot first):</p>
+<pre><code class="language-bash">docker exec -i supabase_db_freshnow psql -U postgres -d postgres &lt; backups/&lt;file&gt;.sql
+</code></pre>
+<p><strong>Off-box backups are still deferred</strong> (<code>DEVIATIONS.md</code> #6). Until they exist, a laptop
+failure loses everything since the last manual dump.</p>
+<hr />
+<h2>11. Common operator tasks</h2>
+<table>
+<thead>
+<tr>
+<th>Task</th>
+<th>How</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Start / stop everything</td>
+<td><code>COMMANDS.md</code> §1 and §4</td>
+</tr>
+<tr>
+<td>Check what is up and the URLs to use right now</td>
+<td><code>pnpm urls</code></td>
+</tr>
+<tr>
+<td>Re-seed demo data</td>
+<td><code>pnpm seed</code> (idempotent, all rows <code>is_synthetic=true</code>)</td>
+</tr>
+<tr>
+<td>Full end-to-end check</td>
+<td><code>pnpm e2e</code> — 19 checks, real database, real model, <strong>sends real Telegram messages</strong></td>
+</tr>
+<tr>
+<td>Full test suite</td>
+<td><code>pnpm verify</code> — typecheck + 375 tests, ~2 minutes, makes real model calls</td>
+</tr>
+<tr>
+<td>Test one employee message</td>
+<td><code>npx tsx scripts/employee-sim.ts "chiller kharab hai"</code></td>
+</tr>
+<tr>
+<td>Change who the CEO is</td>
+<td><code>CEO_TELEGRAM_USER_ID</code> in <code>.env</code> <strong>and</strong> the <code>ceo</code> role on the same row (People tab), then restart the bot</td>
+</tr>
+<tr>
+<td>Give someone a dashboard login</td>
+<td><code>pnpm link:user "&lt;employee name&gt;" &lt;email&gt;</code> (prints a password once) — record it in <code>CREDENTIALS.local.md</code></td>
+</tr>
+<tr>
+<td>Somebody left</td>
+<td>Dashboard → People → <strong>Has left…</strong> (anonymises; never deletes)</td>
+</tr>
+<tr>
+<td>Wipe test activity, keep DEMO</td>
+<td><code>npx tsx scripts/reset-employee.ts --all-real --dry-run</code>, then without <code>--dry-run</code></td>
+</tr>
+<tr>
+<td>Unlink someone from Telegram</td>
+<td><code>update employee set telegram_user_id=null, status='pending' where id='&lt;uuid&gt;';</code></td>
+</tr>
+<tr>
+<td>See service logs</td>
+<td>the three terminals; Postgres: <code>docker logs -f supabase_db_freshnow</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>12. Safety rules</h2>
+<ol>
+<li><strong><code>select</code> before <code>update</code>.</strong> Always. And always with a <code>where</code>.</li>
+<li><strong>Never run <code>update</code>/<code>delete</code> without a <code>where</code>.</strong></li>
+<li><strong>Back up before bulk changes.</strong> One command, ten seconds.</li>
+<li><strong>Never edit</strong> <code>audit_log</code>, <code>run_trace</code>, <code>consent_record</code>, <code>progress_event</code>,
+   <code>schema_migrations</code>, or any applied migration file.</li>
+<li><strong>Never edit a person's own words</strong> (<code>note_raw</code>, <code>note_parsed</code>, <code>transcript_raw</code>).</li>
+<li><strong>Use <code>freshnow_app</code>, not <code>postgres</code>, when testing who-can-see-what</strong> — as <code>postgres</code> you
+   bypass the very rules you are trying to test.</li>
+<li><strong>Change roles, reporting lines, resolutions and erasures on the dashboard</strong>, so they carry
+   the actor and the before/after in the audit log.</li>
+<li><strong>After a schema change, run <code>pnpm verify</code></strong> before letting anyone use the system.</li>
+<li><strong>The API is bound to 0.0.0.0</strong> so your phone can reach it (<code>COMMANDS.md</code> §3). Anyone on the
+   same Wi-Fi can too. Demo-only; revert for production (<code>DEVIATIONS.md</code> #5).</li>
+<li><strong>Keys live only in <code>.env</code>; dashboard passwords only in <code>CREDENTIALS.local.md</code>.</strong> Both
+    are git-ignored. Rotate any key that has ever been pasted into a chat.</li>
+</ol>
+</body></html>
