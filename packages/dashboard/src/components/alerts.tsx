@@ -9,6 +9,8 @@ import {
   type LadderLevel,
   type Notification,
   type ChannelState,
+  type ConsentState,
+  type DeliveryMode,
   type Pref,
   type SlaRow,
 } from "../lib/api";
@@ -237,7 +239,8 @@ export function AlertsTab({ viewer, canAck, isCeo = false, onChanged, tick }: { 
 
       <ChannelsCard viewer={viewer} canEdit={isCeo} />
       <DeviceCard viewer={viewer} />
-      <PrefsCard viewer={viewer} />
+      <PrefsCard viewer={viewer} tick={tick} />
+      <ConsentCard viewer={viewer} isCeo={isCeo} />
     </div>
   );
 }
@@ -312,6 +315,20 @@ function DeviceCard({ viewer }: { viewer: string }) {
           <span className={`text-xs ${state.kind === "on" ? "text-ok" : "text-mut"}`}>
             {state.kind === "on" ? "● on" : "○ off"}
           </span>
+          {state.kind === "on" ? (
+            <Button
+              busy={act.busy}
+              title="Queues a real notification through the outbox and the worker — the same path an alert takes"
+              onClick={() =>
+                void act.run(async () => {
+                  await api.pushTest(viewer);
+                  return "Test queued. It should arrive within a few seconds — try it with the app closed.";
+                })
+              }
+            >
+              🔔 Send a test notification
+            </Button>
+          ) : null}
         </div>
       ) : null}
       <p className="mt-3 text-[11px] text-mut">
@@ -335,13 +352,77 @@ const CHANNEL_LABEL: Record<ChannelState["channel"], { name: string; blurb: stri
  * server, this switch, and the person's own preference below — so a switch that is on can
  * still be dark, and the card says which of the three is missing rather than pretending.
  */
+const MODE_LABEL: Record<DeliveryMode, { name: string; blurb: string }> = {
+  telegram: { name: "Telegram", blurb: "Today's setup. Alerts go to Telegram and the inbox here." },
+  both: { name: "Telegram + App", blurb: "Adds phone and desktop notifications from this app. Nobody loses Telegram." },
+  app: { name: "App only", blurb: "The app replaces Telegram: the inbox here plus notifications on each person's devices." },
+};
+
+/**
+ * The one toggle a CEO needs: where do people hear from us? Three presets over the Telegram
+ * and web push switches below. "App only" is refused by the server while web push is not
+ * set up, because switching Telegram off would then leave nobody reachable outside this page.
+ */
+function DeliveryModeSwitch({
+  mode,
+  pushAvailable,
+  canEdit,
+  busy,
+  onPick,
+}: {
+  mode: DeliveryMode | "custom";
+  pushAvailable: boolean;
+  canEdit: boolean;
+  busy: boolean;
+  onPick: (m: DeliveryMode) => void;
+}) {
+  return (
+    <div className="mb-4 rounded-xl border border-edge bg-sunken p-3">
+      <div className="mb-2 flex flex-wrap items-baseline gap-2">
+        <b className="text-sm">How people hear from us</b>
+        <span className="text-xs text-mut">
+          {mode === "custom" ? "Custom — the switches below match none of the three presets." : MODE_LABEL[mode].blurb}
+        </span>
+      </div>
+      <div role="radiogroup" aria-label="Delivery mode" className="grid gap-2 sm:grid-cols-3">
+        {(Object.keys(MODE_LABEL) as DeliveryMode[]).map((m) => {
+          const on = mode === m;
+          const blocked = m === "app" && !pushAvailable;
+          return (
+            <button
+              key={m}
+              role="radio"
+              aria-checked={on}
+              data-mode={m}
+              disabled={!canEdit || busy || on || blocked}
+              onClick={() => onPick(m)}
+              title={blocked ? "Needs web push set up on the server first (VAPID keys)" : canEdit ? `Switch to ${MODE_LABEL[m].name}` : "Only the CEO can change this"}
+              className={`rounded-lg border px-3 py-2 text-left text-sm transition-colors disabled:cursor-not-allowed ${
+                on ? "border-ok bg-ok/12 font-semibold text-ok" : "border-edge bg-panel hover:border-ok disabled:opacity-60"
+              }`}
+            >
+              {on ? "● " : "○ "}
+              {MODE_LABEL[m].name}
+              {m === "telegram" ? <span className="ml-1 text-[11px] font-normal text-mut">(default)</span> : null}
+              {blocked ? <span className="block text-[11px] font-normal text-warn">needs web push set up</span> : null}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function ChannelsCard({ viewer, canEdit }: { viewer: string; canEdit: boolean }) {
   const [rows, setRows] = useState<ChannelState[] | null>(null);
+  const [mode, setMode] = useState<DeliveryMode | "custom">("telegram");
   const act = useAction();
 
   const load = useCallback(async () => {
     try {
-      setRows((await api.channels(viewer)).channels);
+      const r = await api.channels(viewer);
+      setRows(r.channels);
+      setMode(r.mode);
     } catch {
       setRows([]);
     }
@@ -363,6 +444,19 @@ function ChannelsCard({ viewer, canEdit }: { viewer: string; canEdit: boolean })
           : `${CHANNEL_LABEL[c.channel].name} is off.`;
     });
 
+  const pick = (m: DeliveryMode) =>
+    act.run(async () => {
+      const r = await api.setDeliveryMode(viewer, m);
+      await load();
+      return r.mode === "app"
+        ? "App only. Telegram is off; people are told in the inbox and on the devices they have turned on."
+        : r.mode === "both"
+          ? "Telegram + App. Everyone keeps Telegram; anyone who turns on notifications also gets them on their device."
+          : "Telegram only. Web push is off.";
+    });
+
+  const pushAvailable = rows.find((c) => c.channel === "webpush")?.available ?? false;
+
   return (
     <Card className="p-4">
       <Toast message={act.message} tone={act.tone} onDone={act.clear} />
@@ -371,6 +465,7 @@ function ChannelsCard({ viewer, canEdit }: { viewer: string; canEdit: boolean })
         How this company sends messages. {canEdit ? "Only you can change these." : "Only the CEO can change these."} A channel also
         needs to be set up on the server, and each person chooses their own below — all three, or nothing is sent.
       </p>
+      <DeliveryModeSwitch mode={mode} pushAvailable={pushAvailable} canEdit={canEdit} busy={act.busy} onPick={(m) => void pick(m)} />
       <div className="space-y-2">
         {rows.map((c) => {
           const label = CHANNEL_LABEL[c.channel];
@@ -410,18 +505,41 @@ function ChannelsCard({ viewer, canEdit }: { viewer: string; canEdit: boolean })
   );
 }
 
-/** How this person wants to be told. Their own rules and nobody else's. */
-function PrefsCard({ viewer }: { viewer: string }) {
+/** Which channels a person can hold a rule for, in the order they are shown. */
+type PrefChannel = Pref["channel"];
+const PREF_COLUMN: Record<PrefChannel, string> = { telegram: "Telegram", webpush: "This app's notifications", email: "Email" };
+
+/**
+ * How this person wants to be told. Their own rules and nobody else's.
+ *
+ * One column per channel that can actually reach them: Telegram only if they have linked it,
+ * web push and email only while the company has them live. Web push defaults to on for a
+ * person with a device turned on (see alerts.ts); email defaults to off. A column that could
+ * not deliver anything is not offered, rather than offered and silently ignored.
+ */
+function PrefsCard({ viewer, tick }: { viewer: string; tick: number }) {
   const [prefs, setPrefs] = useState<Pref[] | null>(null);
   const [events, setEvents] = useState<AlertEventType[]>([]);
+  const [columns, setColumns] = useState<PrefChannel[]>([]);
   const [delays, setDelays] = useState<Record<string, string>>({});
   const act = useAction();
 
   const load = useCallback(async () => {
     try {
-      const r = await api.prefs(viewer);
+      const [r, ch, me] = await Promise.all([
+        api.prefs(viewer),
+        api.channels(viewer).catch(() => ({ channels: [] as ChannelState[] })),
+        api.me(viewer).catch(() => null),
+      ]);
       setPrefs(r.prefs);
       setEvents(r.events);
+      const live = new Set(ch.channels.filter((c) => c.live).map((c) => c.channel));
+      const cols: PrefChannel[] = [];
+      // A demo viewer has no `telegramLinked` (older API): keep showing Telegram, as before.
+      if (live.has("telegram") && me?.telegramLinked !== false) cols.push("telegram");
+      if (live.has("webpush")) cols.push("webpush");
+      if (live.has("email")) cols.push("email");
+      setColumns(cols);
       const d: Record<string, string> = {};
       for (const p of r.prefs) if (p.channel === "telegram") d[p.eventType] = String(p.delayMinutes ?? 0);
       setDelays(d);
@@ -432,53 +550,164 @@ function PrefsCard({ viewer }: { viewer: string }) {
 
   useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, tick]);
 
   if (!prefs) return null;
-  const modeOf = (e: AlertEventType) => prefs.find((p) => p.eventType === e && p.channel === "telegram")?.mode ?? "immediate";
+  // Defaults mirror alerts.ts: Telegram and web push on unless a rule says otherwise; email off.
+  const modeOf = (e: AlertEventType, c: PrefChannel) =>
+    prefs.find((p) => p.eventType === e && p.channel === c)?.mode ?? (c === "email" ? "off" : "immediate");
 
-  const save = (eventType: AlertEventType, mode: Pref["mode"], delay: number) =>
+  const save = (eventType: AlertEventType, channel: PrefChannel, mode: Pref["mode"], delay = 0) =>
     act.run(async () => {
-      await api.setPref(viewer, { eventType, channel: "telegram", mode, delayMinutes: delay });
+      await api.setPref(viewer, { eventType, channel, mode, delayMinutes: delay });
       await load();
       return "Saved.";
     });
+
+  const optionsFor = (current: string) => [
+    { value: "immediate", label: "Immediately" },
+    { value: "off", label: "Off" },
+    // `digest` is storable and the API accepts it, but no digest is ever assembled — core
+    // treats it as "not now", i.e. silence. Offering it without saying so would promise a
+    // summary that never arrives; hiding it made an existing digest row render as
+    // "Immediately", which was a lie in the other direction.
+    ...(current === "digest" ? [{ value: "digest", label: "Digest — not built yet (silent)" }] : []),
+  ];
 
   return (
     <Card className="p-4">
       <Toast message={act.message} tone={act.tone} onDone={act.clear} />
       <h3 className="mb-1 font-semibold">How you are told</h3>
       <p className="mb-3 text-xs text-mut">
-        Your inbox here always gets everything. Telegram is on unless you turn it off, and can be held for a few minutes. Email and web push
-        will appear here when they are switched on.
+        Your inbox here always gets everything. {columns.includes("telegram") ? "Telegram is on unless you turn it off, and can be held for a few minutes. " : ""}
+        {columns.includes("webpush") ? "This app's notifications are on for every device you have turned on above. " : ""}
+        {columns.length === 0 ? "No other channel is live for you right now — the Channels card says why." : ""}
       </p>
-      <div className="space-y-2">
-        {events.map((e) => {
-          const mode = modeOf(e);
-          return (
-            <div key={e} className="grid items-end gap-2 sm:grid-cols-[1fr_150px_120px_auto]">
+      {columns.length === 0 ? null : (
+        <div className="space-y-3">
+          {events.map((e) => (
+            <div key={e} className="grid items-end gap-2 sm:grid-cols-[1fr_repeat(3,minmax(0,150px))_auto]">
               <span className="text-sm">{EVENT_LABEL[e] ?? e}</span>
-              <Select
-                label="Telegram"
-                value={mode}
-                onChange={(v) => void save(e, v as Pref["mode"], Number(delays[e] ?? 0))}
-                options={[
-                  { value: "immediate", label: "Immediately" },
-                  { value: "off", label: "Off" },
-                  // `digest` is storable and the API accepts it, but no digest is ever
-                  // assembled — core treats it as "not now", i.e. silence. Offering it
-                  // without saying so would promise a summary that never arrives; hiding
-                  // it entirely made an existing digest row render as "Immediately",
-                  // which was a lie in the other direction.
-                  ...(mode === "digest" ? [{ value: "digest", label: "Digest — not built yet (silent)" }] : []),
-                ]}
-              />
-              <TextField label="Hold (min)" value={delays[e] ?? "0"} onChange={(v) => setDelays((d) => ({ ...d, [e]: v }))} type="number" />
-              <Button busy={act.busy} disabled={mode === "off"} onClick={() => void save(e, mode as Pref["mode"], Number(delays[e] ?? 0))}>Save</Button>
+              {columns.map((c) => (
+                <Select
+                  key={c}
+                  label={PREF_COLUMN[c]}
+                  value={modeOf(e, c)}
+                  onChange={(v) => void save(e, c, v as Pref["mode"], c === "telegram" ? Number(delays[e] ?? 0) : 0)}
+                  options={optionsFor(modeOf(e, c))}
+                />
+              ))}
+              {columns.includes("telegram") ? (
+                <span className="flex items-end gap-2">
+                  <TextField label="Telegram hold (min)" value={delays[e] ?? "0"} onChange={(v) => setDelays((d) => ({ ...d, [e]: v }))} type="number" />
+                  <Button busy={act.busy} disabled={modeOf(e, "telegram") === "off"} onClick={() => void save(e, "telegram", modeOf(e, "telegram") as Pref["mode"], Number(delays[e] ?? 0))}>Save</Button>
+                </span>
+              ) : null}
             </div>
-          );
-        })}
-      </div>
+          ))}
+        </div>
+      )}
     </Card>
+  );
+}
+
+/**
+ * The person's own consent record, and the way out. Withdrawing is the app's /withdraw:
+ * the account is disabled and nothing more is collected. It asks twice because it signs the
+ * person out for good — getting back in is a conversation with the company, not a button.
+ */
+function ConsentCard({ viewer, isCeo }: { viewer: string; isCeo: boolean }) {
+  const [c, setC] = useState<ConsentState | null>(null);
+  const [confirming, setConfirming] = useState(false);
+  const act = useAction();
+
+  useEffect(() => {
+    let cancelled = false;
+    void api.consent(viewer).then((r) => { if (!cancelled) setC(r); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [viewer]);
+
+  if (!c) return null;
+  return (
+    <Card className="p-4">
+      <Toast message={act.message} tone={act.tone} onDone={act.clear} />
+      <h3 className="mb-1 font-semibold">Your consent</h3>
+      <p className="mb-2 text-xs text-mut">
+        {c.consented
+          ? `You agreed on ${dmon(c.consentedAt!)} ${hhmm(c.consentedAt!)} (notice ${c.policyVersion}).`
+          : "No consent is recorded for you yet."}{" "}
+        What this system records about you is set out in the notice below.
+      </p>
+      <details className="mb-3 text-xs">
+        <summary className="cursor-pointer text-link">Read the notice</summary>
+        <p className="mt-2 whitespace-pre-wrap text-ink">{c.notice}</p>
+      </details>
+      {isCeo ? (
+        <p className="text-[11px] text-mut">The CEO account cannot withdraw here — hand the CEO role to someone else first.</p>
+      ) : !confirming ? (
+        <Button onClick={() => setConfirming(true)}>Withdraw consent…</Button>
+      ) : (
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-crit/50 bg-crit/5 p-2">
+          <span className="text-xs">This turns your account off. Your past updates are kept; nothing new is collected. You will be signed out.</span>
+          <Button
+            tone="danger"
+            busy={act.busy}
+            onClick={() =>
+              void act.run(async () => {
+                await api.withdrawConsent(viewer);
+                setTimeout(() => location.reload(), 1500);
+                return "Consent withdrawn. Your account is now off.";
+              })
+            }
+          >
+            Yes, withdraw
+          </Button>
+          <Button onClick={() => setConfirming(false)}>Cancel</Button>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+/**
+ * Shown instead of the app to a signed-in person with no consent on record — the app's
+ * version of the bot's /start notice. Somebody who never uses Telegram would otherwise be
+ * processed without ever having been told what is recorded.
+ */
+export function ConsentGate({ viewer, onAgreed }: { viewer: string; onAgreed: () => void }) {
+  const [c, setC] = useState<ConsentState | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const act = useAction();
+
+  useEffect(() => {
+    void api.consent(viewer).then(setC).catch((e: unknown) => setErr(e instanceof Error ? e.message : "Could not load the notice"));
+  }, [viewer]);
+
+  return (
+    <div className="grid min-h-screen place-items-center bg-canvas p-4">
+      <Toast message={act.message} tone={act.tone} onDone={act.clear} />
+      <Card className="w-full max-w-lg space-y-3 p-5">
+        <h2 className="text-lg font-bold">Before you start</h2>
+        {err ? <p className="text-sm text-crit">{err}</p> : !c ? <Spinner label="Loading…" /> : (
+          <>
+            <p className="whitespace-pre-wrap text-sm text-ink">{c.notice}</p>
+            <p className="text-[11px] text-mut">Draft notice {"(pending company sign-off)"} · recorded with a fingerprint of exactly these words.</p>
+            <Button
+              tone="primary"
+              busy={act.busy}
+              onClick={() =>
+                void act.run(async () => {
+                  await api.giveConsent(viewer, c.noticeHash);
+                  onAgreed();
+                  return "Thank you — recorded.";
+                })
+              }
+            >
+              I have read this and agree
+            </Button>
+          </>
+        )}
+      </Card>
+    </div>
   );
 }

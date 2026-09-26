@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { notify } from "./alerts.js";
+import { notify, notifyPeople } from "./alerts.js";
 import { logAudit } from "./audit.js";
 import { saveAttachments, type IncomingFile } from "./attachments.js";
 import { getServiceSql } from "./db.js";
@@ -278,25 +278,20 @@ async function alertNeedsReview(
   noteRaw: string,
   correlationId?: string,
 ): Promise<void> {
-  const sql = getServiceSql();
   // The real CEO, looked up — not the seeded id (audit 2026-09-18).
   const ceoId = await ceoEmployeeId();
-  const rows = await sql<{ telegram_user_id: string | null }[]>`
-    select telegram_user_id from employee where id = ${ceoId}`;
-  const chatId = rows[0]?.telegram_user_id ?? null;
 
-  await enqueueNotification({
-    idempotencyKey: `needs-review-${taskUpdateId}`,
-    chatId: chatId == null ? null : Number(chatId),
-    channel: "telegram",
-    recipientEmployeeId: ceoId,
-    correlationId,
-    reason: "needs a human reader",
-    payload: {
-      text: `❓ An employee update could not be read automatically and needs a human:\n\n"${noteRaw}"`,
-      kind: "needs_review",
-      taskUpdateId,
-    },
+  // Every channel the CEO is reachable on, not only Telegram: with Telegram switched off this
+  // used to be dropped at the outbox gate, and an unreadable breakdown report reached nobody.
+  // The Telegram row keeps its original key so an update already alerted is never re-sent.
+  await notifyPeople({
+    recipients: [{ employeeId: ceoId, reason: "needs a human reader" }],
+    keyFor: (_id, channel) => (channel === "telegram" ? `needs-review-${taskUpdateId}` : `needs-review-${taskUpdateId}:${channel}`),
+    text: `❓ An employee update could not be read automatically and needs a human:\n\n"${noteRaw}"`,
+    kind: "needs_review",
+    presentation: { title: "An update needs a human reader", url: "/app/#tasks/today", tag: `review-${taskUpdateId}`, urgent: false },
+    payload: { taskUpdateId },
+    ...(correlationId ? { correlationId } : {}),
   });
   await logAudit({
     correlationId,
@@ -416,11 +411,24 @@ export async function assignTask(p: {
   const sent = await notify(
     { type: "task.assigned", assignmentId, taskId, assigneeId: p.assignedTo, assignedBy: p.assignedBy },
     {
+      // Attachments are Telegram file references, never bytes (attachments.ts), so only the
+      // Telegram message can say "sent below". Everywhere else says where the files are
+      // rather than promising something that will not arrive.
       text:
         `📌 New task from ${from}:\n\n${p.title}` +
         (p.note ? `\n\n"${p.note}"` : "") +
-        (files.length ? `\n\n📎 ${files.length} file(s) attached — sent below.` : ""),
+        (files.length ? `\n\n📎 ${files.length} file(s) attached — delivered in Telegram only.` : ""),
       payload: { assignmentId, taskId },
+      ...(files.length
+        ? {
+            telegram: {
+              text:
+                `📌 New task from ${from}:\n\n${p.title}` +
+                (p.note ? `\n\n"${p.note}"` : "") +
+                `\n\n📎 ${files.length} file(s) attached — sent below.`,
+            },
+          }
+        : {}),
       correlationId,
     },
   );

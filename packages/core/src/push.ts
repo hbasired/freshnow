@@ -101,3 +101,18 @@ export async function markPushDelivered(endpoint: string): Promise<void> {
   const sql = getServiceSql();
   await sql`update push_subscription set last_seen_at = now() where endpoint = ${endpoint}`;
 }
+
+/**
+ * Which of these people have at least one device subscribed. A subscription is the opt-in
+ * for web push: it exists only because the person tapped "Turn on for this device" and then
+ * said yes to the browser's own permission prompt — two explicit acts, which is a clearer
+ * "yes" than any preference row. `alerts.ts` sends web push to these people by default and
+ * lets a per-event "off" rule silence it.
+ */
+export async function hasPushDevice(employeeIds: readonly string[]): Promise<Set<string>> {
+  if (employeeIds.length === 0) return new Set();
+  const sql = getServiceSql();
+  const rows = await sql<{ employee_id: string }[]>`
+    select distinct employee_id from push_subscription where employee_id = any(${[...employeeIds]})`;
+  return new Set(rows.map((r) => r.employee_id));
+}

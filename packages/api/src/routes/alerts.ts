@@ -3,10 +3,23 @@ import { z } from "zod";
 import {
   ALERT_EVENT_TYPES,
   CHANNELS,
+  ConsentNoticeChangedError,
+  DELIVERY_MODES,
+  DeliveryModeError,
   PREF_MODES,
   addTaskWatcher,
+  appConsentNotice,
   channelStates,
+  consentStatus,
   deletePushSubscription,
+  deliveryModeOf,
+  enqueueNotification,
+  isChannelLive,
+  noticeHash,
+  pushSubscriptionsFor,
+  recordAppConsent,
+  setDeliveryMode,
+  withdrawConsent,
   listMyDevices,
   loadEscalationLadder,
   markNotificationsRead,
@@ -17,6 +30,7 @@ import {
   withContext,
   type AlertEventType,
   type Channel,
+  type DeliveryMode,
 } from "@freshnow/core";
 import { forbid, resolveViewer } from "../viewer.js";
 
@@ -46,6 +60,8 @@ const PushBody = z.object({
   userAgent: z.string().max(300).optional(),
 });
 const PushDeleteBody = z.object({ endpoint: z.string().url().max(2000) });
+const ModeBody = z.object({ mode: z.enum(DELIVERY_MODES as unknown as [DeliveryMode, ...DeliveryMode[]]) });
+const ConsentBody = z.object({ noticeHash: z.string().regex(/^[0-9a-f]{64}$/) });
 const InboxQuery = z.object({ unread: z.enum(["1", "0"]).optional(), limit: z.coerce.number().int().min(1).max(100).optional() });
 
 export function registerAlertRoutes(app: FastifyInstance): void {
@@ -177,7 +193,29 @@ export function registerAlertRoutes(app: FastifyInstance): void {
    * because the dashboard explains to each person why an option is or is not offered, and
    * that explanation would be a lie if the state were hidden.
    */
-  app.get("/dashboard/channels", async () => ({ channels: await channelStates() }));
+  app.get("/dashboard/channels", async () => {
+    const channels = await channelStates();
+    return { channels, mode: deliveryModeOf(channels) };
+  });
+
+  /**
+   * The one toggle: Telegram, Telegram + app, or app only. Sets the underlying switches
+   * (each audited as `channel.toggled`) plus one `channel.mode_set` row for the decision.
+   * 409 when "app only" is asked for on a server without web push — see setDeliveryMode.
+   */
+  app.put("/dashboard/channels/mode", async (req, reply) => {
+    const viewer = await resolveViewer(req);
+    if (!viewer.isCeo) return forbid(req, reply, "Only the CEO can change how the company sends messages");
+    const body = ModeBody.parse(req.body);
+    try {
+      return await setDeliveryMode({ mode: body.mode, by: viewer.employeeId, correlationId: req.correlationId });
+    } catch (err) {
+      if (err instanceof DeliveryModeError) {
+        return reply.code(409).send({ error: { code: "conflict", message: err.message, correlationId: req.correlationId } });
+      }
+      throw err;
+    }
+  });
 
   /**
    * Switch a channel on or off. The CEO's decision: it changes what every employee
@@ -223,6 +261,79 @@ export function registerAlertRoutes(app: FastifyInstance): void {
     const viewer = await resolveViewer(req);
     const body = PushDeleteBody.parse(req.body);
     return deletePushSubscription({ employeeId: viewer.employeeId, endpoint: body.endpoint, reason: "the person turned it off" });
+  });
+
+  /**
+   * Send a test notification to the viewer's own devices — the demo button, and the first
+   * thing to try when somebody says "my phone never buzzes". Goes through the real outbox
+   * and the real worker, so a banner proves the whole path rather than the browser alone.
+   * Self-only, and the key is bucketed to ten seconds so a held-down button sends one.
+   */
+  app.post("/dashboard/me/push-test", async (req, reply) => {
+    const viewer = await resolveViewer(req);
+    if (!(await isChannelLive("webpush"))) {
+      return reply.code(409).send({
+        error: { code: "conflict", message: "Web push is not live — it needs VAPID keys on the server and the CEO's switch on.", correlationId: req.correlationId },
+      });
+    }
+    if ((await pushSubscriptionsFor(viewer.employeeId)).length === 0) {
+      return reply.code(409).send({
+        error: { code: "conflict", message: "No device is turned on for you yet — tap “Turn on for this device” first.", correlationId: req.correlationId },
+      });
+    }
+    const bucket = Math.floor(Date.now() / 10_000);
+    const r = await enqueueNotification({
+      idempotencyKey: `push-test:${viewer.employeeId}:${bucket}`,
+      channel: "webpush",
+      recipientEmployeeId: viewer.employeeId,
+      reason: "you asked for a test",
+      correlationId: req.correlationId,
+      payload: {
+        kind: "test",
+        title: "FreshNow test notification",
+        text: "If you can read this, notifications reach this device — even with the app closed.",
+        url: "/app/#tasks/alerts",
+        tag: "push-test",
+      },
+    });
+    return reply.code(202).send({ queued: r.enqueued });
+  });
+
+  /**
+   * The viewer's consent state, with the exact notice the app shows and its hash. The hash
+   * travels back on accept so what is recorded is provably what was on screen.
+   */
+  app.get("/dashboard/me/consent", async (req) => {
+    const viewer = await resolveViewer(req);
+    const notice = appConsentNotice("en");
+    return { ...(await consentStatus(viewer.employeeId)), notice, noticeHash: noticeHash(notice) };
+  });
+
+  app.post("/dashboard/me/consent", async (req, reply) => {
+    const viewer = await resolveViewer(req);
+    const body = ConsentBody.parse(req.body);
+    try {
+      return await recordAppConsent({ employeeId: viewer.employeeId, noticeHash: body.noticeHash, correlationId: req.correlationId });
+    } catch (err) {
+      if (err instanceof ConsentNoticeChangedError) {
+        return reply.code(409).send({ error: { code: "conflict", message: err.message, correlationId: req.correlationId } });
+      }
+      throw err;
+    }
+  });
+
+  /**
+   * Withdraw consent — the app's equivalent of the bot's /withdraw, with the same effect:
+   * the person is disabled, nothing more is collected, and history is kept (erasure is a
+   * separate, CEO-run step). The CEO cannot do this to themselves here: it would lock the
+   * company out of its own system, and handing over the role is an erasure-and-handover
+   * decision, not a button.
+   */
+  app.post("/dashboard/me/consent/withdraw", async (req, reply) => {
+    const viewer = await resolveViewer(req);
+    if (viewer.isCeo) return forbid(req, reply, "The CEO account cannot withdraw here — hand the CEO role to someone else first");
+    await withdrawConsent(viewer.employeeId);
+    return { withdrawn: true };
   });
 
   /** The viewer's own devices, so they can see what is subscribed and revoke one. */

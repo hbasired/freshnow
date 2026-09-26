@@ -148,3 +148,97 @@ export async function setChannelEnabled(p: {
     why: live ? "" : !available ? why : "Configured, but the company has not switched it on.",
   };
 }
+
+// ── Delivery mode: the one toggle the CEO actually needs ────────────────────────
+//
+// Five switches answer "which channels exist". The question the company is really asking is
+// narrower — "do people hear from us in Telegram, in the app, or both?" — and flipping two
+// switches in the right order to answer it is how a demo turns Telegram off before push is
+// on and leaves everybody unreachable for a minute. So there are three named presets over
+// the same switches. They write `channel_setting` and nothing else: every other path (the
+// outbox gate, `liveChannels()`, the Channels card) keeps reading the switches, and a
+// preset is simply a way of setting two of them at once, audited as one decision.
+//
+//   telegram — Telegram on,  web push off. The state migration 0017 shipped. The default.
+//   both     — Telegram on,  web push on.  Additive: nobody loses a channel.
+//   app      — Telegram off, web push on.  The app replaces Telegram.
+//
+// The in-app inbox is on in all three; it is the record, not a copy of it.
+
+export const DELIVERY_MODES = ["telegram", "both", "app"] as const;
+export type DeliveryMode = (typeof DELIVERY_MODES)[number];
+
+/**
+ * Which preset the switches currently match. "custom" when they match none — for example
+ * both off, which leaves only the inbox. Read from `enabled`, not `live`: the mode is the
+ * company's decision, and whether the keys exist is reported separately beside it.
+ */
+export function deliveryModeOf(states: readonly Pick<ChannelState, "channel" | "enabled">[]): DeliveryMode | "custom" {
+  const on = (c: Channel) => states.find((s) => s.channel === c)?.enabled ?? false;
+  const tg = on("telegram");
+  const push = on("webpush");
+  if (tg && !push) return "telegram";
+  if (tg && push) return "both";
+  if (!tg && push) return "app";
+  return "custom";
+}
+
+export class DeliveryModeError extends Error {}
+
+/**
+ * Switch the company to one of the three presets.
+ *
+ * Refuses "app" while web push is not configured on this server. Turning Telegram off is
+ * only safe when something else can reach a phone with the app closed; without VAPID keys
+ * the only remaining channel is the inbox, which reaches nobody who is not already looking
+ * at it. That is exactly the failure this system exists to prevent — a blocker raised and
+ * nobody hearing — so it is refused here rather than warned about in the UI. "both" is
+ * always allowed: it only adds.
+ *
+ * Web push is switched ON before Telegram is switched OFF, so there is no instant at which
+ * both are dark.
+ */
+export async function setDeliveryMode(p: {
+  mode: DeliveryMode;
+  by: string;
+  correlationId?: string;
+}): Promise<{ mode: DeliveryMode | "custom"; channels: ChannelState[] }> {
+  const before = await channelStates();
+  const beforeMode = deliveryModeOf(before);
+  const want: Record<"telegram" | "webpush", boolean> = {
+    telegram: p.mode !== "app",
+    webpush: p.mode !== "telegram",
+  };
+
+  if (p.mode === "app") {
+    const push = channelAvailability("webpush");
+    if (!push.available) {
+      throw new DeliveryModeError(
+        `Cannot switch to app only: web push is not set up on this server, so switching Telegram off would leave nobody reachable outside the dashboard. ${push.why}`,
+      );
+    }
+  }
+
+  // Order matters: add before you remove.
+  for (const channel of ["webpush", "telegram"] as const) {
+    const current = before.find((s) => s.channel === channel)?.enabled ?? false;
+    if (current !== want[channel]) {
+      await setChannelEnabled({ channel, enabled: want[channel], by: p.by, ...(p.correlationId ? { correlationId: p.correlationId } : {}) });
+    }
+  }
+
+  // Picking the mode that is already on changes nothing and is not a decision worth a row.
+  if (beforeMode === p.mode) return { mode: beforeMode, channels: before };
+
+  await logAudit({
+    correlationId: p.correlationId,
+    actor: `employee:${p.by}`,
+    action: "channel.mode_set",
+    entity: "channel_setting",
+    entityId: p.mode,
+    detail: { before: beforeMode, after: p.mode },
+  });
+
+  const channels = await channelStates();
+  return { mode: deliveryModeOf(channels), channels };
+}

@@ -59,14 +59,19 @@ export {
   liveChannels,
   isChannelLive,
   setChannelEnabled,
+  DELIVERY_MODES,
+  deliveryModeOf,
+  setDeliveryMode,
+  DeliveryModeError,
 } from "./channels.js";
-export type { Channel, ChannelState } from "./channels.js";
+export type { Channel, ChannelState, DeliveryMode } from "./channels.js";
 export {
   savePushSubscription,
   deletePushSubscription,
   pushSubscriptionsFor,
   listMyDevices,
   markPushDelivered,
+  hasPushDevice,
 } from "./push.js";
 export type { PushSubscriptionInput, StoredPushSubscription } from "./push.js";
 export { screenInboundEmail, recordInboundEmail, secretMatches, addressOf } from "./inbound-email.js";
@@ -121,6 +126,8 @@ export {
   availableChannels,
   resolveAlertRecipients,
   notify,
+  notifyPeople,
+  presentationOf,
   openAlert,
   blockerAlias,
   loadEscalationLadder,
@@ -130,7 +137,7 @@ export {
   setNotificationPref,
   markNotificationsRead,
 } from "./alerts.js";
-export type { AlertEvent, AlertEventType, AlertRecipient, NotifyResult, EscalationLevelRow, PrefMode } from "./alerts.js";
+export type { AlertEvent, AlertEventType, AlertRecipient, NotifyResult, EscalationLevelRow, PrefMode, Presentation } from "./alerts.js";
 
 export { replayRun } from "./replay.js";
 export type { ReplayReport, ReplayCheck } from "./replay.js";
@@ -169,8 +176,13 @@ export {
   updateProfileField,
   ensureCeoLinked,
   withdrawConsent,
+  APP_CONSENT_POLICY_VERSION,
+  appConsentNotice,
+  consentStatus,
+  recordAppConsent,
+  ConsentNoticeChangedError,
 } from "./onboarding.js";
-export type { InviteCheck, RedeemResult, ProfileStep, ProfileField } from "./onboarding.js";
+export type { InviteCheck, RedeemResult, ProfileStep, ProfileField, ConsentStatus } from "./onboarding.js";
 
 export {
   listOpenTasks,

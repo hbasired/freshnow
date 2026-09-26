@@ -35,6 +35,7 @@ const SEND_TIMEOUT_MS = 20_000;
 export type PushTransport = (
   sub: { endpoint: string; keys: { p256dh: string; auth: string } },
   body: string,
+  opts?: { urgent: boolean },
 ) => Promise<unknown>;
 
 interface PushPayload {
@@ -55,8 +56,18 @@ export function makeWebPushSender(transport?: PushTransport): Deliverer {
     throw new Error("Web push needs VAPID_SUBJECT, VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY — run `npx web-push generate-vapid-keys`");
   }
   webpush.setVapidDetails(subject, publicKey, privateKey);
+  // Urgency is the RFC 8030 header the push service reads to decide whether to wake a
+  // sleeping phone now or batch the message for its next wake-up (Android Doze, iOS low
+  // power). A blocker is the one thing here that should not wait for the phone's
+  // convenience; everything else asks for "normal" and saves the recipient's battery.
   const send: PushTransport =
-    transport ?? ((sub, body) => webpush.sendNotification(sub, body, { TTL: 3600, timeout: SEND_TIMEOUT_MS }));
+    transport ??
+    ((sub, body, opts) =>
+      webpush.sendNotification(sub, body, {
+        TTL: 3600,
+        timeout: SEND_TIMEOUT_MS,
+        urgency: opts?.urgent ? "high" : "normal",
+      }));
 
   return async ({ payload, recipientEmployeeId }) => {
     if (!recipientEmployeeId) throw new Error("web push needs a recipient_employee_id");
@@ -80,7 +91,7 @@ export function makeWebPushSender(transport?: PushTransport): Deliverer {
 
     for (const sub of subs) {
       try {
-        await send({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } }, body);
+        await send({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } }, body, { urgent: p.urgent === true });
         delivered++;
         await markPushDelivered(sub.endpoint).catch(() => {});
       } catch (err) {

@@ -338,6 +338,20 @@ export interface Me {
   department: string | null;
   displayName: string | null;
   authRequired: boolean;
+  /** Whether this person has a Telegram account linked; the Telegram column follows it. */
+  telegramLinked?: boolean;
+}
+
+/** Telegram only (default), Telegram + the app, or the app only — the company's one toggle. */
+export type DeliveryMode = "telegram" | "both" | "app";
+
+export interface ConsentState {
+  consented: boolean;
+  consentedAt: string | null;
+  policyVersion: string | null;
+  /** The exact words the app shows, and their hash — sent back on accept. */
+  notice: string;
+  noticeHash: string;
 }
 
 // ── Calls ───────────────────────────────────────────────────────────────────
@@ -348,7 +362,13 @@ export const api = {
   employees: (viewer: string) => get<Employee[]>("/dashboard/employees", { viewer }),
   day: (viewer: string, date: string) => get<DayUpdate[]>("/dashboard/day", { viewer, date }),
   week: (viewer: string, date: string) => get<WeekDay[]>("/dashboard/week", { viewer, date }),
-  channels: (viewer: string) => get<{ channels: ChannelState[] }>("/dashboard/channels", { viewer }),
+  channels: (viewer: string) => get<{ channels: ChannelState[]; mode: DeliveryMode | "custom" }>("/dashboard/channels", { viewer }),
+  setDeliveryMode: (viewer: string, mode: DeliveryMode) =>
+    post<{ mode: DeliveryMode | "custom"; channels: ChannelState[] }>("/dashboard/channels/mode", { mode }, { viewer }, "PUT"),
+  pushTest: (viewer: string) => post<{ queued: boolean }>("/dashboard/me/push-test", undefined, { viewer }),
+  consent: (viewer: string) => get<ConsentState>("/dashboard/me/consent", { viewer }),
+  giveConsent: (viewer: string, noticeHash: string) => post<ConsentState>("/dashboard/me/consent", { noticeHash }, { viewer }),
+  withdrawConsent: (viewer: string) => post<{ withdrawn: boolean }>("/dashboard/me/consent/withdraw", undefined, { viewer }),
   subscribePush: (viewer: string, body: { endpoint: string; keys: { p256dh: string; auth: string }; userAgent?: string }) =>
     post<{ created: boolean }>("/dashboard/me/push-subscriptions", body, { viewer }),
   unsubscribePush: (viewer: string, endpoint: string) =>

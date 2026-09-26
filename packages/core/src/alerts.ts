@@ -4,6 +4,7 @@ import { liveChannels, type Channel } from "./channels.js";
 import { DEMO_CEO_ID } from "./meta.js";
 import { canAssignTo, loadViewer } from "./org.js";
 import { enqueueNotification, type OutboxChannel } from "./outbox.js";
+import { hasPushDevice } from "./push.js";
 
 /**
  * Who is told what, through which channel, and why.
@@ -248,9 +249,18 @@ interface PrefRow {
 
 /**
  * Turn people into (person, channel) pairs. Defaults when a person has said nothing:
- * Telegram immediately (if they are linked) and the in-app inbox always. A "digest" rule
- * is honoured as "not now": digests are not built, and sending immediately anyway would
- * make the preference a lie.
+ * Telegram immediately (if they are linked), the in-app inbox always, and web push
+ * immediately if they have turned it on for at least one device. A "digest" rule is
+ * honoured as "not now": digests are not built, and sending immediately anyway would make
+ * the preference a lie.
+ *
+ * Why a subscribed device counts as opting in to web push, when email still needs a rule:
+ * a subscription only exists because the person tapped "Turn on for this device" AND said
+ * yes to the browser's own permission prompt. Requiring a third, per-event rule on top of
+ * that meant web push could be switched on by the company, enabled on the phone, and still
+ * never send anything — which is what TASK-043 shipped (the preferences card only ever
+ * offered Telegram). An email address, by contrast, can be stored by somebody else, so
+ * email stays opt-in per event.
  */
 export async function resolveAlertRecipients(event: AlertEvent): Promise<AlertRecipient[]> {
   const candidates = await candidatesFor(event);
@@ -267,6 +277,7 @@ export async function resolveAlertRecipients(event: AlertEvent): Promise<AlertRe
     select id, employee_id, channel, mode, delay_minutes from notification_pref
     where employee_id = any(${ids}) and event_type = ${event.type}`;
   const channels = await liveChannels();
+  const withDevice = channels.includes("webpush") ? await hasPushDevice(ids) : new Set<string>();
 
   const personById = new Map(people.map((p) => [p.id, p]));
   const out: AlertRecipient[] = [];
@@ -289,13 +300,55 @@ export async function resolveAlertRecipients(event: AlertEvent): Promise<AlertRe
         out.push({ employeeId: p.id, channel, reason: c.reason, ruleId: pref?.id ?? c.ruleId, delayMinutes: pref?.delay_minutes ?? 0 });
         continue;
       }
-      // Email / web push are opt-in: no rule, no row.
+      if (channel === "webpush") {
+        // No rule: on if they have a device. A rule: it decides ("off" silences one event).
+        if (pref ? pref.mode !== "immediate" : !withDevice.has(p.id)) continue;
+        out.push({ employeeId: p.id, channel, reason: c.reason, ruleId: pref?.id ?? c.ruleId, delayMinutes: pref?.delay_minutes ?? 0 });
+        continue;
+      }
+      // Email (and chat) are opt-in: no rule, no row.
       if (pref && pref.mode === "immediate") {
         out.push({ employeeId: p.id, channel, reason: c.reason, ruleId: pref.id, delayMinutes: pref.delay_minutes });
       }
     }
   }
   return out;
+}
+
+// ── How a message looks outside Telegram ───────────────────────────────────────
+
+/**
+ * What a phone banner needs that a Telegram message does not: a short title, where tapping
+ * it should land, a tag so repeats of the same problem replace one banner instead of
+ * stacking, and whether it is urgent (stays on screen, asks the push service to deliver
+ * now rather than when the phone next wakes).
+ *
+ * Deterministic and derived from the event alone — never from the text, and never from a
+ * model. The words stay the ones `message.text` already carries.
+ *
+ * `url` is always inside /app/ (the service worker's scope). `?task=` makes the dashboard
+ * open that task's panel on arrival; the hash picks the tab.
+ */
+export interface Presentation {
+  title: string;
+  url: string;
+  tag: string;
+  urgent: boolean;
+}
+
+export function presentationOf(event: AlertEvent): Presentation {
+  switch (event.type) {
+    case "blocker.raised":
+      return { title: "Problem for you to resolve", url: "/app/#tasks/alerts", tag: `blocker-${event.blockerId}`, urgent: true };
+    case "blocker.escalated":
+      return { title: `Escalated — level ${event.level}`, url: "/app/#tasks/alerts", tag: `blocker-${event.blockerId}`, urgent: true };
+    case "blocker.resolved":
+      return { title: "Problem resolved", url: "/app/#tasks/alerts", tag: `blocker-${event.blockerId}`, urgent: false };
+    case "task.assigned":
+      return { title: "New task for you", url: `/app/?task=${event.taskId}#tasks/mine`, tag: `task-${event.taskId}`, urgent: false };
+    case "task.done":
+      return { title: "Task finished", url: `/app/?task=${event.taskId}#tasks/assign`, tag: `task-${event.taskId}`, urgent: false };
+  }
 }
 
 // ── Sending ─────────────────────────────────────────────────────────────────────
@@ -342,8 +395,9 @@ export async function notify(
 
   let enqueued = 0;
   const entity = eventEntityKey(event);
+  const shown = presentationOf(event);
   for (const r of recipients) {
-    const base = { text: message.text, kind: event.type, ...(message.payload ?? {}) };
+    const base = { text: message.text, kind: event.type, ...shown, ...(message.payload ?? {}) };
     const payload = r.channel === "telegram" ? { ...base, ...(message.telegram ?? {}) } : base;
     const res = await enqueueNotification({
       idempotencyKey: `${event.type}:${entity}:${r.employeeId}:${r.channel}`,
@@ -371,6 +425,62 @@ export async function notify(
     },
   });
   return { recipients, enqueued };
+}
+
+/**
+ * Tell named people something that is not one of the five alert events — an update nobody
+ * could read, project news. These used to be queued on Telegram (and sometimes the inbox)
+ * directly, so with Telegram switched off they reached nobody's phone. Same defaults as
+ * `resolveAlertRecipients` with no rule: the inbox always, Telegram if linked, web push if
+ * the person has a device. Email is left out on purpose: it is opt-in per event, and these
+ * have no event a person could have opted in to.
+ *
+ * `keyFor` builds each row's idempotency key, so a caller whose rows already exist in the
+ * outbox under an older key shape can keep it and never send the same thing twice.
+ */
+export async function notifyPeople(p: {
+  recipients: readonly { employeeId: string; reason: string }[];
+  keyFor: (employeeId: string, channel: OutboxChannel) => string;
+  text: string;
+  kind: string;
+  presentation: Presentation;
+  payload?: Record<string, unknown>;
+  isSynthetic?: boolean;
+  correlationId?: string;
+}): Promise<{ enqueued: number }> {
+  const byPerson = new Map<string, string>();
+  for (const r of p.recipients) if (!byPerson.has(r.employeeId)) byPerson.set(r.employeeId, r.reason);
+  if (byPerson.size === 0) return { enqueued: 0 };
+  const ids = [...byPerson.keys()];
+
+  const sql = getServiceSql();
+  const people = await sql<{ id: string; status: string; telegram_user_id: string | null }[]>`
+    select id, status, telegram_user_id from employee where id = any(${ids})`;
+  const channels = await liveChannels();
+  const withDevice = channels.includes("webpush") ? await hasPushDevice(ids) : new Set<string>();
+
+  let enqueued = 0;
+  for (const person of people) {
+    if (person.status === "disabled") continue;
+    const reason = byPerson.get(person.id)!;
+    for (const channel of channels) {
+      if (channel === "telegram" && person.telegram_user_id == null) continue;
+      if (channel === "webpush" && !withDevice.has(person.id)) continue;
+      if (channel === "email" || channel === "chat") continue;
+      const res = await enqueueNotification({
+        idempotencyKey: p.keyFor(person.id, channel),
+        chatId: channel === "telegram" ? Number(person.telegram_user_id) : null,
+        payload: { text: p.text, kind: p.kind, ...p.presentation, ...(p.payload ?? {}) },
+        channel,
+        recipientEmployeeId: person.id,
+        reason,
+        isSynthetic: p.isSynthetic ?? false,
+        correlationId: p.correlationId,
+      });
+      if (res.enqueued) enqueued++;
+    }
+  }
+  return { enqueued };
 }
 
 // ── Alerts: one open alert per problem ───────────────────────────────────────────
