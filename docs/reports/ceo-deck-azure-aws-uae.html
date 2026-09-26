@@ -1,0 +1,596 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FreshNow on Azure or AWS in the UAE</title>
+<meta name="description" content="A CEO briefing: hosting FreshNow and its AI inside the UAE on Azure or AWS, what stays in-country, monthly costs for our workload, and where Copilot fits.">
+<style>
+  /* ── Light theme, FreshNow colours ───────────────────────────────────────────
+     Brand fills (#97d700 / #9bca3c / #f39c12) carry near-black ink: they are 8.6–10.9:1
+     with dark text and 1.7–2.2:1 with white, so white text never sits on them. Where a
+     colour has to be READ it is the darkened step: green #3d6b10 (6.35:1 on white),
+     orange #9d5404 (5.67:1), red #a40e26 (7.87:1), blue #0550ae (7.59:1). */
+  :root{
+    --bg:#ffffff; --card:#f6f8fa; --edge:#d0d7de; --ink:#1f2328; --mut:#59636e;
+    --brand:#97d700; --brand2:#9bca3c; --accent:#f39c12; --on-brand:#0d1117;
+    --ok:#3d6b10; --warn:#9d5404; --crit:#a40e26; --info:#0550ae;
+    --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100;   /* categorical, validated */
+    --grid:#e1e4e8;
+  }
+  *{box-sizing:border-box}
+  html{scroll-snap-type:y proximity;scroll-behavior:smooth}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.55 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  section.slide{min-height:100vh;scroll-snap-align:start;padding:44px 56px 56px;position:relative;display:flex;flex-direction:column;justify-content:center;max-width:1400px;margin:0 auto}
+  section.slide::after{content:attr(data-n)" / 17";position:absolute;right:56px;bottom:22px;font-size:12px;color:var(--mut)}
+  h1{font-size:2.6rem;line-height:1.15;margin:0 0 .6rem;letter-spacing:-.01em}
+  h2{font-size:1.9rem;line-height:1.2;margin:0 0 1rem;letter-spacing:-.01em}
+  h3{font-size:1.05rem;margin:1.2rem 0 .4rem}
+  p{margin:.4rem 0}
+  .kicker{display:inline-block;align-self:flex-start;background:var(--brand);color:var(--on-brand);font-weight:800;font-size:.8rem;letter-spacing:.08em;text-transform:uppercase;padding:4px 10px;border-radius:999px;margin-bottom:14px}
+  .lead{font-size:1.2rem;max-width:62ch;color:var(--ink)}
+  .mut{color:var(--mut)} .small{font-size:.86rem} .tiny{font-size:.76rem}
+  .grid{display:grid;gap:18px} .grid>*{min-width:0} .g2{grid-template-columns:1fr 1fr} .g32{grid-template-columns:3fr 2fr} .g3{grid-template-columns:repeat(3,1fr)} .g4{grid-template-columns:repeat(4,1fr)}
+  .card{background:var(--card);border:1px solid var(--edge);border-radius:16px;padding:18px 20px}
+  .card.brand{background:linear-gradient(110deg,var(--brand2),var(--brand));border:0;color:var(--on-brand)}
+  .card.brand .mut{color:#1f2328cc}
+  .edge-ok{border-left:5px solid var(--ok)} .edge-warn{border-left:5px solid var(--accent)} .edge-crit{border-left:5px solid var(--crit)} .edge-info{border-left:5px solid var(--info)}
+  .stat .n{font-size:2.6rem;font-weight:800;line-height:1;margin:.2rem 0}
+  .stat .l{font-size:.85rem;color:var(--mut)}
+  table{border-collapse:collapse;width:100%;font-size:.86rem;background:#fff;border-radius:12px;overflow:hidden}
+  th,td{border:1px solid var(--edge);padding:6px 9px;text-align:left;vertical-align:top}
+  th{background:var(--card);font-weight:700}
+  td.n,th.n{text-align:right;font-variant-numeric:tabular-nums} td.n{white-space:nowrap}
+  tr.hi td{background:#f2f9e3}
+  .v{color:var(--ok);font-weight:700}.b{color:var(--warn);font-weight:700}.a{color:var(--crit);font-weight:700}.i{color:var(--info);font-weight:700}
+  .tag{display:inline-block;font-size:.72rem;font-weight:800;padding:2px 8px;border-radius:999px;vertical-align:1px}
+  .tag.ok{background:#e6f4d5;color:var(--ok)} .tag.warn{background:#fff0dc;color:var(--warn)} .tag.crit{background:#ffe3e0;color:var(--crit)} .tag.info{background:#e1eefb;color:var(--info)} .tag.mut{background:#eaeef2;color:var(--mut)}
+  blockquote{margin:.5rem 0;padding:8px 14px;border-left:4px solid var(--brand);background:#f7fbee;border-radius:0 10px 10px 0;font-size:.92rem}
+  ul{padding-left:1.15rem;margin:.3rem 0} li{margin:.25rem 0}
+  a{color:var(--info)}
+  .foot{position:absolute;left:56px;bottom:22px;font-size:12px;color:var(--mut)}
+  .btn{background:var(--accent);color:var(--on-brand);font-weight:800;padding:8px 14px;border-radius:12px;display:inline-block}
+  .cite{font-size:.74rem;color:var(--mut);margin-top:6px}
+  .cite a{color:var(--info)}
+  .viz{margin-top:8px}
+  .legend{display:flex;gap:16px;font-size:.82rem;color:var(--mut);margin:6px 0 2px;flex-wrap:wrap}
+  .legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+  svg text{font-family:inherit}
+  .tip{position:fixed;pointer-events:none;background:#fff;border:1px solid var(--edge);border-radius:10px;padding:8px 10px;font-size:.8rem;box-shadow:0 6px 24px #0002;display:none;z-index:9}
+  .nav{position:fixed;right:18px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:6px;z-index:8}
+  .nav a{width:8px;height:8px;border-radius:50%;background:var(--edge);display:block}
+  .nav a.on{background:var(--ok)}
+  .hint{position:fixed;right:40px;top:10px;font-size:11px;color:var(--mut);background:#ffffffd9;padding:3px 10px;border-radius:999px;border:1px solid var(--edge)}
+  .flow{display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center}
+  .node{background:#fff;border:1px solid var(--edge);border-radius:12px;padding:10px 12px;font-size:.88rem}
+  .node.bad{border-color:var(--crit);background:#fff5f4} .node.ok{border-color:var(--ok);background:#f4faec} .node.warn{border-color:var(--accent);background:#fff8ec}
+  .arrow{font-size:1.4rem;color:var(--mut);text-align:center}
+  @media (max-width:900px){section.slide{padding:32px 20px 56px;min-height:auto}table{display:block;overflow-x:auto;max-width:100%}.flow{grid-template-columns:1fr !important}.flow .arrow{transform:rotate(90deg)}code{word-break:break-all}.g2,.g3,.g4,.g32{grid-template-columns:1fr}h1{font-size:1.9rem}h2{font-size:1.4rem}.nav{display:none}section.slide::after{right:20px}.foot{left:20px}}
+  @media print{html{scroll-snap-type:none}section.slide{min-height:auto;page-break-after:always;padding:24px}.nav,.hint,.tip{display:none}}
+</style>
+</head>
+<body>
+<div class="tip" id="tip"></div>
+<div class="hint">← → or ↑ ↓ to move · Home / End · P to print</div>
+<nav class="nav" id="nav"></nav>
+
+<!-- 1 ─────────────────────────────────────────────────────────────────────── -->
+<section class="slide" data-n="1" id="s1">
+  <span class="kicker">CEO briefing · 26 September 2026</span>
+  <h1>Running FreshNow on Azure or AWS inside the UAE —<br>what it takes, what it costs, where Copilot fits</h1>
+  <p class="lead">The follow-up to <em>"Where FreshNow's data may go"</em>. Same system, same workload, same arithmetic — now priced on the two hyperscalers with UAE data centres, with the AI kept in the country and Microsoft's Copilot tools placed where they help.</p>
+  <div class="grid g4" style="margin-top:22px">
+    <div class="card stat edge-ok"><div class="l">Recommended host</div><div class="n" style="font-size:1.4rem">Azure UAE North</div><div class="l">Dubai, with backups copied to Abu Dhabi</div></div>
+    <div class="card stat edge-ok"><div class="l">Recommended AI</div><div class="n" style="font-size:1.4rem">Core42</div><div class="l">same model we use, UAE jurisdiction</div></div>
+    <div class="card stat edge-info"><div class="l">Hosting + AI, per month</div><div class="n">≈ $202</div><div class="l">estimate · Azure prices to confirm in its calculator</div></div>
+    <div class="card stat edge-crit"><div class="l">AWS UAE region</div><div class="n" style="font-size:1.4rem">Not now</div><div class="l">impaired since the March strikes; AWS itself advises moving</div></div>
+  </div>
+  <p class="small mut" style="margin-top:18px">Markers, as in the previous briefing: <span class="v">[verified]</span> read in a primary source · <span class="b">[believed]</span> reputable secondary sources or search results that agree · <span class="a">[uncertain]</span> sources conflict or none found · <span class="tag mut">estimate</span> computed from stated inputs. <b>This session could not open Microsoft's or most vendors' pages directly</b> (network policy); AWS prices were read from AWS's official price list. Not legal advice.</p>
+  <div class="foot">Prepared by the development team · sources on slide 16 · what is not verified on slide 17</div>
+</section>
+
+<!-- 2 ─────────────────────────────────────────────────────────────────────── -->
+<section class="slide" data-n="2" id="s2">
+  <span class="kicker">The answer in one slide</span>
+  <h2>Four questions, four answers</h2>
+  <div class="grid g2">
+    <div class="card edge-info"><h3 style="margin-top:0">1 · Is Azure what UAE companies use?</h3>
+      <p><b>Microsoft is deeply embedded in the UAE:</b> two Azure regions (Dubai, Abu Dhabi), a $1.5 bn stake in G42, and the Abu Dhabi government's sovereign cloud built with Microsoft and Core42. AWS has one UAE region; Oracle has two; Google has none. <span class="b">[believed]</span></p>
+      <p class="small mut">We found no market-share figure that supports "most companies" — Azure is a common, well-supported choice, not a proven majority.</p></div>
+    <div class="card edge-warn"><h3 style="margin-top:0">2 · Can the AI stay in the UAE on Azure or AWS too?</h3>
+      <p><b>Only partly.</b> Azure's pay-per-use AI ("Global Standard") runs <em>outside</em> the UAE; its in-country option is reserved capacity from about <b>$6,500 a month</b>. AWS sells a few models in-region, but its UAE region is impaired. <b>Core42 runs our exact model in the UAE for about $7 a month.</b> <span class="b">[believed]</span></p></div>
+    <div class="card edge-ok"><h3 style="margin-top:0">3 · What does it cost per month?</h3>
+      <p><b>About $202</b> on Azure UAE North with Core42 — one server running today's software unchanged, nightly backups copied to Abu Dhabi, AI and voice included. <b>About $282</b> with a managed database. <span class="tag mut">estimate</span> Hostinger was $57 — but abroad.</p></div>
+    <div class="card edge-info"><h3 style="margin-top:0">4 · Where does Copilot fit?</h3>
+      <p><b>GitHub Copilot to build and update the code: yes</b> — $19 per developer a month. Its processing is in the US/EU, so <b>no real employee data ever goes into it</b>. Microsoft 365 Copilot is for office work, not this system; Copilot Studio would duplicate what we already built. <span class="b">[believed]</span></p></div>
+  </div>
+</section>
+
+<!-- 3 ─────────────────────────────────────────────────────────────────────── -->
+<section class="slide" data-n="3" id="s3">
+  <span class="kicker">What 2026 changed</span>
+  <h2>"In the UAE" is now a resilience question, not only a legal one</h2>
+  <div class="grid g32">
+    <div>
+      <div class="card edge-crit">
+        <h3 style="margin-top:0">1 March 2026 — AWS's UAE data centres were struck</h3>
+        <p>Drone strikes during the Iran conflict damaged AWS facilities in the UAE (<code>me-central-1</code>) and Bahrain. At the peak more than 100 AWS services in the UAE region were disrupted; banks, Careem and payment firms reported outages. <span class="b">[believed — CNBC, The Register, InfoQ]</span></p>
+        <blockquote>AWS health dashboard, 15 September 2026 (as reported): it is "unable to restore access to the resources and data hosted exclusively in the mec1-az2 availability zone" — and it recommends customers in the Middle East "backup data and potentially migrate your workloads to alternate AWS Regions."</blockquote>
+        <p class="small">AWS waived March charges and says it is replacing the infrastructure, with "service restoration in the coming months". <span class="b">[believed — InfoQ, Computing, The Stack]</span></p>
+      </div>
+      <div class="card edge-warn" style="margin-top:12px">
+        <h3 style="margin-top:0">Azure has not been hit — but is not out of scope</h3>
+        <p>No strike on Microsoft's UAE data centres was reported. On 31 March Iran's IRGC named Microsoft, Google, Oracle and others as "legitimate targets"; Microsoft said it is rethinking data-centre design for war zones. The UAE is reported to be considering dispersed and underground data centres. <span class="b">[believed — The Register, Cybernews, press]</span></p>
+      </div>
+    </div>
+    <div>
+      <div class="card brand"><b>What it means for us</b>
+        <ul style="margin-top:6px">
+          <li><b>A backup in the same building is not a backup.</b> AWS customers who kept data in one zone lost it.</li>
+          <li><b>Keep the second copy in a different emirate.</b> Azure copies storage from Dubai to its paired Abu Dhabi region automatically ("geo-redundant"); AWS has only one UAE region.</li>
+          <li><b>Be able to rebuild in hours.</b> Our system is one Docker Compose stack plus a database dump — that is already true, and we will rehearse it.</li>
+          <li><b>An encrypted copy outside the UAE</b> is the last line of defence — a decision for counsel under PDPL Art. 23, not a default.</li>
+        </ul>
+      </div>
+      <p class="cite" style="margin-top:10px"><a href="https://www.infoq.com/news/2026/09/aws-middle-east-data-loss/">InfoQ, Sep 2026</a> · <a href="https://www.cnbc.com/2026/03/03/iran-war-uae-drone-strikes-aws-data-centers.html">CNBC, Mar 2026</a> · <a href="https://www.theregister.com/2026/04/08/microsoft_armored_datacenters/">The Register, Apr 2026</a> · <a href="https://www.computing.co.uk/news/2026/aws-admits-permanent-data-loss-after-middle-east-datacentre-strikes">Computing</a></p>
+    </div>
+  </div>
+</section>
+
+<!-- 4 ─────────────────────────────────────────────────────────────────────── -->
+<section class="slide" data-n="4" id="s4">
+  <span class="kicker">Who can host us inside the UAE</span>
+  <h2>The clouds with data centres in the country, and their state in September 2026</h2>
+  <table>
+    <thead><tr><th>Provider</th><th>UAE locations</th><th>State, Sept 2026</th><th>AI inside the UAE</th><th>Fit for FreshNow</th></tr></thead>
+    <tbody>
+      <tr class="hi"><td><b>Microsoft Azure</b></td><td>UAE North (Dubai) · UAE Central (Abu Dhabi, its paired region) <span class="b">[believed]</span></td><td class="v">Operating; not struck</td><td class="b">Reserved capacity only for OpenAI models; Whisper voice in-region; pay-per-use "Global" runs abroad</td><td class="v"><span class="tag ok">RECOMMENDED HOST</span> in-country second copy via Abu Dhabi</td></tr>
+      <tr><td><b>Amazon Web Services</b></td><td>Middle East (UAE) <code>me-central-1</code>, 3 zones</td><td class="a">One zone's data unrecoverable; two impaired; AWS advises moving</td><td class="b">Nova, Claude Sonnet 4, Grok 4.6, Kimi K3 on regional SKUs <span class="v">[verified — price list]</span></td><td class="a"><span class="tag crit">NOT NOW</span> revisit when AWS declares recovery</td></tr>
+      <tr><td><b>Core42</b> (G42)</td><td>Abu Dhabi; sovereign cloud with Microsoft</td><td class="v">Operating</td><td class="v"><code>gpt-oss-120b</code> — the model we use — "under UAE jurisdiction"</td><td class="v"><span class="tag ok">RECOMMENDED AI</span></td></tr>
+      <tr><td>Oracle Cloud</td><td>Abu Dhabi, Dubai</td><td>Operating</td><td>not assessed</td><td class="mut">Not priced here</td></tr>
+      <tr><td>du Tech National Hypercloud</td><td>UAE (built on Oracle technology)</td><td>First cloud certified by the UAE Cyber Security Council (2026); Dubai Taxi runs on it <span class="b">[believed]</span></td><td>not assessed</td><td class="mut">A sovereign option to ask for a quote</td></tr>
+      <tr><td>Google Cloud</td><td class="a">none (Dammam, Doha nearby)</td><td>—</td><td>—</td><td class="a">Not in the UAE</td></tr>
+      <tr><td>Hostinger (for contrast)</td><td class="a">none in the Middle East</td><td>—</td><td>—</td><td class="a">Data abroad — see previous briefing</td></tr>
+    </tbody>
+  </table>
+  <p class="cite">Microsoft–G42 and Abu Dhabi sovereign cloud: <a href="https://www.g42.ai/resources/news/abu-dhabi-government-accelerates-digital-strategy-landmark-microsoft-and-g42-partnership">G42</a>, <a href="https://www.datacenterdynamics.com/en/news/microsoft-and-core42-to-build-sovereign-cloud-and-ai-infrastructure-for-abu-dhabi/">DCD</a> · du Hypercloud: <a href="https://www.telecomreview.com/articles/cloud-and-enterprise-business/29170-du-techs-national-hypercloud-becomes-the-first-sovereign-cloud-certified-by-the-uae-csc/">Telecom Review</a> · AWS state: <a href="https://www.infoq.com/news/2026/09/aws-middle-east-data-loss/">InfoQ</a> · Bedrock UAE SKUs: <a href="https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/index.json">AWS Price List API</a> (26 Sep).</p>
+</section>
+
+<!-- 5 ─────────────────────────────────────────────────────────────────────── -->
+<section class="slide" data-n="5" id="s5">
+  <span class="kicker">The conditions we priced</span>
+  <h2>Same system and same workload as the previous briefing — so the numbers compare</h2>
+  <div class="grid g2">
+    <div>
+      <h3 style="margin-top:0">The workload (unchanged)</h3>
+      <table class="small">
+        <tbody>
+          <tr><td>Status updates</td><td class="n">200 a day</td><td>every one costed as if typed in words (2 AI calls)</td></tr>
+          <tr><td>Assignments</td><td class="n">100 a day</td><td>one third each by message, dashboard, PDF</td></tr>
+          <tr><td>End-of-day summaries</td><td class="n">40 a day</td><td><span class="tag mut">assumed</span> 40 employees</td></tr>
+          <tr><td>CEO questions</td><td class="n">10 a day</td><td><span class="tag mut">assumed</span></td></tr>
+          <tr><td>Voice notes</td><td class="n">20 min a day</td><td><span class="tag mut">assumed</span> 20% of updates, 30 s each · $0.006/min</td></tr>
+          <tr class="hi"><td><b>AI tokens</b></td><td class="n"><b>418k in · 143k out a day</b></td><td>measured from our own <code>llm_call</code> log — scenario D <span class="v">[verified]</span></td></tr>
+          <tr><td>Per month (30 days)</td><td class="n">12.5 M in · 4.3 M out</td><td>tokens do not depend on the provider; only price does</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div>
+      <h3 style="margin-top:0">The software (unchanged)</h3>
+      <ul>
+        <li><b>PostgreSQL</b> — the only record; row-level security per role.</li>
+        <li><b>Redis</b> — the job queue for alerts and escalation timers.</li>
+        <li><b>Three small Node services</b> — API + dashboard, Telegram bot, worker.</li>
+        <li>Packaged as <b>one Docker Compose stack</b>, so it runs on any Linux server without code changes.</li>
+      </ul>
+      <div class="card edge-info" style="margin-top:10px"><b>Sizing honestly:</b> the plan was an 8 vCPU / 32 GB box (Hostinger KVM 8). The real load at 40 people is small, so we price a <b>4 vCPU / 16 GB</b> server as the right size, and show the 8 / 32 like-for-like beside it. <span class="a">[uncertain — not load-tested]</span></div>
+      <p class="small mut" style="margin-top:8px">Azure UAE prices below are <b>estimates</b>: US list prices × 1.23, the UAE North / US East ratio on the one Azure UAE price we have (D8as v5, $0.424 vs $0.344 an hour). AWS prices are <b>official</b>, from AWS's UAE price list of 25 Sep 2026. A month is 730 hours.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 6 ─────────────────────────────────────────────────────────────────────── -->
+<section class="slide" data-n="6" id="s6">
+  <span class="kicker">How it can be deployed</span>
+  <h2>Three ways to run our system on a hyperscaler</h2>
+  <div class="grid g3">
+    <div class="card edge-ok">
+      <span class="tag ok">A · RECOMMENDED START</span>
+      <h3>One server, today's software</h3>
+      <p class="small">One virtual machine in Dubai runs the Docker Compose stack exactly as tested. Nightly database dump to storage that Azure copies to Abu Dhabi.</p>
+      <ul class="small"><li><b>Code changes:</b> none</li><li><b>Move time:</b> days</li><li><b>Weak spot:</b> the server is a single point of failure — restore from the Abu Dhabi copy</li></ul>
+    </div>
+    <div class="card edge-info">
+      <span class="tag info">B · WHEN IT MATTERS MORE</span>
+      <h3>Managed database</h3>
+      <p class="small">The app stays on a smaller VM; PostgreSQL moves to Azure's managed service (patching, point-in-time restore, optional zone-redundant standby).</p>
+      <ul class="small"><li><b>Code changes:</b> a connection string, plus re-checking our row-level-security roles on the managed service</li><li><b>Move time:</b> a week</li><li><b>Cost:</b> ~$80 a month more</li></ul>
+    </div>
+    <div class="card edge-warn">
+      <span class="tag warn">C · LATER, IF EVER</span>
+      <h3>Fully managed containers</h3>
+      <p class="small">Each service on Azure Container Apps (or AWS ECS). Scales to zero, no server to patch — but more moving parts than 40 people need.</p>
+      <ul class="small"><li><b>Code changes:</b> small (build images, secrets)</li><li><b>When:</b> Phase 4 telemetry, or 200+ users</li><li>Not priced — not needed</li></ul>
+    </div>
+  </div>
+  <div class="card" style="margin-top:14px">
+    <div class="flow" style="grid-template-columns:1fr auto 1fr auto 1fr">
+      <div class="node ok"><b>Phones &amp; dashboard</b><br><span class="small mut">Telegram, or the app + notifications</span></div><div class="arrow">→</div>
+      <div class="node ok"><b>Azure UAE North · Dubai</b><br><span class="small mut">VM: Postgres · Redis · API · bot · worker</span></div><div class="arrow">→</div>
+      <div class="node ok"><b>Core42 · Abu Dhabi</b><br><span class="small mut">reads an update, returns structured fields</span></div>
+    </div>
+    <div class="flow" style="grid-template-columns:1fr auto 1fr auto 1fr;margin-top:8px">
+      <div></div><div></div>
+      <div class="node ok"><b>Nightly encrypted dump</b><br><span class="small mut">storage in Dubai, auto-copied to Abu Dhabi</span></div><div class="arrow">→</div>
+      <div class="node warn"><b>Optional third copy</b><br><span class="small mut">another UAE provider — or abroad, only if counsel agrees</span></div>
+    </div>
+    <p class="small mut" style="margin-top:8px">Green = inside the UAE. Every arrow carries only what it must; AI requests carry one update's words, never the database.</p>
+  </div>
+</section>
+
+<!-- 7 ─────────────────────────────────────────────────────────────────────── -->
+<section class="slide" data-n="7" id="s7">
+  <span class="kicker">Hosting on Azure · UAE North (Dubai)</span>
+  <h2>Monthly hosting cost on Azure — estimates to confirm in the Azure calculator</h2>
+  <div class="grid g2">
+    <div>
+      <h3 style="margin-top:0">A · One server, today's software</h3>
+      <table>
+        <thead><tr><th>Item</th><th class="n">USD / month</th></tr></thead>
+        <tbody>
+          <tr><td>VM <b>D4as v5</b> · 4 vCPU / 16 GB</td><td class="n">$154.76</td></tr>
+          <tr><td>Premium SSD 128 GB</td><td class="n">$24.29</td></tr>
+          <tr><td>Static public IP</td><td class="n">$4.50</td></tr>
+          <tr><td>Nightly backups, geo-redundant to Abu Dhabi (100 GB)</td><td class="n">$5.65</td></tr>
+          <tr><td>Monitoring logs (2 GB)</td><td class="n">$5.67</td></tr>
+          <tr><td>Internet traffic out</td><td class="n">$0 <span class="tiny">under 100 GB free</span></td></tr>
+          <tr class="hi"><td><b>Total, A</b></td><td class="n"><b>$194.87</b></td></tr>
+          <tr><td class="mut">Like-for-like 8 vCPU / 32 GB (D8as v5, $309.52)</td><td class="n mut">$349.63</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div>
+      <h3 style="margin-top:0">B · Managed database</h3>
+      <table>
+        <thead><tr><th>Item</th><th class="n">USD / month</th></tr></thead>
+        <tbody>
+          <tr><td>App VM <b>D2as v5</b> · 2 vCPU / 8 GB</td><td class="n">$77.38</td></tr>
+          <tr><td>Premium SSD 64 GB</td><td class="n">$12.15</td></tr>
+          <tr><td><b>PostgreSQL Flexible Server</b> · D2ds v5 (backups included)</td><td class="n">$160.16</td></tr>
+          <tr><td>PostgreSQL storage 64 GB</td><td class="n">$9.07</td></tr>
+          <tr><td>Static public IP · extra geo-redundant backups · logs</td><td class="n">$15.82</td></tr>
+          <tr class="hi"><td><b>Total, B</b></td><td class="n"><b>$274.58</b></td></tr>
+          <tr><td class="mut">Optional: managed Redis (Azure Cache for Redis C0) instead of Redis on the VM</td><td class="n mut">+$19.79</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="card edge-warn" style="margin-top:12px"><b>How these were built:</b> the VM prices come from the one UAE North price we have (D8as v5 at $0.424/h, third-party tracker, 19 Sep) scaled linearly within the same series; everything else is a US list price × 1.23. <span class="tag mut">estimate</span> A one-year reservation typically takes a third or more off the server line — AWS's own list shows 37% on a comparable server — <b>confirm Azure's in its calculator</b>. Azure Cache for Redis retires in April 2028; Azure Managed Redis replaces it. <span class="b">[believed]</span></div>
+</section>
+
+<!-- 8 ─────────────────────────────────────────────────────────────────────── -->
+<section class="slide" data-n="8" id="s8">
+  <span class="kicker">Hosting on AWS · Middle East (UAE)</span>
+  <h2>AWS is cheaper on paper — and currently the riskier place to be</h2>
+  <div class="grid g32">
+    <div>
+      <table>
+        <thead><tr><th>Item · official AWS UAE price list, 25 Sep 2026</th><th class="n">A · one server</th><th class="n">B · managed data</th></tr></thead>
+        <tbody>
+          <tr><td>EC2 <b>t4g.xlarge</b> (ARM) · 4 vCPU / 16 GB — $0.1632/h</td><td class="n">$119.14</td><td class="n">—</td></tr>
+          <tr><td>EC2 <b>t4g.large</b> (ARM) · 2 vCPU / 8 GB — $0.0816/h</td><td class="n">—</td><td class="n">$59.57</td></tr>
+          <tr><td>EBS gp3 disk — $0.0968 per GB-month</td><td class="n">$12.39 <span class="tiny">128 GB</span></td><td class="n">$2.90 <span class="tiny">30 GB</span></td></tr>
+          <tr><td>EBS snapshots — $0.055 per GB-month</td><td class="n">$3.30 <span class="tiny">60 GB</span></td><td class="n">—</td></tr>
+          <tr><td>RDS PostgreSQL <b>db.t4g.medium</b> — $0.076/h</td><td class="n">—</td><td class="n">$55.48</td></tr>
+          <tr><td>RDS gp3 storage — $0.14 per GB-month</td><td class="n">—</td><td class="n">$8.96 <span class="tiny">64 GB</span></td></tr>
+          <tr><td>ElastiCache Valkey <b>cache.t3.micro</b> — $0.01584/h</td><td class="n">—</td><td class="n">$11.56</td></tr>
+          <tr><td>Public IPv4 ($0.005/h) <span class="b">[believed]</span> · CloudWatch <span class="tag mut">estimate</span></td><td class="n">$6.65</td><td class="n">$6.65</td></tr>
+          <tr class="hi"><td><b>Total</b></td><td class="n"><b>$141.48</b></td><td class="n"><b>$145.13</b></td></tr>
+          <tr><td class="mut">A with a 1-year no-upfront reservation ($0.103/h, −37%)</td><td class="n mut">$97.53</td><td></td></tr>
+        </tbody>
+      </table>
+      <p class="cite">All rows except public IPv4 and CloudWatch read from the <a href="https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/index.json">AWS Price List API</a> (EC2 25 Sep, RDS 24 Sep, ElastiCache 14 Sep 2026) <span class="v">[verified]</span>. Traffic out: first 100 GB/month free across AWS, then $0.11/GB in the UAE <span class="v">[verified]</span>.</p>
+    </div>
+    <div>
+      <div class="card edge-crit"><h3 style="margin-top:0">Why "not now"</h3>
+        <ul class="small">
+          <li>AWS says data held only in one UAE zone <b>cannot be restored</b>, two other zones are still being recovered, and it advises Middle East customers to <b>back up and consider moving to other AWS regions</b> — i.e. out of the country.</li>
+          <li>AWS has <b>one</b> UAE region, so there is no in-country second region to copy backups to.</li>
+          <li>A price list is not capacity: the prices are published, but we have not confirmed that new servers can be launched in the healthy zone.</li>
+        </ul>
+      </div>
+      <div class="card edge-info" style="margin-top:10px"><b>When to revisit:</b> once AWS declares <code>me-central-1</code> fully recovered. The system would move in days — the same Docker Compose stack runs on EC2 unchanged (ARM included, <span class="b">[believed — not tested on ARM]</span>).</div>
+    </div>
+  </div>
+</section>
+
+<!-- 9 ─────────────────────────────────────────────────────────────────────── -->
+<section class="slide" data-n="9" id="s9">
+  <span class="kicker">AI inside the UAE</span>
+  <h2>Which AI actually stays in the country on Azure, AWS — and beside them</h2>
+  <table>
+    <thead><tr><th>Option</th><th>Where the words are read</th><th>Our model?</th><th class="n">Price per 1M tokens (in / out)</th><th>Effort to switch</th><th>Verdict</th></tr></thead>
+    <tbody>
+      <tr class="hi"><td><b>Core42 Compass</b> (G42)</td><td class="v">UAE — "run under UAE jurisdiction"</td><td class="v">Yes — <code>gpt-oss-120b</code></td><td class="n">$0.15 / $0.37 (Qualcomm)<br>$0.25 / $0.69 (Cerebras)</td><td>Configuration: base URL, key, model name</td><td class="v"><span class="tag ok">RECOMMENDED</span></td></tr>
+      <tr><td><b>Azure OpenAI · UAE North</b>, pay-per-use ("Global Standard")</td><td class="a">Outside the UAE — Microsoft routes it to other regions</td><td>—</td><td class="n">OpenAI list</td><td>small adapter</td><td class="a"><span class="tag crit">NOT IN-COUNTRY</span></td></tr>
+      <tr><td><b>Azure OpenAI · UAE North</b>, reserved ("Provisioned")</td><td class="v">UAE</td><td class="b">No — OpenAI's own models</td><td class="n">≥ 25 PTU × $260 = <b>$6,500 / month</b></td><td>small adapter</td><td class="a"><span class="tag crit">≈ 900× OUR AI BILL</span></td></tr>
+      <tr><td>Azure OpenAI · regional pay-per-use ("Standard")</td><td class="b">UAE, <b>if</b> a model is offered that way in UAE North</td><td class="b">No</td><td class="n">≈ $13 / month for a mini model <span class="tag mut">illustration</span></td><td>small adapter</td><td class="b"><span class="tag warn">CHECK THE PORTAL</span></td></tr>
+      <tr><td><b>Azure Speech / Whisper · UAE North</b></td><td class="v">UAE <span class="b">[believed]</span></td><td>voice only</td><td class="n">≈ $0.006 / minute</td><td>small adapter</td><td class="v"><span class="tag ok">VOICE</span></td></tr>
+      <tr><td><b>OpenAI · UAE inference residency</b> (since 12 Aug 2026)</td><td class="v">UAE GPUs</td><td class="b">No — GPT-5.x family</td><td class="n">luna $0.22 / $1.32</td><td>approval + configuration</td><td class="b"><span class="tag warn">SECOND OPTION</span></td></tr>
+      <tr><td><b>AWS Bedrock · UAE</b> — Nova Lite / Pro, Claude Sonnet 4</td><td class="b">UAE regional SKUs — region impaired</td><td class="b">No</td><td class="n">Nova Lite $0.06 / $0.24<br>Nova Pro $0.80 / $3.20<br>Sonnet 4 $3 / $15</td><td>adapter + benchmark</td><td class="a"><span class="tag crit">NOT NOW</span></td></tr>
+    </tbody>
+  </table>
+  <p class="cite">Core42: <a href="https://aicloud.core42.ai/gpt-oss">GPT-OSS on Compass</a> (prices read 21 Sep; Cerebras price re-confirmed by search 26 Sep) · Azure: <a href="https://learn.microsoft.com/en-us/answers/questions/5585510/clarification-needed-is-gpt-oss-model-deployed-as">Microsoft Q&amp;A on UAE North</a>, <a href="https://learn.microsoft.com/en-us/azure/foundry/openai/concepts/provisioned-throughput-billing">PTU billing</a> ($1/PTU-hour, $260/PTU-month reserved, 25-PTU regional minimum for mini models — <span class="b">[believed, via search]</span>) · OpenAI: <a href="https://www.zawya.com/en/press-release/openai-expands-inference-residency-to-the-united-arab-emirates-428932">UAE inference residency</a> · AWS: <a href="https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/index.json">price list</a> <span class="v">[verified]</span>.</p>
+  <p class="small mut"><b>Why the model matters:</b> our prompts and tests were written and benchmarked on <code>gpt-oss-120b</code>. Core42 keeps that; every other row means re-running the multilingual benchmark (Hindi, Malayalam, Hinglish) before trusting it with a worker reporting a broken chiller.</p>
+</section>
+
+<!-- 10 ────────────────────────────────────────────────────────────────────── -->
+<section class="slide" data-n="10" id="s10">
+  <span class="kicker">What the AI costs per month</span>
+  <h2>Same 12.5 M tokens in and 4.3 M out a month, priced on each in-country option</h2>
+  <div class="grid g32">
+    <div>
+      <h3 style="margin-top:0">Monthly AI cost including 20 minutes of voice a day ($3.60)</h3>
+      <p class="small mut">Grey = AWS UAE region, currently impaired. Green = the model our tests were written on.</p>
+      <div class="viz" id="viz-ai"></div>
+      <p class="small mut">Not drawn, because they would flatten every other bar: Azure OpenAI reserved capacity in UAE North — <b>$6,500 a month</b> on a monthly reservation, <b>$18,250</b> at the hourly rate, for the minimum 25 units. <span class="b">[believed]</span></p>
+    </div>
+    <div>
+      <div class="card edge-ok"><b>The finding:</b> for this system the AI bill is <b>single-digit dollars a month</b> on Core42 or AWS Nova, and about $12 on OpenAI's UAE service. The only way to make it expensive is Azure's reserved capacity, which is sized for companies sending millions of requests.</div>
+      <div class="card edge-warn" style="margin-top:10px"><b>Cheapest is not best here.</b> Nova Lite is cheaper than Core42 but untested on our multilingual extraction — our benchmark showed a small model missing a Malayalam "the machine has stopped". A missed breakdown costs more than $2 a month.</div>
+      <p class="small mut" style="margin-top:8px">Same arithmetic as the previous briefing's scenario D (Core42: $0.116 a day + $0.12 voice = $7.07 a month). Our $2/day circuit-breaker covers every row except Claude Sonnet 4 ($3.52 a day) and the reserved-capacity ones.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 11 ────────────────────────────────────────────────────────────────────── -->
+<section class="slide" data-n="11" id="s11">
+  <span class="kicker">The full monthly bill</span>
+  <h2>Hosting + AI + voice, per month — the packages worth comparing</h2>
+  <div class="grid g32">
+    <div>
+      <table>
+        <thead><tr><th>Package</th><th class="n">Hosting</th><th class="n">AI + voice</th><th class="n">Total / month</th><th>Data stays in UAE?</th></tr></thead>
+        <tbody>
+          <tr class="hi"><td><b>Recommended</b> · Azure UAE North (A) + Core42</td><td class="n">$194.87</td><td class="n">$7.07</td><td class="n"><b>$201.94</b></td><td class="v">Yes — second copy in Abu Dhabi</td></tr>
+          <tr><td>Managed data · Azure UAE North (B) + Core42</td><td class="n">$274.58</td><td class="n">$7.07</td><td class="n"><b>$281.65</b></td><td class="v">Yes</td></tr>
+          <tr><td>Like-for-like size · Azure D8as v5 (A) + Core42</td><td class="n">$349.63</td><td class="n">$7.07</td><td class="n">$356.70</td><td class="v">Yes</td></tr>
+          <tr><td>All-Microsoft · Azure (A) + Azure OpenAI reserved</td><td class="n">$194.87</td><td class="n">$6,503.60</td><td class="n">$6,698.47</td><td class="v">Yes — at 33× the cost</td></tr>
+          <tr><td class="mut">AWS UAE (A) + Core42 — <em>not now</em></td><td class="n mut">$141.48</td><td class="n mut">$7.07</td><td class="n mut">$148.54</td><td class="a">Yes, in an impaired region</td></tr>
+          <tr><td class="mut">For contrast · Hostinger KVM 8 (renewal) + Core42</td><td class="n mut">$49.99</td><td class="n mut">$7.07</td><td class="n mut">$57.06</td><td class="a">No — the database is abroad</td></tr>
+        </tbody>
+      </table>
+      <p class="small mut">Plus once: a domain (~$10–15 a year). Plus, if used: GitHub Copilot $19 per developer (slide 12). Azure lines are <span class="tag mut">estimate</span>; AWS lines <span class="v">[verified]</span>; Core42 <span class="b">[believed — read 21 Sep]</span>.</p>
+    </div>
+    <div>
+      <h3 style="margin-top:0">Monthly total by package</h3>
+      <div class="viz" id="viz-packages"></div>
+      <div class="card brand" style="margin-top:10px"><b>In plain terms:</b> keeping everything in the UAE on Azure costs about <b>$145 a month more than Hostinger</b> — roughly <b>AED 530</b> — and buys residency, an in-country second copy, and a provider the UAE government itself builds on.</div>
+    </div>
+  </div>
+</section>
+
+<!-- 12 ────────────────────────────────────────────────────────────────────── -->
+<section class="slide" data-n="12" id="s12">
+  <span class="kicker">Copilot</span>
+  <h2>"Copilot" is four different products — only one belongs in this project today</h2>
+  <table>
+    <thead><tr><th>Product</th><th>What it is for</th><th>Where it processes data</th><th class="n">Price</th><th>For FreshNow</th></tr></thead>
+    <tbody>
+      <tr class="hi"><td><b>GitHub Copilot</b></td><td>Writing, reviewing and updating code; coding agent that opens pull requests</td><td class="b">US or EU (data residency since Apr 2026); <b>no UAE option</b> — Japan and Australia next <span class="b">[believed]</span></td><td class="n">Business <b>$19</b> / developer / month<br>Enterprise $39<br><span class="tiny">usage-based credits since 1 Jun 2026; completions free</span></td><td class="v"><span class="tag ok">YES — FOR BUILDING</span> with the rules on the next slide</td></tr>
+      <tr><td>Microsoft 365 Copilot</td><td>Word, Excel, Outlook, Teams assistant for office staff</td><td class="b">In-country processing for the UAE announced for early 2026, now expected <b>by end of 2026</b> <span class="b">[believed]</span></td><td class="n">$30 / user / month (enterprise)<br>$21 Business (SMB)<br><span class="tiny">plus a Microsoft 365 licence</span></td><td class="mut">Optional for the CEO's own office work — not part of this system</td></tr>
+      <tr><td>Copilot Studio</td><td>Building chat agents, mostly inside Teams</td><td>Tenant geography; UAE details not confirmed <span class="a">[uncertain]</span></td><td class="n">$200 per 25,000 credits / month, or $0.01 a credit</td><td class="a">No — it would re-build, with model-driven decisions, the deterministic routing and escalation we already have</td></tr>
+      <tr><td>Azure AI Foundry</td><td>Hosting and calling AI models on Azure</td><td>Depends on deployment type (slide 9)</td><td class="n">per token or reserved</td><td class="b">Only if a UAE in-region model fits (slide 9)</td></tr>
+    </tbody>
+  </table>
+  <p class="cite">GitHub: <a href="https://github.blog/changelog/2026-04-13-copilot-data-residency-in-us-eu-and-fedramp-compliance-now-available/">data residency US + EU</a>, <a href="https://github.blog/news-insights/company-news/github-copilot-is-moving-to-usage-based-billing/">usage-based billing</a> · Microsoft: <a href="https://news.microsoft.com/source/emea/2025/10/microsoft-announces-in-country-data-processing-for-microsoft-365-copilot-in-the-uae-to-accelerate-ai-adoption/">M365 Copilot in-country processing, UAE</a>, <a href="https://www.microsoft.com/en-us/microsoft-365-copilot/pricing">M365 Copilot pricing</a>, <a href="https://learn.microsoft.com/en-us/microsoft-copilot-studio/geo-data-residency">Copilot Studio data residency</a>. Prices <span class="b">[believed — via search, 26 Sep]</span>.</p>
+</section>
+
+<!-- 13 ────────────────────────────────────────────────────────────────────── -->
+<section class="slide" data-n="13" id="s13">
+  <span class="kicker">Building and updating with Copilot</span>
+  <h2>How Copilot is used safely on this codebase</h2>
+  <div class="grid g2">
+    <div class="card edge-ok"><h3 style="margin-top:0">What it is good for here</h3>
+      <ul>
+        <li><b>Routine code</b> — new API routes, dashboard screens, tests — against the specs already in the repository.</li>
+        <li><b>Reviews</b> on every pull request, alongside the human one.</li>
+        <li><b>The coding agent</b> for small, well-specified tasks: it opens a pull request that CI must pass and a person must approve.</li>
+        <li><b>Explaining the code</b> to a new developer — the repository's own documents give it the context.</li>
+      </ul>
+    </div>
+    <div class="card edge-crit"><h3 style="margin-top:0">The rules — because its processing is outside the UAE</h3>
+      <ul>
+        <li><b>No real employee data in any prompt, file or test</b> — synthetic data only, as the repository already does (<code>is_synthetic</code>).</li>
+        <li><b>No secrets</b>: <code>.env</code> is excluded from git (done 26 Sep) and should be excluded from Copilot's context too (content exclusion setting). <span class="b">[believed]</span></li>
+        <li><b>Business plan, not personal accounts</b> — the company controls policy, and code is not used for training on business plans. <span class="b">[believed]</span></li>
+        <li><b>Copilot suggests; the pipeline decides.</b> Every change still passes typecheck, the full test suite and review. Deterministic routing and escalation are never replaced by a model.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="card brand" style="margin-top:14px"><b>Source code is not personal data.</b> Sending code to a US or EU processing region is a business and security decision, not a PDPL transfer — <em>as long as the rules above hold</em>. The moment a real name, phone number or status note reaches a prompt, it becomes one. <span class="b">[believed — counsel to confirm]</span></div>
+</section>
+
+<!-- 14 ────────────────────────────────────────────────────────────────────── -->
+<section class="slide" data-n="14" id="s14">
+  <span class="kicker">Resilience</span>
+  <h2>The backup and recovery plan — built for the 2026 lesson</h2>
+  <div class="grid g2">
+    <table class="small">
+      <thead><tr><th>Layer</th><th>What</th><th>Where</th><th>How often</th></tr></thead>
+      <tbody>
+        <tr><td>1 · Live</td><td>PostgreSQL on the server's disk</td><td>Dubai</td><td>—</td></tr>
+        <tr><td>2 · Backup</td><td>Encrypted database dump (<code>pg_dump</code>)</td><td>Azure storage, Dubai</td><td>nightly</td></tr>
+        <tr class="hi"><td>3 · Second copy</td><td>The same dump, copied by Azure automatically</td><td><b>Abu Dhabi</b> (paired region)</td><td>continuous</td></tr>
+        <tr><td>4 · Optional</td><td>Weekly copy at a different provider</td><td>Core42 / du / a Dubai VPS</td><td>weekly</td></tr>
+        <tr><td>5 · Counsel's call</td><td>Encrypted copy abroad, keys kept in the UAE</td><td>outside the UAE</td><td>weekly</td></tr>
+      </tbody>
+    </table>
+    <div>
+      <div class="card edge-info"><h3 style="margin-top:0">Targets we can commit to</h3>
+        <ul>
+          <li><b>Lose at most one day</b> of data if the Dubai site is destroyed (nightly dump; hourly is a small change).</li>
+          <li><b>Back up within about four hours</b> on a new server in Abu Dhabi or elsewhere — the software is one Compose file. <span class="tag mut">estimate — to be rehearsed</span></li>
+          <li><b>A restore test every month</b>, recorded — a backup that has never been restored is a hope, not a backup.</li>
+        </ul></div>
+      <div class="card edge-warn" style="margin-top:10px"><b>Telegram and the app during an outage:</b> if our server is down, Telegram still delivers messages already sent, and people can report again once it is back; nothing is lost that was already written to the database. The app channel depends on our server, so it goes down with it — one more reason to keep Telegram as the default for field staff.</div>
+    </div>
+  </div>
+</section>
+
+<!-- 15 ────────────────────────────────────────────────────────────────────── -->
+<section class="slide" data-n="15" id="s15">
+  <span class="kicker">Recommendation and decisions</span>
+  <h2>What to decide, in order</h2>
+  <table>
+    <thead><tr><th>#</th><th>Decision</th><th>Who</th><th>Effort</th><th>Cost / month</th></tr></thead>
+    <tbody>
+      <tr class="hi"><td>1</td><td><b>Host on Azure UAE North</b>, option A (one server, today's software), backups geo-redundant to Abu Dhabi. Confirm the prices in Azure's calculator first.</td><td>CEO approves · developer builds</td><td>days</td><td>≈ $195</td></tr>
+      <tr class="hi"><td>2</td><td><b>AI on Core42</b> — same model; remove the US providers from the fallback chain; voice on Azure Speech in UAE North. Get the DPA in writing; re-run our tests.</td><td>CEO signs up · developer switches</td><td>days</td><td>≈ $7</td></tr>
+      <tr class="hi"><td>3</td><td><b>GitHub Copilot Business</b> for whoever develops the system, with the four rules on slide 13.</td><td>CEO approves</td><td>an hour</td><td>$19 per developer</td></tr>
+      <tr><td>4</td><td>Buy the domain; point it at the Azure server — HTTPS, phone notifications and the Telegram webhook follow.</td><td>company</td><td>an hour</td><td>~$1</td></tr>
+      <tr><td>5</td><td>Sign data-processing agreements with Microsoft (Azure) and Core42; record both in the processing register.</td><td>company · counsel</td><td>contract work</td><td>—</td></tr>
+      <tr><td>6</td><td>Decide the optional third backup copy — another UAE provider, or abroad under PDPL Art. 23 if counsel agrees.</td><td>CEO · counsel</td><td>a meeting</td><td>$5–10</td></tr>
+      <tr><td>7</td><td>Re-evaluate AWS when it declares the UAE region recovered; re-evaluate Azure's in-region AI if a pay-per-use model appears in UAE North.</td><td>developer</td><td>quarterly</td><td>—</td></tr>
+      <tr><td>8</td><td>Re-issue the consent notice naming Microsoft Azure (UAE), Core42 (UAE) and Telegram — the draft app notice is already built and waiting for sign-off.</td><td>company · counsel</td><td>hours</td><td>—</td></tr>
+    </tbody>
+  </table>
+  <div class="card brand" style="margin-top:12px"><b>If you approve only three things:</b> Azure UAE North for hosting (1), Core42 for AI (2), and the domain (4). Together about <b>$202 a month</b>, everything inside the UAE, with a second copy in another emirate.</div>
+</section>
+
+<!-- 16 ────────────────────────────────────────────────────────────────────── -->
+<section class="slide" data-n="16" id="s16">
+  <span class="kicker">Sources</span>
+  <h2>Where every claim comes from</h2>
+  <div class="grid g2 small">
+    <div>
+      <h3 style="margin-top:0">Clouds in the UAE, and 2026</h3>
+      <ul>
+        <li>AWS data loss in the UAE region: <a href="https://www.infoq.com/news/2026/09/aws-middle-east-data-loss/">InfoQ (Sep 2026)</a> · <a href="https://www.computing.co.uk/news/2026/aws-admits-permanent-data-loss-after-middle-east-datacentre-strikes">Computing</a> · <a href="https://www.thestack.technology/get-your-data-out-now-says-aws-on-me-central-1/">The Stack</a> · <a href="https://www.cnbc.com/2026/03/03/iran-war-uae-drone-strikes-aws-data-centers.html">CNBC (Mar 2026)</a> · <a href="https://www.theregister.com/2026/03/26/aws_would_prefer_to_forget/">The Register</a></li>
+        <li>Microsoft and war-zone data centres: <a href="https://www.theregister.com/2026/04/08/microsoft_armored_datacenters/">The Register</a> · <a href="https://cybernews.com/news/data-centers-middle-east-microsoft-iran/">Cybernews</a></li>
+        <li>Microsoft–G42 / Core42 sovereign cloud: <a href="https://www.g42.ai/resources/news/abu-dhabi-government-accelerates-digital-strategy-landmark-microsoft-and-g42-partnership">G42</a> · <a href="https://www.datacenterdynamics.com/en/news/microsoft-and-core42-to-build-sovereign-cloud-and-ai-infrastructure-for-abu-dhabi/">DCD</a></li>
+        <li>du National Hypercloud, CSC certification: <a href="https://www.telecomreview.com/articles/cloud-and-enterprise-business/29170-du-techs-national-hypercloud-becomes-the-first-sovereign-cloud-certified-by-the-uae-csc/">Telecom Review</a></li>
+        <li>UAE data-centre dispersal: <a href="https://www.seetaoe.com/details/278040.html">Seetao</a> · <a href="https://trendsresearch.org/insight/when-the-cloud-meets-the-ground/">TRENDS Research</a></li>
+      </ul>
+      <h3>Prices</h3>
+      <ul>
+        <li><b>AWS Price List API</b>, me-central-1 — EC2 (25 Sep), RDS (24 Sep), ElastiCache (14 Sep), ELB, data transfer, Bedrock (26 Sep 2026): <a href="https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/index.json">index</a> <span class="v">[verified]</span></li>
+        <li>Azure D8as v5 UAE North: <a href="https://www.azurespeed.com/AzureVmPricing/Standard_D8as_v5">azurespeed.com</a> (19 Sep) · official: <a href="https://azure.microsoft.com/en-us/pricing/calculator/">Azure pricing calculator</a></li>
+        <li>Azure PostgreSQL Flexible: <a href="https://azure.microsoft.com/en-us/pricing/details/postgresql/flexible-server/">pricing</a> · Redis: <a href="https://azure.microsoft.com/en-us/pricing/details/cache/">pricing</a> · Container Apps: <a href="https://azure.microsoft.com/en-us/pricing/details/container-apps/">pricing</a></li>
+        <li>Hostinger VPS: <a href="https://www.hostinger.com/vps-hosting">pricing</a> · <a href="https://www.hostinger.com/support/1583267-where-are-hostinger-servers-located/">locations</a></li>
+      </ul>
+    </div>
+    <div>
+      <h3 style="margin-top:0">AI</h3>
+      <ul>
+        <li>Core42 GPT-OSS on Compass: <a href="https://aicloud.core42.ai/gpt-oss">link</a> · Cerebras/Core42: <a href="https://www.cerebras.ai/press-release/cerebras-and-core42-deliver-record-breaking-performance-for-openai-s-gpt-oss-120b-powering-ai">press release</a></li>
+        <li>Azure OpenAI in UAE North: <a href="https://learn.microsoft.com/en-us/answers/questions/5585510/clarification-needed-is-gpt-oss-model-deployed-as">Microsoft Q&amp;A</a> · <a href="https://learn.microsoft.com/en-us/azure/foundry/foundry-models/concepts/models-sold-directly-by-azure-region-availability">region availability</a> · <a href="https://learn.microsoft.com/en-us/azure/foundry/openai/concepts/provisioned-throughput-billing">provisioned billing</a></li>
+        <li>OpenAI UAE inference residency (12 Aug 2026): <a href="https://www.zawya.com/en/press-release/openai-expands-inference-residency-to-the-united-arab-emirates-428932">Zawya</a> · <a href="https://developers.openai.com/api/docs/guides/your-data">data controls</a></li>
+        <li>Amazon Bedrock in the UAE region: <a href="https://aws.amazon.com/about-aws/whats-new/2025/09/amazon-bedrock-middle-east-uae-region/">launch</a> · <a href="https://aws.amazon.com/blogs/machine-learning/introducing-amazon-bedrock-global-cross-region-inference-for-anthropics-claude-models-in-the-middle-east-regions/">Claude via global inference</a></li>
+      </ul>
+      <h3>Copilot</h3>
+      <ul>
+        <li>GitHub Copilot data residency (US, EU): <a href="https://github.blog/changelog/2026-04-13-copilot-data-residency-in-us-eu-and-fedramp-compliance-now-available/">changelog</a> · <a href="https://docs.github.com/en/enterprise-cloud@latest/admin/data-residency/github-copilot-with-data-residency">docs</a> · billing: <a href="https://github.blog/news-insights/company-news/github-copilot-is-moving-to-usage-based-billing/">GitHub blog</a></li>
+        <li>Microsoft 365 Copilot, UAE in-country processing: <a href="https://news.microsoft.com/source/emea/2025/10/microsoft-announces-in-country-data-processing-for-microsoft-365-copilot-in-the-uae-to-accelerate-ai-adoption/">Microsoft</a> · pricing: <a href="https://www.microsoft.com/en-us/microsoft-365-copilot/pricing">Microsoft</a></li>
+        <li>Copilot Studio: <a href="https://learn.microsoft.com/en-us/microsoft-copilot-studio/geo-data-residency">data residency</a> · <a href="https://www.cloudzero.com/blog/copilot-studio-pricing/">pricing summary</a></li>
+      </ul>
+      <h3>Our own records</h3>
+      <ul>
+        <li>Token volumes and the workload: <code>docs/reports/ceo-deck-data-residency.html</code> (slides 11–13), from our <code>llm_call</code> table</li>
+        <li>The cost arithmetic: every figure here is computed, not typed — inputs listed on slides 5, 7, 8 and 9</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 17 ────────────────────────────────────────────────────────────────────── -->
+<section class="slide" data-n="17" id="s17">
+  <span class="kicker">What is not verified</span>
+  <h2>Where this briefing could be wrong, stated plainly</h2>
+  <div class="grid g2">
+    <div class="card edge-warn">
+      <ul>
+        <li><b>Azure prices are estimates.</b> Microsoft's pages and price API could not be opened from this session. We scaled US list prices by 1.23 (the UAE North premium on one server size). Other services may carry a different premium. <b>Confirm every Azure line in the calculator before approving.</b></li>
+        <li><b>Azure's in-country AI options were not seen first-hand.</b> Whether any pay-per-use model runs regionally in UAE North, and the reserved-capacity minimums and prices, come from search results and community answers.</li>
+        <li><b>AWS's current state comes from press reports</b> of its health dashboard, not the dashboard itself. We have not tried to launch a server there.</li>
+        <li><b>The 4 vCPU / 16 GB size is a judgement</b>, not a load test. The 8 / 32 like-for-like is priced alongside for that reason.</li>
+        <li><b>The four-hour recovery target has not been rehearsed.</b></li>
+      </ul>
+    </div>
+    <div class="card edge-warn">
+      <ul>
+        <li><b>Core42's Qualcomm price ($0.15 / $0.37)</b> was read on their page on 21 Sep and could not be re-confirmed today; the Cerebras price could. Core42's API has not been tested with our prompts, and its DPA has not been seen.</li>
+        <li><b>Nova, GPT-5.x and any Azure model are untested</b> on our multilingual extraction.</li>
+        <li><b>Copilot prices and residency</b> are from search results (usage-based billing changed on 1 Jun 2026). Whether Copilot's content-exclusion setting covers every surface we use has not been checked.</li>
+        <li><b>"Source code is not personal data"</b> is our reading, not counsel's.</li>
+        <li><b>Market share:</b> we found no reliable figure for how many UAE companies use Azure versus AWS.</li>
+        <li><b>The security situation can change faster than this document.</b> Re-check the provider status pages before signing anything.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="foot">FreshNow Operations · briefing prepared 26 September 2026 · press P to print or save as PDF</div>
+</section>
+
+<script>
+(function(){
+  // ── Data (computed by the cost model; see slides 5, 7, 8, 9) ─────────────────
+  const ai = [
+    ["Nova Lite · AWS UAE (untested)",5.38,"grey"],
+    ["Core42 Qualcomm · our model",7.07,"ok"],
+    ["Core42 Cerebras · our model",9.70,"ok"],
+    ["OpenAI UAE · gpt-5.6-luna",12.02,"info"],
+    ["Azure mini model (if offered)",16.67,"warn"],
+    ["Nova Pro · AWS UAE",27.36,"grey"],
+    ["Claude Sonnet 4 · AWS UAE",105.57,"grey"],
+  ];
+  const packages = [
+    ["Hostinger + Core42 · data abroad",57.06,"crit"],
+    ["AWS UAE (A) + Core42 · not now",148.54,"grey"],
+    ["Azure UAE North (A) + Core42 · recommended",201.94,"ok"],
+    ["Azure UAE North (B, managed DB) + Core42",281.65,"info"],
+    ["Azure D8as v5 like-for-like (A) + Core42",356.70,"info"],
+  ];
+  const tip = document.getElementById("tip");
+  const showTip = (e, html) => { tip.innerHTML = html; tip.style.display="block"; tip.style.left=(e.clientX+14)+"px"; tip.style.top=(e.clientY+14)+"px"; };
+  const hideTip = () => tip.style.display="none";
+  const esc = (s) => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+  const svg = (w,h) => { const s=document.createElementNS("http://www.w3.org/2000/svg","svg"); s.setAttribute("viewBox",`0 0 ${w} ${h}`); s.style.width="100%"; s.style.height="auto"; s.setAttribute("role","img"); return s; };
+  const el = (n,a,t) => { const e=document.createElementNS("http://www.w3.org/2000/svg",n); for(const k in a) e.setAttribute(k,a[k]); if(t!=null) e.textContent=t; return e; };
+  const colour = { grey:"#8b949e", ok:"var(--ok)", info:"var(--info)", warn:"var(--accent)", crit:"var(--crit)" };
+
+  // Horizontal bars, one series, direct value labels (≤24px thick, 4px rounded end).
+  function hbars(id, rows, fmt, opts={}) {
+    const W=560, rowH=34, padL=opts.padL||250, padR=70, H=rows.length*rowH+12;
+    const max=Math.max(...rows.map(r=>r[1]));
+    const s=svg(W,H); s.setAttribute("aria-label", opts.label||"bar chart");
+    rows.forEach((r,i)=>{
+      const y=6+i*rowH, len=(W-padL-padR)*(r[1]/max);
+      s.appendChild(el("text",{x:padL-8,y:y+16,"text-anchor":"end","font-size":"12",fill:"var(--ink)"},r[0]));
+      const bar=el("rect",{x:padL,y:y+2,width:Math.max(len,2),height:22,rx:4,fill:colour[r[2]]||"var(--s1)"});
+      bar.addEventListener("pointermove",e=>showTip(e,`<b>${fmt(r[1])}</b> · ${esc(r[0])}`)); bar.addEventListener("pointerleave",hideTip);
+      s.appendChild(bar);
+      s.appendChild(el("text",{x:padL+len+6,y:y+17,"font-size":"12","font-weight":"700",fill:"var(--ink)"},fmt(r[1])));
+    });
+    document.getElementById(id).appendChild(s);
+  }
+  hbars("viz-ai", ai, v=>"$"+v.toFixed(2)+"/mo", {padL:200,label:"Monthly AI cost by in-country option"});
+  hbars("viz-packages", packages, v=>"$"+v.toFixed(0)+"/mo", {padL:260,label:"Monthly total by package"});
+
+  // ── Navigation ───────────────────────────────────────────────────────────
+  const slides=[...document.querySelectorAll("section.slide")]; const nav=document.getElementById("nav");
+  slides.forEach((sl,i)=>{ const a=document.createElement("a"); a.href="#"; a.title="Slide "+(i+1); a.addEventListener("click",e=>{e.preventDefault(); sl.scrollIntoView({behavior:"smooth"});}); nav.appendChild(a); });
+  const cur=()=>{ const y=window.scrollY+window.innerHeight/2; return Math.max(0,slides.findIndex(s=>s.offsetTop+s.offsetHeight>y)); };
+  const paint=()=>{ const c=cur(); [...nav.children].forEach((a,i)=>a.classList.toggle("on",i===c)); };
+  window.addEventListener("scroll",paint,{passive:true}); paint();
+  window.addEventListener("keydown",e=>{
+    const c=cur(); let n=null;
+    if(["ArrowRight","ArrowDown","PageDown"," "].includes(e.key)) n=Math.min(slides.length-1,c+1);
+    if(["ArrowLeft","ArrowUp","PageUp"].includes(e.key)) n=Math.max(0,c-1);
+    if(e.key==="Home") n=0; if(e.key==="End") n=slides.length-1;
+    if(e.key==="p"||e.key==="P"){ window.print(); return; }
+    if(n!==null){ e.preventDefault(); slides[n].scrollIntoView({behavior:"smooth"}); }
+  });
+})();
+</script>
+</body>
+</html>
