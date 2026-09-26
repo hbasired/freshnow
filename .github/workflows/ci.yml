@@ -36,9 +36,20 @@ jobs:
           --health-timeout 3s
           --health-retries 12
 
+    # The names vitest.global-setup.ts and vitest.setup.ts actually read. The service URL is
+    # the superuser (it creates freshnow_test and applies every migration); the app URL is the
+    # RLS-enforced role that migration 0001 creates. The previous single
+    # DATABASE_URL_SUPERUSER was read by nothing, so globalSetup threw before any test ran.
     env:
-      DATABASE_URL_SUPERUSER: postgres://postgres:postgres@localhost:5432/freshnow
+      DATABASE_URL: postgres://freshnow_app:freshnow_app_pw@localhost:5432/freshnow
+      DATABASE_URL_SERVICE: postgres://postgres:postgres@localhost:5432/freshnow
+      TEST_DATABASE_URL: postgres://freshnow_app:freshnow_app_pw@localhost:5432/freshnow_test
+      TEST_DATABASE_URL_SERVICE: postgres://postgres:postgres@localhost:5432/freshnow_test
       REDIS_URL: redis://localhost:6379
+      TZ: Asia/Dubai
+      # Telegram is "available" only when a token exists; the channel tests need it to be.
+      # A placeholder, never used to reach Telegram — the senders under test are injected.
+      BOT_TOKEN: "123456789:CI_placeholder_not_a_real_token"
 
     steps:
       - uses: actions/checkout@v4
@@ -50,5 +61,16 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # Eight tests call a real model on purpose (a mocked parser proves nothing), so they
+      # need a key stored as a repository secret. Exported only when the secret exists: an
+      # unset secret expands to "", and an empty GROQ_API_KEY breaks the tests that stub
+      # fetch and only need *a* key to be configured.
+      - name: Export model keys when the repository has them
+        env:
+          GROQ_KEY: ${{ secrets.GROQ_API_KEY }}
+          OPENROUTER_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          if [ -n "$GROQ_KEY" ]; then echo "GROQ_API_KEY=$GROQ_KEY" >> "$GITHUB_ENV"; fi
+          if [ -n "$OPENROUTER_KEY" ]; then echo "OPENROUTER_API_KEY=$OPENROUTER_KEY" >> "$GITHUB_ENV"; fi
       - run: pnpm typecheck
       - run: pnpm test
