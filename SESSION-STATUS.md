@@ -1,3 +1,33 @@
+# Session status — 2026-09-26 (cloud session, TASK-044)
+
+Ran in a fresh cloud container (throwaway Postgres 16 + pgvector + Redis; no Supabase, no model keys, no Telegram).
+**Tests: 437 pass, 9 fail** — all 9 need a real model provider, which this sandbox cannot reach. Typecheck and
+dashboard build clean. Nothing was deployed; the demo machine's services and data were not touched.
+
+## Done
+- **`.gitignore` hardened** — every `.env*` except the example, keys/certs, dumps, Redis snapshots, logs, Supabase
+  CLI state; research PDFs untracked (still on disk). No secret found in git history. (D134)
+- **CI fixed** — the workflow set a variable nothing reads, so the test setup always threw. (VF32)
+- **The app can replace Telegram, behind one switch** — Alerts → Channels → *How people hear from us*:
+  **Telegram** (default, unchanged) / **Telegram + App** / **App only** (refused until web push keys exist).
+  Web push now actually sends (a device is the opt-in), banners have a title and open the right task, urgent
+  problems wake the phone, needs-review and project alerts reach the app, the worker runs without a Telegram
+  token, and app-only people get a consent screen. Demo steps: `DEMO-GUIDE.md` Act 9. (D129–D133, VF30)
+- **`docs/reports/ceo-deck-data-residency.html` re-checked** — conclusions stand; slide 2 lists what changed
+  (OpenRouter residency is US/EU only; OpenAI UAE inference residency; AWS UAE strikes; PDPL regulations still
+  not found). (VF33)
+- **`docs/reports/ceo-deck-azure-aws-uae.html` — new**: Azure UAE North + Core42 ≈ **$202/month** (estimate),
+  AWS UAE priced from AWS's official list but "not now", Azure in-country AI ≥ $6,500/month, GitHub Copilot
+  $19/developer with rules. (D135, VF31)
+- Write-up: `docs/tasks/TASK-044-app-channel-and-ceo-briefings.html`.
+
+## Still open (new)
+- Consent gate is UI-only; attachments are Telegram-only; the bot still answers in App-only mode.
+- Azure prices in the new deck are estimates — confirm in the Azure calculator before approving.
+- `mnt/user-data/outputs/claude-code/.claude/skills/` holds two project skills at an odd path (left as is).
+
+---
+
 # Session status — 2026-09-21
 
 Services: **running, local-only** (2026-09-21) — API bound to `127.0.0.1:3001`, bot polling, worker with the

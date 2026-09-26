@@ -524,6 +524,10 @@ NOT proven: that a banner appeared on a screen (the browser had closed), and any
 which needs HTTPS. Libraries: `web-push` 3.6.7 (MPL-2.0), `nodemailer` 7.0.13 (MIT-0).
 
 ## VF29 (2026-09-21) — UAE hosting prices, read from the providers and price trackers [verified / believed]
+**Corrected 2026-09-26 (TASK-044):** the AWS figures below are now [verified] from AWS's own Price List API
+(me-central-1 EC2 file published 2026-09-25) — same numbers as the tracker. The "~30% less with a 1-year
+commitment" in the deck was [believed]; the list says t3.2xlarge 1-yr no-upfront $0.2528/h = $184.54/month,
+**−37%**. See VF31.
 For the CEO deck. In-country, 8 vCPU / 32 GB class unless stated, monthly = hourly × 730:
 AWS me-central-1 t3.2xlarge $0.4013/h ≈ $293, m6i.2xlarge $0.4708/h ≈ $344, m7i.2xlarge ≈ $361, t3.xlarge (4/16)
 ≈ $146 (aws-pricing.com, "updated 19 Sep 2026" — a third-party tracker, not the AWS calculator) [believed];
@@ -535,3 +539,52 @@ own support page lists FR/DE/LT/UK/IN/ID/MY/US/BR [verified]; KVM 8 $29.99 intro
 Google Cloud has no UAE region (Dammam is the nearest) [verified]. Core42 gpt-oss-120b prices re-read
 2026-09-21: $0.15/$0.37 (Qualcomm), $0.25/$0.69 (Cerebras) per 1M tokens [verified].
 
+
+
+## VF30 (2026-09-26) — App-only delivery, end to end, against a local HTTPS push endpoint [verified]
+Throwaway Postgres + Redis; API; worker started with **no BOT_TOKEN** (logged "app-only deployment"). Two
+devices registered through the real API with endpoints on a local HTTPS stand-in (self-signed cert trusted
+via `NODE_EXTRA_CA_CERTS`) that holds each device's P-256 key and auth secret and decrypts what arrives.
+Mode set to **App only** through `PUT /dashboard/channels/mode`. Results: an assignment produced exactly
+`inapp` + `webpush` rows and **no Telegram row**; the push arrived `Content-Encoding: aes128gcm`, VAPID
+`Authorization`, `Urgency: normal`, and decrypted to `{title:"New task for you", url:"/app/?task=<id>#tasks/mine",
+tag:"task-<id>"}`; a blocker routed via `routeAndAlert` reached the CEO's device with **`Urgency: high`** and
+`urgent:true`; an in-app status update the parser could not read (no LLM here) produced the needs-review alert
+on inbox + web push with Telegram off (before TASK-044 it was dropped); the test button queued one push.
+In Chromium: the service worker, fed that exact payload through DevTools (`ServiceWorker.deliverPushMessage`),
+showed the notification with the title, body, tag, `requireInteraction:true`, `renotify:true`; opening
+`/app/?task=<id>#tasks/mine` opened that task's panel and removed `?task=` from the address.
+NOT covered: a real push service (FCM/APNs/WNS unreachable from this sandbox — VF28 covers WNS), a phone.
+
+## VF31 (2026-09-26) — AWS UAE (me-central-1) list prices, from AWS's Price List API [verified]
+`https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/...` (reachable when vendor pages were not). Linux,
+shared, on-demand per hour: t3.medium 0.0502 · t3.large 0.1003 · t3.xlarge 0.2006 · t3.2xlarge 0.4013 ·
+t4g.large 0.0816 · t4g.xlarge 0.1632 · t4g.2xlarge 0.3264 · m6i.2xlarge 0.4708 · m6g.2xlarge 0.3784 ·
+m7i.2xlarge 0.4944. 1-yr no-upfront standard: t4g.xlarge 0.1030 · t3.xlarge 0.1264 · t3.2xlarge 0.2528 ·
+t4g.2xlarge 0.2059. EBS gp3 $0.0968/GB-mo; snapshots $0.055/GB-mo. RDS PostgreSQL single-AZ: db.t4g.micro
+0.019 · small 0.038 · medium 0.076 · large 0.152 · db.m7g.large 0.205; RDS gp3 $0.14/GB-mo; extra backup
+$0.1045/GB-mo. ElastiCache cache.t3.micro: Valkey 0.01584, Redis 0.0198 (no t4g in UAE). ALB $0.028224/h +
+$0.00896/LCU-h. Data out: 100 GB/month free (global), then $0.11/GB. Bedrock UAE (26 Sep): regional (non-Global)
+SKUs for Nova Micro ($0.035/$0.14 per 1M), Nova Lite ($0.06/$0.24), Nova Pro ($0.80/$3.20), Claude Sonnet 4
+($3/$15), Grok 4.6 and Kimi K3; Claude 4.5+/5.x priced **Global only**; no gpt-oss SKU. Lightsail has no
+me-central-1 price file. A price SKU is not proof of capacity or of in-region processing.
+
+## VF32 (2026-09-26) — The suite in a fresh container, and a CI that could never have passed [verified]
+Postgres 16 + pgvector 0.6 + Redis, `.env` from the example: after `create role postgres` (migrations grant to
+it — Supabase has it), a placeholder `BOT_TOKEN` and a dummy LLM key, **437 pass, 9 fail, 1 skipped** (30 new in
+TASK-044). All 9 need a real model: 8 call Groq for real (egress-blocked here) and one needs two providers.
+Typecheck (root + dashboard) and `pnpm build:web` clean. `.github/workflows/ci.yml` set only
+`DATABASE_URL_SUPERUSER`, which nothing reads, so `vitest.global-setup.ts` threw before any test — fixed.
+
+## VF33 (2026-09-26) — Re-check of the CEO deck's moving targets [believed — via search; vendor pages blocked]
+Hostinger: still no Middle East location; KVM 8 $29.99 → $49.99. OpenRouter: in-region routing exists for
+**US and EU only** (Business/Enterprise). PDPL Executive Regulations: still not found on official portals;
+"Cabinet Decision 83/2022" is a speed-radar regulation (LexisMiddleEast), not the PDPL. OpenAI: UAE inference
+residency launched 2026-08-12; model eligibility differs between sources. AWS me-central-1: drone strikes
+2026-03-01; 15 Sep dashboard update — data held only in mec1-az2 cannot be restored, az1/az3 recovering, AWS
+advises Middle East customers to consider migrating (InfoQ, Computing, The Stack). Azure UAE: not struck;
+IRGC named Microsoft among "legitimate targets" 2026-03-31. GitHub Copilot residency: US + EU (2026-04-13);
+Business $19, Enterprise $39, usage-based credits since 2026-06-01. M365 Copilot UAE in-country processing:
+now expected by end of 2026; $30 enterprise / $21 Business. Telegram: DCs reported in Miami, Amsterdam,
+Singapore; since Sept 2024 may disclose IP + phone on valid criminal orders. Google Cloud: still no UAE region.
+du Tech National Hypercloud (OCI-based) certified by the UAE Cyber Security Council in 2026.

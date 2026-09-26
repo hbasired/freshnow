@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TASK-044 — The app as a switchable Telegram replacement, and two CEO briefings</title>
+<style>
+  :root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#3fb950;--warn:#d29922;--bad:#f85149;--card:#161b22;--bd:#30363d}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;max-width:980px;padding:48px 24px;margin-inline:auto}
+  h1{font-size:1.9rem;margin:0 0 4px} h2{margin-top:2.5rem;color:var(--acc);font-size:1.25rem} h3{margin-top:1.6rem;font-size:1.02rem}
+  .meta{color:var(--mut);font-size:.9rem;margin-bottom:2rem}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:18px;margin:14px 0}
+  .unverified{border-left:3px solid var(--warn)} .ok{border-left:3px solid var(--acc)} .danger{border-left:3px solid var(--bad)}
+  code{background:#1f2630;padding:2px 6px;border-radius:4px;font-size:.9em}
+  pre{background:#010409;border:1px solid var(--bd);border-radius:8px;padding:14px;overflow-x:auto;font-size:.85rem}
+  .tw{overflow-x:auto} table{border-collapse:collapse;width:100%;margin:14px 0}
+  th,td{border:1px solid var(--bd);padding:7px 9px;text-align:left;font-size:.88rem;vertical-align:top} th{background:#1f2630}
+  .bad{color:var(--bad);font-weight:600}.good{color:var(--acc);font-weight:600}.warn{color:var(--warn);font-weight:600}
+  ul{padding-left:1.1rem} li{margin:3px 0}
+  a{color:#88c0f0}
+</style></head><body>
+<h1>TASK-044 — The app as a switchable Telegram replacement, and two CEO briefings</h1>
+<p class="meta">2026-09-26 · no migration · core: <code>channels.ts</code>, <code>alerts.ts</code>, <code>push.ts</code>,
+<code>onboarding.ts</code>, <code>updates.ts</code>, <code>projects.ts</code> · api: <code>routes/alerts.ts</code>,
+<code>routes/dashboard.ts</code> · worker: <code>index.ts</code>, <code>webpush-sender.ts</code> · dashboard: Alerts tab,
+consent gate, <code>sw.js</code> · repo: <code>.gitignore</code>, CI · reports: two CEO decks ·
+<b>437 tests passing</b> (30 new), 9 needing a live model provider this sandbox cannot reach</p>
+
+<div class="card ok"><strong>One-sentence summary:</strong> The in-app inbox plus phone notifications can now
+genuinely replace Telegram behind one CEO switch — Telegram stays the default — after fixing the reasons it
+could not before (web push never fired, banners had no title or link, two alert paths were Telegram-only, the
+worker would not start without a Telegram token, and app-only people were never asked for consent); plus a
+hardened <code>.gitignore</code>, a CI that can actually pass, a re-checked data-residency deck, and a new
+Azure/AWS/Copilot deck priced on the same workload.</div>
+
+<h2>1 · What was already there, and what was actually missing</h2>
+<p>TASK-043 shipped the pieces: an in-app inbox (the outbox row <em>is</em> the notification), a PWA with a
+service worker, VAPID-signed web push proven against Microsoft's push service, and three gates per channel
+(configured · switched on by the CEO · wanted by the person). Checking whether that amounted to "the app can
+replace Telegram" found five gaps:</p>
+<div class="tw"><table>
+  <thead><tr><th>Gap</th><th>Effect</th></tr></thead>
+  <tbody>
+    <tr><td>Web push needed a per-event <code>notification_pref</code> row, and the preferences card only offered Telegram</td><td class="bad">Switched on, enabled on a phone — and never sent anything</td></tr>
+    <tr><td><code>notify()</code> put only <code>text</code> and <code>kind</code> in the payload</td><td>Every banner titled "FreshNow", tapping opened the home page</td></tr>
+    <tr><td>Needs-review alerts (to the CEO) and project news were queued on Telegram directly</td><td class="bad">With Telegram off, the gate dropped them: an unreadable breakdown report reached nobody</td></tr>
+    <tr><td><code>makeTelegramSender()</code> throws without <code>BOT_TOKEN</code>, and the worker built it unconditionally</td><td>An app-only deployment could not start its worker — no push, no SLA sweep</td></tr>
+    <tr><td>Consent is captured in the bot's <code>/start</code></td><td>Someone who only ever signs in to the app is processed with no consent on record</td></tr>
+  </tbody>
+</table></div>
+<p>Also: turning Telegram off meant flipping two switches in the right order, with no guard against leaving
+people reachable only through a dashboard they are not looking at.</p>
+
+<h2>2 · What was done</h2>
+<h3>2.1 The app channel</h3>
+<ul>
+  <li><b>One toggle</b> — <code>setDeliveryMode()</code> / <code>deliveryModeOf()</code> in <code>core/channels.ts</code>;
+    <code>GET /dashboard/channels</code> now returns <code>mode</code>; <code>PUT /dashboard/channels/mode</code> (CEO only).
+    Presets: <b>Telegram</b> (default) · <b>Telegram + App</b> · <b>App only</b>. Refuses App only with 409 while web push is not
+    configured; switches web push on before Telegram off; audits <code>channel.mode_set</code> once (no row for a no-op). (D129)</li>
+  <li><b>Web push opt-in by device</b> — <code>resolveAlertRecipients</code> sends web push to anyone with a subscribed device unless a
+    per-event rule says otherwise; <code>hasPushDevice()</code> in <code>push.ts</code>. (D130)</li>
+  <li><b>Banners</b> — <code>presentationOf(event)</code>: title, <code>/app/?task=…#tasks/…</code> deep link, collapse tag, urgency.
+    The sender passes <code>urgency: "high"</code> for urgent messages; <code>sw.js</code> sets <code>renotify</code> with a tag. The
+    dashboard opens <code>?task=</code> once and strips it. (D132)</li>
+  <li><b>One-off messages</b> — <code>notifyPeople()</code> in <code>alerts.ts</code>; needs-review and project alerts use it with their
+    existing idempotency keys. (D131)</li>
+  <li><b>Worker</b> builds the Telegram sender only when <code>BOT_TOKEN</code> is set.</li>
+  <li><b>Consent in the app</b> — <code>appConsentNotice()</code>, <code>consentStatus()</code>, <code>recordAppConsent()</code>;
+    routes <code>GET/POST /dashboard/me/consent</code>, <code>POST /dashboard/me/consent/withdraw</code>; a gate screen on first real
+    sign-in and a "Your consent" card with a two-step withdraw. (D133)</li>
+  <li><b>Demo support</b> — <code>POST /dashboard/me/push-test</code> and a "Send a test notification" button; <code>/dashboard/me</code>
+    returns <code>telegramLinked</code>; the preferences card shows one column per channel that can reach the person.</li>
+  <li>Guides: <code>CHANNELS-GUIDE.md</code> (re-rendered), <code>DEMO-GUIDE.md</code> Act 9, <code>.env.example</code>.</li>
+</ul>
+<h3>2.2 Repository hygiene</h3>
+<ul>
+  <li><code>.gitignore</code> rewritten (D134). Untracked, left on disk: <code>supabase/.branches</code>, <code>supabase/.temp</code>,
+    <code>freshnow/opt-COO*.pdf</code>. No secret found in the tracked tree or its history (one commit).</li>
+  <li><code>.github/workflows/ci.yml</code>: the variables the test setup actually reads, a placeholder <code>BOT_TOKEN</code>, model keys
+    exported only when the repository has them (VF32, G110).</li>
+</ul>
+<h3>2.3 Documents for the CEO</h3>
+<ul>
+  <li><code>docs/reports/ceo-deck-data-residency.html</code> — re-checked; a new slide 2 lists what changed; AWS prices now official;
+    OpenRouter's US/EU-only residency; the AWS UAE incident; Telegram's disclosure policy and the built switch. (VF33)</li>
+  <li><code>docs/reports/ceo-deck-azure-aws-uae.html</code> — new, 17 slides: clouds in the UAE and their 2026 state, deployment shapes,
+    monthly hosting on Azure UAE North (estimated) and AWS me-central-1 (official), in-country AI options and their cost for our
+    token volumes, the full bill, Copilot products and rules, a backup plan, decisions. (D135, VF31)</li>
+</ul>
+
+<h2>3 · Why it was done this way</h2>
+<p><b>Presets over the switches, not a new setting.</b> The switches already are the source of truth for the outbox gate; a separate
+"primary channel" field would be a second truth that can disagree with them. A preset is a way of setting two switches at once, and
+the audit log keeps both the decision (<code>channel.mode_set</code>) and each effect (<code>channel.toggled</code>).</p>
+<p><b>Refuse, don't warn.</b> The system exists so that a blocker raised is a blocker heard. Turning Telegram off with nothing that
+reaches a closed phone is exactly the failure it prevents, so the server refuses it; the UI greys the button and says why.</p>
+<p><b>A device is consent enough for push; an address is not enough for email.</b> A push subscription only exists after two explicit
+acts by the person themselves. An email address can be typed in by an administrator.</p>
+<p><b>Keep old idempotency keys.</b> Rows already in the outbox under <code>needs-review-&lt;id&gt;</code> must not be re-sent, so
+<code>notifyPeople</code> takes the key shape from the caller.</p>
+<p><b>Why a deck recommends Azure over AWS although AWS is cheaper on paper:</b> AWS's own status update says data held in one UAE
+zone after the March strikes cannot be restored and advises moving; Azure pairs Dubai with Abu Dhabi, so a second copy can stay in the
+country. Cost difference for our size: ~$50–60 a month.</p>
+
+<h2>4 · How it works</h2>
+<pre>event (task.assigned, blocker.raised, …)                 one-off (needs-review, project news)
+      │                                                          │
+resolveAlertRecipients: who (rules) × liveChannels()       notifyPeople: recipients × liveChannels()
+      │   telegram: if linked, unless rule says off              │   same defaults, no per-event rules
+      │   inapp:    always                                       │
+      │   webpush:  if a device, unless rule says off            │
+      ▼                                                          ▼
+enqueueNotification ── channel not live? drop + audit ── otherwise insert (idempotency key)
+      │
+worker: senders = { inapp, [telegram if BOT_TOKEN], [webpush if VAPID], … }
+      │  webpush: encrypt to each device (RFC 8291), Urgency high|normal (RFC 8030), 404/410 → delete device
+      ▼
+service worker: showNotification(title, body, tag, renotify, requireInteraction) → tap → /app/?task=… → panel opens
+
+Delivery mode (CEO):  telegram ─── both ─── app      app requires webpush configured; add webpush, then remove telegram</pre>
+
+<h2>5 · Concepts and techniques used</h2>
+<ul>
+  <li><b>Transactional outbox</b> — business logic writes a row; a worker delivers. The gate sits in the one function every message passes.</li>
+  <li><b>Structural idempotency keys</b> — <code>&lt;event&gt;:&lt;entity&gt;:&lt;person&gt;:&lt;channel&gt;</code>; a retry sends nothing twice.</li>
+  <li><b>Web Push with VAPID</b> — RFC 8291 message encryption to each device's keys (the relay sees ciphertext); RFC 8292 VAPID
+    identifies the sender; RFC 8030 <code>Urgency</code> lets a blocker wake a sleeping phone.</li>
+  <li><b>Notification tags and <code>renotify</code></b> — the same problem replaces one banner, and still buzzes.</li>
+  <li><b>Consent bound to a hash of the words shown</b> — the record proves what was agreed; stale pages are refused.</li>
+  <li><b>Make-before-break</b> — enable the new path before disabling the old one.</li>
+  <li><b>Geo-redundant storage across a paired region</b> — a backup copy in another emirate without leaving the country.</li>
+</ul>
+
+<h2>6 · Research findings</h2>
+<div class="tw"><table>
+  <thead><tr><th>Question</th><th>Found</th><th>Used</th></tr></thead>
+  <tbody>
+    <tr><td>iOS web push in 2026</td><td>iOS/iPadOS 16.4+, Home Screen web app required; Declarative Web Push since 18.4; no push for EU home-screen apps [believed — WebKit, vendor guides]</td><td>Existing iOS message kept; nothing EU-specific applies</td></tr>
+    <tr><td><code>web-push</code> options</td><td><code>urgency</code> very-low…high, <code>TTL</code>, <code>topic</code> [believed — README via search]; 3.6.7 installed</td><td><code>urgency: "high"</code> for urgent only</td></tr>
+    <tr><td>OpenRouter residency</td><td>In-region routing, US and EU only, Business/Enterprise [believed]</td><td>Deck: reason unchanged, sharper</td></tr>
+    <tr><td>PDPL Executive Regulations</td><td>Still not on official portals (Aug 2026 review); two false instrument claims (G112) [uncertain]</td><td>Deck: status unchanged</td></tr>
+    <tr><td>AWS UAE region</td><td>Strikes 2026-03-01; mec1-az2 data unrecoverable; AWS advises moving [believed — InfoQ, Computing, CNBC]</td><td>New deck: "not now"; old deck updated</td></tr>
+    <tr><td>AWS UAE prices and Bedrock SKUs</td><td>Official Price List API reachable [verified — VF31]</td><td>All AWS figures</td></tr>
+    <tr><td>Azure UAE North AI</td><td>gpt-oss there is Global Standard (runs elsewhere); regional options Provisioned; PTU ≈ $1/h, $260/month reserved, 25-PTU regional minimum for mini models [believed]</td><td>New deck slide 9</td></tr>
+    <tr><td>Copilot</td><td>GitHub: US/EU residency, $19/$39, usage-based since 2026-06-01; M365 Copilot UAE processing by end-2026; Copilot Studio $200/25k credits [believed]</td><td>New deck slides 12–13</td></tr>
+  </tbody>
+</table></div>
+<p>Vendor documentation sites (Microsoft Learn, AWS docs, OpenRouter, Core42, Azure's price API) were blocked by this session's egress
+policy, so these findings rest on search results unless marked verified. The decks say so on their first and last slides.</p>
+
+<h2>7 · How it was verified</h2>
+<div class="tw"><table>
+  <thead><tr><th>Check</th><th>Result</th></tr></thead>
+  <tbody>
+    <tr><td>30 new tests — core (15): presets, refusal, audit order, device opt-in, per-event off, banner fields, app-only fan-out, <code>notifyPeople</code> keys and idempotency, consent hash; API (14): mode routes and 403/409/400, push-test 409s and one row, <code>telegramLinked</code>, consent 409/200, CEO cannot withdraw; worker (1): urgency reaches the transport</td><td class="good">all passing; written from the requirements above, not from the code</td></tr>
+    <tr><td>Full suite on a throwaway Postgres 16 + pgvector + Redis</td><td class="good">437 pass</td> </tr>
+    <tr><td>Remaining failures</td><td class="warn">9 — eight make real Groq calls (egress-blocked), one needs two providers configured</td></tr>
+    <tr><td>Typecheck (root + dashboard), <code>pnpm build:web</code></td><td class="good">clean</td></tr>
+    <tr><td>App-only end to end: real API + worker (no BOT_TOKEN) → local HTTPS push endpoint that decrypts</td><td class="good">VF30: inbox + web push rows only; aes128gcm; Urgency normal/high; decrypted title/url/tag correct; needs-review delivered with Telegram off</td></tr>
+    <tr><td>Browser (Chromium): Alerts tab, mode switch, preferences columns, consent card; SW display via CDP; <code>?task=</code> deep link</td><td class="good">screenshots checked; notification shown with requireInteraction and renotify; panel opened, parameter removed</td></tr>
+    <tr><td>Both decks: 17 slides each, no script errors, no overflow at 1440 px or 390 px</td><td class="good">checked in Chromium</td></tr>
+  </tbody>
+</table></div>
+
+<h2 class="bad">What we have not verified</h2>
+<div class="card unverified"><ul>
+  <li><b>No real push service and no phone.</b> FCM/APNs/WNS were unreachable from this sandbox; the encryption and headers were proven
+    against a local stand-in. TASK-043's WNS acceptance (VF28) remains the only real-service evidence. Phones still need a domain (HTTPS).</li>
+  <li><b>The consent gate is UI-only.</b> The API does not refuse a signed-in viewer who has not consented; a client that skips the React
+    app is not stopped. The gate was not seen in a browser at all — demo mode has no signed-in identity and Supabase was not running here.</li>
+  <li><b>The app consent notice is a draft</b>, English only, not reviewed by FreshNow or counsel (A-T44.1).</li>
+  <li><b>Attachments stay Telegram-only.</b> They are Telegram file references; an app-only assignee is told the files are in Telegram
+    but cannot open them. Storing bytes is a separate decision (storage, retention, scanning).</li>
+  <li><b>The bot still answers inbound messages in App-only mode.</b> The switch stops outbound Telegram messages; whether the bot should
+    also refuse new updates when the company has left Telegram is a company decision not yet taken.</li>
+  <li><b>Withdraw in the app</b> was tested through the API, not clicked in a browser.</li>
+  <li><b>Every Azure price in the new deck is an estimate</b> (A-T44.3); the recommended server size is unmeasured (A-T44.2); the recovery
+    time is a target, not a rehearsal.</li>
+  <li><b>The deck re-check rests on search results</b> except AWS prices. AWS's UAE status comes from press reports of its dashboard.</li>
+  <li><b>CI has not run</b> with the new workflow — it triggers on pushes to <code>main</code> and on pull requests, neither of which happened.</li>
+</ul></div>
+
+<h2>Open questions</h2>
+<ul>
+  <li>For the company: Telegram, Telegram + App, or App only — and when? (The switch is built; the domain comes first.)</li>
+  <li>For counsel: sign-off on the app notice; whether an encrypted backup copy abroad is acceptable under Art. 23.</li>
+  <li>For the CEO: Azure UAE North + Core42 as proposed? GitHub Copilot Business for the developer(s)?</li>
+  <li>For a later task: API-side consent enforcement; attachment bytes in-country; a bot response for App-only mode.</li>
+</ul>
+</body></html>

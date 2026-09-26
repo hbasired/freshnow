@@ -316,6 +316,15 @@ Routing goes to the **CEO only** for now (company routing data not yet supplied)
   actions, sources, what is not verified. Numbers are the TASK-041 cost model re-run against re-read prices.
   -> `docs/reports/ceo-deck-data-residency.html`
 
+- **T44 The app as a switchable Telegram replacement + two CEO briefings** (2026-09-26): one toggle —
+  Telegram (default) / Telegram + App / App only — refused into App-only without web push (D129); web push
+  now actually sends, opt-in by device (D130); needs-review and project news reach every live channel (D131);
+  banners with title, deep link, urgency (D132); in-app consent with a hashed draft notice (D133); worker runs
+  without a Telegram token. Verified app-only end to end against a decrypting HTTPS push endpoint (VF30).
+  Also: `.gitignore` hardened (D134), CI env fixed (VF32), the data-residency deck re-checked (VF33) and a new
+  Azure/AWS/Copilot deck — Azure UAE North + Core42 ≈ $202/month, AWS UAE "not now" (D135, VF31).
+  -> `docs/tasks/TASK-044-app-channel-and-ceo-briefings.html` · `docs/reports/ceo-deck-azure-aws-uae.html`
+
 ## Blocked on the user
 - ~~`CEO_TELEGRAM_USER_ID` is empty.~~ **Resolved 2026-09-04:** CEO = 6051615734,
   employee = 8903000291. Both have run `/start`; the CEO is linked to the CEO employee row.
