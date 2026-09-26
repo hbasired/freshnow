@@ -1,7 +1,7 @@
 import { logAudit } from "./audit.js";
 import { getServiceSql } from "./db.js";
 import { canAssignTo, type ViewerOrg } from "./org.js";
-import { enqueueNotification } from "./outbox.js";
+import { notifyPeople } from "./alerts.js";
 
 /**
  * Projects: work that has a plan, a shape and an end.
@@ -482,31 +482,25 @@ async function alertProjectMembers(
     where id = any(${members.map((r) => r.employee_id)})`;
   const chatOf = new Map(chat.map((c) => [c.id, c]));
 
-  let told = 0;
+  // Inbox always, Telegram if linked, web push if they have a device — the same defaults as
+  // an alert event with no rule. The key shape `<key>:<person>:<channel>` is unchanged, so a
+  // project message already sent on Telegram or to the inbox is never sent twice.
+  const recipients: { employeeId: string; reason: string }[] = [];
   for (const member of members) {
     if (member.employee_id === m.except) continue;
     const person = chatOf.get(member.employee_id);
     if (!person || person.status === "disabled") continue;
-    const reason = `${member.role} of the project`;
-    await enqueueNotification({
-      idempotencyKey: `${m.key}:${member.employee_id}:inapp`,
-      payload: { text: m.text, kind: "project" },
-      channel: "inapp",
-      recipientEmployeeId: member.employee_id,
-      reason,
-    });
-    told++;
-    if (person.telegram_user_id != null) {
-      await enqueueNotification({
-        idempotencyKey: `${m.key}:${member.employee_id}:telegram`,
-        chatId: Number(person.telegram_user_id),
-        payload: { text: m.text, kind: "project" },
-        channel: "telegram",
-        recipientEmployeeId: member.employee_id,
-        reason,
-      });
-    }
+    recipients.push({ employeeId: member.employee_id, reason: `${member.role} of the project` });
   }
+  await notifyPeople({
+    recipients,
+    keyFor: (id, channel) => `${m.key}:${id}:${channel}`,
+    text: m.text,
+    kind: "project",
+    presentation: { title: "Project update", url: `/app/#projects/${projectId}`, tag: `project-${projectId}`, urgent: false },
+    ...(m.correlationId ? { correlationId: m.correlationId } : {}),
+  });
+  const told = recipients.length;
   await logAudit({
     correlationId: m.correlationId,
     actor: "system",

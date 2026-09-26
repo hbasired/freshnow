@@ -1064,3 +1064,58 @@ missing verdict treated as a failure; the sender must be an active employee whos
 no secret configured the route 404s — an unconfigured write path that works is worse than none. Refusals
 are audited with the reason and never the body. Reply-to-update was NOT built: the email guide's own
 conclusion is that multilingual quote-stripping has no clean solution.
+
+
+## D129 — "How people hear from us" is three presets over the existing switches (TASK-044, 2026-09-26) [verified]
+Telegram (default: telegram on, webpush off) · Telegram + App (both on) · App only (telegram off, webpush on),
+set by `setDeliveryMode()` in `core/channels.ts`, CEO-only (`PUT /dashboard/channels/mode`), audited once as
+`channel.mode_set` plus the usual `channel.toggled` per switch that moved. A preset writes `channel_setting`
+and nothing else, so the outbox gate, `liveChannels()` and the per-channel toggles are unchanged. Two rules:
+**App only is refused (409) while web push is not configured** — turning Telegram off with only the inbox left
+would reach nobody who is not looking at the dashboard; and web push is switched on **before** Telegram is
+switched off, so there is no instant with both dark. Re-selecting the current mode writes nothing.
+Rejected: a new "primary channel" column — a second source of truth for what the switches already say.
+
+## D130 — A subscribed device is the opt-in for web push (TASK-044) [verified]
+TASK-043 required a per-event `notification_pref` row before web push sent anything, and the preferences card
+only ever offered Telegram — so web push could be switched on, enabled on a phone, and never fire. Now: no rule
+→ web push goes to anyone with ≥1 `push_subscription`; a rule decides (`off` silences one event). The
+subscription only exists after an explicit tap AND the browser's own permission prompt, which is a clearer
+yes than a row. Email stays opt-in per event, because an address can be stored by someone else.
+
+## D131 — One-off messages fan out through `notifyPeople()` (TASK-044) [verified]
+The needs-review alert (CEO) and project news were queued on Telegram (and sometimes the inbox) directly, so
+with Telegram off the outbox gate dropped them: an unreadable breakdown report reached nobody. `notifyPeople`
+applies the no-rule defaults of `resolveAlertRecipients` (inbox always, Telegram if linked, web push if a
+device) and takes a `keyFor(employee, channel)` so existing idempotency keys are kept — the needs-review
+Telegram key stays `needs-review-<id>`, project keys stay `<key>:<person>:<channel>`. Email is excluded: it is
+opt-in per event and these have no event to opt into.
+
+## D132 — Phone banners are derived from the event, never from the text (TASK-044) [verified]
+`presentationOf(event)` gives title, `url` (always under `/app/`; `?task=<id>` opens that task's panel), a
+collapse `tag`, and `urgent` (blocker raised/escalated only). Urgent → the sender asks the push service for
+`Urgency: high` (RFC 8030) and the service worker sets `requireInteraction`; a repeated tag sets `renotify` so
+an escalation buzzes again instead of silently replacing the banner. Deterministic, no model.
+
+## D133 — Consent for app-only people is a separate, hashed notice (TASK-044) [verified in code; wording assumed]
+People who never use Telegram never saw the bot's /start notice. The app shows `appConsentNotice()` on first
+real sign-in (not in demo mode), stores `consent_record` with version `app-draft-1.0` and the SHA-256 of the
+exact words, and refuses consent sent against a different hash (409) — the hash is only worth anything if it
+proves what was on screen. Withdraw is in the Alerts tab and has the bot's effect (status → disabled). The CEO
+cannot withdraw in-app: it would lock the company out; handing over the role comes first. The gate is in the
+UI only; the API does not yet refuse an unconsented viewer (see TASK-044 "not verified").
+
+## D134 — What git must never hold, and what it no longer does (TASK-044) [verified]
+`.gitignore` now ignores every `.env*` except `.env.example` (previously `.env.production`/`.env.staging`
+would have been committed), keys/certs, service-account JSON, VAPID key files, DB dumps and backups, Redis
+snapshots (`*.rdb`, `*.aof`), Caddy ACME data, logs, test output, caches and Supabase CLI state. Untracked
+(still on disk): `supabase/.branches`, `supabase/.temp`, and `freshnow/opt-COO*.pdf` — Print-to-PDF copies
+(~14.8 MB) of the markdown research beside them. No secret was found in the tracked tree or its one commit.
+
+## D135 — Hosting recommendation: Azure UAE North + Core42; AWS UAE "not now" (2026-09-26) [believed]
+From `docs/reports/ceo-deck-azure-aws-uae.html`: one Azure VM in UAE North (Dubai) running today's Compose
+stack, nightly encrypted `pg_dump` to geo-redundant storage (auto-copied to the paired UAE Central, Abu Dhabi),
+AI on Core42 (same `gpt-oss-120b`), ≈ $202/month estimated. AWS me-central-1 is priced from AWS's own list but
+not recommended while it is impaired (VF33). Azure's in-country AI is reserved capacity (≥ $6,500/month) —
+~900× our AI bill. GitHub Copilot Business for development only, with no real employee data in prompts.
+Confirm/refute: Azure calculator for UAE North; AWS declaring the region recovered; counsel on the backup copy.

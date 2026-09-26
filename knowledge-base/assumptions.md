@@ -127,3 +127,25 @@ Affects: how many accounts can assign to anyone, see every blocker and create in
 they typed are not touched, and their Supabase Auth user is unlinked but not deleted. A data-subject
 request today would find those. Not a regression — nothing erased them before — but a known gap.
 Affects: PDPL completeness of an erasure.
+
+
+## A-T44.1 — The app consent notice says the right things [assumed]
+`APP_CONSENT_POLICY_VERSION = "app-draft-1.0"`. Written by the developer from the bot notice plus what changed
+(managers see reports' work since T29; push addresses; an AI service reads the words). Not reviewed by
+FreshNow or a lawyer, English only.
+Confirm/refute: company + counsel sign-off (already listed as "sign off consent notice v2"); native-speaker
+Hindi/Malayalam versions. Affects: whether app-only consent is valid under PDPL Art. 6.
+
+## A-T44.2 — 4 vCPU / 16 GB is enough for the stack at ~40 people [assumed]
+The CEO deck prices Azure D4as v5 as "right-sized", with D8as v5 (8/32, like-for-like with Hostinger KVM 8)
+beside it. Nothing has been load-tested at that size, and self-hosted Supabase adds containers.
+Confirm/refute: run the stack on a 4/16 box with the seed and a synthetic end-of-shift burst; watch memory.
+
+## A-T44.3 — Azure UAE North costs ≈ 1.23 × US East for every service [assumed]
+Derived from one pair (D8as v5: $0.424 vs $0.344/h, third-party tracker). Applied to disks, PostgreSQL,
+Redis, storage and logs in the deck. Other services may carry a different regional premium.
+Confirm/refute: the Azure pricing calculator with UAE North selected. Affects: every Azure line in the deck.
+
+## A-T44.4 — Code sent to GitHub Copilot is not a PDPL transfer [believed]
+Source code is not personal data; Copilot processing is US/EU (no UAE residency). Holds only while no real
+employee data reaches a prompt, file or test. Confirm/refute: counsel. Affects: Copilot recommendation.

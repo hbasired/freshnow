@@ -246,3 +246,89 @@ export async function withdrawConsent(employeeId: string): Promise<void> {
     entityId: employeeId,
   });
 }
+
+// ── Consent for people who use the app instead of the bot ────────────────────
+//
+// The bot shows its notice during /start, before an invite code is redeemed. Somebody who
+// only ever signs in to the dashboard — the whole point of the app channel — never sees
+// that notice, so under the bot-only flow their updates would be processed with no consent
+// on record. This is the same record (policy version + a hash of the exact words shown),
+// captured on first sign-in instead.
+//
+// The words differ from the bot's for three reasons: there is no /withdraw command in the
+// app, managers can see their reports' work since TASK-029 (the bot notice predates that),
+// and a device that turns on notifications stores a push address the bot never did.
+//
+// UNVERIFIED: this text has not been reviewed by FreshNow or a lawyer. The CEO deck and
+// docs/WHAT-WE-NEED-FROM-FRESHNOW.md both list "sign off consent notice v2" as open; this
+// is a draft for that, and the version string says so.
+export const APP_CONSENT_POLICY_VERSION = "app-draft-1.0";
+
+const APP_NOTICES: Record<string, string> = {
+  en:
+    "Before you start — what this app records:\n\n" +
+    "• The daily task status you report (task, status, and your own words).\n" +
+    "• Problems you raise, so they reach the person who can clear them.\n" +
+    "• If you turn on notifications for a device: that browser's push address, used only to deliver notifications to it.\n\n" +
+    "How your words are handled:\n" +
+    "• An AI service reads what you type to spot problems and how urgent they are. It never decides who is told or whether something escalates — fixed company rules do.\n" +
+    "• Notifications to your device are encrypted to that device; the service that relays them cannot read them.\n\n" +
+    "What it does NOT do:\n" +
+    "• No location tracking. No productivity scoring. No sentiment analysis.\n\n" +
+    "Your updates are stored in the company database, visible to you, the people you report to, and the CEO.\n" +
+    "You can withdraw consent at any time: Alerts → Your consent → Withdraw.",
+};
+
+export function appConsentNotice(language = "en"): string {
+  return APP_NOTICES[language] ?? APP_NOTICES.en!;
+}
+
+export interface ConsentStatus {
+  consented: boolean;
+  consentedAt: string | null;
+  policyVersion: string | null;
+}
+
+/** Whether this person has a consent record — from the bot or from the app. */
+export async function consentStatus(employeeId: string): Promise<ConsentStatus> {
+  const sql = getServiceSql();
+  const rows = await sql<{ policy_version: string; consented_at: Date }[]>`
+    select policy_version, consented_at from consent_record
+    where employee_id = ${employeeId} order by consented_at desc limit 1`;
+  const r = rows[0];
+  return r
+    ? { consented: true, consentedAt: r.consented_at.toISOString(), policyVersion: r.policy_version }
+    : { consented: false, consentedAt: null, policyVersion: null };
+}
+
+export class ConsentNoticeChangedError extends Error {}
+
+/**
+ * Record consent given in the app. The caller sends back the hash of the notice it showed;
+ * if the words have changed since the page loaded, the consent is refused rather than
+ * recorded against text the person did not see — the whole value of the hash is that it
+ * proves what was agreed to.
+ */
+export async function recordAppConsent(p: {
+  employeeId: string;
+  noticeHash: string;
+  language?: string;
+  correlationId?: string;
+}): Promise<ConsentStatus> {
+  const expected = noticeHash(appConsentNotice(p.language ?? "en"));
+  if (p.noticeHash !== expected) {
+    throw new ConsentNoticeChangedError("The notice has changed since this page loaded. Reload and read it again.");
+  }
+  const sql = getServiceSql();
+  await sql`insert into consent_record (employee_id, policy_version, notice_hash)
+            values (${p.employeeId}, ${APP_CONSENT_POLICY_VERSION}, ${expected})`;
+  await logAudit({
+    correlationId: p.correlationId,
+    actor: `employee:${p.employeeId}`,
+    action: "consent.recorded",
+    entity: "employee",
+    entityId: p.employeeId,
+    detail: { via: "app", policyVersion: APP_CONSENT_POLICY_VERSION, noticeHash: expected },
+  });
+  return consentStatus(p.employeeId);
+}

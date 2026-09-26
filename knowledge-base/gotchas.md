@@ -855,3 +855,31 @@ one, and the "put it back" click landed on TELEGRAM — switching the live chann
 Found in seconds from `audit_log` (`channel.toggled` records who and what), which is the entire argument
 for auditing a toggle. Fix: address controls by identity (`aria-label`, `data-channel`), never by text
 position, in any harness that clicks after a transient element can appear.
+
+
+## G109 — Headless browsers hide the Push API two different ways [verified]
+Playwright's default headless shell reports `Notification.permission` as denied even after
+`grantPermissions`, and every `browser.newContext()` is incognito, where Chrome disables the Push API outright
+("Chrome currently does not support the Push API in incognito mode"). Use `channel: "chromium"` for
+permissions, a persistent context for a real subscription, and — when the push service itself is unreachable —
+`ServiceWorker.deliverPushMessage` over CDP to test what the service worker shows.
+
+## G110 — An empty env var is not an unset one [verified]
+`GROQ_API_KEY=` in `.env` sets `""`, so `process.env.GROQ_API_KEY ?? "test-key"` keeps `""` and tests that stub
+`fetch` fail with "No LLM provider configured". GitHub Actions does the same with an unset secret
+(`${{ secrets.X }}` → `""`), which is why CI now exports model keys only when the secret exists.
+
+## G111 — Migrations assume Supabase's `postgres` role [verified]
+Against a plain Postgres cluster the suite fails with `role "postgres" does not exist` (117 tests). Supabase and
+the CI image have it; a hand-made test cluster needs `create role postgres`.
+
+## G112 — Search summaries invent legal instruments [verified]
+On 2026-09-26 a search summary named "Cabinet Decision No. 83 of 2022" as the PDPL Executive Regulations; the
+instrument with that number regulates vehicle speed radars. Another named "Cabinet Resolution No. 33 of 2024"
+with no traceable source. The fourth such error recorded in the CEO deck. Never cite an instrument number
+without the primary text.
+
+## G113 — `pkill -f <pattern>` can kill the shell running it [verified]
+When the pattern appears in the command line itself (as it does in `pkill -f "packages/worker/src/index.ts"`),
+the calling shell matches and dies (exit 144). Use the bracket trick: `pkill -f "[p]ackages/worker/..."`.
+Also: a `redis-server` started from the repo root writes `dump.rdb` there — now ignored by `.gitignore`.

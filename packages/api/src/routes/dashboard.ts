@@ -119,7 +119,12 @@ export function registerDashboardRoutes(app: FastifyInstance): void {
 
   app.get("/dashboard/me", async (req) => {
     const v = await resolveViewer(req);
+    // Whether this person can be reached on Telegram at all — the preferences card offers a
+    // Telegram column only to people who have one, instead of a switch that does nothing.
+    const linked = await withContext(v, (sql) => sql<{ linked: boolean }[]>`
+      select telegram_user_id is not null as linked from employee where id = ${v.employeeId}`);
     return {
+      telegramLinked: linked[0]?.linked ?? false,
       viewer: viewerOf(req),
       // The actual employee uuid behind the viewer. "ceo" is a label, and the browser needs
       // the id to tell its own tasks apart from everyone else's.

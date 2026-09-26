@@ -28,8 +28,8 @@
 </style></head><body>
 <a class="back" href="index.html">← All guides</a>
 <h1>Channels — how FreshNow reaches people</h1>
-<p><em>Written 2026-09-19. Telegram is the only live channel today; the others are built, switched
-off, and waiting for you.</em></p>
+<p><em>Written 2026-09-19, updated 2026-09-26 (TASK-044). Telegram is the default and the only channel
+switched on today; the app (inbox + phone notifications) is built, wired, and one switch away.</em></p>
 <p>Every message this system sends — a problem raised, a task assigned, an escalation nobody
 answered — leaves by a <strong>channel</strong>. There are five. This guide says what each is for, who
 should use it, what it costs, and exactly what to click.</p>
@@ -114,6 +114,45 @@ is the AI, and none of these channels involves it.</p>
 </tbody>
 </table>
 <hr />
+<h2>The one choice: how people hear from us</h2>
+<p><strong>Dashboard → Alerts → Channels → How people hear from us.</strong> Three options:</p>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Telegram</th>
+<th>The app (inbox + phone notifications)</th>
+<th>When to use it</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Telegram</strong> <em>(default)</em></td>
+<td>on</td>
+<td>inbox only</td>
+<td>Today. Nothing changes.</td>
+</tr>
+<tr>
+<td><strong>Telegram + App</strong></td>
+<td>on</td>
+<td>on</td>
+<td>A trial: people who turn on notifications get both; nobody loses Telegram.</td>
+</tr>
+<tr>
+<td><strong>App only</strong></td>
+<td><strong>off</strong></td>
+<td>on</td>
+<td>The app replaces Telegram.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>App only is refused while phone notifications are not set up on the server.</strong> Turning Telegram off
+with nothing to replace it would leave everybody reachable only when they happen to have the dashboard
+open — exactly the "a machine broke and nobody heard" failure this system exists to prevent.</p>
+<p>The choice is recorded in <strong>Activity</strong> as <code>channel.mode_set</code> with who made it and when. Underneath,
+it simply sets the Telegram and phone-notification switches described next — which you can still
+flip one by one.</p>
+<hr />
 <h2>Three switches, not one</h2>
 <p>A message only goes out if <strong>all three</strong> of these are true. This is deliberate: it means no
 one person can accidentally start messaging the whole company.</p>
@@ -159,9 +198,36 @@ needs you, <strong>even with the app closed</strong>.</p>
 </ul>
 <h3>What each person can choose</h3>
 <p><strong>Dashboard → Alerts → How you are told.</strong> Per event — a problem raised, an escalation, a
-task assigned — each person chooses their own channel and can hold messages for a few
-minutes. Your inbox in the dashboard always gets everything; that one cannot be switched off,
+task assigned — each person chooses their own channel. Only channels that can actually reach you are
+shown: Telegram if you have linked it, phone notifications and email while the company has them on.</p>
+<ul>
+<li><strong>Phone notifications are on for every device you turned on</strong>, for every event. Turning a device
+  on — a tap, and then yes to your browser's own question — is the opt-in. Set an event to <em>Off</em> here
+  to silence just that one.</li>
+<li><strong>Telegram</strong> is on unless you turn it off, and can be held for a few minutes.</li>
+<li><strong>Email</strong> is off unless you turn it on.</li>
+</ul>
+<p>Your inbox in the dashboard always gets everything; that one cannot be switched off,
 because it is the record rather than a copy of it.</p>
+<h3>Testing it</h3>
+<p><strong>Alerts → Notifications on this device → 🔔 Send a test notification.</strong> It goes through the same
+queue and the same sender as a real alert, so if the test arrives, alerts will too. If it says
+<em>"No device is turned on for you yet"</em> or <em>"Web push is not live"</em>, that is the thing to fix.</p>
+<h3>What a notification looks like</h3>
+<p>A short title (<em>New task for you</em>, <em>Problem for you to resolve</em>, <em>Escalated — level 2</em>), the same words
+the Telegram message would carry, and a tap that opens the right place — the task itself, or the
+Alerts tab. <strong>Problems stay on screen until dismissed</strong>, and a repeat of the same problem (an
+escalation) replaces the old banner and buzzes again rather than stacking.</p>
+<hr />
+<h2>Somebody who only uses the app</h2>
+<p>People who never use Telegram never see the bot's consent notice. The first time they sign in to the
+dashboard they are shown the app's own notice and asked to agree; what they agreed to is stored with a
+fingerprint of the exact words. <strong>Alerts → Your consent</strong> shows when, and has the <strong>Withdraw</strong> button —
+the app's version of the bot's <code>/withdraw</code>, with the same effect (the account is switched off, past
+records are kept). The notice is a <strong>draft awaiting FreshNow's sign-off</strong>.</p>
+<p>Two things still only work in Telegram: <strong>files attached to an assignment</strong> (they are Telegram file
+references, so the app's message says so), and <strong>the CEO's document-to-tasks and question flows by
+voice or chat</strong> — both of which also exist as dashboard screens.</p>
 <hr />
 <h2>Should drivers move off Telegram?</h2>
 <p><strong>No.</strong> This is the clearest recommendation in this guide.</p>

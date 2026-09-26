@@ -34,6 +34,10 @@ self.addEventListener("push", (event) => {
     // Same tag collapses repeats of the same problem into one notification rather than
     // stacking five identical banners — the same idea as the alert table's alias dedup.
     tag: data.tag || undefined,
+    // With a tag, a repeat silently replaces the old banner unless renotify is set — so an
+    // escalation of a problem the person already saw would update the text without a
+    // sound. It must buzz. (Chrome rejects renotify without a tag, hence the guard.)
+    renotify: Boolean(data.tag),
     data: { url: data.url || "/app/" },
     // A blocker should survive the screen being glanced at and ignored.
     requireInteraction: data.urgent === true,

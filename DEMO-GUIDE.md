@@ -229,6 +229,40 @@ Sign out — you land back on the portal picker. Choose **Task & logging** and s
 directory offers Priya only. `/blockers` shows Priya's problems, not Ramesh's. Same rule as the
 browser, same database. (Revert both on People afterwards.)
 
+### Act 9 — The app replaces Telegram, with one switch (3 min)
+
+This is the answer to "what if we stop using Telegram?" — shown, not described. Telegram is the
+default and stays on until the CEO chooses otherwise.
+
+**Before the demo (once):** web push needs VAPID keys in `.env` and an **https** address — or
+`http://localhost` on the machine you are presenting from. Generate the keys with
+`npx web-push generate-vapid-keys` (from `packages/worker`), paste the three `VAPID_*` lines into
+`.env`, restart the API and the worker. On a phone, `http://10.x.x.x:3001` cannot work — browsers only
+allow notifications on https. For a phone demo with **synthetic data only**, a temporary tunnel such
+as `cloudflared tunnel --url http://localhost:3001` gives an https address (traffic then passes through
+Cloudflare — never do this with real employee data). iPhone: Safari → Share → **Add to Home Screen**
+first, then open FreshNow from the Home Screen.
+
+1. **Alerts → Notifications on this device → Turn on for this device**, allow the browser prompt.
+   Then **🔔 Send a test notification** — close the tab first and it still arrives. That banner went
+   through the real outbox and the real worker, not a shortcut.
+2. **Alerts → Channels → How people hear from us.** Three choices: **Telegram** (default),
+   **Telegram + App**, **App only**. Choose **App only**. Telegram's row turns OFF, phone notifications
+   turn LIVE. (If web push is not set up, *App only* is greyed out and the server refuses it — turning
+   Telegram off with nothing to replace it would leave nobody reachable.)
+3. As the CEO, **Assignments → assign a task** to the person whose device is on. Their phone buzzes with
+   **"New task for you"**; tapping it opens that exact task. Nothing was sent to Telegram — check
+   **Activity**: `alert.enqueued` lists the channels, `inapp` and `webpush` only.
+4. That person reports **🚫 Blocked** on **My work** with a sentence. The CEO's device buzzes with
+   **"Problem for you to resolve"** — it stays on screen until dismissed, because a blocker should not be
+   glanced at and lost — and **✅ Acknowledge** on the Alerts tab stops the escalation, exactly as the
+   Telegram button does.
+5. Switch back to **Telegram** at the end. Every switch is in **Activity** as `channel.mode_set`, with
+   who and when.
+
+> "Telegram stays the default. The app is built, wired and switched off until you decide — and when you
+> do, it is one choice, it is recorded, and it cannot be made in a way that leaves people unreachable."
+
 ---
 
 ## Part 4 · Register someone from the office, live (3 minutes)

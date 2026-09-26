@@ -31,7 +31,17 @@ async function main(): Promise<void> {
   // Each sender throws at construction when its keys are missing, which is why they are
   // built conditionally: the worker must start and keep delivering Telegram even when web
   // push has not been set up.
-  const senders: Senders = { telegram: makeTelegramSender(), inapp: inAppSender }; // telegram throws if BOT_TOKEN is unset
+  //
+  // Telegram is conditional too, since the company can run app-only (in-app inbox + web push,
+  // `setDeliveryMode("app")`). A worker that refused to start without BOT_TOKEN made that
+  // mode impossible to deploy: no token, no worker, no push, no SLA sweep.
+  const senders: Senders = { inapp: inAppSender };
+  if (process.env.BOT_TOKEN) {
+    senders.telegram = makeTelegramSender();
+    console.log("[worker] telegram sender ready");
+  } else {
+    console.log("[worker] no BOT_TOKEN — Telegram messages will not be delivered (app-only deployment)");
+  }
   if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY && process.env.VAPID_SUBJECT) {
     senders.webpush = makeWebPushSender();
     console.log("[worker] web push sender ready");

@@ -23,7 +23,7 @@ import {
 import { Age, Card, DataTable, Demo, Empty, Pill, Severity, Spinner, Words, type Column } from "./components/ui";
 import { Button, PersonPicker, TextArea, TextField, Toast, useAction } from "./components/form";
 import { TaskDetailPanel } from "./components/task-detail";
-import { AlertsTab, InboxBell } from "./components/alerts";
+import { AlertsTab, ConsentGate, InboxBell } from "./components/alerts";
 import { ProjectsPortal } from "./components/projects";
 import { useLiveUpdates } from "./lib/live";
 import { ThemeToggle } from "./components/theme-toggle";
@@ -127,6 +127,22 @@ export default function App({
   const [busy, setBusy] = useState(false);
   /** The task open in the side panel, with its owner so the panel knows what it may change. */
   const [openTask, setOpenTask] = useState<{ id: string; ownerId: string } | null>(null);
+  /**
+   * Whether the signed-in person has consent on record. Only asked under real sign-in: in
+   * demo mode the viewer is a label you can switch, and consent is a person's own act.
+   */
+  const [consented, setConsented] = useState<boolean | null>(identity ? null : true);
+  useEffect(() => {
+    if (!identity) return;
+    let cancelled = false;
+    void api
+      .consent(viewer)
+      .then((c) => { if (!cancelled) setConsented(c.consented); })
+      // If the check itself fails, do not lock the person out of the board over it; the
+      // Alerts tab's consent card will show the state once the API answers.
+      .catch(() => { if (!cancelled) setConsented(true); });
+    return () => { cancelled = true; };
+  }, [identity, viewer]);
 
   const load = useCallback(async () => {
     setBusy(true);
@@ -158,6 +174,20 @@ export default function App({
   useEffect(() => {
     void load();
   }, [load]);
+
+  // A notification tap lands on `/app/?task=<id>#tasks/<tab>` (see presentationOf in
+  // core/alerts.ts). Open that task's panel once the board has loaded, then drop the
+  // parameter so a refresh does not re-open it and a shared link carries no stale id.
+  useEffect(() => {
+    if (!data) return;
+    const params = new URLSearchParams(location.search);
+    const id = params.get("task");
+    if (!id || !/^[0-9a-f-]{36}$/i.test(id)) return;
+    params.delete("task");
+    const qs = params.toString();
+    history.replaceState(null, "", `${location.pathname}${qs ? `?${qs}` : ""}${location.hash}`);
+    setOpenTask({ id, ownerId: data.open.find((t) => t.id === id)?.employee_id ?? data.me?.employeeId ?? "" });
+  }, [data]);
 
   // Postgres says when something changed; the poll inside this hook stays as the fallback,
   // so losing the stream degrades to the old 20-second refresh rather than to a dead board.
@@ -250,6 +280,9 @@ export default function App({
       </button>
     );
   };
+
+  // After every hook, so the hook order never depends on consent.
+  if (consented === false) return <ConsentGate viewer={viewer} onAgreed={() => setConsented(true)} />;
 
   return (
     <div className="min-h-full lg:grid lg:grid-cols-[248px_1fr]">

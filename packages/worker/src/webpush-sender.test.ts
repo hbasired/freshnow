@@ -149,4 +149,24 @@ describe("the web push sender", () => {
   it("succeeds when the person has no devices, instead of queueing forever", async () => {
     await expect(sender()(msg)).resolves.toBeUndefined();
   });
+
+  it("asks the push service to wake the phone now only for an urgent message", async () => {
+    // A blocker must not wait for the phone's next scheduled wake-up; everything else should
+    // not drain somebody's battery. The flag reaches the transport, which turns it into the
+    // RFC 8030 Urgency header.
+    const sub = subscriptionFor(`/urgency-${randomUUID()}`);
+    await savePushSubscription({ employeeId: EMP, ...sub });
+    const seen: { urgent: boolean | undefined; body: Record<string, unknown> }[] = [];
+    const recording = async (_s: { endpoint: string }, body: string, opts?: { urgent: boolean }): Promise<unknown> => {
+      seen.push({ urgent: opts?.urgent, body: JSON.parse(body) as Record<string, unknown> });
+      return { statusCode: 201 };
+    };
+    await makeWebPushSender(recording)({ ...msg, payload: { ...msg.payload, urgent: true, tag: "blocker-1" } });
+    await makeWebPushSender(recording)({ ...msg, payload: { title: "New task", text: "count crates", url: "/app/?task=x#tasks/mine" } });
+    expect(seen.map((s) => s.urgent)).toEqual([true, false]);
+    // What the device's service worker reads: a title, a body, where to go, the collapse tag.
+    expect(seen[0]!.body).toMatchObject({ title: "Blocker", body: "van 2 chiller", url: "/app/#tasks/alerts", tag: "blocker-1", urgent: true });
+    expect(seen[1]!.body).toMatchObject({ title: "New task", body: "count crates", url: "/app/?task=x#tasks/mine" });
+    await getServiceSql()`delete from push_subscription where employee_id = ${EMP}`;
+  });
 });
