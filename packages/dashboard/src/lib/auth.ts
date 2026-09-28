@@ -15,6 +15,12 @@ export interface AppConfig {
   /** Whether this build is serving synthetic demo data. Drives the DEMO badge. */
   isDemo: boolean;
   supabaseUrl: string | null;
+  /**
+   * True for a local Supabase: sign in through the dashboard's own origin (the API passes
+   * the call on), so one HTTPS tunnel covers both the page and sign-in. Optional because an
+   * older API does not send it.
+   */
+  supabaseSameOrigin?: boolean;
   supabaseAnonKey: string | null;
   /** The VAPID public key, or null when web push is not configured on this server. */
   vapidPublicKey: string | null;
@@ -34,7 +40,8 @@ export function supabase(cfg: AppConfig): SupabaseClient {
   }
   // Sessions persist in this browser and refresh themselves, so a dashboard left open on
   // a wall does not quietly lose its identity after the one-hour token lifetime.
-  client ??= createClient(cfg.supabaseUrl, cfg.supabaseAnonKey, {
+  const url = cfg.supabaseSameOrigin ? window.location.origin : cfg.supabaseUrl;
+  client ??= createClient(url, cfg.supabaseAnonKey, {
     auth: { persistSession: true, autoRefreshToken: true },
   });
   return client;

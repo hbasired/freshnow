@@ -16,6 +16,7 @@ import { AuthError, authEnabled, viewerFromToken } from "../auth.js";
 // enforced by Postgres, not by the handler. See ../viewer.ts for who the viewer is.
 import { resolveViewer, viewerOf } from "../viewer.js";
 import { BEHIND_THRESHOLD_POINTS } from "./tasks.js";
+import { isLocalSupabase } from "./auth-proxy.js";
 
 /**
  * The most rows any board list returns.
@@ -79,6 +80,10 @@ export function registerDashboardRoutes(app: FastifyInstance): void {
       authRequired: authEnabled(),
       isDemo: IS_DEMO,
       supabaseUrl,
+      // For a local Supabase, sign in through this server (routes/auth-proxy.ts) so the page
+      // and its sign-in share one origin — the only way an HTTPS tunnel to port 3001 lets a
+      // phone both sign in and receive push. The browser then uses its own address.
+      supabaseSameOrigin: isLocalSupabase(c.SUPABASE_URL),
       supabaseAnonKey: c.SUPABASE_ANON_KEY ?? null,
       // The VAPID PUBLIC key, which is what `pushManager.subscribe` needs. Public by
       // design — like the Supabase anon key above, it identifies the sender rather than

@@ -325,6 +325,12 @@ Routing goes to the **CEO only** for now (company routing data not yet supplied)
   Azure/AWS/Copilot deck — Azure UAE North + Core42 ≈ $202/month, AWS UAE "not now" (D135, VF31).
   -> `docs/tasks/TASK-044-app-channel-and-ceo-briefings.html` · `docs/reports/ceo-deck-azure-aws-uae.html`
 
+- **T45 Local demo readiness: same-origin sign-in, consent before data, app demo guide** (2026-09-28): the API
+  passes sign-in to a local Supabase so one HTTPS tunnel serves a phone (D136); the board waits for consent
+  (D137); CI manual-only and its pnpm clash fixed (D138); channel-neutral assignment wording; verified with a
+  real Supabase Auth and three accounts (VF34). The repo is public (G114).
+  -> `docs/tasks/TASK-045-local-demo-readiness.html` · `DEMO-GUIDE-APP.md`
+
 ## Blocked on the user
 - ~~`CEO_TELEGRAM_USER_ID` is empty.~~ **Resolved 2026-09-04:** CEO = 6051615734,
   employee = 8903000291. Both have run `/start`; the CEO is linked to the CEO employee row.

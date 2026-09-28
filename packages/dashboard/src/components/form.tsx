@@ -172,7 +172,9 @@ export function PersonPicker({
         { value: "", label: "— choose somebody —" },
         ...people.map((p) => ({
           value: p.id,
-          label: p.linked === false ? `${p.display_name} (not on Telegram yet)` : p.display_name,
+          // Not on Telegram is no longer "unreachable": the in-app inbox (and their devices, if
+          // turned on) still reach them. The note says which, rather than implying nothing arrives.
+          label: p.linked === false ? `${p.display_name} (no Telegram — told in the app)` : p.display_name,
         })),
       ]}
     />

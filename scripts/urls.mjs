@@ -48,9 +48,10 @@ function where(url) {
 
 const ip = wifiIp();
 const supabase = process.env.SUPABASE_URL ? new URL(process.env.SUPABASE_URL) : null;
-// The phone signs in against Supabase Auth directly, so it must reach that port too.
-// The JWKS path answers without an API key, which makes it a clean reachability probe.
-const authProbe = (host) => `http://${host}:${supabase.port}/auth/v1/.well-known/jwks.json`;
+// Since 2026-09-28 a phone signs in THROUGH the API on port 3001 (routes/auth-proxy.ts), so
+// it no longer needs Supabase's own port. Probe that the API can reach Supabase Auth — the
+// JWKS path answers without an API key.
+const authProbe = () => `http://127.0.0.1:${supabase.port}/auth/v1/.well-known/jwks.json`;
 
 console.log("\n═══ FreshNow — current URLs ═══\n");
 
@@ -60,16 +61,16 @@ if (!ip) {
   console.log(`  Wi-Fi IP: ${ip}\n`);
   console.log("  ON YOUR PHONE (must be on the same wifi)");
   console.log(`    Dashboard  http://${ip}:3001/app/   ${await probe(`http://${ip}:3001/app/`)}`);
-  if (supabase) {
-    console.log(`    Sign-in    http://${ip}:${supabase.port}      ${await probe(authProbe(ip))}   (Supabase Auth; the phone must reach it to log in)`);
-  }
+  console.log("    (sign-in goes through port 3001 too; notifications need HTTPS — see DEMO-GUIDE-APP.md §4)");
 }
 
 console.log("\n  ON THIS PC");
 console.log(`    Dashboard  http://localhost:3001/app/   ${await probe("http://localhost:3001/health")}`);
 if (supabase) {
+  console.log(`    Sign-in    Supabase Auth ${await probe(authProbe())}   (reached through the API; nothing to open on the phone)`);
   console.log(`    Studio     http://localhost:54323       ${await probe("http://localhost:54323/")}   (Supabase database browser)`);
 }
+console.log(`    Web push   ${process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY && process.env.VAPID_SUBJECT ? "VAPID keys set" : "NOT set up — no VAPID_* keys in .env (DEMO-GUIDE-APP.md §2)"}`);
 console.log(`    Adminer    http://localhost:8080        ${await probe("http://localhost:8080/")}   (the old Postgres, kept for rollback)`);
 
 console.log("\n  SIGN-IN");

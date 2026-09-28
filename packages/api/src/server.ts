@@ -13,6 +13,7 @@ import { registerAlertRoutes } from "./routes/alerts.js";
 import { registerProjectRoutes } from "./routes/projects.js";
 import { registerEventRoutes } from "./routes/events.js";
 import { registerInboundRoutes } from "./routes/inbound.js";
+import { registerAuthProxyRoutes } from "./routes/auth-proxy.js";
 
 declare module "fastify" {
   interface FastifyRequest {
@@ -88,5 +89,7 @@ export function buildServer(logger = true): FastifyInstance {
   // Outside /dashboard/* on purpose: a mail edge is a machine and cannot hold a JWT. It
   // carries its own shared-secret guard plus SPF/DKIM/DMARC checks — see routes/inbound.ts.
   registerInboundRoutes(app);
+  // Sign-in on the same origin as the page, for a local Supabase — see routes/auth-proxy.ts.
+  registerAuthProxyRoutes(app);
   return app;
 }

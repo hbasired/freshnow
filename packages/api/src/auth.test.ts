@@ -129,6 +129,10 @@ describe("dashboard sign-in with a Supabase JWT", () => {
       // chip that would keep claiming demo once the build carried real company data.
       isDemo: IS_DEMO,
       supabaseUrl: `http://192.168.1.50:${port}`,
+      // A local Supabase is signed in to through this server (routes/auth-proxy.ts), so the
+      // browser uses its own origin — one address for the page and sign-in, which is what lets
+      // an HTTPS tunnel serve a phone. supabaseUrl stays for an older dashboard build.
+      supabaseSameOrigin: true,
       supabaseAnonKey: ANON,
       // The VAPID PUBLIC key, so the browser can subscribe to push. Public by design, like
       // the anon key above; null when web push is not configured on this server.

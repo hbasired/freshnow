@@ -70,13 +70,18 @@ reconnects, so check it before every demo rather than reusing an old link.
 
 Sign-in accounts (and their passwords) are in **`CREDENTIALS.local.md`**, which git ignores.
 
-The phone must reach **two** ports on this laptop: `3001` (the dashboard) and `54321`
-(sign-in). If the dashboard loads but sign-in hangs, port 54321 is being blocked. Open both
-once, in **PowerShell run as Administrator**:
+Since 2026-09-28 the phone reaches **one** port on this laptop: `3001`. Sign-in goes through
+the dashboard's own address (the API passes it to Supabase), so port 54321 no longer has to be
+open. If the dashboard does not load on the phone, allow 3001 once, in **PowerShell run as
+Administrator**:
 
 ```powershell
-New-NetFirewallRule -DisplayName "FreshNow demo" -Direction Inbound -Action Allow -Protocol TCP -LocalPort 3001,54321
+New-NetFirewallRule -DisplayName "FreshNow demo" -Direction Inbound -Action Allow -Protocol TCP -LocalPort 3001
 ```
+
+**Phone notifications need HTTPS**, which the Wi-Fi address is not. For the web push / in-app
+demo use the tunnel in **`DEMO-GUIDE-APP.md` §4** — one command, and it also means the phone does
+not need to be on the same Wi-Fi.
 
 ---
 
