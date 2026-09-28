@@ -377,62 +377,67 @@ export default function App({
               assignments={data?.assignments ?? []}
               onPick={onSearchPick}
             />
-            <div className="flex-1" />
-            {portal === "tasks" ? (
-              <input
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                aria-label="Day shown"
-                className="rounded-xl border border-edge bg-sunken px-2 py-1.5 text-sm"
-              />
-            ) : null}
-            {!identity ? (
-              <select
-                value={viewer}
-                onChange={(e) => setViewer(e.target.value)}
-                title="See the data exactly as this person sees it"
-                className="rounded-xl border border-edge bg-sunken px-2 py-1.5 text-sm"
+            {/* One right-aligned group. As loose siblings, these wrapped onto a new line at the
+                LEFT when the window was narrow or zoomed — which put the bell on the left and
+                opened its panel off the screen. `ml-auto` keeps the group, wrapped or not, at the
+                right edge. */}
+            <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+              {portal === "tasks" ? (
+                <input
+                  type="date"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  aria-label="Day shown"
+                  className="rounded-xl border border-edge bg-sunken px-2 py-1.5 text-sm"
+                />
+              ) : null}
+              {!identity ? (
+                <select
+                  value={viewer}
+                  onChange={(e) => setViewer(e.target.value)}
+                  title="See the data exactly as this person sees it"
+                  className="rounded-xl border border-edge bg-sunken px-2 py-1.5 text-sm"
+                >
+                  <option value="ceo">CEO (sees everything)</option>
+                  {(data?.people ?? []).map((p) => (
+                    <option key={p.id} value={p.id}>{p.display_name}</option>
+                  ))}
+                </select>
+              ) : null}
+              <ThemeToggle compact />
+              <button
+                onClick={() => { setPortal("tasks"); setTab("today"); }}
+                title={attention ? `${attention} thing${attention === 1 ? "" : "s"} need a human: urgent problems and updates nobody could read` : "Nothing needs a human right now"}
+                aria-label="Needs attention"
+                className={`relative grid h-9 w-9 place-items-center rounded-xl border ${attention ? "border-crit/50 bg-crit/10 text-crit" : "border-edge bg-sunken text-mut"} hover:border-link`}
               >
-                <option value="ceo">CEO (sees everything)</option>
-                {(data?.people ?? []).map((p) => (
-                  <option key={p.id} value={p.id}>{p.display_name}</option>
-                ))}
-              </select>
-            ) : null}
-            <ThemeToggle compact />
-            <button
-              onClick={() => { setPortal("tasks"); setTab("today"); }}
-              title={attention ? `${attention} thing${attention === 1 ? "" : "s"} need a human: urgent problems and updates nobody could read` : "Nothing needs a human right now"}
-              aria-label="Needs attention"
-              className={`relative grid h-9 w-9 place-items-center rounded-xl border ${attention ? "border-crit/50 bg-crit/10 text-crit" : "border-edge bg-sunken text-mut"} hover:border-link`}
-            >
-              <Icon.alert size={18} />
-              {attention ? <span className="absolute -right-1 -top-1 rounded-full bg-crit px-1.5 text-[10px] font-bold text-on-accent">{attention}</span> : null}
-            </button>
-            <InboxBell
-              viewer={viewer}
-              tick={tickOf(loadedAt)}
-              // The owner comes from the board so the panel knows what this viewer may
-              // change; a task that is not on the board falls back to the viewer, and the
-              // API refuses anything they may not do anyway.
-              onOpenTask={(id) =>
-                setOpenTask({ id, ownerId: data?.open.find((t) => t.id === id)?.employee_id ?? data?.me?.employeeId ?? "" })
-              }
-            />
-            <button
-              onClick={() => void load()}
-              aria-label="Refresh"
-              title="Refresh now"
-              className={`grid h-9 w-9 place-items-center rounded-xl border border-edge bg-sunken text-mut hover:border-ok hover:text-ok ${busy ? "animate-pulse" : ""}`}
-            >
-              <Icon.refresh size={18} />
-            </button>
-            {identity ? (
-              <span className="grid h-9 w-9 place-items-center rounded-full bg-ok/15 text-sm font-bold text-ok lg:hidden" title={identity.name}>
-                {identity.name.trim().charAt(0).toUpperCase()}
-              </span>
-            ) : null}
+                <Icon.alert size={18} />
+                {attention ? <span className="absolute -right-1 -top-1 rounded-full bg-crit px-1.5 text-[10px] font-bold text-on-accent">{attention}</span> : null}
+              </button>
+              <InboxBell
+                viewer={viewer}
+                tick={tickOf(loadedAt)}
+                // The owner comes from the board so the panel knows what this viewer may
+                // change; a task that is not on the board falls back to the viewer, and the
+                // API refuses anything they may not do anyway.
+                onOpenTask={(id) =>
+                  setOpenTask({ id, ownerId: data?.open.find((t) => t.id === id)?.employee_id ?? data?.me?.employeeId ?? "" })
+                }
+              />
+              <button
+                onClick={() => void load()}
+                aria-label="Refresh"
+                title="Refresh now"
+                className={`grid h-9 w-9 place-items-center rounded-xl border border-edge bg-sunken text-mut hover:border-ok hover:text-ok ${busy ? "animate-pulse" : ""}`}
+              >
+                <Icon.refresh size={18} />
+              </button>
+              {identity ? (
+                <span className="grid h-9 w-9 place-items-center rounded-full bg-ok/15 text-sm font-bold text-ok lg:hidden" title={identity.name}>
+                  {identity.name.trim().charAt(0).toUpperCase()}
+                </span>
+              ) : null}
+            </div>
           </div>
           <div className="mx-auto max-w-7xl pt-1.5 text-xs">
             {err ? (

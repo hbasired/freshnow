@@ -98,6 +98,54 @@ pnpm build:web                  # rebuild the dashboard — every pull, not opti
   (no consent notice, no delivery-mode switch, sign-in aimed at port 54321, so the phone cannot sign
   in through the tunnel) until you rebuild. Build before starting the API (§3).</li>
 <li>Nothing new to migrate: the database schema did not change.</li>
+</ul>
+<h3>1.1 · Already running when you pulled? What to restart</h3>
+<p>Nothing reloads by itself — <code>pnpm start:*</code> runs the code as it was when it started.</p>
+<table>
+<thead>
+<tr>
+<th>Window</th>
+<th>After a pull</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>api</strong></td>
+<td><code>Ctrl+C</code>, then <code>$env:HOST = "127.0.0.1"; pnpm start:api</code></td>
+<td>new server code; serves the new dashboard build</td>
+</tr>
+<tr>
+<td><strong>worker</strong></td>
+<td><code>Ctrl+C</code>, then <code>pnpm start:worker</code></td>
+<td>new sending / consent code</td>
+</tr>
+<tr>
+<td><strong>bot</strong></td>
+<td><code>Ctrl+C</code>, then <code>pnpm start:bot</code></td>
+<td>new bot code</td>
+</tr>
+<tr>
+<td><strong>tunnel</strong></td>
+<td><strong>leave it running</strong></td>
+<td>it only forwards to port 3001; a restart would give the phone a new address</td>
+</tr>
+<tr>
+<td>Docker, Supabase</td>
+<td>leave running</td>
+<td>nothing changed in them</td>
+</tr>
+<tr>
+<td>browsers, phone</td>
+<td>reload the page (on the phone: close and reopen the app)</td>
+<td>picks up the new dashboard</td>
+</tr>
+</tbody>
+</table>
+<p>Order: <code>git pull</code> → <code>pnpm install</code> → <code>pnpm build:web</code> → restart <strong>api</strong>, <strong>worker</strong>, <strong>bot</strong> → reload the
+browsers. (<code>pnpm dev:api</code> instead of <code>start:api</code> reloads server code on every change, but the dashboard
+still needs <code>pnpm build:web</code>.)</p>
+<ul>
 <li>If this is the <strong>first</strong> pull since 26 Sept, git deletes three research PDFs from <code>freshnow/</code>
   (they are now ignored, not lost). To get them back:
   <code>git restore --source=8e34075 -- freshnow/opt-COO.pdf freshnow/opt-COO1.pdf freshnow/opt-COO2.pdf</code></li>
@@ -209,13 +257,13 @@ line marked "terminal", all in the project folder.</p>
 <td>6</td>
 <td><strong>tunnel</strong></td>
 <td><code>cloudflared tunnel --url http://localhost:3001</code></td>
-<td>a box with <code>https://&lt;words&gt;.trycloudflare.com</code> — <strong>copy that address</strong></td>
+<td>connectivity checks that all say <code>PASS</code> (the address itself is printed near the top — you do not need to find it)</td>
 </tr>
 <tr>
 <td>7</td>
 <td>any</td>
 <td><code>pnpm urls</code></td>
-<td><code>Dashboard … HTTP 200</code>, <code>Sign-in Supabase Auth HTTP 200</code>, <code>Web push VAPID keys set</code>, <code>@freshnow1bot reachable</code></td>
+<td><strong><code>Phone https://&lt;words&gt;.trycloudflare.com/app/ HTTP 200</code></strong> — the phone's address, checked end to end — plus <code>Dashboard … HTTP 200</code>, <code>Sign-in Supabase Auth HTTP 200</code>, <code>Web push VAPID keys set</code>, <code>@freshnow1bot reachable</code></td>
 </tr>
 </tbody>
 </table>
@@ -354,7 +402,16 @@ with a new password <strong>resets</strong> it; the account and its history stay
    Windows Settings must also allow <strong>Microsoft Edge</strong> notifications.</li>
 </ol>
 <h3>5.3 · The phone — "DEMO – Priya Nair"</h3>
-<p>Use the <code>https://….trycloudflare.com</code> address from §3 step 6, followed by <code>/app/</code>.</p>
+<p><strong>Before the phone:</strong>
+- The CEO has chosen <strong>Telegram + App</strong> (§5.1 step 3). With <strong>Telegram</strong> only, the phone gets its inbox but
+  never buzzes.
+- Priya has a password (<code>pnpm link:user "Priya" priya@freshnow.local &lt;password&gt;</code>, §4.2).
+- <code>pnpm urls</code> shows <strong><code>Phone https://&lt;words&gt;.trycloudflare.com/app/ HTTP 200</code></strong>. <code>DOWN</code> right after starting
+  the tunnel: wait 30 seconds and run it again. Still <code>DOWN</code>: the <strong>api</strong> window is not running, or
+  cloudflared was closed.</p>
+<p><strong>Getting the address onto the phone:</strong> copy the <code>Phone</code> line from <code>pnpm urls</code> and send it to yourself —
+Telegram → <strong>Saved Messages</strong> is quickest — then tap it on the phone. It is long and random; typing it is
+where most attempts go wrong.</p>
 <p><strong>Android (Chrome):</strong>
 1. Open <code>https://&lt;words&gt;.trycloudflare.com/app/</code>.
 2. Menu <strong>⋮ → Install app</strong> (or <em>Add to Home screen</em>) → open <strong>FreshNow</strong> from the home screen.
@@ -368,6 +425,63 @@ with a new password <strong>resets</strong> it; the account and its history stay
 3. Sign in as Priya → agree to the notice → <strong>Alerts → Turn on → Allow → Send a test notification.</strong></p>
 <p>The phone does <strong>not</strong> need to be on the laptop's Wi-Fi — mobile data works, because the tunnel is
 on the internet.</p>
+<p><strong>If the phone will not cooperate:</strong></p>
+<table>
+<thead>
+<tr>
+<th>On the phone</th>
+<th>Cause</th>
+<th>Do</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A Cloudflare error page saying <strong>502</strong> / <em>Bad gateway</em></td>
+<td>the tunnel is up, the API behind it is not</td>
+<td>start the <strong>api</strong> window; check <code>curl.exe http://localhost:3001/health</code> on the laptop</td>
+</tr>
+<tr>
+<td>A Cloudflare error page saying <strong>1033</strong></td>
+<td>cloudflared is not connected (window closed, laptop asleep)</td>
+<td>start the tunnel again — it will have a <strong>new</strong> address: <code>pnpm urls</code>, resend it</td>
+</tr>
+<tr>
+<td><em>"This site can't be reached"</em></td>
+<td>wrong or old address</td>
+<td>run <code>pnpm urls</code> again and resend the <code>Phone</code> line; the address changes whenever cloudflared restarts</td>
+</tr>
+<tr>
+<td><em>"Sign-in service is not reachable"</em></td>
+<td>Supabase is not running on the laptop</td>
+<td><code>npx supabase start …</code> (§3 step 2)</td>
+</tr>
+<tr>
+<td><em>"Invalid login credentials"</em></td>
+<td>Priya has no password yet, or a different one</td>
+<td><code>pnpm link:user "Priya" priya@freshnow.local &lt;new password&gt;</code></td>
+</tr>
+<tr>
+<td>No <strong>Install app</strong> in the menu</td>
+<td>Chrome still loading, or already installed</td>
+<td>reload; check the home screen / app drawer for FreshNow</td>
+</tr>
+<tr>
+<td><strong>Turn on</strong> says notifications are blocked</td>
+<td>you tapped <em>Block</em> once</td>
+<td>Android: ⋮ → Settings → Site settings → Notifications → allow the address; iPhone: Settings → Notifications → FreshNow</td>
+</tr>
+<tr>
+<td>Test says <em>"Web push is not live"</em></td>
+<td>the company is on <strong>Telegram</strong> only</td>
+<td>CEO → Alerts → Channels → <strong>Telegram + App</strong></td>
+</tr>
+<tr>
+<td>The board updates slowly (up to 20 s)</td>
+<td>expected through a quick tunnel (no live stream)</td>
+<td>notifications still arrive at once; reopen the app to refresh</td>
+</tr>
+</tbody>
+</table>
 <h3>5.4 · Rehearse once, then clean up (§8)</h3>
 <p>Run §6 privately end to end, then reset (§8) so the demo starts from a clean board.</p>
 <hr />

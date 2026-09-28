@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   api,
   dmon,
@@ -61,11 +62,42 @@ export function InboxBell({ viewer, tick, onOpenTask }: { viewer: string; tick: 
     void load();
   }, [load, tick]);
 
+  // Where the panel goes: under the bell, right edges lined up, but never past either edge of
+  // the window. It used to be `absolute right-0` on the bell, which is only right while the
+  // bell sits at the right of the screen: on a phone, or a zoomed window where the header
+  // wraps, the 420 px panel opened leftwards off the screen. It is rendered into <body>
+  // because the sticky header's backdrop blur makes the header — not the window — the box a
+  // `position: fixed` child is placed in.
+  const bell = useRef<HTMLButtonElement>(null);
+  const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null);
+  const place = useCallback(() => {
+    const r = bell.current?.getBoundingClientRect();
+    if (!r) return;
+    const margin = 8;
+    const width = Math.min(420, window.innerWidth - 2 * margin);
+    const left = Math.max(margin, Math.min(r.right - width, window.innerWidth - width - margin));
+    setPos({ top: r.bottom + margin, left, width });
+  }, []);
+  useEffect(() => {
+    if (!open) return;
+    place();
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [open, place]);
+
   const unread = inbox?.unread ?? 0;
   return (
     <span className="relative">
       <Toast message={act.message} tone={act.tone} onDone={act.clear} />
       <button
+        ref={bell}
         onClick={() => setOpen((o) => !o)}
         aria-label="Notifications"
         title="What you have been told, and why"
@@ -73,8 +105,13 @@ export function InboxBell({ viewer, tick, onOpenTask }: { viewer: string; tick: 
       >
         🔔{unread > 0 ? <span className="ml-1 rounded-full bg-warn px-1.5 text-[11px] font-bold text-on-accent">{unread}</span> : null}
       </button>
-      {open ? (
-        <div className="absolute right-0 z-30 mt-2 w-[min(92vw,420px)] rounded-xl border border-edge bg-panel p-3 shadow-xl">
+      {open && pos ? createPortal(
+        <div
+          role="dialog"
+          aria-label="Inbox"
+          style={{ position: "fixed", top: pos.top, left: pos.left, width: pos.width, maxHeight: `calc(100dvh - ${pos.top + 8}px)` }}
+          className="z-50 flex flex-col rounded-xl border border-edge bg-panel p-3 shadow-xl"
+        >
           <div className="mb-2 flex items-center gap-2">
             <b className="flex-1 text-sm">Inbox</b>
             {unread > 0 ? (
@@ -98,7 +135,7 @@ export function InboxBell({ viewer, tick, onOpenTask }: { viewer: string; tick: 
           ) : inbox.items.length === 0 ? (
             <p className="text-xs text-mut">Nothing yet. You are told here about work given to you, problems routed to you, and anything you watch.</p>
           ) : (
-            <ul className="max-h-[60vh] space-y-2 overflow-y-auto">
+            <ul className="max-h-[60vh] min-h-0 space-y-2 overflow-y-auto">
               {inbox.items.map((n) => (
                 <NotificationRow
                   key={n.id}
@@ -109,7 +146,8 @@ export function InboxBell({ viewer, tick, onOpenTask }: { viewer: string; tick: 
               ))}
             </ul>
           )}
-        </div>
+        </div>,
+        document.body,
       ) : null}
     </span>
   );

@@ -1,3 +1,14 @@
+# Session status — 2026-09-28 (cloud session, TASK-047)
+
+- The CEO's notification panel no longer opens off the screen (zoomed or narrow windows, phones).
+- Once someone agrees to the notice, the "privacy notice changed" message in their inbox is marked read.
+- **`pnpm urls` prints the phone's address** (`Phone https://….trycloudflare.com/app/`) — no need to find it in
+  cloudflared's output. `DEMO-GUIDE-APP.md` §5.3 has the phone steps and a troubleshooting table; §1.1 says what to
+  restart after a pull (api, worker, bot — not the tunnel).
+- Tests: 483 pass, 9 need a live model provider.
+
+---
+
 # Session status — 2026-09-28 (cloud session, TASK-046)
 
 **Consent notice 2.0 is enforced.** One notice for Telegram and the app, built from the configuration (it names

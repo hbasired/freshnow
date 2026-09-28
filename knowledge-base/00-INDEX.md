@@ -339,6 +339,12 @@ Routing goes to the **CEO only** for now (company routing data not yet supplied)
   employee" (D142); a new Federal Authority for AI and Data since 14 June 2026, Regulations still pending (VF36).
   -> `docs/tasks/TASK-046-consent-notice-v2-and-pdpl-verdict.html` · both decks, slide 2
 
+- **T47 Inbox panel on screen, answered consent requests cleared, the phone's address in `pnpm urls`**
+  (2026-09-28): the panel is placed from the bell and clamped to the window (D143); answered requests are
+  marked read (D144); `pnpm urls` reads the tunnel name from cloudflared (VF37); guides say what to restart
+  after a pull and how to get the address onto a phone.
+  -> `docs/tasks/TASK-047-inbox-panel-and-phone-address.html`
+
 ## Blocked on the user
 - ~~`CEO_TELEGRAM_USER_ID` is empty.~~ **Resolved 2026-09-04:** CEO = 6051615734,
   employee = 8903000291. Both have run `/start`; the CEO is linked to the CEO employee row.
