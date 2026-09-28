@@ -4,6 +4,7 @@ import {
   companyToday,
   dmon,
   hhmm,
+  onConsentRequired,
   type ActivityRow,
   type Assignment,
   type Blocker,
@@ -137,12 +138,18 @@ export default function App({
     let cancelled = false;
     void api
       .consent(viewer)
-      .then((c) => { if (!cancelled) setConsented(c.consented); })
+      // Consent to an OLDER notice is not consent to this one: the gate shows the new words.
+      .then((c) => { if (!cancelled) setConsented(c.current); })
       // If the check itself fails, do not lock the person out of the board over it; the
       // Alerts tab's consent card will show the state once the API answers.
       .catch(() => { if (!cancelled) setConsented(true); });
     return () => { cancelled = true; };
   }, [identity, viewer]);
+  // If the notice changes while the app is open, the API starts refusing data; show the new
+  // notice rather than a board of errors.
+  useEffect(() => {
+    if (identity) onConsentRequired(() => setConsented(false));
+  }, [identity]);
 
   const load = useCallback(async () => {
     // Nothing is fetched for a signed-in person until they have consented (or the check is

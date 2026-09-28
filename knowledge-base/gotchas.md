@@ -877,7 +877,8 @@ the CI image have it; a hand-made test cluster needs `create role postgres`.
 On 2026-09-26 a search summary named "Cabinet Decision No. 83 of 2022" as the PDPL Executive Regulations; the
 instrument with that number regulates vehicle speed radars. Another named "Cabinet Resolution No. 33 of 2024"
 with no traceable source. The fourth such error recorded in the CEO deck. Never cite an instrument number
-without the primary text.
+without the primary text. **2026-09-28:** a fifth — "Cabinet Decision No. 111/2023" named as the Regulations by a compliance
+vendor's page; No. 111 of 2022 regulates virtual assets (VF36).
 
 ## G113 — `pkill -f <pattern>` can kill the shell running it [verified]
 When the pattern appears in the command line itself (as it does in `pkill -f "packages/worker/src/index.ts"`),
@@ -909,3 +910,15 @@ Cloudflare's Quick Tunnels page lists "no SSE" and a 200 in-flight request cap (
 live stream (`/dashboard/events`) is SSE read through `fetch`, so on the phone it should fall back to the 20-second
 poll in `lib/live.ts`; web push is unaffected (worker → push service, not through the tunnel). Not observed on a
 real phone. A named tunnel on a domain, or production behind Caddy, has no such limit.
+
+## G119 — The pkill bracket trick fails if the plain path appears later in the same command [verified 2026-09-28]
+`pkill -f "[p]ackages/api/src/index.ts"; … nohup npx tsx packages/api/src/index.ts …` in ONE Bash call killed the
+calling shell (exit 144): `[p]ackages…` does not match itself, but the unbracketed path later on the same command
+line does. Run the pkill as its own call (extends G113).
+
+## G120 — `unset VAR` does not keep a variable out: dotenv refills it from `.env` [verified 2026-09-28]
+Every process imports `dotenv/config`, which fills variables that are ABSENT. `unset BOT_TOKEN` before starting
+the API let `.env` put the real token back. `BOT_TOKEN=` (empty) survives, because dotenv never overrides a set
+variable. It matters twice now: to run without reaching real Telegram users, and because the consent notice is
+built from the environment — two processes with different variables show different words (D139).
+

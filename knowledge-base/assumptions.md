@@ -149,3 +149,18 @@ Confirm/refute: the Azure pricing calculator with UAE North selected. Affects: e
 ## A-T44.4 — Code sent to GitHub Copilot is not a PDPL transfer [believed]
 Source code is not personal data; Copilot processing is US/EU (no UAE residency). Holds only while no real
 employee data reaches a prompt, file or test. Confirm/refute: counsel. Affects: Copilot recommendation.
+
+## A-T46.1 — Employees' express consent is a valid transfer ground for Telegram and the AI providers [assumed]
+Notice 2.0 relies on PDPL Art. 23(1)(b). Open questions: whether consent from an employee is "freely given",
+and whether consent may be a condition of using the work tool (today a person who does not agree cannot use the
+bot or the dashboard). Confirm/refute: counsel. If refuted, the next step is a "no transfers" mode (app only, no
+AI) for people who decline — designed in TASK-046's write-up, not built. Affects: the whole consent design.
+
+## A-T46.2 — "Ask the CEO" is the data-subject contact [assumed]
+The notice says so because no data-protection contact has been named (deck action 8). Confirm/refute: FreshNow
+names a contact; the notice line changes and everyone is asked again. Affects: notice 2.0 wording.
+
+## A-T46.3 — A message delivered late is better than one never delivered [assumed]
+Messages to someone who has not agreed wait in the outbox indefinitely and are sent when they agree — possibly
+days later. Confirm/refute: the CEO. Alternative: expire held rows after N hours. Affects: `outbox-relay.ts`.
+

@@ -1,3 +1,18 @@
+# Session status — 2026-09-28 (cloud session, TASK-046)
+
+**Consent notice 2.0 is enforced.** One notice for Telegram and the app, built from the configuration (it names
+Telegram, each AI provider with a key, the push relays, retention). Everyone who agreed to an older notice is asked
+again — in Telegram with an **✅ I agree** button, and in the app. Until they agree, the bot and the API take nothing
+from them and messages to them wait in the outbox (their inbox still fills). **First start on the laptop: the CEO and
+Hemanth each tap ✅ I agree in Telegram** (DEMO-GUIDE-APP.md §5.1 step 0).
+- Both CEO decks open with a **final verdict** (slide 2): the PDPL applies in full; it does not force data to stay in
+  the UAE; UAE hosting is recommended, not required; the deadline is the first real employee's data. A Federal
+  Authority for AI and Data exists since 14 June 2026; the Regulations are still pending.
+- The wording is a draft for FreshNow and a lawyer to sign off; Hindi/Malayalam need a native speaker.
+- Tests: 481 pass, 9 need a live model provider. After pulling: `pnpm install`, `pnpm build:web`.
+
+---
+
 # Session status — 2026-09-28 (cloud session, TASK-045)
 
 **To run the app/web-push demo on the laptop: `DEMO-GUIDE-APP.md`** (start order, VAPID keys, tunnel, three accounts,

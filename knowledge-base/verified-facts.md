@@ -602,3 +602,24 @@ auth request went to the same https origin), saw the notice, page was a secure c
 the CEO's inbox got "finished"; rows queued on `inapp` and `webpush`. `POST /auth/v1/signup` via the API → 404.
 NOT covered: service-worker registration over HTTPS (the stand-in's self-signed certificate is refused for
 service workers — a real Cloudflare certificate is not); a real phone; the Supabase CLI's ES256 keys.
+
+## VF35 (2026-09-28) — Consent notice 2.0 enforced at all three doors, tested and run live [verified]
+Tests (fresh Postgres 16): 18 core (notice contents per configuration, hash changes with providers not order,
+current vs older consent, stale hash refused, sweep idempotent per version and re-asks on change, nobody asked
+who agreed / is disabled / has no way in, a switched-off channel not tried), 4 relay (held with 0 attempts, inbox and the request delivered,
+older consent does not release, released on the first poll after agreeing), 7 bot through the real grammY chain
+(notice + buttons for text and taps, nothing stored, one-tap agree records today's hash, stale tag refused,
+"not now", /withdraw still works), 4 API under real ES256 sign-in (403 consent_required, /me and the notice
+reachable, older consent not enough, 409 on a wrong hash then 200 and data). Full suite 481 pass, 9 need a live
+model provider. Live, against GoTrue built from source: the CEO's token got `403 consent_required`; the worker
+logged "asked 3 person(s)"; the CEO's escalation pushes sat at 0 attempts until the CEO agreed in Chromium, then
+were attempted; the gate rendered at 1280 px and 390 px with "You agreed to an earlier version (app-draft-1.0)".
+NOT covered: a real Telegram tap (no bot token was used, so nothing could reach the real accounts); a real phone.
+
+## VF36 (2026-09-28) — PDPL status: Regulations pending; a Federal Authority for AI and Data since 14 June 2026 [believed — via search; pages blocked]
+Morgan Lewis (June 2026), Lexology, CDO Magazine and Global Government Forum: on 14 June 2026 the UAE created a
+Federal Authority for Artificial Intelligence and Data, consolidating the AI Office, TDRA's digital-government
+sector and the UAE Data Office (which "never became fully operational"). Ashurst, Data Bytes 67 (July 2026): the
+Executive Regulations remain pending. No primary (government) page was readable from this session. A fifth false
+search claim: "Cabinet Decision No. 111/2023" as the Regulations — No. 111 of 2022 regulates virtual assets.
+

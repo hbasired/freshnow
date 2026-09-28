@@ -331,6 +331,14 @@ Routing goes to the **CEO only** for now (company routing data not yet supplied)
   real Supabase Auth and three accounts (VF34). The repo is public (G114).
   -> `docs/tasks/TASK-045-local-demo-readiness.html` · `DEMO-GUIDE-APP.md`
 
+- **T46 Consent notice 2.0, enforced in Telegram and the app; the PDPL verdict in both decks** (2026-09-28): one
+  notice generated from the configuration — change a provider and everyone is asked again (D139); no input taken
+  and nothing sent abroad until a person agrees, enforced in the bot, the API and the outbox (D140); everyone asked
+  in Telegram and the app once per version (D141); verified by 33 new tests and a live run (VF35). Decks: "must
+  comply — yes; must stay in the UAE — no; UAE hosting recommended, not required; before the first real
+  employee" (D142); a new Federal Authority for AI and Data since 14 June 2026, Regulations still pending (VF36).
+  -> `docs/tasks/TASK-046-consent-notice-v2-and-pdpl-verdict.html` · both decks, slide 2
+
 ## Blocked on the user
 - ~~`CEO_TELEGRAM_USER_ID` is empty.~~ **Resolved 2026-09-04:** CEO = 6051615734,
   employee = 8903000291. Both have run `/start`; the CEO is linked to the CEO employee row.

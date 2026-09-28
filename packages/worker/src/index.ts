@@ -1,5 +1,14 @@
 import "dotenv/config";
-import { loadConfig, projectSweep, retentionSweep, slaSweep, sweepUnroutedBlockers } from "@freshnow/core";
+import {
+  CONSENT_POLICY_VERSION,
+  loadConfig,
+  noticeTag,
+  projectSweep,
+  requestConsentFromEveryone,
+  retentionSweep,
+  slaSweep,
+  sweepUnroutedBlockers,
+} from "@freshnow/core";
 import { startEscalationWorker } from "./escalation.js";
 import { deliverOutboxBatch, inAppSender , type Senders } from "./outbox-relay.js";
 import { makeTelegramSender } from "./telegram-sender.js";
@@ -63,6 +72,7 @@ async function main(): Promise<void> {
   let lastProjectSweep = 0;
 
   console.log(`[worker] outbox relay every ${intervalMs}ms; sla_sweep every ${sweepEveryMs}ms; project_sweep every ${projectSweepEveryMs}ms`);
+  console.log(`[worker] consent notice ${CONSENT_POLICY_VERSION} (${noticeTag()}): anyone who has not agreed is asked, and their messages wait`);
   for (;;) {
     try {
       const r = await deliverOutboxBatch(senders);
@@ -79,6 +89,11 @@ async function main(): Promise<void> {
         if (u.found > 0) {
           console.log(`[worker] unrouted sweep: ${u.routed} routed, ${u.stillUnrouted} still unroutable`);
         }
+        // Ask anyone who has not agreed to the notice as it reads today — once per version of
+        // the words (the idempotency key carries it), so a new person linked since the last
+        // run is asked within a minute and nobody is asked twice.
+        const c = await requestConsentFromEveryone();
+        if (c.enqueued > 0) console.log(`[worker] consent: asked ${c.people} person(s) to agree to notice ${CONSENT_POLICY_VERSION}`);
       }
       // Projects move in days, not minutes, and their sweep tells the same people the same
       // thing once per day (the date is in the idempotency key). Running it hourly is enough

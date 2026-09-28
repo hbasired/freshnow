@@ -325,11 +325,17 @@ with a new password <strong>resets</strong> it; the account and its history stay
 <hr />
 <h2>5 · Put the three screens in place (≈ 10 minutes, before anyone watches)</h2>
 <h3>5.1 · CEO — Google Chrome on the laptop</h3>
-<ol>
+<ol start="0">
+<li><strong>In Telegram first (CEO and Hemanth):</strong> within a minute of the worker starting, the bot sends
+   each of you <em>"📄 FreshNow's privacy notice has changed"</em> — tap <strong>✅ I agree</strong>. Until you do, the
+   bot answers everything with the notice, and Telegram messages to you wait (they are delivered the
+   moment you agree). One agreement counts for Telegram and the app.</li>
 <li>Open <strong>http://localhost:3001/app/</strong> → choose <strong>Task &amp; logging</strong> → sign in with the CEO account.</li>
-<li><strong>First time only:</strong> a <strong>"Before you start"</strong> notice appears — what the app records, how the AI
-   is used, how to withdraw. Tap <strong>I have read this and agree</strong>. (Recorded with a fingerprint of
-   the exact words; it will not ask again.)</li>
+<li>If you have not agreed yet, <strong>"The privacy notice has changed"</strong> appears (or <strong>"Before you
+   start"</strong> for someone who never agreed to anything) — what is recorded, <strong>which services outside
+   our database receive it</strong> (Telegram, the AI providers configured in <code>.env</code>, the push relays), how
+   long it is kept, how to withdraw. Tap <strong>I have read this and agree</strong>. It is recorded with a
+   fingerprint of the exact words; it asks again only if the words change.</li>
 <li>Left menu → <strong>Alerts</strong> → <strong>Channels</strong> → under <strong>How people hear from us</strong>, choose
    <strong>Telegram + App</strong>. (Telegram stays on; the app is added. Until this is chosen, notifications
    are switched off for the whole company and the test below says so.)</li>
@@ -342,7 +348,8 @@ with a new password <strong>resets</strong> it; the account and its history stay
 <h3>5.2 · Hemanth — Microsoft Edge on the laptop</h3>
 <ol>
 <li>Open <strong>http://localhost:3001/app/</strong> in Edge → <strong>Task &amp; logging</strong> → sign in as Hemanth.</li>
-<li><strong>No consent notice</strong> — he already agreed in Telegram, and that record counts.</li>
+<li><strong>No notice</strong> if he tapped <strong>✅ I agree</strong> in Telegram (step 5.1·0) — that record counts here too.
+   Otherwise he sees <em>"The privacy notice has changed"</em> — agree.</li>
 <li><strong>Alerts → Notifications on this device → Turn on → Allow → Send a test notification.</strong>
    Windows Settings must also allow <strong>Microsoft Edge</strong> notifications.</li>
 </ol>
@@ -426,7 +433,10 @@ laptop, in the inbox, and on Telegram.</p>
 <li>Set it back to <strong>Immediately</strong>.</li>
 </ol>
 <h3>Act 9 — Consent and privacy (phone, 1 min)</h3>
-<p><strong>Phone → Alerts → Your consent</strong>: when Priya agreed, which notice, <strong>Read the notice</strong>.
+<p><strong>Phone → Alerts → Your consent</strong>: when Priya agreed, which notice (<strong>2.0-draft</strong>), <strong>Read the notice</strong>.
+Point at the section <em>"Where your data goes beyond FreshNow's database"</em>: it names Telegram, each AI
+provider that has a key in <code>.env</code>, and the push relays — built from the configuration, so it cannot
+fall out of date. Add or remove a provider and <strong>everyone is asked again</strong> automatically.
 <strong>Withdraw consent…</strong> exists and asks twice — <strong>do not tap it in the demo</strong>: it switches the account
 off (§8 has the undo). Point out what is <em>not</em> built: no location tracking, no productivity score,
 no sentiment analysis.</p>
@@ -467,6 +477,18 @@ the message is encrypted to each device — Google, Apple and Microsoft relay it
 <tr>
 <td><code>/app/</code> shows <strong>404</strong>, or the dashboard has no <strong>Before you start</strong> notice / no <strong>How people hear from us</strong> switch</td>
 <td>The dashboard was not rebuilt after the pull: <code>pnpm build:web</code>, then restart the <strong>api</strong>.</td>
+</tr>
+<tr>
+<td>The bot answers every message with the <strong>privacy notice</strong></td>
+<td>That account has not agreed to notice 2.0 — tap <strong>✅ I agree</strong> under it.</td>
+</tr>
+<tr>
+<td>Someone gets nothing in <strong>Telegram</strong> (the inbox still fills)</td>
+<td>They have not agreed yet; their messages wait and go out the moment they do. Check: <code>select * from consent_record where employee_id = '&lt;id&gt;' order by consented_at desc;</code></td>
+</tr>
+<tr>
+<td>The app shows <strong>"The privacy notice has changed"</strong> again later</td>
+<td>The words changed — usually an AI key added or removed in <code>.env</code>, or <code>RETENTION_DAYS</code> set. Agree again; that is the point.</td>
 </tr>
 <tr>
 <td>Sign-in says <strong>"Sign-in service is not reachable — is Supabase running?"</strong></td>
@@ -573,6 +595,14 @@ docker compose stop        # keeps all data
 - <strong>Assignment wording is channel-neutral</strong>: <em>Assign &amp; notify</em>, and people without Telegram are shown
   as <em>told in the app</em> rather than as unreachable.
 - <strong>CI is paused</strong> (manual <em>Run workflow</em> only).</p>
+<p><strong>Added on 28 Sept (consent notice 2.0)</strong>
+- <strong>One notice for Telegram and the app</strong>, naming every service outside our database that the system is
+  configured to use, with retention and how to withdraw. Everyone who agreed to an older notice is
+  asked again — in Telegram with a button, and in the app.
+- <strong>Until someone agrees</strong>, the bot and the dashboard take nothing from them, and messages to them
+  wait (except the inbox and the request itself). The API refuses their data too, not just the screen.
+- The wording is a <strong>draft</strong> until FreshNow and a lawyer sign it off; Hindi and Malayalam need a native
+  speaker — until then everyone sees English.</p>
 <p><strong>Limits — say them if asked</strong>
 - <strong>The tunnel passes through Cloudflare</strong>, a US company. For a demo with test data that is fine; for
   real employee data it is a cross-border transfer. Production needs a domain on a UAE host (see the

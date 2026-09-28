@@ -3,7 +3,7 @@ import type { AddressInfo } from "node:net";
 import { randomUUID } from "node:crypto";
 import { exportJWK, generateKeyPair, SignJWT } from "jose";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { closeDb, DEMO_CEO_ID, getServiceSql, seedDemo, IS_DEMO } from "@freshnow/core";
+import { closeDb, currentNoticeHash, DEMO_CEO_ID, getServiceSql, IS_DEMO, noticeHash, recordConsent, seedDemo } from "@freshnow/core";
 import { buildServer } from "./server.js";
 
 /**
@@ -25,7 +25,9 @@ const IDS = [
   "d0000000-0000-0000-0000-000000000004", "d0000000-0000-0000-0000-000000000005",
 ];
 // Auth user ids as Supabase would issue them — random, so nothing collides with real links.
-const AUTH = { ceo: randomUUID(), priya: randomUUID(), disabled: randomUUID(), stranger: randomUUID() };
+const AUTH = { ceo: randomUUID(), priya: randomUUID(), disabled: randomUUID(), stranger: randomUUID(), undecided: randomUUID() };
+/** A signed-in person who has not agreed to today's notice. */
+const UNDECIDED = "d0000000-0000-0000-0000-000000000004";
 const KID = "freshnow-test-key";
 const ANON = "test-anon-key-public-by-design";
 const ENV = ["SUPABASE_URL", "SUPABASE_ANON_KEY", "SUPABASE_JWT_SECRET"] as const;
@@ -89,6 +91,9 @@ beforeAll(async () => {
   await sql`update employee set auth_user_id = ${AUTH.ceo} where id = ${DEMO_CEO_ID}`;
   await sql`update employee set auth_user_id = ${AUTH.priya} where id = ${PRIYA}`;
   await sql`update employee set auth_user_id = ${AUTH.disabled}, status = 'disabled' where id = ${DISABLED}`;
+  await sql`update employee set auth_user_id = ${AUTH.undecided} where id = ${UNDECIDED}`;
+  // The CEO and Priya have agreed to today's notice; UNDECIDED has not (the consent door below).
+  for (const id of [DEMO_CEO_ID, PRIYA]) await recordConsent({ employeeId: id, noticeHash: currentNoticeHash(), via: "app" });
 });
 
 afterAll(async () => {
@@ -106,6 +111,7 @@ afterAll(async () => {
   await sql`delete from run_trace where correlation_id = ${SEED_CORR}`;
   await sql`delete from audit_log where correlation_id = ${SEED_CORR}`;
   await sql`delete from notification_outbox where idempotency_key like 'blocker-%'`;
+  await sql`delete from consent_record where employee_id = any(${[...IDS, DEMO_CEO_ID]}) and consented_at > now() - interval '1 hour'`;
   await sql`delete from employee where id in ${sql(IDS)}`;
   await app.close();
   await closeDb();
@@ -239,5 +245,45 @@ describe("dashboard sign-in with a Supabase JWT", () => {
     } finally {
       delete process.env.SUPABASE_JWT_SECRET;
     }
+  });
+});
+
+/**
+ * No data before consent to today's notice (core/src/consent.ts). The dashboard shows its
+ * consent screen first, but a screen is not a control — the same token could otherwise read
+ * the board straight from the API.
+ */
+describe("a signed-in person who has not agreed to today's notice", () => {
+  it("is refused data, with a code the dashboard recognises", async () => {
+    const r = await app.inject({ method: "GET", url: "/dashboard/blockers", headers: as(await token(AUTH.undecided)) });
+    expect(r.statusCode).toBe(403);
+    expect((r.json() as { error: { code: string } }).error.code).toBe("consent_required");
+  });
+
+  it("can still see who they are, read the notice, and use the live stream's door", async () => {
+    const t = as(await token(AUTH.undecided));
+    expect(await status("/dashboard/me", t)).toBe(200);
+    const c = (await app.inject({ method: "GET", url: "/dashboard/me/consent", headers: t })).json() as {
+      current: boolean;
+      notice: string;
+      noticeHash: string;
+    };
+    expect(c.current).toBe(false);
+    expect(c.noticeHash).toBe(noticeHash(c.notice));
+  });
+
+  it("is not let in by consent to an older notice", async () => {
+    await getServiceSql()`insert into consent_record (employee_id, policy_version, notice_hash)
+                          values (${UNDECIDED}, 'app-draft-1.0', ${noticeHash("the first app notice")})`;
+    expect(await status("/dashboard/blockers", as(await token(AUTH.undecided)))).toBe(403);
+  });
+
+  it("gets their board the moment they agree to the words they were shown", async () => {
+    const t = as(await token(AUTH.undecided));
+    const c = (await app.inject({ method: "GET", url: "/dashboard/me/consent", headers: t })).json() as { noticeHash: string };
+    expect(await post("/dashboard/me/consent", t, { noticeHash: noticeHash("words that were never shown") })).toBe(409);
+    expect(await status("/dashboard/blockers", t)).toBe(403);
+    expect(await post("/dashboard/me/consent", t, { noticeHash: c.noticeHash })).toBe(200);
+    expect(await status("/dashboard/blockers", t)).toBe(200);
   });
 });

@@ -104,8 +104,14 @@ through the invite flow, which captures it correctly). The rest were created by 
 Under UAE PDPL (Federal Decree-Law No. 45 of 2021) this matters: the platform stores
 employee performance data, and unnotified employee monitoring is treated as a legal risk.
 
+**Update 28 Sept 2026:** consent is now **enforced**, not only recorded. Notice **2.0-draft**
+(`packages/core/src/consent.ts`) names Telegram, each configured AI provider and the push relays;
+everyone is asked again in Telegram and the app, and nothing is taken from — or sent through Telegram
+to — a person until they agree. What is still ours to receive from you is below.
+
 **We need:**
-- Sign-off on the consent notice wording (we drafted one; it has never been reviewed).
+- Sign-off on the consent notice wording (draft 2.0 — built, never reviewed by FreshNow or a lawyer).
+- Hindi and Malayalam versions written by native speakers (until then everyone sees English).
 - A decision on who is the data controller contact for a withdrawal request.
 - Confirmation that everybody currently in the system has been told, in a language they
   read, what is captured and why.
@@ -235,7 +241,7 @@ table and take effect immediately — **except** where noted:
 | **The real CEO being a different person** | 🔵 change in 3 files | a demo CEO id is still hardcoded in the escalation ladder and the audit actor |
 | Managers using **Telegram** as managers | 🔵 real work | the bot only knows "CEO" and "employee"; the manager/lead model exists in the database and the web app but not in the bot |
 | A public deployment | 🔵 real work | Telegram webhook mode and its secret-token check are not implemented |
-| Consent enforcement before capture | 🔵 small change | consent is recorded but nothing checks it |
+| Consent enforcement before capture | ✅ built 28 Sept | the bot and the API refuse input without consent to the current notice; outbound messages wait |
 | Retention and erasure | 🔵 not built | PDPL requires it; currently deferred |
 
 ---

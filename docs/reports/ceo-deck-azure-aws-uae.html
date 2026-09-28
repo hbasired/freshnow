@@ -22,7 +22,7 @@
   html{scroll-snap-type:y proximity;scroll-behavior:smooth}
   html,body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.55 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
   section.slide{min-height:100vh;scroll-snap-align:start;padding:44px 56px 56px;position:relative;display:flex;flex-direction:column;justify-content:center;max-width:1400px;margin:0 auto}
-  section.slide::after{content:attr(data-n)" / 17";position:absolute;right:56px;bottom:22px;font-size:12px;color:var(--mut)}
+  section.slide::after{content:attr(data-n)" / 18";position:absolute;right:56px;bottom:22px;font-size:12px;color:var(--mut)}
   h1{font-size:2.6rem;line-height:1.15;margin:0 0 .6rem;letter-spacing:-.01em}
   h2{font-size:1.9rem;line-height:1.2;margin:0 0 1rem;letter-spacing:-.01em}
   h3{font-size:1.05rem;margin:1.2rem 0 .4rem}
@@ -76,7 +76,7 @@
 
 <!-- 1 ─────────────────────────────────────────────────────────────────────── -->
 <section class="slide" data-n="1" id="s1">
-  <span class="kicker">CEO briefing · 26 September 2026</span>
+  <span class="kicker">CEO briefing · 26 September 2026 · final verdict 28 September 2026</span>
   <h1>Running FreshNow on Azure or AWS inside the UAE —<br>what it takes, what it costs, where Copilot fits</h1>
   <p class="lead">The follow-up to <em>"Where FreshNow's data may go"</em>. Same system, same workload, same arithmetic — now priced on the two hyperscalers with UAE data centres, with the AI kept in the country and Microsoft's Copilot tools placed where they help.</p>
   <div class="grid g4" style="margin-top:22px">
@@ -86,11 +86,32 @@
     <div class="card stat edge-crit"><div class="l">AWS UAE region</div><div class="n" style="font-size:1.4rem">Not now</div><div class="l">impaired since the March strikes; AWS itself advises moving</div></div>
   </div>
   <p class="small mut" style="margin-top:18px">Markers, as in the previous briefing: <span class="v">[verified]</span> read in a primary source · <span class="b">[believed]</span> reputable secondary sources or search results that agree · <span class="a">[uncertain]</span> sources conflict or none found · <span class="tag mut">estimate</span> computed from stated inputs. <b>This session could not open Microsoft's or most vendors' pages directly</b> (network policy); AWS prices were read from AWS's official price list. Not legal advice.</p>
-  <div class="foot">Prepared by the development team · sources on slide 16 · what is not verified on slide 17</div>
+  <div class="foot">Prepared by the development team · <b>final verdict: slide 2</b> · sources on slide 17 · what is not verified on slide 18</div>
+</section>
+
+<!-- 2 · final verdict ─────────────────────────────────────────────────────── -->
+<section class="slide" data-n="2" id="s2">
+  <span class="kicker">Final verdict · 28 September 2026</span>
+  <h2>Hosting in the UAE is our recommendation, not a legal order — here is exactly why we still recommend it</h2>
+  <div class="grid g3">
+    <div class="card edge-crit"><h3 style="margin-top:0">Must we comply with the PDPL?</h3>
+      <p><b>Yes, fully.</b> It applies to every company in the UAE that handles personal data — our employees' names, tasks and words included. <span class="v">[verified — the law's text]</span></p></div>
+    <div class="card edge-info"><h3 style="margin-top:0">Must the data stay in the UAE?</h3>
+      <p><b>No.</b> No localisation rule covers employee task data. Data may leave on <b>express consent</b> or a <b>PDPL-grade contract</b> (Art. 22–23). <span class="b">[believed]</span></p></div>
+    <div class="card edge-ok"><h3 style="margin-top:0">Then why Azure UAE North + Core42?</h3>
+      <p>Because it is the <b>simplest way to comply</b>: a database and AI inside the UAE need no transfer ground at all, instead of consent any employee can withdraw. And since March 2026 it is also a <b>resilience</b> choice (slide 4).</p></div>
+  </div>
+  <div class="grid g2" style="margin-top:14px">
+    <div class="card edge-warn"><h3 style="margin-top:0">How urgent</h3>
+      <p class="small">Not an emergency, not optional. The Executive Regulations are still pending and fines need a separate Cabinet decision; once the Regulations appear there are six months to comply (Art. 29). <b>New:</b> a Federal Authority for AI and Data exists since 14 June 2026, so that clock can start. The deadline that matters is ours: <b>before the first real employee's data goes in.</b> <span class="b">[believed]</span></p></div>
+    <div class="card edge-ok"><h3 style="margin-top:0">Already done, whichever host</h3>
+      <p class="small"><b>Consent notice 2.0</b> (28 Sep): one notice for Telegram and the app, generated from the system's configuration, naming every service outside our database — change a provider and everyone is asked again. Nothing is taken from or sent to a person until they agree. Wording to be signed off by the company and a lawyer.</p></div>
+  </div>
+  <p class="cite">Full reasoning and sources: <code>ceo-deck-data-residency.html</code>, slide 2. A technical reading for counsel to confirm, not legal advice.</p>
 </section>
 
 <!-- 2 ─────────────────────────────────────────────────────────────────────── -->
-<section class="slide" data-n="2" id="s2">
+<section class="slide" data-n="3" id="s3">
   <span class="kicker">The answer in one slide</span>
   <h2>Four questions, four answers</h2>
   <div class="grid g2">
@@ -107,7 +128,7 @@
 </section>
 
 <!-- 3 ─────────────────────────────────────────────────────────────────────── -->
-<section class="slide" data-n="3" id="s3">
+<section class="slide" data-n="4" id="s4">
   <span class="kicker">What 2026 changed</span>
   <h2>"In the UAE" is now a resilience question, not only a legal one</h2>
   <div class="grid g32">
@@ -138,7 +159,7 @@
 </section>
 
 <!-- 4 ─────────────────────────────────────────────────────────────────────── -->
-<section class="slide" data-n="4" id="s4">
+<section class="slide" data-n="5" id="s5">
   <span class="kicker">Who can host us inside the UAE</span>
   <h2>The clouds with data centres in the country, and their state in September 2026</h2>
   <table>
@@ -157,7 +178,7 @@
 </section>
 
 <!-- 5 ─────────────────────────────────────────────────────────────────────── -->
-<section class="slide" data-n="5" id="s5">
+<section class="slide" data-n="6" id="s6">
   <span class="kicker">The conditions we priced</span>
   <h2>Same system and same workload as the previous briefing — so the numbers compare</h2>
   <div class="grid g2">
@@ -190,7 +211,7 @@
 </section>
 
 <!-- 6 ─────────────────────────────────────────────────────────────────────── -->
-<section class="slide" data-n="6" id="s6">
+<section class="slide" data-n="7" id="s7">
   <span class="kicker">How it can be deployed</span>
   <h2>Three ways to run our system on a hyperscaler</h2>
   <div class="grid g3">
@@ -229,7 +250,7 @@
 </section>
 
 <!-- 7 ─────────────────────────────────────────────────────────────────────── -->
-<section class="slide" data-n="7" id="s7">
+<section class="slide" data-n="8" id="s8">
   <span class="kicker">Hosting on Azure · UAE North (Dubai)</span>
   <h2>Monthly hosting cost on Azure — estimates to confirm in the Azure calculator</h2>
   <div class="grid g2">
@@ -269,7 +290,7 @@
 </section>
 
 <!-- 8 ─────────────────────────────────────────────────────────────────────── -->
-<section class="slide" data-n="8" id="s8">
+<section class="slide" data-n="9" id="s9">
   <span class="kicker">Hosting on AWS · Middle East (UAE)</span>
   <h2>AWS is cheaper on paper — and currently the riskier place to be</h2>
   <div class="grid g32">
@@ -305,7 +326,7 @@
 </section>
 
 <!-- 9 ─────────────────────────────────────────────────────────────────────── -->
-<section class="slide" data-n="9" id="s9">
+<section class="slide" data-n="10" id="s10">
   <span class="kicker">AI inside the UAE</span>
   <h2>Which AI actually stays in the country on Azure, AWS — and beside them</h2>
   <table>
@@ -325,7 +346,7 @@
 </section>
 
 <!-- 10 ────────────────────────────────────────────────────────────────────── -->
-<section class="slide" data-n="10" id="s10">
+<section class="slide" data-n="11" id="s11">
   <span class="kicker">What the AI costs per month</span>
   <h2>Same 12.5 M tokens in and 4.3 M out a month, priced on each in-country option</h2>
   <div class="grid g32">
@@ -344,7 +365,7 @@
 </section>
 
 <!-- 11 ────────────────────────────────────────────────────────────────────── -->
-<section class="slide" data-n="11" id="s11">
+<section class="slide" data-n="12" id="s12">
   <span class="kicker">The full monthly bill</span>
   <h2>Hosting + AI + voice, per month — the packages worth comparing</h2>
   <div class="grid g32">
@@ -360,7 +381,7 @@
           <tr><td class="mut">For contrast · Hostinger KVM 8 (renewal) + Core42</td><td class="n mut">$49.99</td><td class="n mut">$7.07</td><td class="n mut">$57.06</td><td class="a">No — the database is abroad</td></tr>
         </tbody>
       </table>
-      <p class="small mut">Plus once: a domain (~$10–15 a year). Plus, if used: GitHub Copilot $19 per developer (slide 12). Azure lines are <span class="tag mut">estimate</span>; AWS lines <span class="v">[verified]</span>; Core42 <span class="b">[believed — read 21 Sep]</span>.</p>
+      <p class="small mut">Plus once: a domain (~$10–15 a year). Plus, if used: GitHub Copilot $19 per developer (slide 13). Azure lines are <span class="tag mut">estimate</span>; AWS lines <span class="v">[verified]</span>; Core42 <span class="b">[believed — read 21 Sep]</span>.</p>
     </div>
     <div>
       <h3 style="margin-top:0">Monthly total by package</h3>
@@ -371,7 +392,7 @@
 </section>
 
 <!-- 12 ────────────────────────────────────────────────────────────────────── -->
-<section class="slide" data-n="12" id="s12">
+<section class="slide" data-n="13" id="s13">
   <span class="kicker">Copilot</span>
   <h2>"Copilot" is four different products — only one belongs in this project today</h2>
   <table>
@@ -380,14 +401,14 @@
       <tr class="hi"><td><b>GitHub Copilot</b></td><td>Writing, reviewing and updating code; coding agent that opens pull requests</td><td class="b">US or EU (data residency since Apr 2026); <b>no UAE option</b> — Japan and Australia next <span class="b">[believed]</span></td><td class="n">Business <b>$19</b> / developer / month<br>Enterprise $39<br><span class="tiny">usage-based credits since 1 Jun 2026; completions free</span></td><td class="v"><span class="tag ok">YES — FOR BUILDING</span> with the rules on the next slide</td></tr>
       <tr><td>Microsoft 365 Copilot</td><td>Word, Excel, Outlook, Teams assistant for office staff</td><td class="b">In-country processing for the UAE announced for early 2026, now expected <b>by end of 2026</b> <span class="b">[believed]</span></td><td class="n">$30 / user / month (enterprise)<br>$21 Business (SMB)<br><span class="tiny">plus a Microsoft 365 licence</span></td><td class="mut">Optional for the CEO's own office work — not part of this system</td></tr>
       <tr><td>Copilot Studio</td><td>Building chat agents, mostly inside Teams</td><td>Tenant geography; UAE details not confirmed <span class="a">[uncertain]</span></td><td class="n">$200 per 25,000 credits / month, or $0.01 a credit</td><td class="a">No — it would re-build, with model-driven decisions, the deterministic routing and escalation we already have</td></tr>
-      <tr><td>Azure AI Foundry</td><td>Hosting and calling AI models on Azure</td><td>Depends on deployment type (slide 9)</td><td class="n">per token or reserved</td><td class="b">Only if a UAE in-region model fits (slide 9)</td></tr>
+      <tr><td>Azure AI Foundry</td><td>Hosting and calling AI models on Azure</td><td>Depends on deployment type (slide 10)</td><td class="n">per token or reserved</td><td class="b">Only if a UAE in-region model fits (slide 10)</td></tr>
     </tbody>
   </table>
   <p class="cite">GitHub: <a href="https://github.blog/changelog/2026-04-13-copilot-data-residency-in-us-eu-and-fedramp-compliance-now-available/">data residency US + EU</a>, <a href="https://github.blog/news-insights/company-news/github-copilot-is-moving-to-usage-based-billing/">usage-based billing</a> · Microsoft: <a href="https://news.microsoft.com/source/emea/2025/10/microsoft-announces-in-country-data-processing-for-microsoft-365-copilot-in-the-uae-to-accelerate-ai-adoption/">M365 Copilot in-country processing, UAE</a>, <a href="https://www.microsoft.com/en-us/microsoft-365-copilot/pricing">M365 Copilot pricing</a>, <a href="https://learn.microsoft.com/en-us/microsoft-copilot-studio/geo-data-residency">Copilot Studio data residency</a>. Prices <span class="b">[believed — via search, 26 Sep]</span>.</p>
 </section>
 
 <!-- 13 ────────────────────────────────────────────────────────────────────── -->
-<section class="slide" data-n="13" id="s13">
+<section class="slide" data-n="14" id="s14">
   <span class="kicker">Building and updating with Copilot</span>
   <h2>How Copilot is used safely on this codebase</h2>
   <div class="grid g2">
@@ -412,7 +433,7 @@
 </section>
 
 <!-- 14 ────────────────────────────────────────────────────────────────────── -->
-<section class="slide" data-n="14" id="s14">
+<section class="slide" data-n="15" id="s15">
   <span class="kicker">Resilience</span>
   <h2>The backup and recovery plan — built for the 2026 lesson</h2>
   <div class="grid g2">
@@ -439,7 +460,7 @@
 </section>
 
 <!-- 15 ────────────────────────────────────────────────────────────────────── -->
-<section class="slide" data-n="15" id="s15">
+<section class="slide" data-n="16" id="s16">
   <span class="kicker">Recommendation and decisions</span>
   <h2>What to decide, in order</h2>
   <table>
@@ -447,19 +468,19 @@
     <tbody>
       <tr class="hi"><td>1</td><td><b>Host on Azure UAE North</b>, option A (one server, today's software), backups geo-redundant to Abu Dhabi. Confirm the prices in Azure's calculator first.</td><td>CEO approves · developer builds</td><td>days</td><td>≈ $195</td></tr>
       <tr class="hi"><td>2</td><td><b>AI on Core42</b> — same model; remove the US providers from the fallback chain; voice on Azure Speech in UAE North. Get the DPA in writing; re-run our tests.</td><td>CEO signs up · developer switches</td><td>days</td><td>≈ $7</td></tr>
-      <tr class="hi"><td>3</td><td><b>GitHub Copilot Business</b> for whoever develops the system, with the four rules on slide 13.</td><td>CEO approves</td><td>an hour</td><td>$19 per developer</td></tr>
+      <tr class="hi"><td>3</td><td><b>GitHub Copilot Business</b> for whoever develops the system, with the four rules on slide 14.</td><td>CEO approves</td><td>an hour</td><td>$19 per developer</td></tr>
       <tr><td>4</td><td>Buy the domain; point it at the Azure server — HTTPS, phone notifications and the Telegram webhook follow.</td><td>company</td><td>an hour</td><td>~$1</td></tr>
       <tr><td>5</td><td>Sign data-processing agreements with Microsoft (Azure) and Core42; record both in the processing register.</td><td>company · counsel</td><td>contract work</td><td>—</td></tr>
       <tr><td>6</td><td>Decide the optional third backup copy — another UAE provider, or abroad under PDPL Art. 23 if counsel agrees.</td><td>CEO · counsel</td><td>a meeting</td><td>$5–10</td></tr>
       <tr><td>7</td><td>Re-evaluate AWS when it declares the UAE region recovered; re-evaluate Azure's in-region AI if a pay-per-use model appears in UAE North.</td><td>developer</td><td>quarterly</td><td>—</td></tr>
-      <tr><td>8</td><td>Re-issue the consent notice naming Microsoft Azure (UAE), Core42 (UAE) and Telegram — the draft app notice is already built and waiting for sign-off.</td><td>company · counsel</td><td>hours</td><td>—</td></tr>
+      <tr><td>8</td><td>Consent notice naming Core42 (UAE) and Telegram. <span class="tag ok">Built 28 Sep</span> — notice 2.0 is generated from the configuration, so switching the AI to Core42 rewrites it and everyone is asked again. Still to do: add the chosen host (one line), the company's wording, counsel's read, native-speaker translations.</td><td>company · counsel</td><td>hours</td><td>—</td></tr>
     </tbody>
   </table>
   <div class="card brand" style="margin-top:12px"><b>If you approve only three things:</b> Azure UAE North for hosting (1), Core42 for AI (2), and the domain (4). Together about <b>$202 a month</b>, everything inside the UAE, with a second copy in another emirate.</div>
 </section>
 
 <!-- 16 ────────────────────────────────────────────────────────────────────── -->
-<section class="slide" data-n="16" id="s16">
+<section class="slide" data-n="17" id="s17">
   <span class="kicker">Sources</span>
   <h2>Where every claim comes from</h2>
   <div class="grid g2 small">
@@ -496,15 +517,15 @@
       </ul>
       <h3>Our own records</h3>
       <ul>
-        <li>Token volumes and the workload: <code>docs/reports/ceo-deck-data-residency.html</code> (slides 11–13), from our <code>llm_call</code> table</li>
-        <li>The cost arithmetic: every figure here is computed, not typed — inputs listed on slides 5, 7, 8 and 9</li>
+        <li>Token volumes and the workload: <code>docs/reports/ceo-deck-data-residency.html</code> (slides 12–14), from our <code>llm_call</code> table</li>
+        <li>The cost arithmetic: every figure here is computed, not typed — inputs listed on slides 6, 8, 9 and 10</li>
       </ul>
     </div>
   </div>
 </section>
 
 <!-- 17 ────────────────────────────────────────────────────────────────────── -->
-<section class="slide" data-n="17" id="s17">
+<section class="slide" data-n="18" id="s18">
   <span class="kicker">What is not verified</span>
   <h2>Where this briefing could be wrong, stated plainly</h2>
   <div class="grid g2">
@@ -533,7 +554,7 @@
 
 <script>
 (function(){
-  // ── Data (computed by the cost model; see slides 5, 7, 8, 9) ─────────────────
+  // ── Data (computed by the cost model; see slides 6, 8, 9, 10) ─────────────────
   const ai = [
     ["Nova Lite · AWS UAE (untested)",5.38,"grey"],
     ["Core42 Qualcomm · our model",7.07,"ok"],

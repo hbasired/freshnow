@@ -6,6 +6,7 @@ import {
   answerQuestion,
   companyToday,
   generateAllEodReports,
+  hasCurrentConsent,
   loadConfig,
   withContext,
 } from "@freshnow/core";
@@ -28,6 +29,14 @@ import { isLocalSupabase } from "./auth-proxy.js";
  * hurts — if a list ever truncates in practice, the answer is a filter, not a bigger number.
  */
 const LIST_LIMIT = 500;
+
+/** Reachable by a signed-in person who has not yet agreed to the current notice. */
+const CONSENT_FREE_PATHS = new Set([
+  "/dashboard/me",
+  "/dashboard/me/consent",
+  "/dashboard/me/consent/withdraw",
+  "/dashboard/events",
+]);
 
 export function registerDashboardRoutes(app: FastifyInstance): void {
   /**
@@ -112,6 +121,22 @@ export function registerDashboardRoutes(app: FastifyInstance): void {
       req.viewerName = v.displayName;
       req.viewerRole = v.accessRole;
       req.viewerDepartment = v.department;
+
+      // No data until the person has agreed to the notice as it reads TODAY (consent.ts).
+      // The dashboard shows its consent screen first, but a screen is not a control: without
+      // this, the same token could read the board straight from the API. Open without consent:
+      // who you are, the consent routes themselves, and the live stream — which carries table
+      // names only, never a row.
+      const path = req.url.split("?")[0] ?? req.url;
+      if (!CONSENT_FREE_PATHS.has(path) && !(await hasCurrentConsent(v.employeeId))) {
+        return reply.code(403).send({
+          error: {
+            code: "consent_required",
+            message: "Please read and agree to the updated privacy notice first.",
+            correlationId: req.correlationId,
+          },
+        });
+      }
     } catch (err) {
       if (err instanceof AuthError) {
         return reply.code(err.status).send({

@@ -10,6 +10,7 @@ const KEY_PARAM = "k";
 
 let accessToken: string | null = null;
 let unauthorized: (() => void) | null = null;
+let consentRequired: (() => void) | null = null;
 
 /** Set by the auth layer after sign-in; every API call then carries it as a Bearer token. */
 export function setAccessToken(t: string | null): void {
@@ -19,6 +20,24 @@ export function setAccessToken(t: string | null): void {
 /** Called when the API says the session is no longer valid, so the app can sign out. */
 export function onUnauthorized(fn: () => void): void {
   unauthorized = fn;
+}
+
+/**
+ * Called when the API refuses data because the person has not agreed to the notice as it reads
+ * today — for instance when it changed while the app was open. The app then shows the notice.
+ */
+export function onConsentRequired(fn: () => void): void {
+  consentRequired = fn;
+}
+
+/** The refusal body every route sends, read once so both the code and the message are kept. */
+async function refusal(res: Response): Promise<{ code?: string; message?: string }> {
+  try {
+    const body = (await res.json()) as { error?: { code?: string; message?: string } };
+    return body.error ?? {};
+  } catch {
+    return {};
+  }
 }
 
 function authHeaders(): Record<string, string> {
@@ -79,12 +98,14 @@ async function get<T>(path: string, params: Record<string, string> = {}): Promis
   });
   if (!res.ok) {
     if (res.status === 401) unauthorized?.();
+    const why = res.status === 403 ? await refusal(res) : {};
+    if (why.code === "consent_required") consentRequired?.();
     throw new ApiError(
       res.status,
       res.status === 401
         ? "Not signed in — sign in again (or add ?k=… if this dashboard uses a key)."
         : res.status === 403
-          ? "This account is not linked to an active employee."
+          ? (why.message ?? "This account is not linked to an active employee.")
           : `Request failed (${res.status})`,
     );
   }
@@ -117,14 +138,9 @@ async function post<T>(path: string, body?: unknown, params: Record<string, stri
   if (!res.ok) {
     if (res.status === 401) unauthorized?.();
     // A refusal says why ("Only the CEO can assign work"); show that, not a status code.
-    let message = `Request failed (${res.status})`;
-    try {
-      const body = (await res.json()) as { error?: { message?: string } };
-      if (body.error?.message) message = body.error.message;
-    } catch {
-      /* not JSON — keep the generic message */
-    }
-    throw new ApiError(res.status, message);
+    const why = await refusal(res);
+    if (why.code === "consent_required") consentRequired?.();
+    throw new ApiError(res.status, why.message ?? `Request failed (${res.status})`);
   }
   return (await res.json()) as T;
 }
@@ -141,14 +157,9 @@ async function postForm<T>(path: string, form: FormData, params: Record<string, 
   });
   if (!res.ok) {
     if (res.status === 401) unauthorized?.();
-    let message = `Request failed (${res.status})`;
-    try {
-      const body = (await res.json()) as { error?: { message?: string } };
-      if (body.error?.message) message = body.error.message;
-    } catch {
-      /* keep the generic message */
-    }
-    throw new ApiError(res.status, message);
+    const why = await refusal(res);
+    if (why.code === "consent_required") consentRequired?.();
+    throw new ApiError(res.status, why.message ?? `Request failed (${res.status})`);
   }
   return (await res.json()) as T;
 }
@@ -346,9 +357,13 @@ export interface Me {
 export type DeliveryMode = "telegram" | "both" | "app";
 
 export interface ConsentState {
+  /** Any consent on record, to any version of the notice. */
   consented: boolean;
+  /** Consent to the notice as it reads today — the only kind the API accepts. */
+  current: boolean;
   consentedAt: string | null;
   policyVersion: string | null;
+  currentPolicyVersion: string;
   /** The exact words the app shows, and their hash — sent back on accept. */
   notice: string;
   noticeHash: string;

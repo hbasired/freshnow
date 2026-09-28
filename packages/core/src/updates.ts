@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { notify, notifyPeople } from "./alerts.js";
 import { logAudit } from "./audit.js";
 import { saveAttachments, type IncomingFile } from "./attachments.js";
+import { CONSENT_POLICY_VERSION, currentNoticeHashes } from "./consent.js";
 import { getServiceSql } from "./db.js";
 import { DEMO_CEO_ID } from "./meta.js";
 import { ceoEmployeeId } from "./org.js";
@@ -107,11 +108,16 @@ export async function recordTaskUpdate(p: {
   // lawful basis. This does not REFUSE the update — losing an employee's report of a
   // broken chiller to a paperwork gap would be the wrong trade — but it records the gap
   // where it will be seen, once per person per day, so it cannot stay invisible.
+  //
+  // Since notice 2.0 (consent.ts) the bot and the dashboard refuse input from anyone who has
+  // not agreed to the CURRENT notice, so this should now only fire for a path that has no
+  // door of its own — which is exactly why it checks the current notice, not any record.
   const consent = await sql<{ ok: boolean }[]>`
     select exists (
       select 1 from consent_record c
       where c.employee_id = ${p.employeeId}
-        and not exists (select 1 from employee e where e.id = ${p.employeeId} and e.is_synthetic)
+        and c.policy_version = ${CONSENT_POLICY_VERSION}
+        and c.notice_hash = any(${currentNoticeHashes()})
     ) or exists (select 1 from employee e where e.id = ${p.employeeId} and e.is_synthetic) as ok`;
   if (!consent[0]?.ok) {
     const already = await sql`
@@ -125,7 +131,7 @@ export async function recordTaskUpdate(p: {
         action: "consent.missing",
         entity: "employee",
         entityId: p.employeeId,
-        detail: { note: "an update was recorded for a person with no consent record on file", channel },
+        detail: { note: "an update was recorded for a person without consent to the current notice", channel, policyVersion: CONSENT_POLICY_VERSION },
       });
     }
   }

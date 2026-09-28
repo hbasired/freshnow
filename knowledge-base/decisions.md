@@ -1104,6 +1104,8 @@ exact words, and refuses consent sent against a different hash (409) — the has
 proves what was on screen. Withdraw is in the Alerts tab and has the bot's effect (status → disabled). The CEO
 cannot withdraw in-app: it would lock the company out; handing over the role comes first. The gate is in the
 UI only; the API does not yet refuse an unconsented viewer (see TASK-044 "not verified").
+**Superseded 2026-09-28 by D139–D141:** there is now ONE notice (2.0) for the bot and the app, the API refuses an
+unconsented viewer (`403 consent_required`), and `appConsentNotice` / `app-draft-1.0` are gone.
 
 ## D134 — What git must never hold, and what it no longer does (TASK-044) [verified]
 `.gitignore` now ignores every `.env*` except `.env.example` (previously `.env.production`/`.env.staging`
@@ -1141,3 +1143,41 @@ while consent is unknown and `load()` returns early unless consent is `true`.
 `on: workflow_dispatch` only; the push/pull_request triggers are kept in a comment. It had never passed: the
 workflow and `package.json#packageManager` both named a pnpm version and `pnpm/action-setup@v4` refuses that
 ("Multiple versions of pnpm specified"). The duplicate is removed so a manual run gets past setup.
+
+## D139 — One consent notice for both doors, generated from the configuration (TASK-046) [verified]
+`packages/core/src/consent.ts`, version `2.0-draft`. The bot and the dashboard show the same words. The section
+"Where your data goes beyond FreshNow's database" is built from the same environment the senders and the model
+client read: Telegram when `BOT_TOKEN` is set, each AI provider with a key (fixed order, so `LLM_PROVIDER_ORDER`
+does not change the text), the push relays when VAPID is set, email/chat/Langfuse-with-content when configured,
+and the retention period. Consent is "current" only for this version AND one of these hashes — so a provider
+added or removed, or `RETENTION_DAYS` set, makes everyone's consent out of date and they are asked again.
+Rejected: a hand-maintained list of processors — it can drift from what the code actually calls, and a notice
+that under-names a recipient is exactly the defect this replaces (deck slide 10).
+
+## D140 — Until a person agrees to the current notice, nothing is taken from them and nothing is sent to them abroad (TASK-046) [verified]
+Three places, each a control rather than a screen: the bot answers every update from a linked person without
+current consent with the notice and an "I agree" button and processes nothing (only /withdraw, /help, /whoami,
+/cancel and the consent buttons pass); the API's sign-in hook returns `403 consent_required` for every
+`/dashboard/*` and `/employees/*` route except `/dashboard/me`, the consent routes and the live stream (table
+names only); the outbox relay does not claim Telegram/web push/email/chat rows for them — they stay `pending`
+with no attempt spent and go out on the first poll after they agree. Never held: the in-app inbox (our own
+database), the consent request itself, rows with no recipient. The bot tells the person their message was not
+recorded rather than dropping it silently. Synthetic (demo) people are NOT exempt: the seeded DEMO CEO row is
+used by the real CEO's Telegram account.
+
+## D141 — Everyone is asked without having to message first, once per version of the words (TASK-046) [verified]
+`requestConsentFromEveryone()` runs in the worker every minute (with the SLA sweep). It enqueues, for each
+active person with a Telegram link or a dashboard account and no current consent: Telegram (the notice +
+buttons `consent:renew:<first 16 hex of the hash>` / `consent:later`), the inbox, and web push if they have a
+device — only on channels that are live, because a row on a switched-off channel is dropped and audited, which
+once a minute per person would bury the audit log. Keys `consent.requested:<tag>:<person>:<channel>` make it
+idempotent per version of the words. A tap
+under an older tag records nothing and shows the new words.
+
+## D142 — The PDPL verdict the decks now state (TASK-046) [believed — a technical reading for counsel]
+FreshNow must comply with the PDPL in full; no localisation rule forces employee task data to stay in the UAE;
+data may leave only on express consent or a PDPL-grade contract (Art. 22–23); UAE hosting and Core42 are the
+simplest way to comply, recommended rather than legally required; the deadline that matters is the first real
+employee's data, not a fine today (Regulations pending, Art. 26 fines decision not found, Art. 29 six months).
+The deck slide titled "…true for some sectors — not ours" read as "the law does not apply to us"; it is retitled
+and both decks carry the verdict as slide 2.
