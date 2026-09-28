@@ -90,8 +90,13 @@ git status                      # anything listed as modified is yours: git stas
 git checkout main
 git pull
 pnpm install
+pnpm build:web                  # rebuild the dashboard — every pull, not optional
 </code></pre>
 <ul>
+<li><strong><code>pnpm build:web</code> is not optional.</strong> The API serves the dashboard from <code>packages/dashboard/dist</code>,
+  which is build output and not in git — after a pull the laptop keeps serving the <em>old</em> dashboard
+  (no consent notice, no delivery-mode switch, sign-in aimed at port 54321, so the phone cannot sign
+  in through the tunnel) until you rebuild. Build before starting the API (§3).</li>
 <li>Nothing new to migrate: the database schema did not change.</li>
 <li>If this is the <strong>first</strong> pull since 26 Sept, git deletes three research PDFs from <code>freshnow/</code>
   (they are now ignored, not lost). To get them back:
@@ -460,6 +465,10 @@ the message is encrypted to each device — Google, Apple and Microsoft relay it
 </thead>
 <tbody>
 <tr>
+<td><code>/app/</code> shows <strong>404</strong>, or the dashboard has no <strong>Before you start</strong> notice / no <strong>How people hear from us</strong> switch</td>
+<td>The dashboard was not rebuilt after the pull: <code>pnpm build:web</code>, then restart the <strong>api</strong>.</td>
+</tr>
+<tr>
 <td>Sign-in says <strong>"Sign-in service is not reachable — is Supabase running?"</strong></td>
 <td>Start Supabase (§3 step 2), then retry.</td>
 </tr>
@@ -568,6 +577,10 @@ docker compose stop        # keeps all data
 - <strong>The tunnel passes through Cloudflare</strong>, a US company. For a demo with test data that is fine; for
   real employee data it is a cross-border transfer. Production needs a domain on a UAE host (see the
   CEO decks), after which the tunnel is not used at all.
+- <strong>The phone's board refreshes every 20 seconds, not instantly.</strong> Cloudflare documents that quick tunnels do
+  not carry Server-Sent Events, which is how the dashboard hears "something changed"; it then falls back to
+  its 20-second refresh (or reopen the app). Notifications are unaffected — they never pass through the
+  tunnel. The laptop screens, on <code>localhost</code>, stay instant. Taken from Cloudflare's documentation, not observed.
 - <strong>A real phone has not been tested by the developer.</strong> Everything up to the push service was tested,
   and the notification display was tested in Chrome; the first real phone is this demo.
 - <strong>New staff still join through Telegram</strong> (invite code → bot). An app-only sign-up is not built yet.

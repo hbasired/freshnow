@@ -897,3 +897,15 @@ hash once on mount, so the tab does not change. In a browser harness click the n
 ## G116 — The Supabase anon key must be ≥ 20 characters or every request 500s [verified]
 `loadConfig()` validates `SUPABASE_ANON_KEY` with `min(20)`. A short test fixture made every route (including
 `/app-config`) throw. Use a realistic-length key in tests.
+
+## G117 — The dashboard build is not in git, so a pull does not update what `/app/` serves [verified 2026-09-28]
+`packages/dashboard/dist` is ignored build output; the API serves whatever is there (`routes/app-shell.ts`) and
+logs "React dashboard not built — /app will 404" when it is missing. After a pull the laptop keeps the old
+dashboard until `pnpm build:web` — for TASK-045 that meant sign-in still aimed at port 54321, so a phone could not
+sign in through the tunnel. DEMO-GUIDE-APP.md §1 and COMMANDS.md §1 shipped without the step; added.
+
+## G118 — Cloudflare quick tunnels do not carry Server-Sent Events [believed 2026-09-28]
+Cloudflare's Quick Tunnels page lists "no SSE" and a 200 in-flight request cap (429 beyond it). The dashboard's
+live stream (`/dashboard/events`) is SSE read through `fetch`, so on the phone it should fall back to the 20-second
+poll in `lib/live.ts`; web push is unaffected (worker → push service, not through the tunnel). Not observed on a
+real phone. A named tunnel on a domain, or production behind Caddy, has no such limit.

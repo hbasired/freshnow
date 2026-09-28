@@ -41,8 +41,13 @@ git status                      # anything listed as modified is yours: git stas
 git checkout main
 git pull
 pnpm install
+pnpm build:web                  # rebuild the dashboard — every pull, not optional
 ```
 
+- **`pnpm build:web` is not optional.** The API serves the dashboard from `packages/dashboard/dist`,
+  which is build output and not in git — after a pull the laptop keeps serving the *old* dashboard
+  (no consent notice, no delivery-mode switch, sign-in aimed at port 54321, so the phone cannot sign
+  in through the tunnel) until you rebuild. Build before starting the API (§3).
 - Nothing new to migrate: the database schema did not change.
 - If this is the **first** pull since 26 Sept, git deletes three research PDFs from `freshnow/`
   (they are now ignored, not lost). To get them back:
@@ -337,6 +342,7 @@ update sla_policy set minutes = case severity when 'critical' then 15 when 'high
 
 | What you see | What to do |
 |---|---|
+| `/app/` shows **404**, or the dashboard has no **Before you start** notice / no **How people hear from us** switch | The dashboard was not rebuilt after the pull: `pnpm build:web`, then restart the **api**. |
 | Sign-in says **"Sign-in service is not reachable — is Supabase running?"** | Start Supabase (§3 step 2), then retry. |
 | **Invalid login credentials** | Reset the password: `pnpm link:user "<name>" <email> <new password>` (§4.2). |
 | Signed in but **"This account is not linked to an active employee"** | Run `pnpm link:user` for that person again (no password needed); if they withdrew consent, §8 step 4. |
@@ -415,6 +421,10 @@ docker compose stop        # keeps all data
 - **The tunnel passes through Cloudflare**, a US company. For a demo with test data that is fine; for
   real employee data it is a cross-border transfer. Production needs a domain on a UAE host (see the
   CEO decks), after which the tunnel is not used at all.
+- **The phone's board refreshes every 20 seconds, not instantly.** Cloudflare documents that quick tunnels do
+  not carry Server-Sent Events, which is how the dashboard hears "something changed"; it then falls back to
+  its 20-second refresh (or reopen the app). Notifications are unaffected — they never pass through the
+  tunnel. The laptop screens, on `localhost`, stay instant. Taken from Cloudflare's documentation, not observed.
 - **A real phone has not been tested by the developer.** Everything up to the push service was tested,
   and the notification display was tested in Chrome; the first real phone is this demo.
 - **New staff still join through Telegram** (invite code → bot). An app-only sign-up is not built yet.

@@ -11,6 +11,13 @@ cd C:\Users\acer\Downloads\freshnow
 
 ## 1 · Start, in this order
 
+After every `git pull`, first:
+
+```bash
+pnpm install
+pnpm build:web                             # the dashboard at /app/ — build output, not in git
+```
+
 ```bash
 docker compose up -d                       # Redis + the old Postgres (rollback copy) + Adminer
 
@@ -194,13 +201,14 @@ Details and what to click: `CHANNELS-GUIDE.md` (rendered at `docs/guides/channel
 |---|---|
 | Bot does not answer | Check the Telegram line in `pnpm urls`. If it says it cannot reach Telegram, it is the Wi-Fi, not the code — it retries by itself. Otherwise restart `pnpm start:bot`. |
 | Phone cannot open the dashboard | The Wi-Fi address changed (`pnpm urls`), the phone is on another network, or the firewall rule in §3 is missing. |
-| Dashboard loads, sign-in spins | Port 54321 is blocked — firewall rule in §3. |
+| Dashboard loads, sign-in spins or says "Sign-in service is not reachable" | Supabase is not running (`npx supabase start …`, §1). Sign-in goes through port 3001, so no firewall rule for 54321 is needed. |
+| `/app/` is a 404, or the dashboard looks like it did before a pull | Not rebuilt: `pnpm build:web`, then restart the api. |
 | Nothing arrives in Telegram | The worker is not running; it is what delivers messages. |
 | "429" or slow replies | The provider rate-limited us; the wrapper backs off and falls through the provider order (`LLM_PROVIDER_ORDER`). `curl localhost:3001/health` shows `load.llm`. |
-| `supabase start` fails, "network … not found" | Leftover containers from an interrupted start: `npx supabase stop --no-backup`, then start again (this wipes Supabase data). |
+| `supabase start` fails, "network … not found" | Leftover containers from an interrupted start: `npx supabase stop`, then start again. Only if that fails: `npx supabase stop --no-backup` (this wipes Supabase data). |
 | Want to look inside the database | Supabase Studio: http://127.0.0.1:54323 |
 | A channel shows **NOT SET UP** in Alerts → Channels | Switched on, but `.env` has no keys for it (§7b). Add them and restart the worker. |
-| Notifications say "need a secure (https) address" | You are on the Wi-Fi IP. Web push works on `http://localhost:3001` for testing; a phone needs a domain. |
+| Notifications say "need a secure (https) address" | You are on the Wi-Fi IP. Use `http://localhost:3001` on this PC; a phone needs the Cloudflare tunnel address (DEMO-GUIDE-APP.md §3) or, in production, a domain. |
 | `pnpm start:api` prints "AUTHENTICATION IS OFF … This is demo mode" | `SUPABASE_URL` is missing from `.env` (or misspelt) **and** the API is on the network (`0.0.0.0`). Fix `.env`; the warning is silenced only by a real `SUPABASE_URL` or by binding `HOST=127.0.0.1` (§1). |
 
 Quick database look:
