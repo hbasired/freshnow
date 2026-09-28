@@ -24,7 +24,7 @@ import {
 import { Age, Card, DataTable, Demo, Empty, Pill, Severity, Spinner, Words, type Column } from "./components/ui";
 import { Button, PersonPicker, TextArea, TextField, Toast, useAction } from "./components/form";
 import { TaskDetailPanel } from "./components/task-detail";
-import { AlertsTab, ConsentGate, InboxBell } from "./components/alerts";
+import { AlertsTab, ConsentGate, InboxBell, InstallApp } from "./components/alerts";
 import { ProjectsPortal } from "./components/projects";
 import { useLiveUpdates } from "./lib/live";
 import { ThemeToggle } from "./components/theme-toggle";
@@ -405,6 +405,7 @@ export default function App({
                 </select>
               ) : null}
               <ThemeToggle compact />
+              <InstallApp compact />
               <button
                 onClick={() => { setPortal("tasks"); setTab("today"); }}
                 title={attention ? `${attention} thing${attention === 1 ? "" : "s"} need a human: urgent problems and updates nobody could read` : "Nothing needs a human right now"}
@@ -445,7 +446,7 @@ export default function App({
             ) : (
               <span className="text-mut">
                 <span className={live === "live" ? "text-ok" : "text-warn"} title={live === "live" ? "Updating the moment anything changes" : "Live stream unavailable — refreshing every 20 seconds instead"}>
-                  ● {live === "live" ? "live" : "polling"}
+                  ● {live === "live" ? "live" : "refreshing every 20 s"}
                 </span>{" "}
                 · {date} · updated {loadedAt ? hhmm(loadedAt.toISOString()) : "…"}
                 {health && Object.values(health.load).some((l) => l.waiting > 0) ? (

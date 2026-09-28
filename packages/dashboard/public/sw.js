@@ -15,6 +15,16 @@
 self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim()));
 
+// Page loads go straight to the network — no cache, exactly as if there were no worker.
+// The handler exists because Chromium browsers only treat a site as an installable app (an
+// app icon and an "Install app" offer, not a bookmark) when its service worker handles
+// `fetch`. Only page navigations are touched: data calls, the live stream and sign-in return
+// here without `respondWith`, so the browser handles them as it always did.
+self.addEventListener("fetch", (event) => {
+  if (event.request.mode !== "navigate") return;
+  event.respondWith(fetch(event.request));
+});
+
 self.addEventListener("push", (event) => {
   // The payload is encrypted end to end (RFC 8291): the push relay — Google, Apple or
   // Mozilla — carried this as ciphertext and could not read it. This is the first point at

@@ -412,12 +412,24 @@ with a new password <strong>resets</strong> it; the account and its history stay
 <p><strong>Getting the address onto the phone:</strong> copy the <code>Phone</code> line from <code>pnpm urls</code> and send it to yourself —
 Telegram → <strong>Saved Messages</strong> is quickest — then tap it on the phone. It is long and random; typing it is
 where most attempts go wrong.</p>
-<p><strong>Android (Chrome):</strong>
-1. Open <code>https://&lt;words&gt;.trycloudflare.com/app/</code>.
-2. Menu <strong>⋮ → Install app</strong> (or <em>Add to Home screen</em>) → open <strong>FreshNow</strong> from the home screen.
-3. <strong>Task &amp; logging</strong> → sign in as Priya → the <strong>Before you start</strong> notice → <strong>I have read this and agree</strong>.
-4. <strong>Alerts → Notifications on this device → Turn on → Allow → Send a test notification.</strong>
+<p><strong>Android — use Chrome.</strong> Brave and other privacy browsers can block web push (Brave needs <em>Use Google
+services for push messaging</em> switched on, and reports of Android PWAs not getting notifications exist).
+Chrome is the dependable one for the demo.
+1. Open <code>https://&lt;words&gt;.trycloudflare.com/app/</code> in <strong>Chrome</strong>.
+2. Install it — whichever you see first:
+   - a green <strong>📲 Install app</strong> button at the top of the page (phone screens only), or
+   - <strong>Alerts → This device → Install FreshNow</strong>, or
+   - Chrome's menu <strong>⋮</strong> (top right) → <strong>Install app</strong> / <em>Add to Home screen</em>.
+   Then open <strong>FreshNow</strong> from the home screen / app drawer — it opens full-screen, without the address bar.
+3. <strong>Task &amp; logging</strong> → sign in as Priya (or any account) → agree to the notice.
+4. <strong>Alerts → This device → 🔔 Notifications → Turn on for this device → Allow → Send a test notification.</strong>
    Lock the phone: it buzzes.</p>
+<p><strong>Does it behave like a normal app?</strong> Yes, for messages: once installed and turned on, notifications land
+in the phone's notification shade with the app <strong>closed</strong> — sound, vibration, lock-screen banner, per the
+phone's own settings for FreshNow — and a tap opens the right task. Differences from a store app: no
+Play Store, and — while the laptop is the server — notifications stop when the laptop sleeps or the tunnel
+stops (a new tunnel address also means turning notifications on again). On Samsung phones, if banners arrive late,
+Settings → Apps → Chrome → Battery → <em>Unrestricted</em>.</p>
 <p><strong>iPhone (Safari, iOS 16.4 or later):</strong>
 1. Open the address in <strong>Safari</strong> (not Chrome) → <strong>Share ⬆ → Add to Home Screen → Add</strong>.
 2. Open <strong>FreshNow from the Home Screen</strong> — notifications do not exist in a Safari tab; this is
@@ -461,9 +473,14 @@ on the internet.</p>
 <td><code>pnpm link:user "Priya" priya@freshnow.local &lt;new password&gt;</code></td>
 </tr>
 <tr>
-<td>No <strong>Install app</strong> in the menu</td>
-<td>Chrome still loading, or already installed</td>
-<td>reload; check the home screen / app drawer for FreshNow</td>
+<td>No <strong>Install app</strong> anywhere</td>
+<td>another browser (Brave: menu <strong>⋮ bottom right</strong>; Samsung Internet: ☰ → <em>Add page to</em> → <em>Home screen</em>), or already installed</td>
+<td>use <strong>Chrome</strong>; or check the app drawer for FreshNow</td>
+</tr>
+<tr>
+<td>The status line says <strong>refreshing every 20 s</strong> instead of <strong>live</strong></td>
+<td>expected through a quick tunnel (no live stream)</td>
+<td>nothing to do — notifications still arrive at once</td>
 </tr>
 <tr>
 <td><strong>Turn on</strong> says notifications are blocked</td>

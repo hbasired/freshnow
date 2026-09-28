@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TASK-048 — The phone as an app: install button, worker on load, status line</title>
+<style>
+  :root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#3fb950;--warn:#d29922;--bad:#f85149;--card:#161b22;--bd:#30363d}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;max-width:980px;padding:48px 24px;margin-inline:auto}
+  h1{font-size:1.9rem;margin:0 0 4px} h2{margin-top:2.5rem;color:var(--acc);font-size:1.25rem}
+  .meta{color:var(--mut);font-size:.9rem;margin-bottom:2rem}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:18px;margin:14px 0}
+  .unverified{border-left:3px solid var(--warn)} .ok{border-left:3px solid var(--acc)}
+  code{background:#1f2630;padding:2px 6px;border-radius:4px;font-size:.9em}
+  .tw{overflow-x:auto} table{border-collapse:collapse;width:100%;margin:14px 0}
+  th,td{border:1px solid var(--bd);padding:7px 9px;text-align:left;font-size:.88rem;vertical-align:top} th{background:#1f2630}
+  .bad{color:var(--bad);font-weight:600}.good{color:var(--acc);font-weight:600}.warn{color:var(--warn);font-weight:600}
+  ul{padding-left:1.1rem} li{margin:3px 0} a{color:#88c0f0}
+</style></head><body>
+<h1>TASK-048 — The phone as an app: install button, worker on load, status line</h1>
+<p class="meta">2026-09-28 · no migration · dashboard: <code>public/sw.js</code>, <code>src/main.tsx</code>, <code>src/lib/install.ts</code> (new), <code>src/lib/push.ts</code>,
+<code>src/components/alerts.tsx</code>, <code>src/App.tsx</code> · guide: <code>DEMO-GUIDE-APP.md</code> §5.3 · <b>483 tests passing</b>, 9 needing a live model provider</p>
+
+<div class="card ok"><strong>One-sentence summary:</strong> The owner opened the dashboard on a real phone for the first time, in Brave on Android.
+They could not find "Install app", the inbox ran off the screen, and the status read "polling". Now the service worker starts on load, the app
+offers its own <b>Install FreshNow</b> button, and the status reads "refreshing every 20 s". The guide says to use Chrome on Android. The inbox fix
+from TASK-047 was not yet on the laptop.</div>
+
+<h2>What the phone screenshots showed</h2>
+<div class="tw"><table>
+  <thead><tr><th>Seen</th><th>Cause</th><th>Now</th></tr></thead>
+  <tbody>
+    <tr><td>No "Install app" in the menu</td><td>The browser was <b>Brave</b>, whose ⋮ menu is at the bottom right. The service worker also only started after "Turn on notifications".</td>
+      <td>The worker starts on load. The app shows <b>📲 Install app</b> (header, phones) and <b>Install FreshNow</b> (Alerts → This device). The guide says: use Chrome.</td></tr>
+    <tr><td>The inbox panel went off the screen</td><td>The laptop was still serving the build from before TASK-047.</td><td>Fixed in TASK-047, and re-checked at 360 px: the panel spans 8–352.</td></tr>
+    <tr><td>"● polling"</td><td>Cloudflare quick tunnels do not carry Server-Sent Events, so the board falls back to a 20 s refresh (G118). This is expected.</td><td>The label now reads "● refreshing every 20 s".</td></tr>
+    <tr><td>Signed in as the CEO on the phone</td><td>—</td><td>Fine: every account can have several devices. The demo script uses Priya.</td></tr>
+  </tbody>
+</table></div>
+
+<h2>How it was done</h2>
+<ul>
+  <li><b>Service worker on load.</b> <code>registerWorker()</code> runs in <code>main.tsx</code> before React renders, on secure pages only. The worker's new
+    <code>fetch</code> handler touches page loads only and answers them from the network: no cache, keeping the rule that the board is always a
+    live count. Data calls, the live stream and sign-in never reach <code>respondWith</code>.</li>
+  <li><b>Install button.</b> <code>lib/install.ts</code> keeps the browser's <code>beforeinstallprompt</code> from the moment the page loads. It exposes an
+    install state: installed, available, iPhone, use-the-menu, or not secure. The device card explains each state; the header button appears only
+    when one tap can install.</li>
+  <li><b>"Does it behave like a normal app?"</b> For messages, yes. Once installed and switched on, notifications arrive with the app closed,
+    through the phone's normal notification settings, and a tap opens the right task. They stop while the laptop, which is the server, sleeps or
+    the tunnel stops.</li>
+</ul>
+
+<h2>How it was verified</h2>
+<div class="tw"><table>
+  <thead><tr><th>Check</th><th>Result</th></tr></thead>
+  <tbody>
+    <tr><td>Chromium DevTools <code>Page.getInstallabilityErrors</code> in a normal profile, Android user agent, 360 px, before and after</td>
+      <td>Before: <code>[]</code>, no worker on load, install offer fired. After: <code>[]</code>, worker on load, install offer fired, header button shown. <span class="good">So the manifest was already sound; the change matters for Android's full install and for our own button.</span></td></tr>
+    <tr><td>Inbox panel at 360 px, Escape to close</td><td class="good">Inside the window (8–352); Escape closes it</td></tr>
+    <tr><td>Full suite, typecheck, dashboard build</td><td class="good">483 pass (9 need a live model); clean; built</td></tr>
+  </tbody>
+</table></div>
+
+<h2 class="bad">What we have not verified</h2>
+<div class="card unverified"><ul>
+  <li><b>A real Android phone after this change.</b> Everything above ran in desktop Chromium emulating a phone. Whether Chrome on Android now installs
+    a full app rather than a shortcut rests on Chrome's published guidance, not on a device.</li>
+  <li><b>Brave on Android:</b> whether it fires the install event or delivers web push at all. G121 is based on search results, and the guide steers
+    to Chrome.</li>
+  <li><b>Battery optimisation</b> on Samsung phones delaying notifications. The guide's tip to set Chrome's battery use to <i>Unrestricted</i> is
+    general advice, not observed on this system.</li>
+  <li><b>A real notification on a real phone</b> is still the first thing to confirm, with "Send a test notification" once Chrome is installed.</li>
+</ul></div>
+</body></html>

@@ -1195,3 +1195,13 @@ inside both window edges, height capped to the space below. Into `<body>` becaus
 left unread by people who agreed earlier. Only those rows are touched. Before this, Hemanth — already agreed —
 still had "until you do, your updates can't be taken" at the top of his inbox.
 
+## D145 — The service worker is registered on load, handles page loads pass-through, and the app offers its own Install button (TASK-048) [verified in Chromium; phone unverified]
+Registered in `main.tsx` before React renders (it was registered only on "Turn on notifications"). `sw.js` gains a
+`fetch` handler for navigations only, network-only (`respondWith(fetch(request))`) — no cache, so D-level rule
+"a board is a count from the database" stands; data calls, SSE and sign-in never reach `respondWith`. Reason:
+Chrome's guidance is that Android treats a site as an installable app (WebAPK) rather than a shortcut only with
+a service worker that handles fetch [believed — developer.chrome.com, via search]. `lib/install.ts` keeps the
+browser's `beforeinstallprompt` and the dashboard shows **Install FreshNow** in Alerts → This device, plus a
+header button on small screens; iPhone and browsers without the event get instructions for their menu. The live
+status reads "refreshing every 20 s" instead of "polling", which looked like a fault through the quick tunnel.
+

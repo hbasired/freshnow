@@ -254,12 +254,25 @@ Create `CREDENTIALS.local.md` in the project folder (git ignores it). Everything
 Telegram → **Saved Messages** is quickest — then tap it on the phone. It is long and random; typing it is
 where most attempts go wrong.
 
-**Android (Chrome):**
-1. Open `https://<words>.trycloudflare.com/app/`.
-2. Menu **⋮ → Install app** (or *Add to Home screen*) → open **FreshNow** from the home screen.
-3. **Task & logging** → sign in as Priya → the **Before you start** notice → **I have read this and agree**.
-4. **Alerts → Notifications on this device → Turn on → Allow → Send a test notification.**
+**Android — use Chrome.** Brave and other privacy browsers can block web push (Brave needs *Use Google
+services for push messaging* switched on, and reports of Android PWAs not getting notifications exist).
+Chrome is the dependable one for the demo.
+1. Open `https://<words>.trycloudflare.com/app/` in **Chrome**.
+2. Install it — whichever you see first:
+   - a green **📲 Install app** button at the top of the page (phone screens only), or
+   - **Alerts → This device → Install FreshNow**, or
+   - Chrome's menu **⋮** (top right) → **Install app** / *Add to Home screen*.
+   Then open **FreshNow** from the home screen / app drawer — it opens full-screen, without the address bar.
+3. **Task & logging** → sign in as Priya (or any account) → agree to the notice.
+4. **Alerts → This device → 🔔 Notifications → Turn on for this device → Allow → Send a test notification.**
    Lock the phone: it buzzes.
+
+**Does it behave like a normal app?** Yes, for messages: once installed and turned on, notifications land
+in the phone's notification shade with the app **closed** — sound, vibration, lock-screen banner, per the
+phone's own settings for FreshNow — and a tap opens the right task. Differences from a store app: no
+Play Store, and — while the laptop is the server — notifications stop when the laptop sleeps or the tunnel
+stops (a new tunnel address also means turning notifications on again). On Samsung phones, if banners arrive late,
+Settings → Apps → Chrome → Battery → *Unrestricted*.
 
 **iPhone (Safari, iOS 16.4 or later):**
 1. Open the address in **Safari** (not Chrome) → **Share ⬆ → Add to Home Screen → Add**.
@@ -279,7 +292,8 @@ on the internet.
 | *"This site can't be reached"* | wrong or old address | run `pnpm urls` again and resend the `Phone` line; the address changes whenever cloudflared restarts |
 | *"Sign-in service is not reachable"* | Supabase is not running on the laptop | `npx supabase start …` (§3 step 2) |
 | *"Invalid login credentials"* | Priya has no password yet, or a different one | `pnpm link:user "Priya" priya@freshnow.local <new password>` |
-| No **Install app** in the menu | Chrome still loading, or already installed | reload; check the home screen / app drawer for FreshNow |
+| No **Install app** anywhere | another browser (Brave: menu **⋮ bottom right**; Samsung Internet: ☰ → *Add page to* → *Home screen*), or already installed | use **Chrome**; or check the app drawer for FreshNow |
+| The status line says **refreshing every 20 s** instead of **live** | expected through a quick tunnel (no live stream) | nothing to do — notifications still arrive at once |
 | **Turn on** says notifications are blocked | you tapped *Block* once | Android: ⋮ → Settings → Site settings → Notifications → allow the address; iPhone: Settings → Notifications → FreshNow |
 | Test says *"Web push is not live"* | the company is on **Telegram** only | CEO → Alerts → Channels → **Telegram + App** |
 | The board updates slowly (up to 20 s) | expected through a quick tunnel (no live stream) | notifications still arrive at once; reopen the app to refresh |

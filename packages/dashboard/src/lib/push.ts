@@ -1,4 +1,5 @@
 import { api } from "./api";
+import { isIos, isStandalone } from "./install";
 
 /**
  * Turning this device's notifications on and off.
@@ -26,10 +27,6 @@ export type PushState =
   | { kind: "off" }
   | { kind: "on" };
 
-const isIos = (): boolean => /iPad|iPhone|iPod/.test(navigator.userAgent);
-const isStandalone = (): boolean =>
-  window.matchMedia("(display-mode: standalone)").matches ||
-  (navigator as unknown as { standalone?: boolean }).standalone === true;
 
 /** Base64url → the Uint8Array `applicationServerKey` wants. */
 function urlBase64ToUint8Array(base64: string): Uint8Array {

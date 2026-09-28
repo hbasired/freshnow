@@ -1,3 +1,14 @@
+# Session status — 2026-09-28 (cloud session, TASK-048)
+
+- First real phone (Brave on Android): **use Chrome on Android** for the demo — Brave can block web push.
+- The app now offers **📲 Install app** (top of the page on phones, and Alerts → This device); the service worker
+  starts on load so Android can install it as a real app.
+- Status line says "refreshing every 20 s" through the tunnel (was "polling" — expected, not a fault).
+- The inbox panel on the phone: fixed in TASK-047 — pull to get it.
+- Tests: 483 pass, 9 need a live model provider.
+
+---
+
 # Session status — 2026-09-28 (cloud session, TASK-047)
 
 - The CEO's notification panel no longer opens off the screen (zoomed or narrow windows, phones).
