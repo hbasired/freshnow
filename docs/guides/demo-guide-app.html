@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FreshNow — Demo guide: the app and notifications</title>
+<style>
+  :root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#3fb950;--warn:#d29922;--crit:#f85149;
+        --card:#161b22;--bd:#30363d;--blue:#88c0f0}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+       font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+       max-width:940px;padding:40px 22px 80px;margin-inline:auto}
+  h1{font-size:1.9rem;margin:0 0 6px}
+  h2{margin-top:2.6rem;color:var(--acc);font-size:1.3rem;border-bottom:1px solid var(--bd);padding-bottom:6px}
+  h3{margin-top:1.7rem;font-size:1.04rem}
+  p.lead{color:var(--mut);font-size:.92rem}
+  blockquote{margin:12px 0;padding:10px 14px;border-left:3px solid var(--warn);background:var(--card);border-radius:0 8px 8px 0}
+  blockquote p{margin:4px 0}
+  code{background:#1f2630;padding:2px 6px;border-radius:4px;font-size:.9em}
+  pre{background:#010409;border:1px solid var(--bd);border-radius:8px;padding:14px;
+      overflow-x:auto;font-size:.83rem;line-height:1.5}
+  pre code{background:none;padding:0}
+  table{border-collapse:collapse;width:100%;margin:14px 0}
+  th,td{border:1px solid var(--bd);padding:8px 10px;text-align:left;font-size:.88rem;vertical-align:top}
+  th{background:#1f2630}
+  hr{border:0;border-top:1px solid var(--bd);margin:2rem 0}
+  a{color:var(--blue)}
+  .back{color:var(--mut);font-size:.88rem;margin-bottom:1.2rem;display:block}
+</style></head><body>
+<a class="back" href="index.html">← All guides</a>
+<h1>Demo guide — the app: in-app inbox + phone &amp; desktop notifications</h1>
+<p><em>Written 2026-09-28 for the local build on the Windows laptop. The Telegram demo is in
+<code>DEMO-GUIDE.md</code>; this guide adds the app channel — the dashboard inbox plus notifications on
+each person's devices — and runs alongside it. Everything below was run end to end against a
+real Supabase Auth server, except the last step on a real phone (see §10).</em></p>
+<blockquote>
+<p><strong>This repository is public on GitHub.</strong> No password is written in this file. §4 has you
+set them; keep them in <code>CREDENTIALS.local.md</code>, which git ignores.</p>
+</blockquote>
+<hr />
+<h2>0 · What you will have on screen</h2>
+<table>
+<thead>
+<tr>
+<th>Screen</th>
+<th>Device &amp; browser</th>
+<th>Address</th>
+<th>Signs in as</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>CEO</strong></td>
+<td>laptop · <strong>Google Chrome</strong> (normal window)</td>
+<td><code>http://localhost:3001/app/</code></td>
+<td><code>ceo@freshnow.local</code></td>
+</tr>
+<tr>
+<td><strong>Hemanth</strong> (employee)</td>
+<td>laptop · <strong>Microsoft Edge</strong> (normal window)</td>
+<td><code>http://localhost:3001/app/</code></td>
+<td><code>hemanth@freshnow.local</code></td>
+</tr>
+<tr>
+<td><strong>Phone</strong> (employee "DEMO – Priya Nair")</td>
+<td>your phone · Chrome (Android) or Safari (iPhone)</td>
+<td><code>https://&lt;random&gt;.trycloudflare.com/app/</code> (§3, step 6)</td>
+<td><code>priya@freshnow.local</code></td>
+</tr>
+<tr>
+<td>Telegram (unchanged)</td>
+<td>your two phones</td>
+<td>the bot <code>@freshnow1bot</code></td>
+<td>CEO <code>6051615734</code> · Hemanth <code>8903000291</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Why two different browsers on the laptop:</strong> a browser keeps one sign-in per site and one
+notification subscription per site. If the CEO and Hemanth share a browser, the second sign-in
+replaces the first and notifications go to whoever turned them on last. <strong>Do not use Incognito /
+InPrivate</strong> — browsers switch notifications off there.</p>
+<p><strong>Why the phone uses a <code>https://…trycloudflare.com</code> address:</strong> browsers only allow notifications
+on an <code>https://</code> page (or <code>http://localhost</code> on the laptop itself). The Wi-Fi address
+<code>http://10.x.x.x:3001</code> can show the inbox but can never buzz. A Cloudflare quick tunnel gives the
+laptop an <code>https://</code> address for as long as it runs — free, no account.</p>
+<hr />
+<h2>1 · Get the latest code (once after each update)</h2>
+<p>PowerShell, in the project folder:</p>
+<pre><code class="language-powershell">cd C:\Users\acer\Downloads\freshnow
+git status                      # anything listed as modified is yours: git stash  (or commit it)
+git checkout main
+git pull
+pnpm install
+</code></pre>
+<ul>
+<li>Nothing new to migrate: the database schema did not change.</li>
+<li>If this is the <strong>first</strong> pull since 26 Sept, git deletes three research PDFs from <code>freshnow/</code>
+  (they are now ignored, not lost). To get them back:
+  <code>git restore --source=8e34075 -- freshnow/opt-COO.pdf freshnow/opt-COO1.pdf freshnow/opt-COO2.pdf</code></li>
+</ul>
+<hr />
+<h2>2 · One-time setup</h2>
+<h3>2.1 · Web push keys (VAPID)</h3>
+<pre><code class="language-powershell">pnpm --filter @freshnow/worker exec web-push generate-vapid-keys
+</code></pre>
+<p>It prints a <strong>Public Key</strong> and a <strong>Private Key</strong>. Open <code>.env</code> and add three lines (any real
+mailbox works for the subject):</p>
+<pre><code class="language-ini">VAPID_PUBLIC_KEY=&lt;the Public Key&gt;
+VAPID_PRIVATE_KEY=&lt;the Private Key&gt;
+VAPID_SUBJECT=mailto:ops@freshnow.ae
+</code></pre>
+<p>Generate them <strong>once</strong>. New keys later silently disconnect every device that turned
+notifications on.</p>
+<h3>2.2 · Check the rest of <code>.env</code></h3>
+<p>These should already be there from before the cloud session:</p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Where it comes from</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>SUPABASE_URL=http://127.0.0.1:54321</code></td>
+<td>fixed for the local Supabase</td>
+</tr>
+<tr>
+<td><code>SUPABASE_ANON_KEY</code></td>
+<td><code>npx supabase status</code> → <em>Publishable key</em> (or <em>anon key</em>)</td>
+</tr>
+<tr>
+<td><code>SUPABASE_SECRET_KEY</code></td>
+<td><code>npx supabase status</code> → <em>Secret key</em> (or <em>service_role key</em>) — used only by <code>pnpm link:user</code></td>
+</tr>
+<tr>
+<td><code>DATABASE_URL</code>, <code>DATABASE_URL_SERVICE</code></td>
+<td>the Supabase Postgres on port <code>54322</code></td>
+</tr>
+<tr>
+<td><code>REDIS_URL=redis://localhost:6380</code></td>
+<td>Docker Compose Redis</td>
+</tr>
+<tr>
+<td><code>BOT_TOKEN</code>, <code>CEO_TELEGRAM_USER_ID=6051615734</code></td>
+<td>Telegram</td>
+</tr>
+<tr>
+<td><code>GROQ_API_KEY</code> / <code>OPENROUTER_API_KEY</code></td>
+<td>reading free-text updates; without a working one, problems arrive as "needs a human reader" instead of a classified blocker</td>
+</tr>
+</tbody>
+</table>
+<h3>2.3 · Install the tunnel tool</h3>
+<pre><code class="language-powershell">winget install --id Cloudflare.cloudflared
+</code></pre>
+<p>Close and reopen PowerShell afterwards so <code>cloudflared</code> is on the path. Check: <code>cloudflared --version</code>.</p>
+<p>You no longer need a firewall rule for port 54321: sign-in now goes through the dashboard's own
+address (see §10, "What changed").</p>
+<hr />
+<h2>3 · Start everything (every time)</h2>
+<p>Open <strong>Docker Desktop</strong> and wait until it says <em>Engine running</em>. Then one PowerShell window per
+line marked "terminal", all in the project folder.</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Terminal</th>
+<th>Command</th>
+<th>Wait for</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>any</td>
+<td><code>docker compose up -d</code></td>
+<td><code>freshnow-redis … Started</code> (instant)</td>
+</tr>
+<tr>
+<td>2</td>
+<td>any</td>
+<td><code>npx supabase start -x realtime,storage-api,imgproxy,edge-runtime,logflare,vector,supavisor,mailpit,postgrest</code></td>
+<td><code>Started supabase local development setup.</code> (~30 s)</td>
+</tr>
+<tr>
+<td>3</td>
+<td><strong>api</strong></td>
+<td><code>$env:HOST = "127.0.0.1"; pnpm start:api</code></td>
+<td><code>API listening on http://127.0.0.1:3001 — React dashboard at …/app/</code></td>
+</tr>
+<tr>
+<td>4</td>
+<td><strong>worker</strong></td>
+<td><code>pnpm start:worker</code></td>
+<td><code>[worker] telegram sender ready</code> <strong>and</strong> <code>[worker] web push sender ready</code></td>
+</tr>
+<tr>
+<td>5</td>
+<td><strong>bot</strong></td>
+<td><code>pnpm start:bot</code></td>
+<td><code>[bot] @freshnow1bot polling …</code></td>
+</tr>
+<tr>
+<td>6</td>
+<td><strong>tunnel</strong></td>
+<td><code>cloudflared tunnel --url http://localhost:3001</code></td>
+<td>a box with <code>https://&lt;words&gt;.trycloudflare.com</code> — <strong>copy that address</strong></td>
+</tr>
+<tr>
+<td>7</td>
+<td>any</td>
+<td><code>pnpm urls</code></td>
+<td><code>Dashboard … HTTP 200</code>, <code>Sign-in Supabase Auth HTTP 200</code>, <code>Web push VAPID keys set</code>, <code>@freshnow1bot reachable</code></td>
+</tr>
+</tbody>
+</table>
+<p>Quick health check (note <code>curl.exe</code>, not <code>curl</code>, in PowerShell):</p>
+<pre><code class="language-powershell">curl.exe http://localhost:3001/health
+</code></pre>
+<p>→ <code>{"status":"ok","db":"ok","redis":"ok", …}</code></p>
+<ul>
+<li><strong><code>$env:HOST = "127.0.0.1"</code></strong> keeps the API off the Wi-Fi: the laptop reaches it on
+  <code>localhost</code>, the phone reaches it through the tunnel. Nothing else on the network can.</li>
+<li><strong>Keep terminal 6 running for the whole demo.</strong> Every restart of <code>cloudflared</code> gives a new
+  address, and a phone's notification subscription belongs to the old one — you would have to
+  set the phone up again (§5.3).</li>
+<li>If <code>supabase start</code> fails with <code>network … not found</code>: <code>npx supabase stop</code> then start again.
+  (<code>--no-backup</code> deletes the database — only if a plain stop/start does not fix it.)</li>
+</ul>
+<hr />
+<h2>4 · Accounts and credentials</h2>
+<h3>4.1 · Find the three people</h3>
+<p>Supabase Studio → <strong>http://127.0.0.1:54323</strong> → <em>SQL Editor</em> → run:</p>
+<pre><code class="language-sql">select id, display_name, access_role, status
+from employee
+where access_role = 'ceo' or display_name ilike '%hemanth%' or display_name ilike '%priya%'
+order by access_role, display_name;
+</code></pre>
+<p>Expected: the CEO row (<code>00000000-0000-0000-0000-0000000000ce</code> unless you created another),
+<code>Hemanth</code>, and <code>DEMO – Priya Nair</code>, all <code>active</code>.</p>
+<h3>4.2 · Set their dashboard passwords</h3>
+<p><strong>Recommended — let the script pick a strong password</strong> and print it once:</p>
+<pre><code class="language-powershell">pnpm link:user 00000000-0000-0000-0000-0000000000ce ceo@freshnow.local
+pnpm link:user &quot;Hemanth&quot; hemanth@freshnow.local
+pnpm link:user &quot;Priya&quot; priya@freshnow.local
+</code></pre>
+<p>Each prints <code>Linked &lt;name&gt; → &lt;email&gt;</code> and <code>Password: …  (shown once)</code>.</p>
+<p><strong>Or choose your own</strong> (at least 6 characters): add it as a third argument, e.g.
+<code>pnpm link:user "Hemanth" hemanth@freshnow.local &lt;your password&gt;</code>. Running the command again
+with a new password <strong>resets</strong> it; the account and its history stay.</p>
+<ul>
+<li><code>No employee matches</code> → use the <code>id</code> from §4.1 instead of the name.</li>
+<li><code>matches 2 employees</code> → use the <code>id</code>.</li>
+<li>For an account that <strong>already exists</strong> and no password is given, the script only re-links it
+  and prints <code>Existing account — password unchanged.</code> Give a password to reset it.</li>
+</ul>
+<h3>4.3 · Write them down — in <code>CREDENTIALS.local.md</code> only</h3>
+<p>Create <code>CREDENTIALS.local.md</code> in the project folder (git ignores it). Everything a demo needs:</p>
+<table>
+<thead>
+<tr>
+<th>What</th>
+<th>Address</th>
+<th>Login</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Dashboard — CEO</td>
+<td>http://localhost:3001/app/</td>
+<td><code>ceo@freshnow.local</code> / <em>(from 4.2)</em></td>
+</tr>
+<tr>
+<td>Dashboard — Hemanth</td>
+<td>http://localhost:3001/app/</td>
+<td><code>hemanth@freshnow.local</code> / <em>(from 4.2)</em></td>
+</tr>
+<tr>
+<td>Dashboard — Priya (phone)</td>
+<td>https://…trycloudflare.com/app/</td>
+<td><code>priya@freshnow.local</code> / <em>(from 4.2)</em></td>
+</tr>
+<tr>
+<td>Supabase Studio</td>
+<td>http://127.0.0.1:54323</td>
+<td>no login (local only)</td>
+</tr>
+<tr>
+<td>Supabase Postgres</td>
+<td><code>127.0.0.1:54322</code>, database <code>postgres</code></td>
+<td><code>postgres</code> / <code>postgres</code> — the local Supabase default; <code>npx supabase status</code> → <em>DB URL</em> confirms it</td>
+</tr>
+<tr>
+<td>App database role</td>
+<td>same database</td>
+<td><code>freshnow_app</code> / the password in your <code>.env</code> <code>DATABASE_URL</code></td>
+</tr>
+<tr>
+<td>Adminer (old rollback Postgres)</td>
+<td>http://localhost:8080</td>
+<td>System <strong>PostgreSQL</strong> (not MySQL) · Server <code>db</code> · User <code>freshnow</code> · Password = <code>POSTGRES_PASSWORD</code> in <code>.env</code> (default <code>freshnow_dev_pw</code>) · Database <code>freshnow</code></td>
+</tr>
+<tr>
+<td>Redis</td>
+<td><code>localhost:6380</code></td>
+<td>no password</td>
+</tr>
+<tr>
+<td>Supabase keys</td>
+<td>—</td>
+<td><code>npx supabase status</code></td>
+</tr>
+<tr>
+<td>Telegram bot</td>
+<td><code>@freshnow1bot</code></td>
+<td>CEO account <code>6051615734</code> · Hemanth <code>8903000291</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>5 · Put the three screens in place (≈ 10 minutes, before anyone watches)</h2>
+<h3>5.1 · CEO — Google Chrome on the laptop</h3>
+<ol>
+<li>Open <strong>http://localhost:3001/app/</strong> → choose <strong>Task &amp; logging</strong> → sign in with the CEO account.</li>
+<li><strong>First time only:</strong> a <strong>"Before you start"</strong> notice appears — what the app records, how the AI
+   is used, how to withdraw. Tap <strong>I have read this and agree</strong>. (Recorded with a fingerprint of
+   the exact words; it will not ask again.)</li>
+<li>Left menu → <strong>Alerts</strong> → <strong>Channels</strong> → under <strong>How people hear from us</strong>, choose
+   <strong>Telegram + App</strong>. (Telegram stays on; the app is added. Until this is chosen, notifications
+   are switched off for the whole company and the test below says so.)</li>
+<li>Scroll to <strong>Notifications on this device</strong> → <strong>Turn on for this device</strong> → Chrome asks → <strong>Allow</strong>.</li>
+<li>Tap <strong>🔔 Send a test notification</strong>, then minimise Chrome. A Windows notification
+   <em>"FreshNow test notification"</em> appears within seconds.
+   - Nothing? Windows Settings → <em>System → Notifications</em>: notifications <strong>On</strong>, <strong>Google Chrome On</strong>,
+     and <em>Do not disturb / Focus</em> <strong>off</strong>.</li>
+</ol>
+<h3>5.2 · Hemanth — Microsoft Edge on the laptop</h3>
+<ol>
+<li>Open <strong>http://localhost:3001/app/</strong> in Edge → <strong>Task &amp; logging</strong> → sign in as Hemanth.</li>
+<li><strong>No consent notice</strong> — he already agreed in Telegram, and that record counts.</li>
+<li><strong>Alerts → Notifications on this device → Turn on → Allow → Send a test notification.</strong>
+   Windows Settings must also allow <strong>Microsoft Edge</strong> notifications.</li>
+</ol>
+<h3>5.3 · The phone — "DEMO – Priya Nair"</h3>
+<p>Use the <code>https://….trycloudflare.com</code> address from §3 step 6, followed by <code>/app/</code>.</p>
+<p><strong>Android (Chrome):</strong>
+1. Open <code>https://&lt;words&gt;.trycloudflare.com/app/</code>.
+2. Menu <strong>⋮ → Install app</strong> (or <em>Add to Home screen</em>) → open <strong>FreshNow</strong> from the home screen.
+3. <strong>Task &amp; logging</strong> → sign in as Priya → the <strong>Before you start</strong> notice → <strong>I have read this and agree</strong>.
+4. <strong>Alerts → Notifications on this device → Turn on → Allow → Send a test notification.</strong>
+   Lock the phone: it buzzes.</p>
+<p><strong>iPhone (Safari, iOS 16.4 or later):</strong>
+1. Open the address in <strong>Safari</strong> (not Chrome) → <strong>Share ⬆ → Add to Home Screen → Add</strong>.
+2. Open <strong>FreshNow from the Home Screen</strong> — notifications do not exist in a Safari tab; this is
+   Apple's rule.
+3. Sign in as Priya → agree to the notice → <strong>Alerts → Turn on → Allow → Send a test notification.</strong></p>
+<p>The phone does <strong>not</strong> need to be on the laptop's Wi-Fi — mobile data works, because the tunnel is
+on the internet.</p>
+<h3>5.4 · Rehearse once, then clean up (§8)</h3>
+<p>Run §6 privately end to end, then reset (§8) so the demo starts from a clean board.</p>
+<hr />
+<h2>6 · The demo, act by act (≈ 20 minutes)</h2>
+<p>Keep all three screens visible: CEO in Chrome, Hemanth in Edge, the phone in your hand.</p>
+<h3>Act 1 — One switch decides how people hear from us (CEO, 2 min)</h3>
+<p><strong>CEO → Alerts → Channels → How people hear from us.</strong>
+- <strong>Telegram</strong> (default) — what the company runs today.
+- <strong>Telegram + App</strong> — adds the inbox and device notifications; nobody loses Telegram. <em>(chosen in 5.1)</em>
+- <strong>App only</strong> — the app replaces Telegram. Greyed out, and refused by the server, whenever phone
+  notifications are not set up: switching Telegram off with nothing that reaches a closed phone would
+  leave people unreachable.
+- Show <strong>Activity</strong> (left menu): <code>channel.mode_set</code> — who changed it and when.</p>
+<blockquote>
+<p>"Telegram stays the default. The app is built and switched on in one click — and it cannot be
+switched on in a way that leaves people unreachable."</p>
+</blockquote>
+<h3>Act 2 — Work is assigned; it arrives everywhere Hemanth is (CEO → Hemanth, 2 min)</h3>
+<ol>
+<li><strong>CEO → Assignments → 📌 Assign work</strong> → <em>Who</em>: <strong>Hemanth</strong> → <em>What</em>: <code>Count the crates in the cold room</code>
+   → <em>Note</em>: <code>before 4 pm</code> → <strong>Assign &amp; notify</strong>.</li>
+<li>Hemanth receives it <strong>three ways at once</strong>: Telegram message on his phone, a Windows banner
+   <strong>"New task for you"</strong> from Edge, and <strong>🔔 1</strong> on his dashboard.</li>
+<li>Click the banner → Edge opens <strong>that task</strong> directly.</li>
+</ol>
+<h3>Act 3 — Work is assigned to the phone (CEO → phone, 1 min)</h3>
+<ol>
+<li><strong>CEO → Assignments</strong> → <em>Who</em>: <strong>DEMO – Priya Nair</strong> <em>(shows "no Telegram — told in the app")</em> →
+   <em>What</em>: <code>Check the chiller in van 2</code> → <strong>Assign &amp; notify</strong>.</li>
+<li>The phone buzzes: <strong>New task for you</strong>. Tap it → the app opens on that task.</li>
+</ol>
+<h3>Act 4 — A problem reported from the phone reaches the CEO at once (phone → CEO, 3 min)</h3>
+<ol>
+<li>Phone → <strong>My work</strong> → the chiller task → <strong>🚫 Blocker</strong> → type in any language, e.g.
+   <code>van 2 chiller not cooling, juice getting warm</code> → <strong>🚫 Send blocker</strong>.</li>
+<li>Toast: <em>"Saved as a blocker (high) — the CEO has been alerted."</em></li>
+<li>The CEO's laptop shows <strong>Problem for you to resolve</strong>, and it <strong>stays on screen until dismissed</strong>
+   — a blocker should not be glanced at and lost. The CEO's Telegram gets it too.
+   - If the AI key is not working, the CEO instead gets <strong>An update needs a human reader</strong> with
+     the employee's exact words. Nothing is lost either way.</li>
+<li><strong>Overview</strong> now shows the problem under <em>Urgent open</em>.</li>
+</ol>
+<h3>Act 5 — Acknowledge stops the escalation (CEO, 1 min)</h3>
+<p><strong>CEO → Alerts → Open problems → ✅ Acknowledge.</strong> The row turns <em>on it · DEMO CEO</em>. Every report
+of the same problem is covered; the escalation ladder stops.</p>
+<h3>Act 6 — Work finished closes the loop (Hemanth → CEO, 1 min)</h3>
+<p><strong>Hemanth (Edge) → My work → ✅ Done</strong> on the crates task. The CEO gets <strong>Task finished</strong> on the
+laptop, in the inbox, and on Telegram.</p>
+<h3>Act 7 — The app replaces Telegram (CEO → Hemanth, 3 min)</h3>
+<ol>
+<li><strong>CEO → Alerts → How people hear from us → App only.</strong> Telegram's row turns <strong>OFF</strong>,
+   <em>Phone &amp; desktop notifications</em> stays <strong>LIVE</strong>.</li>
+<li><strong>CEO → Assignments</strong> → Hemanth → <code>Clean the juicer nozzles</code> → <strong>Assign &amp; notify</strong>.</li>
+<li>Edge banner + inbox — <strong>and nothing in Telegram.</strong></li>
+<li><strong>Activity</strong> → the newest <code>alert.enqueued</code> lists the channels used: <code>inapp</code> and <code>webpush</code> only.</li>
+</ol>
+<h3>Act 8 — Each person chooses how they are told (Hemanth, 2 min)</h3>
+<ol>
+<li><strong>Hemanth → Alerts → How you are told</strong> → <em>Work is assigned to me</em> →
+   <strong>This app's notifications: Off</strong>.</li>
+<li>CEO assigns him another task → <strong>no banner</strong>, but it is in his <strong>🔔 inbox</strong> — the inbox always
+   gets everything, because it is the record, not a copy.</li>
+<li>Set it back to <strong>Immediately</strong>.</li>
+</ol>
+<h3>Act 9 — Consent and privacy (phone, 1 min)</h3>
+<p><strong>Phone → Alerts → Your consent</strong>: when Priya agreed, which notice, <strong>Read the notice</strong>.
+<strong>Withdraw consent…</strong> exists and asks twice — <strong>do not tap it in the demo</strong>: it switches the account
+off (§8 has the undo). Point out what is <em>not</em> built: no location tracking, no productivity score,
+no sentiment analysis.</p>
+<h3>Act 10 — Escalation when nobody answers (optional, 5 min)</h3>
+<p>The response windows are placeholders (critical 15 min, high 60 min). Shorten them for the demo in
+<strong>Studio → SQL Editor</strong>:</p>
+<pre><code class="language-sql">update sla_policy set minutes = 2 where severity in ('critical', 'high');
+</code></pre>
+<p>Report a new blocker from the phone (Act 4) and <strong>do not acknowledge it</strong>. Within about three
+minutes the CEO gets <strong>Escalated — level 1</strong>. Put the windows back afterwards:</p>
+<pre><code class="language-sql">update sla_policy set minutes = case severity when 'critical' then 15 when 'high' then 60 else minutes end;
+</code></pre>
+<h3>Act 11 — The rest of the dashboard (CEO, 3 min)</h3>
+<ul>
+<li><strong>Overview</strong> — today's numbers, all counted in the database.</li>
+<li><strong>Ask</strong> — <code>how many blockers are open right now?</code> → the answer <strong>with the SQL that produced it</strong>.</li>
+<li><strong>End of day → Generate end-of-day reports</strong> — one report per person, counts computed in SQL.</li>
+<li><strong>People</strong> — access roles; the database decides who sees what.</li>
+<li><strong>Projects</strong> (top switcher) — purpose, requirements, milestones, progress.</li>
+<li><strong>Activity</strong> — the audit trail of everything above.</li>
+</ul>
+<h3>Act 12 — Back to the default (CEO, 30 s)</h3>
+<p><strong>Alerts → How people hear from us → Telegram.</strong> Recorded in Activity like every other switch.</p>
+<blockquote>
+<p>"The in-app channel and the notifications are ours: the words are stored on our own server, and
+the message is encrypted to each device — Google, Apple and Microsoft relay it but cannot read it."</p>
+</blockquote>
+<hr />
+<h2>7 · If something goes wrong</h2>
+<table>
+<thead>
+<tr>
+<th>What you see</th>
+<th>What to do</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Sign-in says <strong>"Sign-in service is not reachable — is Supabase running?"</strong></td>
+<td>Start Supabase (§3 step 2), then retry.</td>
+</tr>
+<tr>
+<td><strong>Invalid login credentials</strong></td>
+<td>Reset the password: <code>pnpm link:user "&lt;name&gt;" &lt;email&gt; &lt;new password&gt;</code> (§4.2).</td>
+</tr>
+<tr>
+<td>Signed in but <strong>"This account is not linked to an active employee"</strong></td>
+<td>Run <code>pnpm link:user</code> for that person again (no password needed); if they withdrew consent, §8 step 4.</td>
+</tr>
+<tr>
+<td><strong>Notifications need a secure (https) address</strong></td>
+<td>You opened the Wi-Fi IP. Use <code>http://localhost:3001</code> on the laptop or the tunnel address on the phone.</td>
+</tr>
+<tr>
+<td><strong>On iPhone, tap Share → Add to Home Screen first</strong></td>
+<td>Exactly that (§5.3), then open FreshNow from the Home Screen.</td>
+</tr>
+<tr>
+<td><strong>Notifications are blocked for this site</strong></td>
+<td>You said <em>Block</em> once. Click the padlock in the address bar → Notifications → Allow; on a phone, the site settings in the browser.</td>
+</tr>
+<tr>
+<td><strong>App only</strong> is greyed out / "needs web push set up"</td>
+<td>VAPID keys are missing, or the <strong>api</strong> was not restarted after adding them (§2.1).</td>
+</tr>
+<tr>
+<td>Worker never prints <strong>web push sender ready</strong></td>
+<td>Same: VAPID keys missing in <code>.env</code>; restart the <strong>worker</strong>.</td>
+</tr>
+<tr>
+<td><strong>Send a test notification</strong> says <em>"Web push is not live"</em></td>
+<td>The CEO has not chosen <strong>Telegram + App</strong> or <strong>App only</strong> yet (§5.1 step 3).</td>
+</tr>
+<tr>
+<td>… says <em>"No device is turned on for you yet"</em></td>
+<td>Tap <strong>Turn on for this device</strong> first.</td>
+</tr>
+<tr>
+<td>Test queued but <strong>no banner</strong> on Windows</td>
+<td>Windows <em>Notifications</em> on, the browser allowed, <em>Do not disturb / Focus</em> off.</td>
+</tr>
+<tr>
+<td>The phone stopped buzzing after a break</td>
+<td>Was <strong>cloudflared</strong> restarted? New address = set the phone up again (§5.3).</td>
+</tr>
+<tr>
+<td>Two people in one browser get each other's banners</td>
+<td>Use Chrome for one and Edge for the other (§0).</td>
+</tr>
+<tr>
+<td>Nothing arrives in <strong>Telegram</strong> any more</td>
+<td>You are in <strong>App only</strong> — switch back to <em>Telegram</em> or <em>Telegram + App</em>.</td>
+</tr>
+<tr>
+<td>The problem arrives as <strong>"needs a human reader"</strong></td>
+<td>The AI key is not working. Check <code>GROQ_API_KEY</code> / <code>OPENROUTER_API_KEY</code>; the demo still works.</td>
+</tr>
+</tbody>
+</table>
+<p>Useful looks inside (Studio → SQL Editor):</p>
+<pre><code class="language-sql">-- the last 20 things the system tried to send, and whether they went
+select created_at, channel, status, attempts, payload-&gt;&gt;'kind' as kind, reason
+from notification_outbox order by created_at desc limit 20;
+
+-- which devices have notifications on
+select e.display_name, p.user_agent, p.created_at
+from push_subscription p join employee e on e.id = p.employee_id;
+</code></pre>
+<hr />
+<h2>8 · Reset after a rehearsal</h2>
+<ol>
+<li><strong>CEO → Alerts → How people hear from us → Telegram.</strong></li>
+<li>Clear what people did (keeps them registered) — the same commands as <code>DEMO-GUIDE.md</code>:
+   <code>powershell
+   npx tsx scripts/reset-employee.ts --telegram 8903000291 --activity
+   npx tsx scripts/reset-employee.ts --ceo --activity</code></li>
+<li>To show Priya's <strong>consent notice</strong> again on the phone:
+   <code>sql
+   delete from consent_record where employee_id = 'd0000000-0000-0000-0000-000000000002';</code></li>
+<li>If someone tapped <strong>Withdraw consent</strong> by mistake, switch them back on:
+   <code>sql
+   update employee set status = 'active' where display_name = 'DEMO – Priya Nair';</code></li>
+<li>Devices stay subscribed between rehearsals — nothing to redo unless the tunnel address changed.</li>
+</ol>
+<hr />
+<h2>9 · Stop everything</h2>
+<p><code>Ctrl+C</code> in the <strong>tunnel</strong>, <strong>bot</strong>, <strong>worker</strong> and <strong>api</strong> terminals, then:</p>
+<pre><code class="language-powershell">npx supabase stop          # keeps all data
+docker compose stop        # keeps all data
+</code></pre>
+<hr />
+<h2>10 · What changed for this demo, and the honest limits</h2>
+<p><strong>Changed on 2026-09-28</strong>
+- <strong>Sign-in goes through the dashboard's own address.</strong> The API passes the three sign-in calls to
+  the local Supabase and refuses everything else (including sign-up). That is what lets one
+  <code>https://</code> tunnel serve a phone for both sign-in and notifications, and why port 54321 no longer
+  needs to be open. Existing sessions sign in once more.
+- <strong>The consent notice is checked before the board loads</strong> — nothing about a person is fetched or
+  shown until they have agreed.
+- <strong>Assignment wording is channel-neutral</strong>: <em>Assign &amp; notify</em>, and people without Telegram are shown
+  as <em>told in the app</em> rather than as unreachable.
+- <strong>CI is paused</strong> (manual <em>Run workflow</em> only).</p>
+<p><strong>Limits — say them if asked</strong>
+- <strong>The tunnel passes through Cloudflare</strong>, a US company. For a demo with test data that is fine; for
+  real employee data it is a cross-border transfer. Production needs a domain on a UAE host (see the
+  CEO decks), after which the tunnel is not used at all.
+- <strong>A real phone has not been tested by the developer.</strong> Everything up to the push service was tested,
+  and the notification display was tested in Chrome; the first real phone is this demo.
+- <strong>New staff still join through Telegram</strong> (invite code → bot). An app-only sign-up is not built yet.
+- <strong>Files attached to an assignment</strong> are still delivered in Telegram only.
+- <strong>iPhone needs iOS 16.4+</strong> and the Home Screen step; the EU restriction on iPhone web apps does not
+  apply in the UAE.</p>
+</body></html>

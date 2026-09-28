@@ -588,3 +588,17 @@ Business $19, Enterprise $39, usage-based credits since 2026-06-01. M365 Copilot
 now expected by end of 2026; $30 enterprise / $21 Business. Telegram: DCs reported in Miami, Amsterdam,
 Singapore; since Sept 2024 may disclose IP + phone on valid criminal orders. Google Cloud: still no UAE region.
 du Tech National Hypercloud (OCI-based) certified by the UAE Cyber Security Council in 2026.
+
+
+## VF34 (2026-09-28) — Real Supabase Auth sign-in through the API, three accounts, over HTTP and HTTPS [verified]
+Supabase Auth (GoTrue) built from source and run behind a `/auth/v1` gateway on :54321, like the CLI's
+Kong; HS256 keys; issuer `http://127.0.0.1:54321/auth/v1`. `pnpm link:user` created `ceo@`, `hemanth@`,
+`priya@freshnow.local` exactly as `DEMO-GUIDE-APP.md` §4.2 says. In Chromium: the CEO signed in at
+`http://localhost:3001` (the only auth request was `POST http://localhost:3001/auth/v1/token?grant_type=password`),
+saw the consent notice once, switched to Telegram + App; Hemanth (bot consent on record) got no notice and
+sign-out returned to the portal picker; Priya signed in at an HTTPS front on :8444 (stand-in for the tunnel;
+auth request went to the same https origin), saw the notice, page was a secure context. CEO assigned her a task
+(new "Assign & notify" wording) → her bell counted it via live sync through the HTTPS front; she tapped Done →
+the CEO's inbox got "finished"; rows queued on `inapp` and `webpush`. `POST /auth/v1/signup` via the API → 404.
+NOT covered: service-worker registration over HTTPS (the stand-in's self-signed certificate is refused for
+service workers — a real Cloudflare certificate is not); a real phone; the Supabase CLI's ES256 keys.

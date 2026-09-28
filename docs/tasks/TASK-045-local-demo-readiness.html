@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TASK-045 — Local demo readiness: one address for sign-in and notifications</title>
+<style>
+  :root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#3fb950;--warn:#d29922;--bad:#f85149;--card:#161b22;--bd:#30363d}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;max-width:980px;padding:48px 24px;margin-inline:auto}
+  h1{font-size:1.9rem;margin:0 0 4px} h2{margin-top:2.5rem;color:var(--acc);font-size:1.25rem}
+  .meta{color:var(--mut);font-size:.9rem;margin-bottom:2rem}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:18px;margin:14px 0}
+  .unverified{border-left:3px solid var(--warn)} .ok{border-left:3px solid var(--acc)}
+  code{background:#1f2630;padding:2px 6px;border-radius:4px;font-size:.9em}
+  .tw{overflow-x:auto} table{border-collapse:collapse;width:100%;margin:14px 0}
+  th,td{border:1px solid var(--bd);padding:7px 9px;text-align:left;font-size:.88rem;vertical-align:top} th{background:#1f2630}
+  .bad{color:var(--bad);font-weight:600}.good{color:var(--acc);font-weight:600}.warn{color:var(--warn);font-weight:600}
+  ul{padding-left:1.1rem} li{margin:3px 0} a{color:#88c0f0}
+</style></head><body>
+<h1>TASK-045 — Local demo readiness: one address for sign-in and notifications</h1>
+<p class="meta">2026-09-28 · no migration · api: <code>routes/auth-proxy.ts</code>, <code>routes/dashboard.ts</code>, <code>server.ts</code> ·
+dashboard: <code>lib/auth.ts</code>, <code>App.tsx</code>, <code>components/form.tsx</code> · scripts: <code>urls.mjs</code> · CI paused ·
+guide: <code>DEMO-GUIDE-APP.md</code> · <b>452 tests passing</b> (15 new), 9 needing a live model provider</p>
+
+<div class="card ok"><strong>One-sentence summary:</strong> Preparing the laptop demo of the app channel found that a phone could never
+both sign in and receive notifications — sign-in went to a second, plain-HTTP port while notifications need HTTPS — so sign-in now
+goes through the dashboard's own address; the board no longer loads before consent; assignment wording no longer says "Telegram"; CI is
+manual-only; and a step-by-step guide covers starting everything, three accounts on three screens, and the demo end to end.</div>
+
+<h2>What was done</h2>
+<ul>
+  <li><b>Same-origin sign-in</b> (D136): <code>POST /auth/v1/token</code> (password/refresh), <code>POST /auth/v1/logout</code>, <code>GET /auth/v1/user</code>
+    passed to a local Supabase; every other auth path 404s without contacting it. <code>/app-config</code> → <code>supabaseSameOrigin</code>; the dashboard
+    uses <code>location.origin</code>. Port 54321 no longer needs to be reachable from a phone.</li>
+  <li><b>Consent before data</b> (D137): spinner while unknown; <code>load()</code> skips until consented.</li>
+  <li><b>Wording</b>: "Assign &amp; notify"; "They are told on every channel they use"; people without Telegram shown as "told in the app".</li>
+  <li><b>CI</b> (D138): <code>workflow_dispatch</code> only; the duplicate pnpm version that failed every run removed.</li>
+  <li><code>pnpm urls</code> reports sign-in through the API and whether web push keys are set; <code>COMMANDS.md</code> firewall note updated.</li>
+  <li><code>DEMO-GUIDE-APP.md</code> (+ <code>docs/guides/demo-guide-app.html</code>): start order with ready lines, VAPID keys, Cloudflare quick tunnel,
+    accounts via <code>pnpm link:user</code>, a credentials table without passwords (the repository is public — G114), 12 acts, troubleshooting, reset.</li>
+</ul>
+
+<h2>Why</h2>
+<p>A browser grants notifications only to a secure page, and a secure page may not call plain HTTP. With sign-in on
+<code>http://&lt;laptop&gt;:54321</code> the only choices were "sign in over the LAN without notifications" or "an https page that cannot sign in".
+Putting the three sign-in calls behind the API makes page and sign-in one origin; the alternative — a second tunnel for 54321 and a
+dashboard that knows two public addresses — adds a moving part for no benefit. The allow-list is narrower than what port 54321 exposes
+today (the local config allows self sign-up; the pass-through does not).</p>
+
+<h2>How it was verified</h2>
+<div class="tw"><table>
+  <thead><tr><th>Check</th><th>Result</th></tr></thead>
+  <tbody>
+    <tr><td>15 new API tests against a stand-in Supabase: the three calls pass path, query, headers and body unchanged; empty-body sign-out; 7 refused paths never reach upstream; off for a hosted URL; 502 with a plain message when Supabase is down; <code>/app-config</code> both ways</td><td class="good">passing</td></tr>
+    <tr><td>Real Supabase Auth (GoTrue built from source) behind a <code>/auth/v1</code> gateway; three accounts created with the guide's commands; Chromium: CEO and Hemanth on http://localhost, Priya on an HTTPS front (VF34)</td><td class="good">sign-in, consent gate, mode switch, assignment → bell, Done → CEO inbox, sign-out — all as the guide describes</td></tr>
+    <tr><td>Full suite, typecheck (root + dashboard), dashboard build</td><td class="good">452 pass; clean; built</td></tr>
+  </tbody>
+</table></div>
+
+<h2 class="bad">What we have not verified</h2>
+<div class="card unverified"><ul>
+  <li><b>A real phone.</b> The first real phone notification will be the demo itself. The service worker could not be registered on the local HTTPS
+    front because its certificate is self-signed; Cloudflare's is not, but that was not tested here.</li>
+  <li><b>The Supabase CLI's own stack.</b> Tested with GoTrue built from source, HS256 keys and a hand-written gateway, not the CLI's Kong and ES256 keys.
+    The pass-through does not touch verification, so the difference should not matter — unmeasured.</li>
+  <li><b>Cloudflare quick tunnel</b>: install command and behaviour taken from Cloudflare's documentation via search; not run here. Its traffic passes through
+    Cloudflare (US) — acceptable for a demo with test data, not for real employee data.</li>
+  <li><b>Windows specifics</b> in the guide (winget, PowerShell syntax, Windows notification settings) were written for Windows but executed on Linux.</li>
+  <li><b>Existing browser sessions</b> sign in once more after this change (the session key follows the address). Expected, not observed on the laptop.</li>
+</ul></div>
+
+<h2>Open questions</h2>
+<ul>
+  <li>Make the GitHub repository private? (It is public — G114.)</li>
+  <li>App-only onboarding: new staff still register through a Telegram invite code.</li>
+</ul>
+</body></html>

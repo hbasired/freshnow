@@ -883,3 +883,17 @@ without the primary text.
 When the pattern appears in the command line itself (as it does in `pkill -f "packages/worker/src/index.ts"`),
 the calling shell matches and dies (exit 144). Use the bracket trick: `pkill -f "[p]ackages/worker/..."`.
 Also: a `redis-server` started from the repo root writes `dump.rdb` there — now ignored by `.gitignore`.
+
+
+## G114 — The GitHub repository is public [verified 2026-09-28]
+`hbasired/freshnow` is public. Never commit a password, key, real employee record or anything from
+`CREDENTIALS.local.md`; guides tell people to set passwords rather than printing them. The repo already
+holds CEO decks, research and two Telegram user ids — making it private is the owner's call.
+
+## G115 — Changing only the `#hash` does not reload the dashboard [verified]
+`page.goto(".../app/#tasks/alerts")` on an open `/app/` page is a same-document navigation; `App` reads the
+hash once on mount, so the tab does not change. In a browser harness click the navigation instead.
+
+## G116 — The Supabase anon key must be ≥ 20 characters or every request 500s [verified]
+`loadConfig()` validates `SUPABASE_ANON_KEY` with `min(20)`. A short test fixture made every route (including
+`/app-config`) throw. Use a realistic-length key in tests.

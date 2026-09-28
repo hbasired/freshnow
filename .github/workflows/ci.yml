@@ -1,12 +1,16 @@
 name: CI
 
-# Typecheck + tests on every push/PR. From T2 onward this job also spins up a
+# Typecheck + tests. This job spins up a
 # throwaway Postgres + Redis so the RLS / idempotency / replay tests run against
 # a real database (the DB is never mocked — see CLAUDE.md).
+# Paused on 2026-09-28 at the owner's request — the work is on local builds for now.
+# It runs only when started by hand (Actions tab → CI → "Run workflow"). To turn it back
+# on, restore the two triggers below this line.
+#   push:
+#     branches: [main]
+#   pull_request:
 on:
-  push:
-    branches: [main]
-  pull_request:
+  workflow_dispatch:
 
 jobs:
   build:
@@ -53,9 +57,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+      # No `version:` here: package.json's "packageManager" already pins pnpm, and naming it
+      # twice made this step fail on every run ("Multiple versions of pnpm specified").
       - uses: pnpm/action-setup@v4
-        with:
-          version: 11
       - uses: actions/setup-node@v4
         with:
           node-version: 22

@@ -1119,3 +1119,25 @@ AI on Core42 (same `gpt-oss-120b`), ≈ $202/month estimated. AWS me-central-1 i
 not recommended while it is impaired (VF33). Azure's in-country AI is reserved capacity (≥ $6,500/month) —
 ~900× our AI bill. GitHub Copilot Business for development only, with no real employee data in prompts.
 Confirm/refute: Azure calculator for UAE North; AWS declaring the region recovered; counsel on the backup copy.
+
+
+## D136 — A local Supabase is signed in to through the API's own origin (TASK-045, 2026-09-28) [verified]
+`routes/auth-proxy.ts` passes exactly three calls to the local Supabase Auth — `POST /auth/v1/token`
+(grant `password` | `refresh_token`), `POST /auth/v1/logout`, `GET /auth/v1/user` — and 404s everything else
+without contacting Supabase (sign-up, admin API, recovery, OTP, other grants). `/app-config` returns
+`supabaseSameOrigin: true` for a 127.0.0.1/localhost Supabase and the dashboard then uses `location.origin`.
+Why: web push needs an HTTPS page and an HTTPS page cannot call `http://<laptop>:54321` (mixed content), so a
+phone could sign in or be notified, never both. One HTTPS tunnel to :3001 now serves both, and :54321 no
+longer has to be opened. Off for a hosted Supabase (already HTTPS on its own domain). The body is passed as
+bytes in an encapsulated scope because supabase-js sends an empty body with `Content-Type: application/json`
+on sign-out, which Fastify's JSON parser rejects. Issuer and JWT verification are unchanged.
+
+## D137 — Nothing about a signed-in person is fetched or shown before consent is known (TASK-045) [verified]
+The first version rendered the board while the consent check was in flight and swapped the notice in after,
+so a person briefly saw — and the browser fetched — their data before agreeing. Now `App` shows a spinner
+while consent is unknown and `load()` returns early unless consent is `true`.
+
+## D138 — CI is manual-only for now (TASK-045, owner's request) [verified]
+`on: workflow_dispatch` only; the push/pull_request triggers are kept in a comment. It had never passed: the
+workflow and `package.json#packageManager` both named a pnpm version and `pnpm/action-setup@v4` refuses that
+("Multiple versions of pnpm specified"). The duplicate is removed so a manual run gets past setup.

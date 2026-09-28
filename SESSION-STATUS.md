@@ -1,3 +1,16 @@
+# Session status — 2026-09-28 (cloud session, TASK-045)
+
+**To run the app/web-push demo on the laptop: `DEMO-GUIDE-APP.md`** (start order, VAPID keys, tunnel, three accounts,
+12 acts). Telegram demo unchanged: `DEMO-GUIDE.md`.
+- Sign-in now goes through the dashboard's own address (port 3001), so one HTTPS tunnel gives a phone both sign-in and
+  notifications; port 54321 no longer has to be open. Browsers sign in once more after updating.
+- The board waits for consent; assignment wording no longer says "Telegram".
+- CI paused (manual "Run workflow" only); its pnpm-version failure fixed.
+- **The GitHub repository is public** — no passwords in any committed file (G114).
+- Tests: 452 pass, 9 need a live model provider.
+
+---
+
 # Session status — 2026-09-26 (cloud session, TASK-044)
 
 Ran in a fresh cloud container (throwaway Postgres 16 + pgvector + Redis; no Supabase, no model keys, no Telegram).

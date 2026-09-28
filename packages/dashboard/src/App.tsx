@@ -145,6 +145,9 @@ export default function App({
   }, [identity, viewer]);
 
   const load = useCallback(async () => {
+    // Nothing is fetched for a signed-in person until they have consented (or the check is
+    // still running) — their board is data about them and their colleagues.
+    if (consented !== true) return;
     setBusy(true);
     try {
       const [day, open, assignments, eod, people, activity, review, blockers, h, me, week] = await Promise.all([
@@ -169,7 +172,7 @@ export default function App({
     } finally {
       setBusy(false);
     }
-  }, [viewer, date]);
+  }, [viewer, date, consented]);
 
   useEffect(() => {
     void load();
@@ -281,7 +284,10 @@ export default function App({
     );
   };
 
-  // After every hook, so the hook order never depends on consent.
+  // After every hook, so the hook order never depends on consent. While the answer is still
+  // coming, show nothing of the board: rendering it first and swapping in the notice a moment
+  // later meant a person saw (and the browser fetched) their data before agreeing.
+  if (consented === null) return <div className="grid min-h-screen place-items-center"><Spinner label="Checking your consent…" /></div>;
   if (consented === false) return <ConsentGate viewer={viewer} onAgreed={() => setConsented(true)} />;
 
   return (
@@ -1091,7 +1097,7 @@ function AssignTab({
                   onChanged();
                   const who = candidates.find((p) => p.id === to)?.display_name ?? "them";
                   return r.queued
-                    ? `Assigned to ${who} and queued for Telegram — the worker delivers it within a few seconds.`
+                    ? `Assigned to ${who}. They are told on every channel they use — Telegram, this app, their devices — within a few seconds.`
                     : `Assigned to ${who}. (Nothing new was queued — this looks like a repeat.)`;
                 });
               }}
@@ -1100,7 +1106,7 @@ function AssignTab({
               <TextField label="What" value={title} onChange={setTitle} placeholder="One task, in plain words" maxLength={200} />
               <TextArea label="Note (optional)" value={note} onChange={setNote} rows={2} maxLength={1000} />
               <Button type="submit" tone="primary" busy={act.busy} disabled={!to || title.trim().length < 3}>
-                Assign &amp; send to Telegram
+                Assign &amp; notify
               </Button>
             </form>
           </Card>
@@ -1278,7 +1284,7 @@ function DocumentCard({
                   setFile(null);
                   setInstruction("");
                   const queued = r.assigned.filter((a) => a.queued).length;
-                  return `Created ${r.assigned.length} task(s); ${queued} queued for Telegram. The file was not forwarded.`;
+                  return `Created ${r.assigned.length} task(s); ${queued} message(s) queued. The file was not forwarded.`;
                 })
               }
             >
