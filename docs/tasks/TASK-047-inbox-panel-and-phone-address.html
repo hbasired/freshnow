@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TASK-047 — Inbox panel on screen, answered consent requests cleared, the phone's address</title>
+<style>
+  :root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#3fb950;--warn:#d29922;--bad:#f85149;--card:#161b22;--bd:#30363d}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;max-width:980px;padding:48px 24px;margin-inline:auto}
+  h1{font-size:1.9rem;margin:0 0 4px} h2{margin-top:2.5rem;color:var(--acc);font-size:1.25rem}
+  .meta{color:var(--mut);font-size:.9rem;margin-bottom:2rem}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:18px;margin:14px 0}
+  .unverified{border-left:3px solid var(--warn)} .ok{border-left:3px solid var(--acc)}
+  code{background:#1f2630;padding:2px 6px;border-radius:4px;font-size:.9em}
+  .tw{overflow-x:auto} table{border-collapse:collapse;width:100%;margin:14px 0}
+  th,td{border:1px solid var(--bd);padding:7px 9px;text-align:left;font-size:.88rem;vertical-align:top} th{background:#1f2630}
+  .bad{color:var(--bad);font-weight:600}.good{color:var(--acc);font-weight:600}
+  ul{padding-left:1.1rem} li{margin:3px 0} a{color:#88c0f0}
+</style></head><body>
+<h1>TASK-047 — Inbox panel on screen, answered consent requests cleared, the phone's address</h1>
+<p class="meta">2026-09-28 · no migration · dashboard: <code>App.tsx</code>, <code>components/alerts.tsx</code> · core: <code>consent.ts</code> ·
+scripts: <code>urls.mjs</code> · guides: <code>DEMO-GUIDE-APP.md</code> §1.1, §3, §5.3; <code>COMMANDS.md</code> · <b>483 tests passing</b> (2 new), 9 needing a live model provider</p>
+
+<div class="card ok"><strong>One-sentence summary:</strong> From the owner's screenshots, three fixes. The CEO's notification panel opened off the left
+edge of a zoomed Chrome window and now stays inside the window. People who had already agreed still saw "until you agree…" at the top of
+their inbox; that message is now marked read. The phone's tunnel address had to be dug out of cloudflared's output, and
+<code>pnpm urls</code> now prints it and checks it works end to end.</div>
+
+<h2>What was found in the screenshots</h2>
+<div class="tw"><table>
+  <thead><tr><th>Screenshot</th><th>What it showed</th><th>Cause</th></tr></thead>
+  <tbody>
+    <tr><td>CEO, Chrome (zoomed)</td><td>The inbox panel was cut off on the left.</td><td>The header wrapped and the bell moved to the left. The panel was <code>absolute right-0</code> on the bell and 420 px wide.</td></tr>
+    <tr><td>Hemanth, Edge</td><td>"The privacy notice changed … until you do" was unread, though he was already using the app.</td><td>The request row was never settled after he agreed.</td></tr>
+    <tr><td>cloudflared</td><td>All pre-checks passed, but no address was visible.</td><td>The address is printed once near the top and scrolls away behind the checks.</td></tr>
+  </tbody>
+</table></div>
+
+<h2>What was done, and why this way</h2>
+<ul>
+  <li><b>Header</b>: the date, theme, alert, bell, refresh and avatar controls are one <code>ml-auto</code> group, so when they wrap they stay at the right.</li>
+  <li><b>Panel</b> (D143):
+    <ul>
+      <li>measured from the bell, right-aligned under it, clamped 8 px inside both window edges, with its height capped to the space below;</li>
+      <li>rendered into <code>&lt;body&gt;</code>, because the header's backdrop blur makes the header the containing block for any fixed child;</li>
+      <li>closes on Escape.</li>
+    </ul></li>
+  <li><b>Answered requests</b> (D144): <code>recordConsent</code> marks that person's <code>consent.requested</code> inbox rows read. The worker's sweep settles
+    rows left by people who agreed before this change. No other message is touched.</li>
+  <li><b><code>pnpm urls</code></b> (VF37) asks cloudflared's own metrics server (<code>/quicktunnel</code>, ports 20241–20245) for the name, rather than
+    parsing its log. It prints <code>Phone https://…/app/</code> with a probe through Cloudflare. It explains the Wi-Fi line's "DOWN" when the API
+    listens on localhost only.</li>
+  <li><b>Guides</b>: what to restart after a pull (api, worker and bot; not the tunnel); phone prerequisites; getting the address onto the phone; a
+    troubleshooting table for the phone.</li>
+</ul>
+
+<h2>How it was verified</h2>
+<div class="tw"><table>
+  <thead><tr><th>Check</th><th>Result</th></tr></thead>
+  <tbody>
+    <tr><td>Panel position measured in Chromium, signed in as the CEO against real sign-in, at 390, 958 (200% zoom), 1100, 1277 (150% zoom) and 1440 px</td>
+      <td class="good">Before the fix, 390 px put the panel at left −286 (clipped). After it, the panel is inside the window at all five widths, and the header controls wrap to the right.</td></tr>
+    <tr><td>2 new core tests: the request is read the moment the person agrees; the sweep clears a stale one and leaves other messages unread</td><td class="good">passing</td></tr>
+    <tr><td>One sweep against the demo database</td><td class="good">The requests of the two people who had agreed became read. The one who had not agreed kept his.</td></tr>
+    <tr><td><code>pnpm urls</code> with a stand-in metrics server on 20242, and with none</td><td class="good">Printed the phone line with a probe; without a tunnel, printed the start command</td></tr>
+    <tr><td>Full suite, typecheck (root and dashboard), build</td><td class="good">483 pass (9 need a live model); clean; built</td></tr>
+  </tbody>
+</table></div>
+
+<h2 class="bad">What we have not verified</h2>
+<div class="card unverified"><ul>
+  <li><b>A real cloudflared</b>: <code>/quicktunnel</code> comes from cloudflared's source as found by search and was tested against a stand-in. If a future
+    cloudflared drops it, <code>pnpm urls</code> says "No Cloudflare tunnel found" while one is running. The address is still in cloudflared's own output.</li>
+  <li><b>The owner's exact window</b>: the zoom was estimated from the screenshot at about 150%. The fix was checked across widths, not in that browser.</li>
+  <li><b>A real phone</b>: still untested by the developer. §5.3 now has a troubleshooting table for the first attempt.</li>
+  <li><b>Cloudflare's error-page wording</b> in that table (502, 1033) comes from general knowledge of Cloudflare errors, not from observing this tunnel.</li>
+</ul></div>
+</body></html>

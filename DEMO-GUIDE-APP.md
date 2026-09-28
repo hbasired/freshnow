@@ -49,6 +49,24 @@ pnpm build:web                  # rebuild the dashboard — every pull, not opti
   (no consent notice, no delivery-mode switch, sign-in aimed at port 54321, so the phone cannot sign
   in through the tunnel) until you rebuild. Build before starting the API (§3).
 - Nothing new to migrate: the database schema did not change.
+
+### 1.1 · Already running when you pulled? What to restart
+
+Nothing reloads by itself — `pnpm start:*` runs the code as it was when it started.
+
+| Window | After a pull | Why |
+|---|---|---|
+| **api** | `Ctrl+C`, then `$env:HOST = "127.0.0.1"; pnpm start:api` | new server code; serves the new dashboard build |
+| **worker** | `Ctrl+C`, then `pnpm start:worker` | new sending / consent code |
+| **bot** | `Ctrl+C`, then `pnpm start:bot` | new bot code |
+| **tunnel** | **leave it running** | it only forwards to port 3001; a restart would give the phone a new address |
+| Docker, Supabase | leave running | nothing changed in them |
+| browsers, phone | reload the page (on the phone: close and reopen the app) | picks up the new dashboard |
+
+Order: `git pull` → `pnpm install` → `pnpm build:web` → restart **api**, **worker**, **bot** → reload the
+browsers. (`pnpm dev:api` instead of `start:api` reloads server code on every change, but the dashboard
+still needs `pnpm build:web`.)
+
 - If this is the **first** pull since 26 Sept, git deletes three research PDFs from `freshnow/`
   (they are now ignored, not lost). To get them back:
   `git restore --source=8e34075 -- freshnow/opt-COO.pdf freshnow/opt-COO1.pdf freshnow/opt-COO2.pdf`
@@ -114,8 +132,8 @@ line marked "terminal", all in the project folder.
 | 3 | **api** | `$env:HOST = "127.0.0.1"; pnpm start:api` | `API listening on http://127.0.0.1:3001 — React dashboard at …/app/` |
 | 4 | **worker** | `pnpm start:worker` | `[worker] telegram sender ready` **and** `[worker] web push sender ready` |
 | 5 | **bot** | `pnpm start:bot` | `[bot] @freshnow1bot polling …` |
-| 6 | **tunnel** | `cloudflared tunnel --url http://localhost:3001` | a box with `https://<words>.trycloudflare.com` — **copy that address** |
-| 7 | any | `pnpm urls` | `Dashboard … HTTP 200`, `Sign-in Supabase Auth HTTP 200`, `Web push VAPID keys set`, `@freshnow1bot reachable` |
+| 6 | **tunnel** | `cloudflared tunnel --url http://localhost:3001` | connectivity checks that all say `PASS` (the address itself is printed near the top — you do not need to find it) |
+| 7 | any | `pnpm urls` | **`Phone https://<words>.trycloudflare.com/app/ HTTP 200`** — the phone's address, checked end to end — plus `Dashboard … HTTP 200`, `Sign-in Supabase Auth HTTP 200`, `Web push VAPID keys set`, `@freshnow1bot reachable` |
 
 Quick health check (note `curl.exe`, not `curl`, in PowerShell):
 
@@ -224,7 +242,17 @@ Create `CREDENTIALS.local.md` in the project folder (git ignores it). Everything
 
 ### 5.3 · The phone — "DEMO – Priya Nair"
 
-Use the `https://….trycloudflare.com` address from §3 step 6, followed by `/app/`.
+**Before the phone:**
+- The CEO has chosen **Telegram + App** (§5.1 step 3). With **Telegram** only, the phone gets its inbox but
+  never buzzes.
+- Priya has a password (`pnpm link:user "Priya" priya@freshnow.local <password>`, §4.2).
+- `pnpm urls` shows **`Phone https://<words>.trycloudflare.com/app/ HTTP 200`**. `DOWN` right after starting
+  the tunnel: wait 30 seconds and run it again. Still `DOWN`: the **api** window is not running, or
+  cloudflared was closed.
+
+**Getting the address onto the phone:** copy the `Phone` line from `pnpm urls` and send it to yourself —
+Telegram → **Saved Messages** is quickest — then tap it on the phone. It is long and random; typing it is
+where most attempts go wrong.
 
 **Android (Chrome):**
 1. Open `https://<words>.trycloudflare.com/app/`.
@@ -241,6 +269,20 @@ Use the `https://….trycloudflare.com` address from §3 step 6, followed by `/a
 
 The phone does **not** need to be on the laptop's Wi-Fi — mobile data works, because the tunnel is
 on the internet.
+
+**If the phone will not cooperate:**
+
+| On the phone | Cause | Do |
+|---|---|---|
+| A Cloudflare error page saying **502** / *Bad gateway* | the tunnel is up, the API behind it is not | start the **api** window; check `curl.exe http://localhost:3001/health` on the laptop |
+| A Cloudflare error page saying **1033** | cloudflared is not connected (window closed, laptop asleep) | start the tunnel again — it will have a **new** address: `pnpm urls`, resend it |
+| *"This site can't be reached"* | wrong or old address | run `pnpm urls` again and resend the `Phone` line; the address changes whenever cloudflared restarts |
+| *"Sign-in service is not reachable"* | Supabase is not running on the laptop | `npx supabase start …` (§3 step 2) |
+| *"Invalid login credentials"* | Priya has no password yet, or a different one | `pnpm link:user "Priya" priya@freshnow.local <new password>` |
+| No **Install app** in the menu | Chrome still loading, or already installed | reload; check the home screen / app drawer for FreshNow |
+| **Turn on** says notifications are blocked | you tapped *Block* once | Android: ⋮ → Settings → Site settings → Notifications → allow the address; iPhone: Settings → Notifications → FreshNow |
+| Test says *"Web push is not live"* | the company is on **Telegram** only | CEO → Alerts → Channels → **Telegram + App** |
+| The board updates slowly (up to 20 s) | expected through a quick tunnel (no live stream) | notifications still arrive at once; reopen the app to refresh |
 
 ### 5.4 · Rehearse once, then clean up (§8)
 

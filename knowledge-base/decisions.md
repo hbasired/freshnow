@@ -1181,3 +1181,17 @@ simplest way to comply, recommended rather than legally required; the deadline t
 employee's data, not a fine today (Regulations pending, Art. 26 fines decision not found, Art. 29 six months).
 The deck slide titled "…true for some sectors — not ours" read as "the law does not apply to us"; it is retitled
 and both decks carry the verdict as slide 2.
+
+## D143 — The inbox panel is placed from the bell's position and clamped to the window (TASK-047) [verified]
+It was `absolute right-0` on the bell: right only while the bell sits at the right of the screen. In a zoomed
+or narrow window the header wrapped, the bell landed on the left, and the 420 px panel opened off-screen
+(the CEO's Chrome, 28 Sep). Now the header's controls are one `ml-auto` group (they wrap to the right), and
+the panel is rendered into `<body>` with `position: fixed`, right-aligned under the bell and clamped 8 px
+inside both window edges, height capped to the space below. Into `<body>` because the sticky header's
+`backdrop-filter` makes the header, not the window, the containing block of a fixed child.
+
+## D144 — An answered consent request is marked read (TASK-047) [verified]
+`recordConsent` marks the person's `consent.requested` inbox rows read, and the worker's sweep settles any
+left unread by people who agreed earlier. Only those rows are touched. Before this, Hemanth — already agreed —
+still had "until you do, your updates can't be taken" at the top of his inbox.
+

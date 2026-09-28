@@ -225,6 +225,30 @@ describe("everyone who has not agreed is asked, once per version of the words", 
     }
   });
 
+  it("marks the request in the inbox read the moment the person agrees", async () => {
+    const p = await person({ name: "agrees after asked", telegram: true, app: true });
+    await requestConsentFromEveryone({ employeeIds: [p] });
+    await recordConsent({ employeeId: p, noticeHash: currentNoticeHash(), via: "telegram" });
+    const [inbox] = await getServiceSql()<{ read_at: Date | null }[]>`
+      select read_at from notification_outbox where recipient_employee_id = ${p} and channel = 'inapp'`;
+    expect(inbox?.read_at).not.toBeNull();
+  });
+
+  it("clears a request left unread by someone who agreed earlier, and leaves other messages alone", async () => {
+    const sql = getServiceSql();
+    const p = await person({ name: "agreed long ago", app: true });
+    await requestConsentFromEveryone({ employeeIds: [p] });
+    // Agreed before settling existed: the consent row is there, the request is still unread.
+    await sql`insert into consent_record (employee_id, policy_version, notice_hash) values (${p}, ${CONSENT_POLICY_VERSION}, ${currentNoticeHash()})`;
+    await sql`insert into notification_outbox (idempotency_key, channel, recipient_employee_id, payload, status)
+              values (${`${TAG}-other-${p}`}, 'inapp', ${p}, ${sql.json({ kind: "task.assigned", text: "a task" })}, 'sent')`;
+    await requestConsentFromEveryone({ employeeIds: [p] });
+    const rows = await sql<{ kind: string; read_at: Date | null }[]>`
+      select payload->>'kind' as kind, read_at from notification_outbox where recipient_employee_id = ${p} and channel = 'inapp' order by kind`;
+    expect(rows.find((r) => r.kind === "consent.requested")?.read_at).not.toBeNull();
+    expect(rows.find((r) => r.kind === "task.assigned")?.read_at).toBeNull();
+  });
+
   it("does not ask twice for the same words", async () => {
     const p = await person({ name: "asked once", telegram: true });
     await requestConsentFromEveryone({ employeeIds: [p] });

@@ -46,7 +46,28 @@ function where(url) {
   }
 }
 
+/**
+ * The Cloudflare quick tunnel's public name, asked of cloudflared itself: its local metrics
+ * server (the first free port of 20241–20245) answers GET /quicktunnel with
+ * {"hostname":"<words>.trycloudflare.com"}. Reading the log instead meant scrolling back past
+ * cloudflared's connectivity checks to find a box printed once at start-up.
+ */
+async function tunnelHost() {
+  for (let port = 20241; port <= 20245; port++) {
+    try {
+      const r = await fetch(`http://127.0.0.1:${port}/quicktunnel`, { signal: AbortSignal.timeout(1500) });
+      if (!r.ok) continue;
+      const d = await r.json();
+      if (typeof d?.hostname === "string" && d.hostname) return d.hostname.replace(/^https?:\/\//, "").replace(/\/$/, "");
+    } catch {
+      /* nothing on this port */
+    }
+  }
+  return null;
+}
+
 const ip = wifiIp();
+const tunnel = await tunnelHost();
 const supabase = process.env.SUPABASE_URL ? new URL(process.env.SUPABASE_URL) : null;
 // Since 2026-09-28 a phone signs in THROUGH the API on port 3001 (routes/auth-proxy.ts), so
 // it no longer needs Supabase's own port. Probe that the API can reach Supabase Auth — the
@@ -55,13 +76,21 @@ const authProbe = () => `http://127.0.0.1:${supabase.port}/auth/v1/.well-known/j
 
 console.log("\n═══ FreshNow — current URLs ═══\n");
 
-if (!ip) {
-  console.log("  Could not find a Wi-Fi IPv4 address. Are you on wifi?");
+console.log("  ON YOUR PHONE (any network — mobile data works)");
+if (tunnel) {
+  // Probed from this PC through Cloudflare and back, so HTTP 200 means the whole path works.
+  // A tunnel started seconds ago can still say DOWN while its name spreads; try again shortly.
+  console.log(`    Phone      https://${tunnel}/app/   ${await probe(`https://${tunnel}/health`)}`);
+  console.log("    Send that address to your phone (e.g. Telegram → Saved Messages) and open it there.");
+  console.log("    Keep the cloudflared window open: a restart gives a new address (DEMO-GUIDE-APP.md §5.3).");
 } else {
-  console.log(`  Wi-Fi IP: ${ip}\n`);
-  console.log("  ON YOUR PHONE (must be on the same wifi)");
-  console.log(`    Dashboard  http://${ip}:3001/app/   ${await probe(`http://${ip}:3001/app/`)}`);
-  console.log("    (sign-in goes through port 3001 too; notifications need HTTPS — see DEMO-GUIDE-APP.md §4)");
+  console.log("    No Cloudflare tunnel found. Start one in its own window:");
+  console.log("      cloudflared tunnel --url http://localhost:3001");
+}
+if (ip) {
+  const lan = await probe(`http://${ip}:3001/app/`);
+  console.log(`    Wi-Fi      http://${ip}:3001/app/   ${lan}` +
+    (lan === "DOWN" ? "   (expected with HOST=127.0.0.1 — the API listens on this PC only; use the tunnel)" : "   (no notifications on plain http — use the tunnel)"));
 }
 
 console.log("\n  ON THIS PC");

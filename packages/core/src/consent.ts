@@ -204,6 +204,29 @@ export async function consentStatus(employeeId: string): Promise<ConsentStatus> 
 export class ConsentNoticeChangedError extends Error {}
 
 /**
+ * Once someone has agreed, the request in their inbox is done: mark it read so the bell stops
+ * telling them "until you do, your updates can't be taken". Left unread it sat at the top of
+ * the inbox for people who had already agreed, contradicting the app they were using.
+ * Only requests are touched — never another message.
+ */
+async function settleConsentRequests(employeeIds: readonly string[] | null): Promise<number> {
+  const sql = getServiceSql();
+  const rows = await sql`
+    update notification_outbox o set read_at = now()
+    where o.channel = 'inapp' and o.read_at is null
+      and o.payload->>'kind' = 'consent.requested'
+      and (${employeeIds ? [...employeeIds] : null}::uuid[] is null or o.recipient_employee_id = any(${employeeIds ? [...employeeIds] : null}::uuid[]))
+      and exists (
+        select 1 from consent_record c
+        where c.employee_id = o.recipient_employee_id
+          and c.policy_version = ${CONSENT_POLICY_VERSION}
+          and c.notice_hash = any(${currentNoticeHashes()})
+      )
+    returning o.id`;
+  return rows.length;
+}
+
+/**
  * Record consent. The caller sends back the hash of the notice it SHOWED; if the words have
  * changed since, nothing is recorded — the whole value of the hash is that it proves what
  * was agreed to, so it must never be written against text the person did not see.
@@ -228,6 +251,7 @@ export async function recordConsent(p: {
     entityId: p.employeeId,
     detail: { via: p.via, policyVersion: CONSENT_POLICY_VERSION, noticeHash: p.noticeHash },
   });
+  await settleConsentRequests([p.employeeId]);
   return consentStatus(p.employeeId);
 }
 
@@ -260,6 +284,8 @@ export async function requestConsentFromEveryone(
   const sql = getServiceSql();
   const hashes = currentNoticeHashes();
   const only = opts.employeeIds ? [...opts.employeeIds] : null;
+  // Requests already answered — including ones left unread before this cleanup existed.
+  await settleConsentRequests(only);
   const people = await sql<{ id: string; telegram_user_id: string | null }[]>`
     select e.id, e.telegram_user_id from employee e
     where e.status = 'active'

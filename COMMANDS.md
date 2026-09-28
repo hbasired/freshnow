@@ -18,6 +18,10 @@ pnpm install
 pnpm build:web                             # the dashboard at /app/ — build output, not in git
 ```
 
+Already running? Restart the **api**, **worker** and **bot** windows (`Ctrl+C`, start again) — they run
+the code as it was when they started. Leave the **tunnel**, Docker and Supabase running; reload the
+browsers. Details: `DEMO-GUIDE-APP.md` §1.1.
+
 ```bash
 docker compose up -d                       # Redis + the old Postgres (rollback copy) + Adminer
 

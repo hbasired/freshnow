@@ -623,3 +623,10 @@ sector and the UAE Data Office (which "never became fully operational"). Ashurst
 Executive Regulations remain pending. No primary (government) page was readable from this session. A fifth false
 search claim: "Cabinet Decision No. 111/2023" as the Regulations — No. 111 of 2022 regulates virtual assets.
 
+## VF37 (2026-09-28) — cloudflared reports its quick-tunnel name at /quicktunnel on its metrics server [believed — source via search; tested against a stand-in]
+cloudflared's metrics server listens on the first free port of 127.0.0.1:20241–20245 (the user's run logged
+"Starting metrics server on 127.0.0.1:20241/metrics") and answers `GET /quicktunnel` with
+`{"hostname":"<words>.trycloudflare.com"}` (cloudflared `metrics/metrics.go`; Supabase's Flutter CI reads it the
+same way). `pnpm urls` now prints `https://<hostname>/app/` and probes `/health` through Cloudflare. Tested
+against a local stand-in on 20242 and with no tunnel running; not against a real cloudflared.
+
