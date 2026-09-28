@@ -17,8 +17,11 @@ import {
   assignTask,
   checkRateLimit,
   attachNoteAndProcess,
+  consentKeyboard,
   consentNotice,
+  ConsentNoticeChangedError,
   createInvite,
+  currentNoticeHash,
   createTask,
   decodeTextFile,
   describeAttachment,
@@ -36,6 +39,7 @@ import {
   generateAllEodReports,
   generateEodReport,
   getServiceSql,
+  hasCurrentConsent,
   inspectFile,
   listEmployees,
   listOpenTasks,
@@ -43,9 +47,11 @@ import {
   markVoiceFailed,
   MAX_ATTACHMENTS,
   markVoiceTranscribed,
+  noticeTag,
   planDocumentTasks,
   PROFILE_STEPS,
   profilePrompt,
+  recordConsent,
   recordTaskUpdate,
   redeemInvite,
   resolveRole,
@@ -157,6 +163,9 @@ export interface BotDeps {
   token: string;
   ceoUserId?: bigint;
 }
+
+/** Commands that work before the updated notice is agreed to — none of them takes anyone's words. */
+const CONSENT_FREE_COMMANDS = new Set(["/withdraw", "/help", "/whoami", "/cancel"]);
 
 function mainMenu(role: Role): InlineKeyboard {
   if (role === "ceo") {
@@ -296,6 +305,75 @@ export function createBot(deps: BotDeps): Bot<FreshCtx> {
         : null;
     }
     await next();
+  });
+
+  // Consent before anything else (PDPL — see core/src/consent.ts).
+  //
+  // A linked person who has not agreed to the notice AS IT READS TODAY gets the notice and an
+  // "I agree" button, and nothing they sent is processed: taking their words would send them
+  // to the AI services the notice names, which is exactly what they have not yet agreed to.
+  // The reply says so plainly — the message is not silently dropped. This runs on every
+  // update, so a notice that changes (a new AI provider, a new retention period) is put to
+  // each person the next time they use the bot, and the worker also asks them unprompted.
+  //
+  // Still reachable without consent: withdrawing, help, who-am-I, cancel, and the consent
+  // buttons themselves. People who are not linked yet are onboarded below, where the same
+  // notice is shown before an invite code is redeemed.
+  bot.use(async (ctx, next) => {
+    const emp = ctx.employee;
+    if (!emp || emp.status !== "active") return next();
+    const command = ctx.message?.text?.startsWith("/") ? ctx.message.text.split(/[\s@]/)[0] : undefined;
+    if (command && CONSENT_FREE_COMMANDS.has(command)) return next();
+    if (ctx.callbackQuery?.data?.startsWith("consent:")) return next();
+    if (await hasCurrentConsent(emp.id)) return next();
+
+    if (ctx.callbackQuery) await ctx.answerCallbackQuery({ text: "Please read the updated notice first." });
+    const anything = ctx.message != null && command !== "/start";
+    await ctx.reply(
+      "📄 Before we carry on: FreshNow's privacy notice has changed. Please read it and tap “✅ I agree”." +
+        (anything ? "\n\nI have not recorded the message you just sent — send it again after you agree." : "") +
+        "\n\n" +
+        consentNotice("en"),
+      { reply_markup: consentKeyboard() },
+    );
+  });
+
+  // The tag in the button ties the tap to the words it was sent under. A tap on an older
+  // message, after the notice changed again, must not record agreement to text the person
+  // never saw — they get the current notice instead.
+  bot.callbackQuery(/^consent:renew:([0-9a-f]{16})$/, async (ctx) => {
+    await ctx.answerCallbackQuery();
+    if (!ctx.employee) return void (await ctx.reply("You are not linked to an employee record — send /start."));
+    if (ctx.match![1] !== noticeTag()) {
+      await ctx.reply(
+        "The notice has changed again since that message. Here is the current one:\n\n" + consentNotice("en"),
+        { reply_markup: consentKeyboard() },
+      );
+      return;
+    }
+    // A second tap on the same button (or on the worker's copy after agreeing in the app) is
+    // not a second agreement; one record per agreement keeps the history readable.
+    if (await hasCurrentConsent(ctx.employee.id)) {
+      return void (await ctx.reply("✅ Already recorded — you can carry on.", { reply_markup: mainMenu(ctx.role ?? "employee") }));
+    }
+    try {
+      await recordConsent({ employeeId: ctx.employee.id, noticeHash: currentNoticeHash(), via: "telegram" });
+    } catch (err) {
+      if (!(err instanceof ConsentNoticeChangedError)) throw err;
+      await ctx.reply("The notice changed a moment ago. Here is the current one:\n\n" + consentNotice("en"), {
+        reply_markup: consentKeyboard(),
+      });
+      return;
+    }
+    await ctx.reply("✅ Thank you — recorded. You can carry on.", { reply_markup: mainMenu(ctx.role ?? "employee") });
+  });
+
+  bot.callbackQuery("consent:later", async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await ctx.reply(
+      "Okay. Until you agree I can't take your updates, and nothing about you is sent to Telegram or the AI service. " +
+        "Send /start to read the notice again, or /withdraw to stop using the system.",
+    );
   });
 
   // ── /start ────────────────────────────────────────────────────────────────

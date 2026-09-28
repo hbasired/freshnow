@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TASK-046 — Consent notice 2.0, enforced in Telegram and the app; the PDPL verdict</title>
+<style>
+  :root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#3fb950;--warn:#d29922;--bad:#f85149;--card:#161b22;--bd:#30363d}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;max-width:980px;padding:48px 24px;margin-inline:auto}
+  h1{font-size:1.9rem;margin:0 0 4px} h2{margin-top:2.5rem;color:var(--acc);font-size:1.25rem}
+  .meta{color:var(--mut);font-size:.9rem;margin-bottom:2rem}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:18px;margin:14px 0}
+  .unverified{border-left:3px solid var(--warn)} .ok{border-left:3px solid var(--acc)}
+  code{background:#1f2630;padding:2px 6px;border-radius:4px;font-size:.9em}
+  .tw{overflow-x:auto} table{border-collapse:collapse;width:100%;margin:14px 0}
+  th,td{border:1px solid var(--bd);padding:7px 9px;text-align:left;font-size:.88rem;vertical-align:top} th{background:#1f2630}
+  .bad{color:var(--bad);font-weight:600}.good{color:var(--acc);font-weight:600}.warn{color:var(--warn);font-weight:600}
+  ul{padding-left:1.1rem} li{margin:3px 0} a{color:#88c0f0}
+</style></head><body>
+<h1>TASK-046 — Consent notice 2.0, enforced in Telegram and the app; the PDPL verdict</h1>
+<p class="meta">2026-09-28 · no migration · core: <code>consent.ts</code> (new), <code>onboarding.ts</code>, <code>updates.ts</code>, <code>retention.ts</code> ·
+bot: <code>bot.ts</code> · api: <code>routes/dashboard.ts</code>, <code>routes/alerts.ts</code> · worker: <code>outbox-relay.ts</code>, <code>index.ts</code> ·
+dashboard: <code>App.tsx</code>, <code>components/alerts.tsx</code>, <code>lib/api.ts</code> · decks: both, new slide 2 ·
+<b>481 tests passing</b> (33 new, 4 replaced), 9 needing a live model provider</p>
+
+<div class="card ok"><strong>One-sentence summary:</strong> The consent notice people had agreed to never mentioned Telegram's servers abroad or the
+AI services that read every update. There is now one notice for the bot and the app, built from the system's own
+configuration, so it names exactly what is used. Everyone is asked again in Telegram and in the app, and until a
+person agrees nothing is taken from them and nothing is sent to them abroad. Both CEO decks now open with a
+plain verdict: yes, the law applies; no, it does not force data to stay in the UAE; and here is what that means
+for us.</div>
+
+<h2>What was asked</h2>
+<ol>
+  <li>"Add the consent update required so that from now on it will be asked in Telegram and in-app, so that no violation happens."</li>
+  <li>The deck slide <i>"'Data cannot leave the country' is true for some sectors — not ours"</i> read as "FreshNow does not need to comply",
+    while the rest of both decks said "change first". Check and give a final verdict, in the decks.</li>
+</ol>
+
+<h2>The verdict (both decks, slide 2)</h2>
+<div class="tw"><table>
+  <thead><tr><th>Question</th><th>Answer</th><th>Basis</th></tr></thead>
+  <tbody>
+    <tr><td>Must FreshNow comply with the PDPL?</td><td class="good">Yes, fully</td><td>Art. 2 — any controller in the UAE <span class="good">[verified — the law's text]</span></td></tr>
+    <tr><td>Must our data stay inside the UAE?</td><td class="good">No</td><td>No localisation rule covers employee task data; sector rules (health, payments, government, free zones) do not apply <span class="warn">[believed]</span></td></tr>
+    <tr><td>So what does the law require?</td><td>A ground for every transfer — today express consent or a PDPL-grade contract (Art. 22–23) — and contracts with processors (Art. 7–8)</td><td><span class="good">[verified — the law's text]</span></td></tr>
+    <tr><td>Is UAE hosting required?</td><td class="warn">Recommended, not required</td><td>It is the simplest way to comply: no transfer ground needed for the database, instead of consent any employee can withdraw</td></tr>
+    <tr><td>How urgent?</td><td>Not an emergency, not optional — before the first real employee's data</td><td>Regulations pending; fines decision (Art. 26) not found; six months once the Regulations appear (Art. 29); a regulator exists since 14 June 2026 <span class="warn">[believed]</span></td></tr>
+  </tbody>
+</table></div>
+<p>The two statements never contradicted each other. "Not ours" was about <i>localisation</i>, and "change first"
+was about <i>transfer conditions</i>. The slide title invited the misreading, so it is now
+<i>"No law makes our data stay in the UAE — but the PDPL governs everything that leaves"</i>, with a
+"read this correctly" line under the table.</p>
+
+<h2>What was built</h2>
+<ul>
+  <li><b>One notice, generated from the configuration</b> (D139). <code>consentNotice()</code> builds the section "Where your data goes beyond FreshNow's
+    database" from the same variables the senders and model client read:
+    <ul>
+      <li>Telegram, if there is a bot;</li>
+      <li>each AI provider with a key, in a fixed order, and voice transcription through Groq;</li>
+      <li>the push relays, if web push is set up;</li>
+      <li>email, chat and Langfuse, when content capture is configured;</li>
+      <li>the retention period.</li>
+    </ul>
+    Version <code>2.0-draft</code>, SHA-256 of the exact words.</li>
+  <li><b>Current consent only.</b> A record counts only if it is for this version <i>and</i> today's hash. Adding a provider or setting
+    <code>RETENTION_DAYS</code> therefore puts the notice to everyone again. Re-ordering providers does not.</li>
+  <li><b>Three doors</b> (D140):
+    <ul>
+      <li><b>The bot</b> answers anything from a linked person without current consent with the notice and "✅ I agree / Not now". It stores nothing,
+        and says the message was not recorded.</li>
+      <li><b>The API</b> returns <code>403 consent_required</code> on every data route. <code>/dashboard/me</code>, the consent routes and the live stream stay open.</li>
+      <li><b>The outbox relay</b> does not claim Telegram, push, email or chat rows for that person. They wait with no attempt spent and go out on the first poll after they
+        agree. The inbox and the request itself are never held.</li>
+    </ul></li>
+  <li><b>Everyone is asked</b> (D141): the worker runs <code>requestConsentFromEveryone()</code> every minute. It sends:
+    <ul>
+      <li>Telegram: the notice with buttons whose data carries the first 16 hex characters of the hash, so a tap under older words records nothing;</li>
+      <li>the inbox;</li>
+      <li>web push, where a device is on.</li>
+    </ul>
+    Each person is asked once per version of the words, and only on channels that are switched on.</li>
+  <li><b>Dashboard</b>:
+    <ul>
+      <li>The gate says <i>"The privacy notice has changed"</i> and names the older version.</li>
+      <li>The consent card distinguishes current from out-of-date consent.</li>
+      <li>A <code>consent_required</code> answer mid-session brings the notice back instead of a board of errors.</li>
+    </ul></li>
+  <li><b>Removed</b>: the separate app notice (<code>appConsentNotice</code>, <code>app-draft-1.0</code>) and the machine-written Hindi and Malayalam
+    text of 1.0. Everyone sees English until a native speaker writes the translations.</li>
+  <li><b>Decks</b>:
+    <ul>
+      <li>a verdict slide 2 in both, and every slide number and cross-reference shifted by one;</li>
+      <li>the sector slide retitled;</li>
+      <li>consent claims updated ("must be re-issued" → "built 28 Sep");</li>
+      <li>the 28 Sep PDPL re-check, sources and not-verified items added.</li>
+    </ul></li>
+  <li><b>Guides</b>: <code>DEMO-GUIDE.md</code>, <code>DEMO-GUIDE-APP.md</code>, <code>CHANNELS-GUIDE.md</code> and <code>docs/WHAT-WE-NEED-FROM-FRESHNOW.md</code> describe the first-start
+    "I agree" step and the troubleshooting.</li>
+</ul>
+
+<h2>Why it was done this way</h2>
+<ul>
+  <li><b>Generated rather than hand-written recipients.</b> The defect being fixed was a notice that under-named its recipients. A hand-kept list
+    would drift again the first time someone adds a key. A notice built from configuration cannot name less than the system uses.</li>
+  <li><b>Controls at the doors, not a screen.</b> TASK-045's gate was only in the UI, and a token could read the API directly. The bot, the API and the
+    relay are the three places data enters or leaves, so each checks.</li>
+  <li><b>Hold instead of drop.</b> Messages to someone who has not agreed are the company's record. Dropping them would lose work, while holding them costs
+    nothing and delivers them on agreement (A-T46.3 asks the CEO whether held messages should expire).</li>
+  <li><b>No synthetic exemption.</b> The existing <code>consent.missing</code> audit exempts demo rows, but the seeded DEMO CEO row is the real CEO's
+    Telegram account, so an exemption would have skipped the one person who most needs to agree.</li>
+</ul>
+
+<h2>Research (web, 28 Sep 2026)</h2>
+<div class="tw"><table>
+  <thead><tr><th>Finding</th><th>Source</th><th>Marker</th></tr></thead>
+  <tbody>
+    <tr><td>A Federal Authority for Artificial Intelligence and Data was created on 14 June 2026. It absorbs the UAE Data Office, which never became fully operational.</td>
+      <td><a href="https://www.morganlewis.com/pubs/2026/06/uae-establishes-federal-authority-for-artificial-intelligence-and-data">Morgan Lewis</a>, Lexology, CDO Magazine, <a href="https://www.globalgovernmentforum.com/uae-creates-dedicated-artificial-intelligence-and-data-authority-to-build-government-of-the-future/">Global Government Forum</a></td><td class="warn">believed (search; pages blocked)</td></tr>
+    <tr><td>The Executive Regulations remain pending.</td><td><a href="https://www.ashurstperkinscoie.com/en/insights/data-bytes-67-your-emea-data-privacy-update-for-july-2026/">Ashurst, Data Bytes 67</a> (Jul 2026); Chambers (Mar 2026)</td><td class="warn">believed</td></tr>
+    <tr><td>Two sites claim the Regulations were issued in 2026, one naming "Cabinet Decision No. 111/2023". <b>False</b>: No. 111 of 2022 regulates virtual assets. This is the fifth such claim found (G112).</td>
+      <td><a href="https://hadefpartners.com/news-insights/insights/developments-in-uae-virtual-assets-regulations-issuance-of-cabinet-resolution-111-of-2022/">Hadef &amp; Partners</a></td><td class="good">refuted</td></tr>
+    <tr><td>Art. 26 fines need a separate Cabinet decision. None was found.</td><td>law text; search summaries</td><td class="warn">believed</td></tr>
+    <tr><td>Commentators say consent is weak as a basis for routine employee processing (not freely given). This is why A-T46.1 goes to counsel.</td><td>employee-monitoring guides via search</td><td class="warn">believed</td></tr>
+  </tbody>
+</table></div>
+
+<h2>How it was verified</h2>
+<div class="tw"><table>
+  <thead><tr><th>Check</th><th>Result</th></tr></thead>
+  <tbody>
+    <tr><td>18 core tests: the notice names exactly the configured providers, Telegram and push; its hash changes with the providers but not their order; retention and withdrawal wording;
+      older consent is not current; a stale hash is refused; the sweep is idempotent and re-asks when the words change; nobody is asked who agreed, is disabled, or has no way in; a channel the company switched off is not tried (no audit noise each minute)</td><td class="good">passing</td></tr>
+    <tr><td>4 relay tests: messages held with 0 attempts; the inbox and the request are delivered; older consent does not release them; they are released on the first poll after agreeing</td><td class="good">passing</td></tr>
+    <tr><td>7 bot tests through the real grammY chain: notice and buttons for text and taps; nothing stored; a one-tap agree records today's hash; a stale tag is refused; "Not now"; /withdraw still works</td><td class="good">passing</td></tr>
+    <tr><td>4 API tests under real ES256 sign-in: 403 <code>consent_required</code>; /me and the notice are reachable; older consent is not enough; a wrong hash gets 409, then the correct one gets 200 and the data</td><td class="good">passing</td></tr>
+    <tr><td>Full suite, typecheck (root and dashboard), dashboard build</td><td class="good">481 pass (9 need a live model); clean; built</td></tr>
+    <tr><td>Live run (GoTrue from source, demo database, <b>no bot token</b> so nothing could reach the real Telegram accounts)</td>
+      <td class="good">The CEO's token got 403. The worker logged "asked 3 person(s)". The CEO's escalation pushes sat at 0 attempts until the CEO agreed in Chromium, then were attempted.
+        The gate rendered at 1280 px and 390 px.</td></tr>
+    <tr><td>Decks at 1440 px and 390 px</td><td class="good">18 slides each; no sideways scroll; all cross-references re-pointed</td></tr>
+  </tbody>
+</table></div>
+
+<h2 class="bad">What we have not verified</h2>
+<div class="card unverified"><ul>
+  <li><b>A real Telegram tap.</b> The live run deliberately used no bot token. The Telegram path was tested through grammY with the Bot API intercepted.
+    The first real "✅ I agree" tap will happen on the laptop.</li>
+  <li><b>The legal reading.</b> Whether employee consent is a valid transfer ground, and whether it may be a condition of using the tool (A-T46.1), is
+    for counsel. The verdict slides say so.</li>
+  <li><b>The wording.</b> Notice 2.0 is a developer's draft. FreshNow and a lawyer have not reviewed it. There is no Hindi or Malayalam version.</li>
+  <li><b>The regulator news</b> rests on four reports read through search. No government page was readable from this session.</li>
+  <li><b>The database host is not named in the notice.</b> The configuration does not know where Postgres runs. Naming the host once it is chosen is a one-line
+    change, and it re-asks everyone.</li>
+  <li><b>Messages about a person sent to someone else</b> (for example the CEO's Telegram quoting an employee's older words) are held by the
+    <i>recipient's</i> consent, not the subject's. New words are covered because the doors refuse them; older records forwarded later are not re-checked.</li>
+  <li><b>Held messages never expire</b> (A-T46.3).</li>
+</ul></div>
+
+<h2>Designed, not built</h2>
+<p><b>A "no transfers" mode for people who decline.</b> If counsel says consent may not be a condition of using the tool, someone who declines should
+still be able to work. That means:</p>
+<ul>
+  <li>the app only;</li>
+  <li>their words never sent to a model (routed to "needs a human reader" in the inbox only);</li>
+  <li>nothing about them sent to Telegram.</li>
+</ul>
+<p>The pieces exist: the relay hold, the needs-review path and the per-person channel preferences. What is missing is a recorded
+"declined transfers" state and a model call that checks it.</p>
+
+<h2>Open questions</h2>
+<ul>
+  <li>Counsel: consent as the transfer ground for employees (A-T46.1); is Telegram a processor?</li>
+  <li>FreshNow: the notice wording, a data-protection contact (A-T46.2), translations, and whether held messages should expire (A-T46.3).</li>
+</ul>
+</body></html>

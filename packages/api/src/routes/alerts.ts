@@ -8,7 +8,7 @@ import {
   DeliveryModeError,
   PREF_MODES,
   addTaskWatcher,
-  appConsentNotice,
+  consentNotice,
   channelStates,
   consentStatus,
   deletePushSubscription,
@@ -17,7 +17,7 @@ import {
   isChannelLive,
   noticeHash,
   pushSubscriptionsFor,
-  recordAppConsent,
+  recordConsent,
   setDeliveryMode,
   withdrawConsent,
   listMyDevices,
@@ -301,11 +301,12 @@ export function registerAlertRoutes(app: FastifyInstance): void {
 
   /**
    * The viewer's consent state, with the exact notice the app shows and its hash. The hash
-   * travels back on accept so what is recorded is provably what was on screen.
+   * travels back on accept so what is recorded is provably what was on screen. It is the same
+   * notice the bot shows (consent.ts) — one set of words, whichever door a person uses.
    */
   app.get("/dashboard/me/consent", async (req) => {
     const viewer = await resolveViewer(req);
-    const notice = appConsentNotice("en");
+    const notice = consentNotice("en");
     return { ...(await consentStatus(viewer.employeeId)), notice, noticeHash: noticeHash(notice) };
   });
 
@@ -313,7 +314,7 @@ export function registerAlertRoutes(app: FastifyInstance): void {
     const viewer = await resolveViewer(req);
     const body = ConsentBody.parse(req.body);
     try {
-      return await recordAppConsent({ employeeId: viewer.employeeId, noticeHash: body.noticeHash, correlationId: req.correlationId });
+      return await recordConsent({ employeeId: viewer.employeeId, noticeHash: body.noticeHash, via: "app", correlationId: req.correlationId });
     } catch (err) {
       if (err instanceof ConsentNoticeChangedError) {
         return reply.code(409).send({ error: { code: "conflict", message: err.message, correlationId: req.correlationId } });

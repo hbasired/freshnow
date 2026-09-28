@@ -1,5 +1,6 @@
+import { randomUUID } from "node:crypto";
 import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
-import { closeDb, enqueueNotification, getServiceSql } from "@freshnow/core";
+import { closeDb, currentNoticeHash, enqueueNotification, getServiceSql, noticeHash, recordConsent } from "@freshnow/core";
 import { RateLimitError, deliverOutboxBatch, type Deliverer } from "./outbox-relay.js";
 
 const key = (s: string) => `outbox-test-${s}`;
@@ -142,5 +143,93 @@ describe("a failing row does not starve the queue", () => {
     // only thing ever claimed.
     for (let i = 0; i < 3; i++) await deliverOutboxBatch(deliver, { batchSize: 1, maxAttempts: 9 });
     expect(seen.length).toBe(2);
+  });
+});
+
+/**
+ * Consent notice 2.0 (core/src/consent.ts): sending someone's work to Telegram, a push relay or
+ * an email provider moves their data abroad, and consent to an older notice that never named
+ * those services does not cover it. So those messages wait — without failing, without
+ * blocking anyone else — until the person agrees; the inbox and the request itself never wait.
+ */
+describe("messages wait for consent to today's notice", () => {
+  const people: string[] = [];
+  async function person(): Promise<string> {
+    const id = randomUUID();
+    await getServiceSql()`insert into employee (id, display_name, status, telegram_user_id, is_synthetic)
+      values (${id}, ${"RELAY-CONSENT " + id.slice(0, 8)}, 'active', ${9_900_000_000_000 + Math.floor(Math.random() * 1e6)}, true)`;
+    people.push(id);
+    return id;
+  }
+  afterEach(async () => {
+    const sql = getServiceSql();
+    await sql`delete from notification_outbox where recipient_employee_id = any(${people})`;
+    await sql`delete from consent_record where employee_id = any(${people})`;
+    await sql`delete from audit_log where entity = 'employee' and entity_id = any(${people})`;
+    await sql`delete from employee where id = any(${people})`;
+    people.length = 0;
+  });
+
+  async function statusOf(k: string): Promise<{ status: string; attempts: number }> {
+    const [r] = await getServiceSql()<{ status: string; attempts: number }[]>`
+      select status, attempts from notification_outbox where idempotency_key = ${k}`;
+    return r!;
+  }
+
+  it("holds a Telegram message to someone who has not agreed, and delivers their inbox copy", async () => {
+    const p = await person();
+    await enqueueNotification({ idempotencyKey: key("held-tg"), chatId: 1, recipientEmployeeId: p, payload: { text: "your task" } });
+    await enqueueNotification({ idempotencyKey: key("held-in"), channel: "inapp", recipientEmployeeId: p, payload: { text: "your task" } });
+    let telegramCalls = 0;
+    await deliverOutboxBatch(async () => {
+      telegramCalls++;
+    }, { batchSize: 10 });
+    expect(telegramCalls).toBe(0);
+    // Waiting, not failing: no attempt is spent, so it can never be abandoned for this.
+    expect(await statusOf(key("held-tg"))).toEqual({ status: "pending", attempts: 0 });
+    expect((await statusOf(key("held-in"))).status).toBe("sent");
+  });
+
+  it("delivers the consent request itself, which is how the person is asked", async () => {
+    const p = await person();
+    await enqueueNotification({
+      idempotencyKey: key("ask"),
+      chatId: 1,
+      recipientEmployeeId: p,
+      payload: { kind: "consent.requested", text: "please read" },
+    });
+    let telegramCalls = 0;
+    await deliverOutboxBatch(async () => {
+      telegramCalls++;
+    }, { batchSize: 10 });
+    expect(telegramCalls).toBe(1);
+  });
+
+  it("does not treat consent to an older notice as consent", async () => {
+    const p = await person();
+    await getServiceSql()`insert into consent_record (employee_id, policy_version, notice_hash)
+                          values (${p}, 'demo-1.0', ${noticeHash("the old words")})`;
+    await enqueueNotification({ idempotencyKey: key("old"), chatId: 1, recipientEmployeeId: p, payload: { text: "x" } });
+    let telegramCalls = 0;
+    await deliverOutboxBatch(async () => {
+      telegramCalls++;
+    }, { batchSize: 10 });
+    expect(telegramCalls).toBe(0);
+  });
+
+  it("sends what was waiting on the first poll after the person agrees", async () => {
+    const p = await person();
+    await enqueueNotification({ idempotencyKey: key("later"), chatId: 1, recipientEmployeeId: p, payload: { text: "x" } });
+    const sent: unknown[] = [];
+    const deliver: Deliverer = async (m) => {
+      sent.push(m);
+    };
+    await deliverOutboxBatch(deliver, { batchSize: 10 });
+    expect(sent.length).toBe(0);
+
+    await recordConsent({ employeeId: p, noticeHash: currentNoticeHash(), via: "telegram" });
+    await deliverOutboxBatch(deliver, { batchSize: 10 });
+    expect(sent.length).toBe(1);
+    expect((await statusOf(key("later"))).status).toBe("sent");
   });
 });

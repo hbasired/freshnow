@@ -41,8 +41,13 @@ git status                      # anything listed as modified is yours: git stas
 git checkout main
 git pull
 pnpm install
+pnpm build:web                  # rebuild the dashboard — every pull, not optional
 ```
 
+- **`pnpm build:web` is not optional.** The API serves the dashboard from `packages/dashboard/dist`,
+  which is build output and not in git — after a pull the laptop keeps serving the *old* dashboard
+  (no consent notice, no delivery-mode switch, sign-in aimed at port 54321, so the phone cannot sign
+  in through the tunnel) until you rebuild. Build before starting the API (§3).
 - Nothing new to migrate: the database schema did not change.
 - If this is the **first** pull since 26 Sept, git deletes three research PDFs from `freshnow/`
   (they are now ignored, not lost). To get them back:
@@ -190,10 +195,16 @@ Create `CREDENTIALS.local.md` in the project folder (git ignores it). Everything
 
 ### 5.1 · CEO — Google Chrome on the laptop
 
+0. **In Telegram first (CEO and Hemanth):** within a minute of the worker starting, the bot sends
+   each of you *"📄 FreshNow's privacy notice has changed"* — tap **✅ I agree**. Until you do, the
+   bot answers everything with the notice, and Telegram messages to you wait (they are delivered the
+   moment you agree). One agreement counts for Telegram and the app.
 1. Open **http://localhost:3001/app/** → choose **Task & logging** → sign in with the CEO account.
-2. **First time only:** a **"Before you start"** notice appears — what the app records, how the AI
-   is used, how to withdraw. Tap **I have read this and agree**. (Recorded with a fingerprint of
-   the exact words; it will not ask again.)
+2. If you have not agreed yet, **"The privacy notice has changed"** appears (or **"Before you
+   start"** for someone who never agreed to anything) — what is recorded, **which services outside
+   our database receive it** (Telegram, the AI providers configured in `.env`, the push relays), how
+   long it is kept, how to withdraw. Tap **I have read this and agree**. It is recorded with a
+   fingerprint of the exact words; it asks again only if the words change.
 3. Left menu → **Alerts** → **Channels** → under **How people hear from us**, choose
    **Telegram + App**. (Telegram stays on; the app is added. Until this is chosen, notifications
    are switched off for the whole company and the test below says so.)
@@ -206,7 +217,8 @@ Create `CREDENTIALS.local.md` in the project folder (git ignores it). Everything
 ### 5.2 · Hemanth — Microsoft Edge on the laptop
 
 1. Open **http://localhost:3001/app/** in Edge → **Task & logging** → sign in as Hemanth.
-2. **No consent notice** — he already agreed in Telegram, and that record counts.
+2. **No notice** if he tapped **✅ I agree** in Telegram (step 5.1·0) — that record counts here too.
+   Otherwise he sees *"The privacy notice has changed"* — agree.
 3. **Alerts → Notifications on this device → Turn on → Allow → Send a test notification.**
    Windows Settings must also allow **Microsoft Edge** notifications.
 
@@ -297,7 +309,10 @@ laptop, in the inbox, and on Telegram.
 3. Set it back to **Immediately**.
 
 ### Act 9 — Consent and privacy (phone, 1 min)
-**Phone → Alerts → Your consent**: when Priya agreed, which notice, **Read the notice**.
+**Phone → Alerts → Your consent**: when Priya agreed, which notice (**2.0-draft**), **Read the notice**.
+Point at the section *"Where your data goes beyond FreshNow's database"*: it names Telegram, each AI
+provider that has a key in `.env`, and the push relays — built from the configuration, so it cannot
+fall out of date. Add or remove a provider and **everyone is asked again** automatically.
 **Withdraw consent…** exists and asks twice — **do not tap it in the demo**: it switches the account
 off (§8 has the undo). Point out what is *not* built: no location tracking, no productivity score,
 no sentiment analysis.
@@ -337,6 +352,10 @@ update sla_policy set minutes = case severity when 'critical' then 15 when 'high
 
 | What you see | What to do |
 |---|---|
+| `/app/` shows **404**, or the dashboard has no **Before you start** notice / no **How people hear from us** switch | The dashboard was not rebuilt after the pull: `pnpm build:web`, then restart the **api**. |
+| The bot answers every message with the **privacy notice** | That account has not agreed to notice 2.0 — tap **✅ I agree** under it. |
+| Someone gets nothing in **Telegram** (the inbox still fills) | They have not agreed yet; their messages wait and go out the moment they do. Check: `select * from consent_record where employee_id = '<id>' order by consented_at desc;` |
+| The app shows **"The privacy notice has changed"** again later | The words changed — usually an AI key added or removed in `.env`, or `RETENTION_DAYS` set. Agree again; that is the point. |
 | Sign-in says **"Sign-in service is not reachable — is Supabase running?"** | Start Supabase (§3 step 2), then retry. |
 | **Invalid login credentials** | Reset the password: `pnpm link:user "<name>" <email> <new password>` (§4.2). |
 | Signed in but **"This account is not linked to an active employee"** | Run `pnpm link:user` for that person again (no password needed); if they withdrew consent, §8 step 4. |
@@ -411,10 +430,23 @@ docker compose stop        # keeps all data
   as *told in the app* rather than as unreachable.
 - **CI is paused** (manual *Run workflow* only).
 
+**Added on 28 Sept (consent notice 2.0)**
+- **One notice for Telegram and the app**, naming every service outside our database that the system is
+  configured to use, with retention and how to withdraw. Everyone who agreed to an older notice is
+  asked again — in Telegram with a button, and in the app.
+- **Until someone agrees**, the bot and the dashboard take nothing from them, and messages to them
+  wait (except the inbox and the request itself). The API refuses their data too, not just the screen.
+- The wording is a **draft** until FreshNow and a lawyer sign it off; Hindi and Malayalam need a native
+  speaker — until then everyone sees English.
+
 **Limits — say them if asked**
 - **The tunnel passes through Cloudflare**, a US company. For a demo with test data that is fine; for
   real employee data it is a cross-border transfer. Production needs a domain on a UAE host (see the
   CEO decks), after which the tunnel is not used at all.
+- **The phone's board refreshes every 20 seconds, not instantly.** Cloudflare documents that quick tunnels do
+  not carry Server-Sent Events, which is how the dashboard hears "something changed"; it then falls back to
+  its 20-second refresh (or reopen the app). Notifications are unaffected — they never pass through the
+  tunnel. The laptop screens, on `localhost`, stay instant. Taken from Cloudflare's documentation, not observed.
 - **A real phone has not been tested by the developer.** Everything up to the push service was tested,
   and the notification display was tested in Chrome; the first real phone is this demo.
 - **New staff still join through Telegram** (invite code → bot). An app-only sign-up is not built yet.

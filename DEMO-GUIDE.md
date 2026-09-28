@@ -51,6 +51,11 @@ the demo start to finish and register a colleague live at the end.
      device. *Auto* follows the phone's or laptop's own setting.
    - Open Telegram on **both** accounts and send `/start` to **@freshnow1bot**. The CEO account
      should see a menu including **➕ Create invite code**.
+   - **First start after the 28 Sept update (consent notice 2.0):** within a minute of the worker
+     starting, each account gets *"📄 FreshNow's privacy notice has changed"* with the full notice.
+     Tap **✅ I agree** on both. Until an account agrees, the bot answers everything with the notice
+     and records nothing, and messages *to* that account wait in the outbox (they arrive the moment
+     it agrees). One agreement covers Telegram and the dashboard.
 
 4. **Screen setup for the demo:** laptop showing the dashboard (signed in as CEO), your phone
    mirrored or held up for the Telegram side. Keep the three service terminals off-screen.

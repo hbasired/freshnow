@@ -4,14 +4,6 @@ import { notify, notifyPeople, resolveAlertRecipients, setNotificationPref } fro
 import { channelStates, deliveryModeOf, DeliveryModeError, setDeliveryMode } from "./channels.js";
 import { closeDb, getServiceSql } from "./db.js";
 import { DEMO_CEO_ID } from "./meta.js";
-import {
-  APP_CONSENT_POLICY_VERSION,
-  appConsentNotice,
-  ConsentNoticeChangedError,
-  consentStatus,
-  noticeHash,
-  recordAppConsent,
-} from "./onboarding.js";
 import { savePushSubscription } from "./push.js";
 
 /**
@@ -26,7 +18,7 @@ import { savePushSubscription } from "./push.js";
  *   - A phone banner says what it is and opens the right place.
  *   - Messages that are not one of the five alert events (an unreadable update, project
  *     news) reach the same channels.
- *   - Somebody who only uses the app has consent recorded against the words they saw.
+ *   (Consent — one notice for the bot and the app — is covered in consent.test.ts.)
  */
 const TAG = "APPCHAN";
 const CORR = "a99c4a00-0000-4000-8000-00000000a44c";
@@ -248,35 +240,5 @@ describe("messages that are not alert events reach the same channels", () => {
     });
     expect((await rowsFor(linked)).map((r) => r.channel)).toEqual(["inapp", "telegram"]);
     expect(await rowsFor(gone)).toEqual([]);
-  });
-});
-
-describe("consent for people who only use the app", () => {
-  it("a new person has none on record", async () => {
-    const p = await person({ name: "new", telegram: false });
-    expect(await consentStatus(p)).toEqual({ consented: false, consentedAt: null, policyVersion: null });
-  });
-
-  it("refuses consent given against words the person was not shown", async () => {
-    const p = await person({ name: "stale page", telegram: false });
-    await expect(recordAppConsent({ employeeId: p, noticeHash: noticeHash("some older wording") })).rejects.toBeInstanceOf(ConsentNoticeChangedError);
-    expect((await consentStatus(p)).consented).toBe(false);
-  });
-
-  it("records the app notice's version and the hash of its exact words", async () => {
-    const p = await person({ name: "agrees", telegram: false });
-    const shown = appConsentNotice("en");
-    const r = await recordAppConsent({ employeeId: p, noticeHash: noticeHash(shown), correlationId: CORR });
-    expect(r.consented).toBe(true);
-    expect(r.policyVersion).toBe(APP_CONSENT_POLICY_VERSION);
-    const [row] = await getServiceSql()<{ notice_hash: string }[]>`select notice_hash from consent_record where employee_id = ${p}`;
-    expect(row?.notice_hash).toBe(noticeHash(shown));
-    const audit = await getServiceSql()`select 1 from audit_log where action = 'consent.recorded' and entity_id = ${p}`;
-    expect(audit.length).toBe(1);
-  });
-
-  it("the app notice does not tell people to use a bot command they do not have", () => {
-    expect(appConsentNotice("en")).not.toMatch(/\/withdraw/);
-    expect(appConsentNotice("en")).toMatch(/withdraw/i);
   });
 });

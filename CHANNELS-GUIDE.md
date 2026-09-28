@@ -140,9 +140,13 @@ escalation) replaces the old banner and buzzes again rather than stacking.
 
 ## Somebody who only uses the app
 
-People who never use Telegram never see the bot's consent notice. The first time they sign in to the
-dashboard they are shown the app's own notice and asked to agree; what they agreed to is stored with a
-fingerprint of the exact words. **Alerts → Your consent** shows when, and has the **Withdraw** button —
+There is **one** consent notice (version 2.0, `packages/core/src/consent.ts`) for the bot and the app.
+It names every service outside our database the system is configured to use — Telegram, each AI
+provider with a key, the push relays — so changing the configuration changes the words, and anyone
+who agreed to older words is asked again: in Telegram with an **✅ I agree** button, and in the app.
+Until they agree, neither door takes their updates and messages to them wait (the inbox and the
+request itself excepted). People who never use Telegram see it the first time they sign in to the
+dashboard; what they agreed to is stored with a fingerprint of the exact words. **Alerts → Your consent** shows when, and has the **Withdraw** button —
 the app's version of the bot's `/withdraw`, with the same effect (the account is switched off, past
 records are kept). The notice is a **draft awaiting FreshNow's sign-off**.
 

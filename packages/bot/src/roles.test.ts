@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Update } from "grammy/types";
-import { closeDb, DEMO_CEO_ID, getServiceSql, loadViewer } from "@freshnow/core";
+import { closeDb, currentNoticeHash, DEMO_CEO_ID, getServiceSql, loadViewer, recordConsent } from "@freshnow/core";
 import { createBot, handleText, type FreshCtx } from "./bot.js";
 
 /**
@@ -87,6 +87,11 @@ beforeAll(async () => {
   const [ceo] = await sql<{ telegram_user_id: string | null }[]>`select telegram_user_id from employee where id = ${DEMO_CEO_ID}`;
   ceoTelegramBefore = ceo?.telegram_user_id ?? null;
   await sql`update employee set telegram_user_id = ${CEO_TG} where id = ${DEMO_CEO_ID}`;
+  // Everyone here has agreed to today's notice; the door for those who have not is
+  // consent.test.ts's subject, not this file's.
+  for (const id of [M, R, O, E, DEMO_CEO_ID]) {
+    await recordConsent({ employeeId: id, noticeHash: currentNoticeHash(), via: "telegram" });
+  }
 });
 
 afterAll(async () => {
@@ -102,6 +107,7 @@ afterAll(async () => {
   await sql`delete from task where employee_id = any(${ids})`;
   await sql`delete from audit_log where actor = any(${ids.map((i) => `employee:${i}`)}) or actor = any(${[M_TG, R_TG, O_TG, E_TG, CEO_TG].map((t) => `telegram:${t}`)})`;
   await sql`delete from audit_log where entity = 'employee' and entity_id = any(${ids})`;
+  await sql`delete from consent_record where employee_id = any(${[...ids, DEMO_CEO_ID]}) and consented_at > now() - interval '1 hour'`;
   await sql`delete from employee where id = any(${ids})`;
   await closeDb();
 });

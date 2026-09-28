@@ -1,53 +1,12 @@
-import { createHash } from "node:crypto";
 import { logAudit } from "./audit.js";
+import { CONSENT_POLICY_VERSION, consentNotice, noticeHash } from "./consent.js";
 import { getServiceSql } from "./db.js";
 import { DEMO_CEO_ID } from "./meta.js";
 import { ceoEmployeeId } from "./org.js";
 
-// ── PDPL consent ────────────────────────────────────────────────────────────
-// UAE Federal Decree-Law No. 45 of 2021 requires a lawful basis, transparency and
-// withdrawable consent. We store the policy version AND a hash of the exact notice
-// text the person saw, so we can later prove what they agreed to.
-export const CONSENT_POLICY_VERSION = "demo-1.0";
-
-const NOTICES: Record<string, string> = {
-  en:
-    "Before you start — what this bot records:\n\n" +
-    "• The daily task status you report (task, status, and your own words).\n" +
-    "• Blockers you raise, so they reach the person who can clear them.\n\n" +
-    "What it does NOT do:\n" +
-    "• No location tracking. No productivity scoring. No sentiment analysis.\n\n" +
-    "Your updates are stored in the company database, visible to you and the CEO.\n" +
-    "You can withdraw consent at any time with /withdraw.",
-  hi:
-    "शुरू करने से पहले — यह बॉट क्या रिकॉर्ड करता है:\n\n" +
-    "• आपकी दैनिक कार्य स्थिति (कार्य, स्थिति, और आपके अपने शब्द)।\n" +
-    "• आपके द्वारा बताई गई रुकावटें, ताकि वे सही व्यक्ति तक पहुँचें।\n\n" +
-    "यह क्या नहीं करता:\n" +
-    "• लोकेशन ट्रैकिंग नहीं। उत्पादकता स्कोरिंग नहीं। भावना विश्लेषण नहीं।\n\n" +
-    "आपके अपडेट कंपनी डेटाबेस में रहते हैं, जो आपको और CEO को दिखते हैं।\n" +
-    "आप कभी भी /withdraw से सहमति वापस ले सकते हैं।",
-  // UNVERIFIED: the Hindi and Malayalam notices were written here, not by a native
-  // speaker. PDPL requires the person to actually understand what they agree to —
-  // have both reviewed before showing them to real employees.
-  ml:
-    "തുടങ്ങുന്നതിന് മുമ്പ് — ഈ ബോട്ട് എന്താണ് രേഖപ്പെടുത്തുന്നത്:\n\n" +
-    "• നിങ്ങൾ അറിയിക്കുന്ന ദൈനംദിന ജോലി നില (ജോലി, നില, നിങ്ങളുടെ സ്വന്തം വാക്കുകൾ).\n" +
-    "• നിങ്ങൾ പറയുന്ന തടസ്സങ്ങൾ, അവ പരിഹരിക്കാൻ കഴിയുന്ന ആളിലേക്ക് എത്താൻ.\n\n" +
-    "ഇത് ചെയ്യാത്തത്:\n" +
-    "• ലൊക്കേഷൻ ട്രാക്കിംഗ് ഇല്ല. ഉൽപ്പാദനക്ഷമത സ്കോറിംഗ് ഇല്ല. വികാര വിശകലനം ഇല്ല.\n\n" +
-    "നിങ്ങളുടെ അപ്ഡേറ്റുകൾ കമ്പനിയുടെ ഡാറ്റാബേസിൽ സൂക്ഷിക്കുന്നു; നിങ്ങൾക്കും CEO-യ്ക്കും കാണാം.\n" +
-    "/withdraw ഉപയോഗിച്ച് എപ്പോൾ വേണമെങ്കിലും സമ്മതം പിൻവലിക്കാം.",
-};
-
-export function consentNotice(language = "en"): string {
-  return NOTICES[language] ?? NOTICES.en!;
-}
-
-/** Hash of the exact notice text shown, so consent stays provable after a re-wording. */
-export function noticeHash(text: string): string {
-  return createHash("sha256").update(text, "utf8").digest("hex");
-}
+// The consent notice, its hash and the "is it current?" rules live in consent.ts. Re-exported
+// here because onboarding is where the bot first shows the notice.
+export { CONSENT_POLICY_VERSION, consentNotice, noticeHash } from "./consent.js";
 
 // ── Invite validation & redemption ──────────────────────────────────────────
 export interface InviteCheck {
@@ -145,7 +104,7 @@ export async function redeemInvite(
       action: "invite.redeemed",
       entity: "employee",
       entityId: result.employeeId,
-      detail: { code: norm, policyVersion: CONSENT_POLICY_VERSION },
+      detail: { code: norm, policyVersion: CONSENT_POLICY_VERSION, via: "telegram" },
     });
   }
   return result;
@@ -245,90 +204,4 @@ export async function withdrawConsent(employeeId: string): Promise<void> {
     entity: "employee",
     entityId: employeeId,
   });
-}
-
-// ── Consent for people who use the app instead of the bot ────────────────────
-//
-// The bot shows its notice during /start, before an invite code is redeemed. Somebody who
-// only ever signs in to the dashboard — the whole point of the app channel — never sees
-// that notice, so under the bot-only flow their updates would be processed with no consent
-// on record. This is the same record (policy version + a hash of the exact words shown),
-// captured on first sign-in instead.
-//
-// The words differ from the bot's for three reasons: there is no /withdraw command in the
-// app, managers can see their reports' work since TASK-029 (the bot notice predates that),
-// and a device that turns on notifications stores a push address the bot never did.
-//
-// UNVERIFIED: this text has not been reviewed by FreshNow or a lawyer. The CEO deck and
-// docs/WHAT-WE-NEED-FROM-FRESHNOW.md both list "sign off consent notice v2" as open; this
-// is a draft for that, and the version string says so.
-export const APP_CONSENT_POLICY_VERSION = "app-draft-1.0";
-
-const APP_NOTICES: Record<string, string> = {
-  en:
-    "Before you start — what this app records:\n\n" +
-    "• The daily task status you report (task, status, and your own words).\n" +
-    "• Problems you raise, so they reach the person who can clear them.\n" +
-    "• If you turn on notifications for a device: that browser's push address, used only to deliver notifications to it.\n\n" +
-    "How your words are handled:\n" +
-    "• An AI service reads what you type to spot problems and how urgent they are. It never decides who is told or whether something escalates — fixed company rules do.\n" +
-    "• Notifications to your device are encrypted to that device; the service that relays them cannot read them.\n\n" +
-    "What it does NOT do:\n" +
-    "• No location tracking. No productivity scoring. No sentiment analysis.\n\n" +
-    "Your updates are stored in the company database, visible to you, the people you report to, and the CEO.\n" +
-    "You can withdraw consent at any time: Alerts → Your consent → Withdraw.",
-};
-
-export function appConsentNotice(language = "en"): string {
-  return APP_NOTICES[language] ?? APP_NOTICES.en!;
-}
-
-export interface ConsentStatus {
-  consented: boolean;
-  consentedAt: string | null;
-  policyVersion: string | null;
-}
-
-/** Whether this person has a consent record — from the bot or from the app. */
-export async function consentStatus(employeeId: string): Promise<ConsentStatus> {
-  const sql = getServiceSql();
-  const rows = await sql<{ policy_version: string; consented_at: Date }[]>`
-    select policy_version, consented_at from consent_record
-    where employee_id = ${employeeId} order by consented_at desc limit 1`;
-  const r = rows[0];
-  return r
-    ? { consented: true, consentedAt: r.consented_at.toISOString(), policyVersion: r.policy_version }
-    : { consented: false, consentedAt: null, policyVersion: null };
-}
-
-export class ConsentNoticeChangedError extends Error {}
-
-/**
- * Record consent given in the app. The caller sends back the hash of the notice it showed;
- * if the words have changed since the page loaded, the consent is refused rather than
- * recorded against text the person did not see — the whole value of the hash is that it
- * proves what was agreed to.
- */
-export async function recordAppConsent(p: {
-  employeeId: string;
-  noticeHash: string;
-  language?: string;
-  correlationId?: string;
-}): Promise<ConsentStatus> {
-  const expected = noticeHash(appConsentNotice(p.language ?? "en"));
-  if (p.noticeHash !== expected) {
-    throw new ConsentNoticeChangedError("The notice has changed since this page loaded. Reload and read it again.");
-  }
-  const sql = getServiceSql();
-  await sql`insert into consent_record (employee_id, policy_version, notice_hash)
-            values (${p.employeeId}, ${APP_CONSENT_POLICY_VERSION}, ${expected})`;
-  await logAudit({
-    correlationId: p.correlationId,
-    actor: `employee:${p.employeeId}`,
-    action: "consent.recorded",
-    entity: "employee",
-    entityId: p.employeeId,
-    detail: { via: "app", policyVersion: APP_CONSENT_POLICY_VERSION, noticeHash: expected },
-  });
-  return consentStatus(p.employeeId);
 }

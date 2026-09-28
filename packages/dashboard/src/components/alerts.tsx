@@ -633,10 +633,12 @@ function ConsentCard({ viewer, isCeo }: { viewer: string; isCeo: boolean }) {
       <Toast message={act.message} tone={act.tone} onDone={act.clear} />
       <h3 className="mb-1 font-semibold">Your consent</h3>
       <p className="mb-2 text-xs text-mut">
-        {c.consented
+        {c.current
           ? `You agreed on ${dmon(c.consentedAt!)} ${hhmm(c.consentedAt!)} (notice ${c.policyVersion}).`
-          : "No consent is recorded for you yet."}{" "}
-        What this system records about you is set out in the notice below.
+          : c.consented
+            ? `You agreed to an earlier notice (${c.policyVersion}); the current one is ${c.currentPolicyVersion}.`
+            : "No consent is recorded for you yet."}{" "}
+        What this system records about you, and where it goes, is set out in the notice below.
       </p>
       <details className="mb-3 text-xs">
         <summary className="cursor-pointer text-link">Read the notice</summary>
@@ -670,9 +672,10 @@ function ConsentCard({ viewer, isCeo }: { viewer: string; isCeo: boolean }) {
 }
 
 /**
- * Shown instead of the app to a signed-in person with no consent on record — the app's
- * version of the bot's /start notice. Somebody who never uses Telegram would otherwise be
- * processed without ever having been told what is recorded.
+ * Shown instead of the app to a signed-in person who has not agreed to the notice as it
+ * reads today — nobody on record yet, or consent to an older version. The same words the bot
+ * shows (core/src/consent.ts). Somebody who never uses Telegram would otherwise be processed
+ * without ever having been told what is recorded or where it goes.
  */
 export function ConsentGate({ viewer, onAgreed }: { viewer: string; onAgreed: () => void }) {
   const [c, setC] = useState<ConsentState | null>(null);
@@ -687,11 +690,19 @@ export function ConsentGate({ viewer, onAgreed }: { viewer: string; onAgreed: ()
     <div className="grid min-h-screen place-items-center bg-canvas p-4">
       <Toast message={act.message} tone={act.tone} onDone={act.clear} />
       <Card className="w-full max-w-lg space-y-3 p-5">
-        <h2 className="text-lg font-bold">Before you start</h2>
+        <h2 className="text-lg font-bold">{c?.consented ? "The privacy notice has changed" : "Before you start"}</h2>
         {err ? <p className="text-sm text-crit">{err}</p> : !c ? <Spinner label="Loading…" /> : (
           <>
-            <p className="whitespace-pre-wrap text-sm text-ink">{c.notice}</p>
-            <p className="text-[11px] text-mut">Draft notice {"(pending company sign-off)"} · recorded with a fingerprint of exactly these words.</p>
+            {c.consented && (
+              <p className="rounded-lg border border-warn/50 bg-warn/5 p-2 text-xs">
+                You agreed to an earlier version ({c.policyVersion}). Until you agree to this one, the app can't show your work and
+                nothing about you is sent to Telegram, notifications or email.
+              </p>
+            )}
+            <p className="max-h-[60vh] overflow-y-auto whitespace-pre-wrap text-sm text-ink">{c.notice}</p>
+            <p className="text-[11px] text-mut">
+              Notice {c.currentPolicyVersion} — a draft until the company signs it off · recorded with a fingerprint of exactly these words.
+            </p>
             <Button
               tone="primary"
               busy={act.busy}

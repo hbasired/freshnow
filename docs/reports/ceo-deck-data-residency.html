@@ -22,7 +22,7 @@
   html{scroll-snap-type:y proximity;scroll-behavior:smooth}
   html,body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.55 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
   section.slide{min-height:100vh;scroll-snap-align:start;padding:44px 56px 56px;position:relative;display:flex;flex-direction:column;justify-content:center;max-width:1400px;margin:0 auto}
-  section.slide::after{content:attr(data-n)" / 17";position:absolute;right:56px;bottom:22px;font-size:12px;color:var(--mut)}
+  section.slide::after{content:attr(data-n)" / 18";position:absolute;right:56px;bottom:22px;font-size:12px;color:var(--mut)}
   h1{font-size:2.6rem;line-height:1.15;margin:0 0 .6rem;letter-spacing:-.01em}
   h2{font-size:1.9rem;line-height:1.2;margin:0 0 1rem;letter-spacing:-.01em}
   h3{font-size:1.05rem;margin:1.2rem 0 .4rem}
@@ -76,21 +76,52 @@
 
 <!-- 1 ─────────────────────────────────────────────────────────────────────── -->
 <section class="slide" data-n="1" id="s1">
-  <span class="kicker">CEO briefing · 21 September 2026 · re-checked 26 September 2026</span>
+  <span class="kicker">CEO briefing · 21 September 2026 · re-checked 26 September · final verdict 28 September 2026</span>
   <h1>Where FreshNow's data may go —<br>and what keeping it home costs</h1>
   <p class="lead">UAE data-protection law applied to the operations platform: what the law actually says, where employee data goes today, why the planned hosting and AI providers do not fit, and the in-country alternatives — with verified prices and every source linked.</p>
   <div class="grid g4" style="margin-top:22px">
-    <div class="card stat edge-crit"><div class="l">The one thing to change first</div><div class="n" style="font-size:1.4rem">Host in the UAE</div><div class="l">the planned box is not</div></div>
+    <div class="card stat edge-crit"><div class="l">The one thing to change first</div><div class="n" style="font-size:1.4rem">Host in the UAE</div><div class="l">the planned box is not · the simplest way to comply — recommended, not a legal must (slide 2)</div></div>
     <div class="card stat edge-warn"><div class="l">AI provider</div><div class="n" style="font-size:1.4rem">Core42</div><div class="l">same model, UAE jurisdiction</div></div>
     <div class="card stat edge-ok"><div class="l">AI cost at 100 assignments + 200 status updates a day</div><div class="n">$0.12</div><div class="l">per day · about $7 a month with voice</div></div>
-    <div class="card stat edge-info"><div class="l">Telegram</div><div class="n" style="font-size:1.4rem">Lawful</div><div class="l">once the consent notice names it · the in-country app that can replace it is built and one switch away</div></div>
+    <div class="card stat edge-info"><div class="l">Telegram</div><div class="n" style="font-size:1.4rem">Lawful</div><div class="l">the consent notice now names it — draft 2.0, everyone asked again (28 Sep) · the in-country app that can replace it is built and one switch away</div></div>
   </div>
   <p class="small mut" style="margin-top:18px">How to read the markers: <span class="v">[verified]</span> read in a primary source — the law's text, a vendor's own page, or our own database · <span class="b">[believed]</span> reputable secondary sources that agree · <span class="a">[uncertain]</span> sources conflict or none found · <span class="tag mut">assumed</span> a number chosen so the arithmetic can run, stated so it can be changed. This is a technical reading for a lawyer to confirm, not legal advice.</p>
-  <div class="foot">Prepared by the development team · what changed on re-check: slide 2 · sources on slide 16 · what is not verified on slide 17</div>
+  <div class="foot">Prepared by the development team · <b>final verdict: slide 2</b> · what changed on re-check: slide 3 · sources on slide 17 · what is not verified on slide 18</div>
+</section>
+
+<!-- 2 · final verdict ─────────────────────────────────────────────────────── -->
+<section class="slide" data-n="2" id="s2">
+  <span class="kicker">Final verdict · 28 September 2026</span>
+  <h2>The law applies to us in full. It does not make our data stay in the UAE — it sets conditions on everything that leaves.</h2>
+  <div class="grid g2">
+    <div class="card edge-crit"><h3 style="margin-top:0">1 · Must FreshNow comply with the UAE data-protection law?</h3>
+      <p><b>Yes — fully.</b> Decree-Law 45/2021 applies to every company in the UAE that handles personal data (Art. 2), and employee names, tasks and the words they type are personal data. <span class="v">[verified — the law's text, slide 5]</span></p>
+      <h3>2 · Must our data stay inside the UAE?</h3>
+      <p><b>No.</b> No rule forces employee task data to stay in the country; in-country rules cover health, payments, government and free-zone data. <b>That is all the "not ours" on slide 6 means</b> — no <em>localisation</em> rule applies to us, not "no law applies to us". <span class="b">[believed — the law's text and Clifford Chance]</span></p></div>
+    <div class="card edge-warn"><h3 style="margin-top:0">3 · Then why change anything?</h3>
+      <p class="small">Because the law decides <b>how</b> data may leave: each transfer needs a ground — with no adequacy list yet, only <b>express consent</b> or a <b>PDPL-grade contract</b> (Art. 22–23) — and whoever processes it for us needs a contract (Art. 7–8). Against real data there were three gaps:</p>
+      <ul class="small">
+        <li><b>Consent never named the transfers</b> (Telegram abroad, US AI). <span class="tag ok">Closed in software, 28 Sep</span> — notice 2.0 names them, everyone is asked again in Telegram and the app, and nothing is taken from or sent to a person until they agree. The wording still needs the company's and a lawyer's sign-off.</li>
+        <li><b>No contract with Groq, OpenRouter or NVIDIA.</b> <span class="tag warn">Open</span> — move to Core42 under a DPA, or rely on consent alone: lawful, but any employee can withdraw it, and whether consent from an employee is freely given is a question for counsel.</li>
+        <li><b>Hostinger would put the whole database abroad.</b> <span class="tag warn">Not yet chosen</span> — lawful only with a contract or everyone's consent covering the entire database, for as long as it exists. A UAE host removes the question for a similar price. <b>Recommended, not legally required.</b></li>
+      </ul></div>
+    <div class="card edge-info"><h3 style="margin-top:0">4 · How urgent — are we breaking the law today?</h3>
+      <p class="small"><b>Not an emergency, and not optional.</b> The duties have been in the law since it took effect (2 January 2022), but its enforcement is incomplete:</p>
+      <ul class="small">
+        <li>Executive Regulations: <b>still pending</b> (law-firm update, July 2026). <span class="b">[believed]</span></li>
+        <li>Fines: need a separate Cabinet decision (Art. 26) — <b>not found</b>. <span class="b">[believed]</span></li>
+        <li>Art. 29: <b>six months</b> to comply once the Regulations appear.</li>
+        <li><b>New:</b> on <b>14 June 2026</b> the UAE created a <b>Federal Authority for Artificial Intelligence and Data</b>, absorbing the Data Office that never became operational — the missing regulator now exists, so the clock can start. <span class="b">[believed — four reports via search]</span></li>
+      </ul></div>
+    <div class="card edge-ok"><h3 style="margin-top:0">5 · So what does "change first" in these decks mean?</h3>
+      <p class="small">Today the system holds <b>test data on a laptop in Dubai</b> — nothing unlawful is happening to real employees. The line that matters is <b>the first real employee's data</b>. Before it goes in: <b>(1)</b> consent notice 2.0 — built, awaiting the company's and a lawyer's sign-off; <b>(2)</b> AI on Core42 under a contract; <b>(3)</b> database on a UAE host. After those, only Telegram carries personal data abroad — named in the notice and consented.</p></div>
+  </div>
+  <div class="card brand" style="margin-top:12px"><b>In one sentence:</b> we must comply; we may send data abroad only on consent or contract; and the simplest compliant setup — honest consent (built), AI in the UAE, database in the UAE — should be in place before the first real employee is onboarded. <span class="small">A technical reading for counsel to confirm, not legal advice.</span></div>
+  <p class="cite">Sources: the law (slide 5) · Clifford Chance, Mar 2025 · Ashurst, <em>Data Bytes 67</em> (Jul 2026) · Morgan Lewis, <em>UAE Establishes Federal Authority for AI and Data</em> (Jun 2026) — all on slide 17.</p>
 </section>
 
 <!-- 2 · re-check ──────────────────────────────────────────────────────────── -->
-<section class="slide" data-n="2" id="s2">
+<section class="slide" data-n="3" id="s3">
   <span class="kicker">Re-checked 26 September 2026</span>
   <h2>Five days later: what changed, and what did not</h2>
   <p class="lead" style="max-width:none">Every claim below was searched again on 26 September. <b>The three conclusions stand</b> — don't host on Hostinger, don't send employee text to OpenRouter/Groq, keep Telegram only with honest consent — and four things moved.</p>
@@ -99,34 +130,34 @@
     <tbody>
       <tr><td><b>Hostinger has no UAE / Middle East data centre</b></td><td>verified on Hostinger's page</td><td>Unchanged — still France, Germany, Lithuania, UK, India, Indonesia, Malaysia, USA, Brazil. KVM 8 still $29.99 intro → $49.99 renewal. <span class="b">[believed — search of Hostinger's page and 2026 round-ups]</span></td><td class="v">None. Still the first thing to change.</td></tr>
       <tr><td><b>OpenRouter cannot keep data in the UAE</b></td><td>US company, no contract on self-serve</td><td><b>New:</b> OpenRouter now offers <em>in-region routing</em> — but only for the <b>US and EU</b>, on Business/Enterprise plans (<code>us.</code> / <code>eu.openrouter.ai</code>). There is <b>no UAE region</b>. <span class="b">[believed — OpenRouter's Sovereign AI guide, via search]</span></td><td class="v">None. The reason is now sharper: even the paid residency product cannot keep text in the UAE.</td></tr>
-      <tr><td><b>PDPL Executive Regulations</b></td><td>not issued (Chambers, Mar 2026)</td><td>Still not found on any official UAE portal (a review dated Aug 2026 says the same). Two search claims were <b>false</b>: "Cabinet Decision No. 83 of 2022" is a <em>speed-radar</em> regulation; "Cabinet Resolution No. 33 of 2024" could not be traced to any primary source. <span class="a">[uncertain]</span></td><td class="v">None. Counsel should still check the Official Gazette.</td></tr>
+      <tr><td><b>PDPL Executive Regulations</b></td><td>not issued (Chambers, Mar 2026)</td><td>Still not found on any official UAE portal (a review dated Aug 2026 says the same). Two search claims were <b>false</b>: "Cabinet Decision No. 83 of 2022" is a <em>speed-radar</em> regulation; "Cabinet Resolution No. 33 of 2024" could not be traced to any primary source. <span class="a">[uncertain]</span> <b>28 Sep:</b> still pending per a July 2026 law-firm update; a Federal Authority for AI and Data now exists (14 June 2026); a fifth false claim — "Cabinet Decision 111" is a virtual-assets rule.</td><td class="v">None — but the regulator now exists (slide 2). Counsel should still check the Official Gazette.</td></tr>
       <tr><td><b>OpenAI in the UAE</b></td><td>UAE storage + processing, approval needed</td><td><b>Confirmed and widened:</b> on 12 Aug 2026 OpenAI launched <em>inference residency</em> in the UAE — model inference on GPUs in the country — for the API, ChatGPT Enterprise and Edu. Which API models are eligible differs between sources. <span class="b">[believed — OpenAI and press, via search]</span></td><td class="b">Strengthens OpenAI as the second option. Confirm the model list with OpenAI before relying on it.</td></tr>
-      <tr><td><b>AWS in the UAE</b></td><td>Nova in-region; Claude "Global" only</td><td><b>Now from AWS's own price list</b> (published 25–26 Sep): in-region UAE SKUs exist for Nova Micro / Lite / Pro, Claude Sonnet 4, Grok 4.6 and Kimi K3; every newer Claude model is sold in the UAE as <b>Global</b> (routed abroad); <code>gpt-oss</code> is <b>not offered</b> in the UAE region. EC2 prices on slide 8 now come from the same official list. <span class="v">[verified — AWS Price List API]</span></td><td class="a"><b>Changes the hosting advice:</b> AWS's UAE region was damaged by drone strikes on 1 March 2026; on 15 Sep AWS said data held only in one of its three UAE zones cannot be restored and advised Middle East customers to consider moving. <span class="b">[believed — InfoQ, Computing, CNBC]</span> Prefer Azure UAE North — see <code>ceo-deck-azure-aws-uae.html</code>.</td></tr>
-      <tr><td><b>Telegram</b></td><td>lawful with consent; servers outside the UAE</td><td>Unchanged. Added: its five data centres are reported in <b>Miami, Amsterdam and Singapore</b>; since Sept 2024 it may give a user's <b>IP address and phone number</b> to authorities on a valid criminal-case order, and publishes quarterly transparency reports. <span class="b">[believed — independent analyses and Telegram's policy, via search]</span></td><td class="v">None, plus: <b>the in-app + phone-notification replacement is now built and one switch away</b> (slide 14).</td></tr>
+      <tr><td><b>AWS in the UAE</b></td><td>Nova in-region; Claude "Global" only</td><td><b>Now from AWS's own price list</b> (published 25–26 Sep): in-region UAE SKUs exist for Nova Micro / Lite / Pro, Claude Sonnet 4, Grok 4.6 and Kimi K3; every newer Claude model is sold in the UAE as <b>Global</b> (routed abroad); <code>gpt-oss</code> is <b>not offered</b> in the UAE region. EC2 prices on slide 9 now come from the same official list. <span class="v">[verified — AWS Price List API]</span></td><td class="a"><b>Changes the hosting advice:</b> AWS's UAE region was damaged by drone strikes on 1 March 2026; on 15 Sep AWS said data held only in one of its three UAE zones cannot be restored and advised Middle East customers to consider moving. <span class="b">[believed — InfoQ, Computing, CNBC]</span> Prefer Azure UAE North — see <code>ceo-deck-azure-aws-uae.html</code>.</td></tr>
+      <tr><td><b>Telegram</b></td><td>lawful with consent; servers outside the UAE</td><td>Unchanged. Added: its five data centres are reported in <b>Miami, Amsterdam and Singapore</b>; since Sept 2024 it may give a user's <b>IP address and phone number</b> to authorities on a valid criminal-case order, and publishes quarterly transparency reports. <span class="b">[believed — independent analyses and Telegram's policy, via search]</span></td><td class="v">None, plus: <b>the in-app + phone-notification replacement is now built and one switch away</b> (slide 15).</td></tr>
     </tbody>
   </table>
   <p class="small mut" style="margin-top:8px"><b>How this re-check was done, and its limit:</b> this session's network policy blocked opening vendor pages directly, so findings come from search results — marked <span class="b">[believed]</span> — except AWS prices, read from AWS's official machine-readable price list and marked <span class="v">[verified]</span>. Nothing previously marked verified was contradicted.</p>
 </section>
 
 <!-- 3 ─────────────────────────────────────────────────────────────────────── -->
-<section class="slide" data-n="3" id="s3">
+<section class="slide" data-n="4" id="s4">
   <span class="kicker">The answer in one slide</span>
   <h2>Four questions, four answers</h2>
   <div class="grid g2">
     <div class="card edge-info"><h3 style="margin-top:0">1 · Must personal data stay in the UAE?</h3>
-      <p><b>Not as a general rule.</b> The federal law (Decree-Law 45/2021) <em>regulates</em> transfer abroad; it does not forbid it. Strict in-country rules exist for <b>health, banking/payments and government</b> data — none of which is FreshNow's employee task data. <span class="v">[verified — the law's text, slide 4]</span></p>
-      <p class="small">The catch: the rules that would make transfers straightforward have <b>not been issued</b> as of March 2026 — and still could not be found on any official UAE portal when re-checked on 26 September — so today companies rely on consent and contracts. <span class="b">[believed]</span></p></div>
+      <p><b>Not as a general rule.</b> The federal law (Decree-Law 45/2021) <em>regulates</em> transfer abroad; it does not forbid it. Strict in-country rules exist for <b>health, banking/payments and government</b> data — none of which is FreshNow's employee task data. <span class="v">[verified — the law's text, slide 5]</span></p>
+      <p class="small">The catch: the rules that would make transfers straightforward have <b>not been issued</b> as of March 2026 — and still could not be found on any official UAE portal when re-checked on 26 September (28 Sep: still pending; a new regulator exists since June — slide 2) — so today companies rely on consent and contracts. <span class="b">[believed]</span></p></div>
     <div class="card edge-crit"><h3 style="margin-top:0">2 · Does our data leave the country today?</h3>
-      <p><b>Yes, four ways</b> — Telegram (unavoidable), three US AI companies (avoidable), call metadata to Ireland (avoidable), and <b>the planned Hostinger server, which has no UAE data centre at all</b>. <span class="v">[verified — slides 6–7]</span></p></div>
+      <p><b>Yes, four ways</b> — Telegram (unavoidable), three US AI companies (avoidable), call metadata to Ireland (avoidable), and <b>the planned Hostinger server, which has no UAE data centre at all</b>. <span class="v">[verified — slides 7–8]</span></p></div>
     <div class="card edge-warn"><h3 style="margin-top:0">3 · Why not keep Groq / OpenRouter?</h3>
-      <p>No processor contract on self-serve terms (Art. 7, 8); processing abroad with no adequacy route (Art. 22); a consent notice that never mentioned it; and a fallback chain that silently sends the same text to a <em>second</em> US company. OpenRouter's new paid residency option covers only the US and EU — not the UAE. <span class="v">[verified — slide 9]</span></p></div>
+      <p>No processor contract on self-serve terms (Art. 7, 8); processing abroad with no adequacy route (Art. 22); a consent notice that never mentioned it; and a fallback chain that silently sends the same text to a <em>second</em> US company. OpenRouter's new paid residency option covers only the US and EU — not the UAE. <span class="v">[verified — slide 10]</span></p></div>
     <div class="card edge-ok"><h3 style="margin-top:0">4 · What instead, and what does it cost?</h3>
-      <p><b>Core42 (a G42 company) runs the exact model we use today under UAE jurisdiction.</b> A full day — 100 assignments, 200 status updates, 40 end-of-day summaries, 10 questions — costs about <b>$0.12</b>; with voice notes about <b>$7 a month</b>. <span class="v">[prices re-checked 26 Sep · measured tokens — slides 10–13]</span></p></div>
+      <p><b>Core42 (a G42 company) runs the exact model we use today under UAE jurisdiction.</b> A full day — 100 assignments, 200 status updates, 40 end-of-day summaries, 10 questions — costs about <b>$0.12</b>; with voice notes about <b>$7 a month</b>. <span class="v">[prices re-checked 26 Sep · measured tokens — slides 11–14]</span></p></div>
   </div>
 </section>
 
 <!-- 3 ─────────────────────────────────────────────────────────────────────── -->
-<section class="slide" data-n="4" id="s4">
+<section class="slide" data-n="5" id="s5">
   <span class="kicker">What the law says</span>
   <h2>Federal Decree-Law No. 45 of 2021 — the articles that decide this</h2>
   <div class="grid g2">
@@ -150,9 +181,9 @@
 </section>
 
 <!-- 4 ─────────────────────────────────────────────────────────────────────── -->
-<section class="slide" data-n="5" id="s5">
+<section class="slide" data-n="6" id="s6">
   <span class="kicker">What the law says · continued</span>
-  <h2>"Data cannot leave the country" is true for some sectors — not ours</h2>
+  <h2>No law makes our data stay in the UAE — but the PDPL governs everything that leaves</h2>
   <div class="grid g2">
     <div>
       <table>
@@ -165,21 +196,23 @@
           <tr class="hi"><td><b>Everything else — including employee task data</b></td><td><b>PDPL Art. 22–23: transfer <em>regulated</em>, not banned</b></td><td class="v">Yes — this is our regime</td></tr>
         </tbody>
       </table>
+      <p class="small" style="margin-top:8px"><b>Read this correctly:</b> "No" in the right-hand column means no rule forces that data to stay in the UAE. It does <b>not</b> mean the law does not apply to us — the PDPL applies in full (slide 5), and every transfer abroad needs consent or a contract (last row). Verdict: slide 2.</p>
       <p class="cite">Sector rules: Clifford Chance, <a href="https://www.cliffordchance.com/insights/resources/blogs/talking-tech/en/articles/2025/03/doing-business-in-the-middle-east--data-transfers-in-the-uae-and-ksa.html">Data Transfers in the UAE and KSA</a> (Mar 2025): "the UAE PDPL itself does not impose a general data localisation requirement"; PwC, <a href="https://www.pwc.com/m1/en/publications/documents/healthcare-data-protection-in-the-uae.pdf">Healthcare data protection in the UAE</a>. <span class="b">[believed]</span></p>
     </div>
     <div class="card edge-warn">
       <h3 style="margin-top:0">The complication: the Executive Regulations are still missing</h3>
       <p>Art. 28 required them within six months of the law (i.e. by early 2022). They set the adequacy list, the contract templates and the transfer procedure.</p>
       <blockquote>Chambers, <em>Data Protection &amp; Privacy 2026 — UAE</em> (10 Mar 2026): "The Implementing Regulations … have yet to be issued" and "the Data Office has not yet become fully operational."</blockquote>
-      <p><b>What that means in practice:</b> the "adequate country" route does not exist yet; the usable grounds are <b>express consent</b> and <b>contracts</b>. And Art. 29 gives a six-month regularisation window that starts the day the Regulations appear — so the clock has not started, and will.</p>
-      <p class="small"><span class="a">[uncertain]</span> I could not find a primary source showing issuance between March and September 2026. One search result claimed a 2026 publication; the page it cited said "in progress". <b>Re-checked 26 Sep:</b> a review dated August 2026 found no Regulations on the federal legislation portal (last updated 20 Sep 2021 for this law) or the government data-protection page; two search claims naming an instrument were false or untraceable (slide 2). <b>Please have counsel check the Official Gazette.</b></p>
+      <p><b>What that means in practice:</b> the "adequate country" route does not exist yet; the usable grounds are <b>express consent</b> and <b>contracts</b>. And Art. 29 gives a six-month regularisation window that starts the day the Regulations appear — so the clock has not started — and with a regulator now in place (slide 2), it may start soon.</p>
+      <p class="small"><span class="a">[uncertain]</span> I could not find a primary source showing issuance between March and September 2026. One search result claimed a 2026 publication; the page it cited said "in progress". <b>Re-checked 26 Sep:</b> a review dated August 2026 found no Regulations on the federal legislation portal (last updated 20 Sep 2021 for this law) or the government data-protection page; two search claims naming an instrument were false or untraceable (slide 3). <b>Please have counsel check the Official Gazette.</b></p>
+      <p class="small"><b>Re-checked 28 Sep:</b> a law-firm update (Ashurst, July 2026) says the Regulations remain pending. On <b>14 June 2026</b> the UAE created a <b>Federal Authority for Artificial Intelligence and Data</b>, absorbing the Data Office — reported by Morgan Lewis, Lexology, CDO Magazine and Global Government Forum. A fifth search claim ("Cabinet Decision No. 111/2023" as the Regulations) was false: No. 111 <em>of 2022</em> regulates virtual assets. <span class="b">[believed — via search; the pages themselves were blocked]</span></p>
       <p class="cite"><a href="https://practiceguides.chambers.com/practice-guides/data-protection-privacy-2026/uae/trends-and-developments">Chambers 2026 UAE chapter</a></p>
     </div>
   </div>
 </section>
 
 <!-- 5 ─────────────────────────────────────────────────────────────────────── -->
-<section class="slide" data-n="6" id="s6">
+<section class="slide" data-n="7" id="s7">
   <span class="kicker">Where our data goes today</span>
   <h2>Every path an employee's words take — from our own logs <span class="v">[verified]</span></h2>
   <div class="grid g2">
@@ -199,14 +232,14 @@
       <div class="grid g3" style="margin-top:12px">
         <div class="card stat edge-info"><div class="l">Total spend to date</div><div class="n" style="font-size:1.8rem">$0.0076</div><div class="l">322 calls</div></div>
         <div class="card stat edge-crit"><div class="l">Contracts with those providers</div><div class="n" style="font-size:1.8rem">0</div><div class="l">self-serve API keys</div></div>
-        <div class="card stat edge-warn"><div class="l">Consent notice mentions AI abroad</div><div class="n" style="font-size:1.8rem">No</div><div class="l">must be re-issued</div></div>
+        <div class="card stat edge-warn"><div class="l">Consent notice mentions AI abroad</div><div class="n" style="font-size:1.8rem">Now yes</div><div class="l">draft 2.0 built 28 Sep · everyone asked again · wording to sign off</div></div>
       </div>
     </div>
   </div>
 </section>
 
 <!-- 6 ─────────────────────────────────────────────────────────────────────── -->
-<section class="slide" data-n="7" id="s7">
+<section class="slide" data-n="8" id="s8">
   <span class="kicker">Why not the Hostinger VPS</span>
   <h2>Hostinger has no data centre in the UAE or anywhere in the Middle East</h2>
   <div class="grid g2">
@@ -231,7 +264,7 @@
 </section>
 
 <!-- 7 ─────────────────────────────────────────────────────────────────────── -->
-<section class="slide" data-n="8" id="s8">
+<section class="slide" data-n="9" id="s9">
   <span class="kicker">Hosting alternatives</span>
   <h2>Servers that are physically in the UAE — monthly price, checked 19–21 Sept, AWS re-read 26 Sept 2026</h2>
   <div class="grid g32">
@@ -263,7 +296,7 @@
 </section>
 
 <!-- 8 ─────────────────────────────────────────────────────────────────────── -->
-<section class="slide" data-n="9" id="s9">
+<section class="slide" data-n="10" id="s10">
   <span class="kicker">Why not Groq, OpenRouter or NVIDIA API keys</span>
   <h2>Four reasons — each tied to an article, not a preference</h2>
   <div class="grid g2">
@@ -273,7 +306,8 @@
       <p>Groq's data centres: US, Canada, Saudi Arabia, Finland, Australia — no UAE, and no documented way to pin a region. NVIDIA and OpenRouter are US. With the Executive Regulations unissued, Art. 22 cannot be used; only consent or contract (Art. 23) remain. <span class="v">[verified — Groq newsroom]</span></p>
       <p class="small"><b>Re-checked 26 Sep:</b> OpenRouter now sells in-region routing — <b>US and EU only</b>, Business/Enterprise plans — so even its paid residency product cannot keep a request in the UAE, and one analysis notes EU-routed requests still pass its US gateway. <span class="b">[believed — OpenRouter Sovereign AI guide, via search]</span></p></div>
     <div class="card edge-warn"><h3 style="margin-top:0">3 · Our consent does not cover it</h3>
-      <p>The notice employees agreed to says updates are "visible to you and the CEO" — nothing about an AI service abroad, nothing about voice notes being transcribed abroad. Art. 6 requires consent to be specific. <span class="v">[verified — the notice text in our code]</span></p></div>
+      <p>The notice employees agreed to says updates are "visible to you and the CEO" — nothing about an AI service abroad, nothing about voice notes being transcribed abroad. Art. 6 requires consent to be specific. <span class="v">[verified — the notice text in our code]</span></p>
+      <p class="small"><span class="tag ok">Fixed in software, 28 Sep</span> Notice 2.0 names each configured AI provider, that it is outside the UAE, and that Groq transcribes voice notes; everyone is asked again, and nobody's words are taken until they agree.</p></div>
     <div class="card edge-warn"><h3 style="margin-top:0">4 · The fallback chain leaks silently</h3>
       <p>Our configuration was <code>groq → openrouter → nvidia</code>. <b>On 19 September this actually happened:</b> Groq timed out at 25 s on every call and OpenRouter absorbed the traffic — visible in our logs as <code>groq ok=false 25,058 ms</code> followed by <code>openrouter ok=true</code>. Nobody was told, and employee text reached a second US company. Good engineering; wrong residency. <span class="v">[verified — our llm_call table]</span></p></div>
   </div>
@@ -281,7 +315,7 @@
 </section>
 
 <!-- 9 ─────────────────────────────────────────────────────────────────────── -->
-<section class="slide" data-n="10" id="s10">
+<section class="slide" data-n="11" id="s11">
   <span class="kicker">The alternative</span>
   <h2>In-country AI exists today — the comparison</h2>
   <table>
@@ -299,7 +333,7 @@
 </section>
 
 <!-- 10 ────────────────────────────────────────────────────────────────────── -->
-<section class="slide" data-n="11" id="s11">
+<section class="slide" data-n="12" id="s12">
   <span class="kicker">What one day costs · the inputs</span>
   <h2>Tokens per operation — measured from our own logs, not guessed</h2>
   <table class="small">
@@ -329,7 +363,7 @@
 </section>
 
 <!-- 11 ────────────────────────────────────────────────────────────────────── -->
-<section class="slide" data-n="12" id="s12">
+<section class="slide" data-n="13" id="s13">
   <span class="kicker">What one day costs · the answer</span>
   <h2>100 assignments + 200 status updates a day, four ways of assigning</h2>
   <div class="grid g32">
@@ -361,7 +395,7 @@
 </section>
 
 <!-- 12 ────────────────────────────────────────────────────────────────────── -->
-<section class="slide" data-n="13" id="s13">
+<section class="slide" data-n="14" id="s14">
   <span class="kicker">What one day costs · per item, and what would change it</span>
   <h2>Unit costs on Core42 — and the assumptions you can change</h2>
   <div class="grid g32">
@@ -394,7 +428,7 @@
 </section>
 
 <!-- 13 ────────────────────────────────────────────────────────────────────── -->
-<section class="slide" data-n="14" id="s14">
+<section class="slide" data-n="15" id="s15">
   <span class="kicker">Telegram</span>
   <h2>Can we use Telegram at all? Yes — lawfully, on one condition</h2>
   <div class="grid g32">
@@ -403,7 +437,7 @@
         <thead><tr><th>Rule</th><th>What it says</th><th>Our position</th></tr></thead>
         <tbody>
           <tr><td>TDRA — is the app allowed?</td><td>VoIP is a licensed telecom service; unlicensed <em>calling</em> is what is restricted. Text and files are not. <span class="v">[verified — TDRA FAQ]</span></td><td class="v">Allowed. The bot never makes calls.</td></tr>
-          <tr><td>PDPL Art. 22–23 — data stored abroad</td><td>Telegram stores cloud chats in data centres worldwide, none in the UAE, and offers no business contract. Transfer is permitted with "the express Consent of the Data Subject" (Art. 23(1)(b)). <span class="v">[verified]</span> Its five data centres are reported in Miami, Amsterdam and Singapore; bot conversations are cloud chats, never end-to-end encrypted. <span class="b">[believed]</span></td><td class="b">Lawful <b>only after</b> the notice names Telegram and staff consent again. Today's notice does not.</td></tr>
+          <tr><td>PDPL Art. 22–23 — data stored abroad</td><td>Telegram stores cloud chats in data centres worldwide, none in the UAE, and offers no business contract. Transfer is permitted with "the express Consent of the Data Subject" (Art. 23(1)(b)). <span class="v">[verified]</span> Its five data centres are reported in Miami, Amsterdam and Singapore; bot conversations are cloud chats, never end-to-end encrypted. <span class="b">[believed]</span></td><td class="b">Lawful once staff agree to a notice that names Telegram. <b>Notice 2.0 does</b> (draft, 28 Sep) and everyone is asked again; until a person agrees, nothing goes to their Telegram.</td></tr>
           <tr><td>Is Telegram our "processor"?</td><td>A processor acts on our instructions under contract; Telegram is a service the employee also uses privately.</td><td class="b">My reading: an independent service, like an email provider — <b>counsel should confirm</b>.</td></tr>
           <tr><td>Disclosure to authorities</td><td>Since Sept 2024 Telegram may give a user's IP address and phone number to authorities on a valid order in a criminal case; it publishes quarterly transparency reports. <span class="b">[believed — policy text via search]</span></td><td class="b">Another reason to keep business content minimal in Telegram: the record lives in our database, not in the chat.</td></tr>
           <tr><td>Employee monitoring (Labour Law 33/2021)</td><td>Must be disclosed, proportionate, purpose-limited. <span class="b">[believed]</span></td><td class="v">The bot is a self-report channel: no location, no scoring, no reading of private chats.</td></tr>
@@ -414,7 +448,7 @@
       <div class="card edge-ok"><h3 style="margin-top:0">So, in practice</h3>
         <ul>
           <li><b>Keep Telegram as the primary channel</b> — especially for drivers and field staff: already installed, no password, one tap, and the Acknowledge tap is proof a human read it.</li>
-          <li><b>Re-issue the consent notice</b> so it names Telegram, the AI provider and where each runs; ask everyone again. The system already versions and hashes the notice.</li>
+          <li><b>Re-issue the consent notice</b> so it names Telegram, the AI provider and where each runs; ask everyone again. <span class="tag ok">Built 28 Sep</span> — notice 2.0 is generated from the configuration, versioned and hashed, and put to everyone in Telegram and the app; it still needs the company's wording and a lawyer's read.</li>
           <li><b>Keep the database as the only record</b> — already true; Telegram carries messages, it stores nothing we rely on.</li>
           <li><b>The in-country replacement is built (26 Sep)</b> — Dashboard → Alerts → Channels offers <b>Telegram</b> (default) / <b>Telegram + App</b> / <b>App only</b>. The app is the dashboard inbox plus phone notifications, stored on our own server; <em>App only</em> is refused until phone notifications are set up, so nobody is left unreachable. A rule change or a ban is one switch, not a rebuild.</li>
           <li><b>Send less through Telegram</b> — task titles and short status words, never health details, IDs or phone numbers; the full record stays in our database.</li>
@@ -425,15 +459,15 @@
 </section>
 
 <!-- 14 ────────────────────────────────────────────────────────────────────── -->
-<section class="slide" data-n="15" id="s15">
+<section class="slide" data-n="16" id="s16">
   <span class="kicker">Decisions and actions</span>
   <h2>What to do, in order — most of it is a decision, not a project</h2>
   <table>
     <thead><tr><th>#</th><th>Action</th><th>Article</th><th>Who</th><th>Effort</th><th>Cost</th></tr></thead>
     <tbody>
-      <tr class="hi"><td>1</td><td><b>Host in the UAE, not on Hostinger.</b> Pick from slide 8. The software moves unchanged.</td><td>22–23</td><td>CEO decides · developer moves it</td><td>days</td><td>$53–$344 / month</td></tr>
+      <tr class="hi"><td>1</td><td><b>Host in the UAE, not on Hostinger.</b> Pick from slide 9. The software moves unchanged.</td><td>22–23</td><td>CEO decides · developer moves it</td><td>days</td><td>$53–$344 / month</td></tr>
       <tr class="hi"><td>2</td><td><b>Move the AI to Core42</b> (same model); remove the US fallbacks; voice via Azure UAE North Whisper or Core42. Re-run our tests and benchmark first.</td><td>7(5), 8, 22–23</td><td>CEO signs up · developer switches</td><td>days</td><td>≈ $7 / month</td></tr>
-      <tr class="hi"><td>3</td><td><b>Re-issue the consent notice</b> naming Telegram, the AI provider and where it runs; native-speaker Hindi and Malayalam; ask everyone again.</td><td>5(1), 6</td><td>company wording · lawyer · developer ships it</td><td>hours after wording</td><td>—</td></tr>
+      <tr class="hi"><td>3</td><td><b>Re-issue the consent notice</b> naming Telegram, the AI provider and where it runs; native-speaker Hindi and Malayalam; ask everyone again. <span class="tag ok">software built 28 Sep</span></td><td>5(1), 6, 23</td><td>company wording · lawyer · native-speaker translations</td><td>done in software; wording pending</td><td>—</td></tr>
       <tr><td>4</td><td>Sign a data-processing agreement with each processor that sees content: the host, Core42, Langfuse if kept in the cloud.</td><td>7(5), 8(1)</td><td>company</td><td>contract work</td><td>—</td></tr>
       <tr><td>5</td><td>Keep a record of processing (categories, access, retention, cross-border movement). Most of it already exists in the system's semantic layer.</td><td>7(4)</td><td>company + developer</td><td>half a day</td><td>—</td></tr>
       <tr><td>6</td><td>Set the retention window (<code>RETENTION_DAYS</code>, ≥ 30). The sweep is built and waiting for a number.</td><td>5(7)</td><td>company decides</td><td>minutes</td><td>—</td></tr>
@@ -448,7 +482,7 @@
 </section>
 
 <!-- 15 ────────────────────────────────────────────────────────────────────── -->
-<section class="slide" data-n="16" id="s16">
+<section class="slide" data-n="17" id="s17">
   <span class="kicker">Sources</span>
   <h2>Every claim above, and where to check it</h2>
   <div class="grid g2 small">
@@ -461,6 +495,9 @@
         <li>DLA Piper, <em>Data Protection Laws of the World — UAE</em>: <a href="https://www.dlapiperdataprotection.com/countries/uae-general/law.html">link</a></li>
         <li>PwC, <em>Healthcare data protection in the UAE</em> (ICT Health Law): <a href="https://www.pwc.com/m1/en/publications/documents/healthcare-data-protection-in-the-uae.pdf">PDF</a></li>
         <li>TDRA FAQs (VoIP): <a href="https://tdra.gov.ae/en/FAQs">link</a> · Telegram privacy policy: <a href="https://telegram.org/privacy">link</a> · Telegram FAQ (data centres): <a href="https://telegram.org/faq">link</a> · Help Net Security on the Sept 2024 disclosure change: <a href="https://www.helpnetsecurity.com/2024/09/24/telegram-legal-requests/">link</a></li>
+        <li>Ashurst, <em>Data Bytes 67 — EMEA data privacy update, July 2026</em> (Regulations still pending; the new Authority): <a href="https://www.ashurstperkinscoie.com/en/insights/data-bytes-67-your-emea-data-privacy-update-for-july-2026/">link</a></li>
+        <li>Morgan Lewis, <em>UAE Establishes Federal Authority for Artificial Intelligence and Data</em> (June 2026): <a href="https://www.morganlewis.com/pubs/2026/06/uae-establishes-federal-authority-for-artificial-intelligence-and-data">link</a> · Global Government Forum: <a href="https://www.globalgovernmentforum.com/uae-creates-dedicated-artificial-intelligence-and-data-authority-to-build-government-of-the-future/">link</a></li>
+        <li>Cabinet Resolution 111/2022 (virtual assets, not the PDPL): <a href="https://hadefpartners.com/news-insights/insights/developments-in-uae-virtual-assets-regulations-issuance-of-cabinet-resolution-111-of-2022/">Hadef &amp; Partners</a></li>
         <li>Cabinet Decision 83/2022 (a speed-radar regulation, not the PDPL): <a href="https://www.lexismiddleeast.com/law/UnitedArabEmirates/CabinetDecision_83_2022/en">LexisMiddleEast</a></li>
       </ul>
       <h3>Hosting</h3>
@@ -497,13 +534,14 @@
 </section>
 
 <!-- 16 ────────────────────────────────────────────────────────────────────── -->
-<section class="slide" data-n="17" id="s17">
+<section class="slide" data-n="18" id="s18">
   <span class="kicker">What is not verified</span>
   <h2>Where this briefing could be wrong, stated plainly</h2>
   <div class="grid g2">
     <div class="card edge-warn">
       <ul>
-        <li><b>Whether the Executive Regulations have been issued since March 2026.</b> Chambers says no; no primary source found either way. <b>Counsel should check the Official Gazette.</b></li>
+        <li><b>Whether the Executive Regulations have been issued since March 2026.</b> Chambers (Mar) and Ashurst (Jul) say no; no primary source found either way. <b>Counsel should check the Official Gazette.</b> The new Authority (14 June 2026) is corroborated by four reports read through search, not on a government page.</li>
+        <li><b>The verdict (slide 2) is a technical reading</b>, including whether an employee's consent counts as freely given for a transfer. <b>Counsel should confirm it.</b> The consent notice 2.0 wording has not been reviewed by FreshNow or a lawyer.</li>
         <li><b>Whether Daily Vending LLC is a mainland or free-zone company.</b> Assumed mainland; DIFC/ADGM would change the regime.</li>
         <li><b>Whether a regulator would treat Telegram as a processor</b> needing a contract it does not offer. A reading, not counsel's opinion.</li>
         <li><b>Azure prices are from a third-party tracker</b> (dated 18–19 Sep 2026) and exclude disk and bandwidth. AWS prices now come from AWS's own price list (25 Sep). Confirm both in the official calculators before signing.</li>

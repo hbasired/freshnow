@@ -166,9 +166,6 @@ export { extractJson } from "./llm/extract.js";
 export { estimateCost } from "./llm/cost.js";
 
 export {
-  CONSENT_POLICY_VERSION,
-  consentNotice,
-  noticeHash,
   validateInvite,
   redeemInvite,
   PROFILE_STEPS,
@@ -176,13 +173,25 @@ export {
   updateProfileField,
   ensureCeoLinked,
   withdrawConsent,
-  APP_CONSENT_POLICY_VERSION,
-  appConsentNotice,
-  consentStatus,
-  recordAppConsent,
-  ConsentNoticeChangedError,
 } from "./onboarding.js";
-export type { InviteCheck, RedeemResult, ProfileStep, ProfileField, ConsentStatus } from "./onboarding.js";
+export type { InviteCheck, RedeemResult, ProfileStep, ProfileField } from "./onboarding.js";
+
+export {
+  CONSENT_POLICY_VERSION,
+  consentNotice,
+  dataRecipientLines,
+  noticeHash,
+  currentNoticeHash,
+  currentNoticeHashes,
+  noticeTag,
+  hasCurrentConsent,
+  consentStatus,
+  recordConsent,
+  consentKeyboard,
+  requestConsentFromEveryone,
+  ConsentNoticeChangedError,
+} from "./consent.js";
+export type { ConsentStatus } from "./consent.js";
 
 export {
   listOpenTasks,

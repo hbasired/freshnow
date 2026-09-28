@@ -37,8 +37,8 @@ const REDACTED = "[redacted — retention window elapsed]";
 const ANON_NAME = "Former employee";
 
 /** The configured window, or null when the company has not decided one. */
-export function retentionDays(): number | null {
-  const raw = process.env.RETENTION_DAYS;
+export function retentionDays(env: NodeJS.ProcessEnv = process.env): number | null {
+  const raw = env.RETENTION_DAYS;
   if (!raw) return null;
   const n = Number(raw);
   return Number.isInteger(n) && n >= 30 ? n : null;

@@ -1,4 +1,4 @@
-import { getServiceSql, logAudit } from "@freshnow/core";
+import { CONSENT_POLICY_VERSION, currentNoticeHashes, getServiceSql, logAudit } from "@freshnow/core";
 
 /** Thrown by a deliverer on a provider rate-limit (Telegram 429). Never abandons. */
 export class RateLimitError extends Error {
@@ -88,20 +88,40 @@ export async function deliverOutboxBatch(
   const channels = Object.keys(senders).filter((k) => senders[k as keyof Senders]);
 
   const abandonedRows: AbandonedRow[] = [];
+  const hashes = currentNoticeHashes();
   const result = await (sql.begin(async (tx) => {
     // Only rows that are DUE. Without this filter a permanently-failing row is
     // re-claimed on every poll, and `batchSize` such rows fill the batch forever —
     // head-of-line blocking that stops all outbound delivery while the relay spins on
     // the same failures every 3 seconds.
+    //
+    // And only rows whose recipient has agreed to the notice as it reads today. Sending a
+    // person's work to Telegram, a push relay or an email provider is a transfer of their
+    // data, and consent to an older notice that never named those services does not cover it
+    // (consent.ts). Held rows are simply not claimed: they stay pending, cost nothing to skip,
+    // cannot block the batch, and go out on the first poll after the person agrees. Never held:
+    // the in-app inbox (our own database — it is where the person finds the request), the
+    // consent request itself, and rows with no recipient on record.
     const rows = await tx<OutboxRow[]>`
-      select id, chat_id, payload, attempts, channel, recipient_employee_id,
-             idempotency_key, correlation_id
-      from notification_outbox
-      where status = 'pending' and next_attempt_at <= now()
-        and channel = any(${channels})
-      order by created_at
+      select o.id, o.chat_id, o.payload, o.attempts, o.channel, o.recipient_employee_id,
+             o.idempotency_key, o.correlation_id
+      from notification_outbox o
+      where o.status = 'pending' and o.next_attempt_at <= now()
+        and o.channel = any(${channels})
+        and (
+          o.channel = 'inapp'
+          or o.recipient_employee_id is null
+          or o.payload->>'kind' = 'consent.requested'
+          or exists (
+            select 1 from consent_record c
+            where c.employee_id = o.recipient_employee_id
+              and c.policy_version = ${CONSENT_POLICY_VERSION}
+              and c.notice_hash = any(${hashes})
+          )
+        )
+      order by o.created_at
       limit ${batchSize}
-      for update skip locked`;
+      for update of o skip locked`;
 
     let sent = 0;
     let abandoned = 0;
