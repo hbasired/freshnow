@@ -1,0 +1,517 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hostinger, Groq, OpenRouter — the final answer</title>
+<meta name="description" content="A CEO briefing: whether FreshNow can run on Hostinger and use Groq or OpenRouter under UAE law, a claim-by-claim check of a second opinion, the conditions, and what policy as code can and cannot enforce.">
+<style>
+  /* ── Light theme, FreshNow colours ───────────────────────────────────────────
+     Brand fills (#97d700 / #9bca3c / #f39c12) carry near-black ink: they are 8.6–10.9:1
+     with dark text and 1.7–2.2:1 with white, so white text never sits on them. Where a
+     colour has to be READ it is the darkened step: green #3d6b10 (6.35:1 on white),
+     orange #9d5404 (5.67:1), red #a40e26 (7.87:1), blue #0550ae (7.59:1). */
+  :root{
+    --bg:#ffffff; --card:#f6f8fa; --edge:#d0d7de; --ink:#1f2328; --mut:#59636e;
+    --brand:#97d700; --brand2:#9bca3c; --accent:#f39c12; --on-brand:#0d1117;
+    --ok:#3d6b10; --warn:#9d5404; --crit:#a40e26; --info:#0550ae;
+    --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100;   /* categorical, validated */
+    --grid:#e1e4e8;
+  }
+  *{box-sizing:border-box}
+  html{scroll-snap-type:y proximity;scroll-behavior:smooth}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.55 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  section.slide{min-height:100vh;scroll-snap-align:start;padding:44px 56px 56px;position:relative;display:flex;flex-direction:column;justify-content:center;max-width:1400px;margin:0 auto}
+  section.slide::after{content:attr(data-n)" / 15";position:absolute;right:56px;bottom:22px;font-size:12px;color:var(--mut)}
+  h1{font-size:2.6rem;line-height:1.15;margin:0 0 .6rem;letter-spacing:-.01em}
+  h2{font-size:1.9rem;line-height:1.2;margin:0 0 1rem;letter-spacing:-.01em}
+  h3{font-size:1.05rem;margin:1.2rem 0 .4rem}
+  p{margin:.4rem 0}
+  .kicker{display:inline-block;align-self:flex-start;background:var(--brand);color:var(--on-brand);font-weight:800;font-size:.8rem;letter-spacing:.08em;text-transform:uppercase;padding:4px 10px;border-radius:999px;margin-bottom:14px}
+  .lead{font-size:1.2rem;max-width:62ch;color:var(--ink)}
+  .mut{color:var(--mut)} .small{font-size:.86rem} .tiny{font-size:.76rem}
+  .grid{display:grid;gap:18px} .grid>*{min-width:0} .g2{grid-template-columns:1fr 1fr} .g32{grid-template-columns:3fr 2fr} .g3{grid-template-columns:repeat(3,1fr)} .g4{grid-template-columns:repeat(4,1fr)}
+  .card{background:var(--card);border:1px solid var(--edge);border-radius:16px;padding:18px 20px}
+  .card.brand{background:linear-gradient(110deg,var(--brand2),var(--brand));border:0;color:var(--on-brand)}
+  .card.brand .mut{color:#1f2328cc}
+  .edge-ok{border-left:5px solid var(--ok)} .edge-warn{border-left:5px solid var(--accent)} .edge-crit{border-left:5px solid var(--crit)} .edge-info{border-left:5px solid var(--info)}
+  .stat .n{font-size:2.6rem;font-weight:800;line-height:1;margin:.2rem 0}
+  .stat .l{font-size:.85rem;color:var(--mut)}
+  table{border-collapse:collapse;width:100%;font-size:.86rem;background:#fff;border-radius:12px;overflow:hidden}
+  th,td{border:1px solid var(--edge);padding:6px 9px;text-align:left;vertical-align:top}
+  th{background:var(--card);font-weight:700}
+  td.n,th.n{text-align:right;font-variant-numeric:tabular-nums} td.n{white-space:nowrap}
+  tr.hi td{background:#f2f9e3}
+  .v{color:var(--ok);font-weight:700}.b{color:var(--warn);font-weight:700}.a{color:var(--crit);font-weight:700}.i{color:var(--info);font-weight:700}
+  .tag{display:inline-block;font-size:.72rem;font-weight:800;padding:2px 8px;border-radius:999px;vertical-align:1px}
+  .tag.ok{background:#e6f4d5;color:var(--ok)} .tag.warn{background:#fff0dc;color:var(--warn)} .tag.crit{background:#ffe3e0;color:var(--crit)} .tag.info{background:#e1eefb;color:var(--info)} .tag.mut{background:#eaeef2;color:var(--mut)}
+  blockquote{margin:.5rem 0;padding:8px 14px;border-left:4px solid var(--brand);background:#f7fbee;border-radius:0 10px 10px 0;font-size:.92rem}
+  ul{padding-left:1.15rem;margin:.3rem 0} li{margin:.25rem 0}
+  a{color:var(--info)}
+  .foot{position:absolute;left:56px;bottom:22px;font-size:12px;color:var(--mut)}
+  .btn{background:var(--accent);color:var(--on-brand);font-weight:800;padding:8px 14px;border-radius:12px;display:inline-block}
+  .cite{font-size:.74rem;color:var(--mut);margin-top:6px}
+  .cite a{color:var(--info)}
+  .viz{margin-top:8px}
+  .legend{display:flex;gap:16px;font-size:.82rem;color:var(--mut);margin:6px 0 2px;flex-wrap:wrap}
+  .legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+  svg text{font-family:inherit}
+  .tip{position:fixed;pointer-events:none;background:#fff;border:1px solid var(--edge);border-radius:10px;padding:8px 10px;font-size:.8rem;box-shadow:0 6px 24px #0002;display:none;z-index:9}
+  .nav{position:fixed;right:18px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:6px;z-index:8}
+  .nav a{width:8px;height:8px;border-radius:50%;background:var(--edge);display:block}
+  .nav a.on{background:var(--ok)}
+  .hint{position:fixed;right:40px;top:10px;font-size:11px;color:var(--mut);background:#ffffffd9;padding:3px 10px;border-radius:999px;border:1px solid var(--edge)}
+  .flow{display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center}
+  .node{background:#fff;border:1px solid var(--edge);border-radius:12px;padding:10px 12px;font-size:.88rem}
+  .node.bad{border-color:var(--crit);background:#fff5f4} .node.ok{border-color:var(--ok);background:#f4faec} .node.warn{border-color:var(--accent);background:#fff8ec}
+  .arrow{font-size:1.4rem;color:var(--mut);text-align:center}
+  @media (max-width:900px){section.slide{padding:32px 20px 56px;min-height:auto}table{display:block;overflow-x:auto;max-width:100%}.flow{grid-template-columns:1fr !important}.flow .arrow{transform:rotate(90deg)}code{word-break:break-all}.g2,.g3,.g4,.g32{grid-template-columns:1fr}h1{font-size:1.9rem}h2{font-size:1.4rem}.nav{display:none}section.slide::after{right:20px}.foot{left:20px}}
+  @media print{html{scroll-snap-type:none}section.slide{min-height:auto;page-break-after:always;padding:24px}.nav,.hint,.tip{display:none}}
+</style>
+</head>
+<body>
+<div class="hint">← → or ↑ ↓ to move · Home / End · P to print</div>
+<nav class="nav" id="nav"></nav>
+
+<!-- 1 ─────────────────────────────────────────────────────────────────────── -->
+<section class="slide" data-n="1" id="s1">
+  <span class="kicker">CEO briefing · 29 September 2026 · the final answer on Hostinger, Groq and OpenRouter</span>
+  <h1>Can FreshNow run on Hostinger —<br>and stay inside UAE law?</h1>
+  <p class="lead">A second opinion (a Google AI answer) said: yes, with rules; and not Groq or OpenRouter. This briefing checks that answer line by line
+  against the law and fresh sources, then gives one conclusion: what is allowed, under which conditions, what "policy as code" can enforce — and what it cannot.</p>
+  <div class="grid g4" style="margin-top:22px">
+    <div class="card stat edge-warn"><div class="l">Hostinger</div><div class="n" style="font-size:1.35rem">Lawful — with conditions</div><div class="l">EU data centre · every employee's express consent · Hostinger's DPA · encryption and access controls</div></div>
+    <div class="card stat edge-warn"><div class="l">Groq / OpenRouter</div><div class="n" style="font-size:1.35rem">Only with consent + zero retention</div><div class="l">and never with names, phone numbers or IDs in the prompt</div></div>
+    <div class="card stat edge-info"><div class="l">Policy as code</div><div class="n" style="font-size:1.35rem">Yes — as the guard</div><div class="l">stops known violations and proves compliance; cannot sign a contract or decide the law</div></div>
+    <div class="card stat edge-ok"><div class="l">Our recommendation</div><div class="n" style="font-size:1.35rem">UAE host + Core42</div><div class="l">about the same monthly price as Hostinger's renewal, and nothing to justify</div></div>
+  </div>
+  <p class="small mut" style="margin-top:18px">Markers: <span class="v">[verified]</span> read in the law's text or our own system · <span class="b">[believed]</span> reputable sources or search results that agree · <span class="a">[uncertain]</span> sources conflict or none found · <span class="tag mut">estimate</span> computed from stated inputs. <b>This session could not open the law's PDF, Hostinger's, Groq's or OpenRouter's pages directly</b> (network policy) — their findings rest on search results. A technical reading for counsel to confirm, not legal advice.</p>
+  <div class="foot">Prepared by the development team · follows <code>ceo-deck-data-residency.html</code> and <code>ceo-deck-azure-aws-uae.html</code> · sources on slide 14 · not verified on slide 15</div>
+</section>
+
+<!-- 2 ─────────────────────────────────────────────────────────────────────── -->
+<section class="slide" data-n="2" id="s2">
+  <span class="kicker">The answer in one slide</span>
+  <h2>Four questions, four answers</h2>
+  <div class="grid g2">
+    <div class="card edge-warn"><h3 style="margin-top:0">1 · Can we host the database and system on Hostinger?</h3>
+      <p><b>Yes, it can be lawful.</b> The PDPL has no rule forcing employee data to stay in the UAE. But every record on Hostinger is a <b>transfer abroad</b>, and today only two grounds work: each employee's <b>express consent</b>, and a <b>contract that imposes the law's controls</b> — whose use for an EU country is unsettled. So: an EU data centre, consent (built — notice 2.0), Hostinger's DPA accepted, and the security controls on slide 6. <span class="b">[believed — counsel to confirm]</span></p></div>
+    <div class="card edge-warn"><h3 style="margin-top:0">2 · Can we keep Groq or OpenRouter?</h3>
+      <p><b>For code or anonymous text: yes, freely.</b> For employee words: only with consent (built), their <b>zero-data-retention</b> settings on, and names and numbers removed first. Both have improved since our last deck — Groq now offers every account a zero-retention switch and a DPA; OpenRouter does not log prompts by default and can force zero-retention routing — but both still process in the US. <span class="b">[believed — slide 7]</span></p></div>
+    <div class="card edge-info"><h3 style="margin-top:0">3 · Can "policy as code" make sure there is no violation?</h3>
+      <p>It can make <b>known</b> violations impossible to deploy or to run — an AI provider nobody registered, a message to someone who has not agreed, retention unset, backups unencrypted — and it produces the <b>evidence</b>. It cannot sign a DPA, decide what the law means, or see inside Hostinger. "No violation" is a legal conclusion: counsel draws it, code enforces it and proves it. <span class="b">[slides 8–11]</span></p></div>
+    <div class="card edge-ok"><h3 style="margin-top:0">4 · What do we recommend?</h3>
+      <p><b>A UAE host + Core42 for the AI.</b> A Dubai VPS costs <b>$27.70–$52.70</b> a month; Hostinger's KVM 8 is <b>$29.99</b> the first term, then <b>$49.99</b>. The saving from Hostinger is at most a few dollars a month, against a permanent transfer of the whole database that rests on consent any employee can withdraw. If the company still chooses Hostinger: <b>Option B</b>, with every condition on slide 6. <span class="b">[prices believed, 19–26 Sep]</span></p></div>
+  </div>
+</section>
+
+<!-- 3 ─────────────────────────────────────────────────────────────────────── -->
+<section class="slide" data-n="3" id="s3">
+  <span class="kicker">Fact-check of the Google answer</span>
+  <h2>Mostly right on the direction — wrong on three details that matter</h2>
+  <table class="small">
+    <thead><tr><th style="width:30%">What it said</th><th style="width:11%">Verdict</th><th>Correction or detail</th></tr></thead>
+    <tbody>
+      <tr><td>No data-localisation rule for employee records; hosting abroad is allowed with safeguards</td><td class="v">Correct</td><td>Matches our reading of Art. 22–23 and the sector table in the data-residency deck. <span class="v">[verified — the law's text]</span></td></tr>
+      <tr><td>Signing up for an API key is a binding contract (Terms of Service)</td><td class="b">Partly</td><td>A ToS is a contract, but the PDPL asks for more: a processor appointed under a contract with "sufficient guarantees" (Art. 7(5), 8(1)), and — for the contract route abroad — one that imposes <i>this law's</i> controls (Art. 23(1)(a)). A click-through ToS does neither by default.</td></tr>
+      <tr><td>Anonymised data is outside the PDPL</td><td class="v">Correct</td><td>But employee free text is rarely anonymous ("the only driver on the Deira route"). Removing names is <b>pseudonymisation</b> — the law names it as a security measure (Art. 20) — and the data is still personal.</td></tr>
+      <tr><td>Transfer to "adequate jurisdictions approved by the UAE Data Office"</td><td class="b">Not usable</td><td>Right in law; no adequacy list has been issued. The Executive Regulations are still pending. <span class="b">[believed — Ashurst, Jul 2026; ABS Partners]</span></td></tr>
+      <tr><td>"Standard Contractual Clauses" / "approved contractual clauses"</td><td class="a">Wrong today</td><td>The UAE has issued <b>no</b> SCCs or templates. The contract route is a bespoke agreement imposing the law's controls — and, as some commentators read Art. 23(1)(a), it is written for countries with <i>no</i> data-protection law, which leaves EU countries unclear. <span class="a">[uncertain — counsel]</span></td></tr>
+      <tr><td>Express consent of the person</td><td class="v">Correct</td><td>Built — notice 2.0 (28 Sep). Withdrawable at any time; whether consent from an employee is freely given is debated. <span class="b">[believed]</span></td></tr>
+      <tr><td>OpenRouter's models may train on inputs — configure the privacy settings</td><td class="v">Correct</td><td>And easier now: prompt logging off by default, <code>data_collection: "deny"</code>, zero-retention routing; Groq: zero-retention switch, no training by agreement. <span class="b">[believed — slide 7]</span></td></tr>
+      <tr><td>DIFC / ADGM companies are outside the federal PDPL</td><td class="v">Correct</td><td>Daily Vending LLC is <b>assumed mainland</b> — please confirm; a free-zone licence changes the regime.</td></tr>
+      <tr><td>Hostinger's DPA satisfies the PDPL's "appropriate safeguards"</td><td class="a">Overstated</td><td>"Appropriate safeguards" is GDPR language; the PDPL has no such route. Hostinger's DPA is written for GDPR. Accept it — you need a processor contract anyway (Art. 7–8) — but on its own it is not a settled transfer ground. <span class="a">[uncertain]</span></td></tr>
+      <tr><td>Employee data rests on contractual/legal necessity; just tell employees it is hosted abroad</td><td class="b">Half right</td><td>Necessity covers the <i>processing</i> (Art. 4). The <i>transfer abroad</i> needs its own ground (Art. 22–23). Telling people is required; it is not a ground. Their <b>express consent</b> is.</td></tr>
+      <tr><td>"The UAE Data Office actively audits enterprise data practices"</td><td class="a">Not supported</td><td>The Data Office never became operational; on 14 June 2026 it was folded into a new <b>Federal Authority for AI and Data</b>. No audits or fines were found. The duties exist regardless. <span class="b">[believed — Morgan Lewis, Ashurst]</span></td></tr>
+      <tr><td>Encryption, least privilege, MFA, audit logs</td><td class="v">Correct</td><td>The law requires security "appropriate to the risk" and names encryption and pseudonymisation (Art. 20). MFA and access logs are good practice, not named. <span class="v">[verified — Art. 20]</span></td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- 4 ─────────────────────────────────────────────────────────────────────── -->
+<section class="slide" data-n="4" id="s4">
+  <span class="kicker">The law, in one slide</span>
+  <h2>Federal Decree-Law 45/2021 — the articles a hosting decision touches</h2>
+  <div class="grid g2">
+    <table class="small">
+      <thead><tr><th>Article</th><th>What it requires</th><th>For Hostinger</th></tr></thead>
+      <tbody>
+        <tr><td>2</td><td>Applies to every controller in the UAE, wherever processing happens</td><td>Applies — the server's location does not change that</td></tr>
+        <tr><td>4</td><td>Lawful bases, including employment and contract</td><td>Covers <i>processing</i> the ops data</td></tr>
+        <tr><td>5(7)</td><td>Keep only as long as needed</td><td>Set <code>RETENTION_DAYS</code> — the sweep is built</td></tr>
+        <tr><td>6</td><td>Consent must be specific, clear, withdrawable</td><td>The notice must name Hostinger and its country</td></tr>
+        <tr><td>7(4), 7(5), 8(1)</td><td>Record of processing; processors under contract with sufficient guarantees</td><td>Hostinger's DPA; a record that lists it</td></tr>
+        <tr><td>9</td><td>Report breaches; tell affected people</td><td>A breach at Hostinger is ours to report</td></tr>
+        <tr><td>20</td><td>Security appropriate to the risk — "encryption … and pseudonymisation"</td><td>Encryption, access control, tested backups</td></tr>
+        <tr><td>22</td><td>Transfer to a country approved as adequate</td><td><b>Not available</b> — no list issued</td></tr>
+        <tr><td>23</td><td>Otherwise: a contract imposing the law's controls, express consent, necessity for a contract, and three narrow cases</td><td>Consent + DPA; necessity is weak when UAE hosting exists</td></tr>
+        <tr><td>26, 29</td><td>Fines set by a separate Cabinet decision; six months to regularise once the Regulations appear</td><td>Neither issued yet — the clock can start any time</td></tr>
+      </tbody>
+    </table>
+    <div>
+      <div class="card edge-info"><h3 style="margin-top:0">Where enforcement stands (29 Sep 2026)</h3>
+        <ul class="small">
+          <li>Executive Regulations: <b>still pending</b> (Ashurst, July 2026) <span class="b">[believed]</span></li>
+          <li>Adequacy list and contract templates: <b>not issued</b> <span class="b">[believed — ABS Partners, Kayrouz 2026]</span></li>
+          <li>A <b>Federal Authority for AI and Data</b> exists since 14 June 2026 and absorbed the Data Office <span class="b">[believed — four reports]</span></li>
+          <li>Five search claims that named an "issued" Regulations instrument have been traced and found false — which is why every legal status here carries a marker.</li>
+        </ul></div>
+      <div class="card edge-warn"><h3 style="margin-top:0">What that means for choosing a host</h3>
+        <p class="small">Nothing forbids Hostinger today and nobody is auditing today. But a choice made now has to survive the day the Regulations arrive — they may add procedures for exactly the transfers Hostinger would require, with six months to comply. A UAE host is the only choice those Regulations cannot touch.</p></div>
+      <p class="cite">Articles quoted from the English translation (LexisNexis Middle East), read in an earlier session; Art. 20(1)(a) wording verified then. Art. 23(1)(a)'s exact scope: see slide 5.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 5 ─────────────────────────────────────────────────────────────────────── -->
+<section class="slide" data-n="5" id="s5">
+  <span class="kicker">Hostinger · the legal route</span>
+  <h2>Every record on Hostinger is a transfer abroad — which ground carries it?</h2>
+  <table>
+    <thead><tr><th style="width:22%">Ground</th><th>How it would work for Hostinger</th><th style="width:18%">Verdict</th></tr></thead>
+    <tbody>
+      <tr><td><b>Art. 22</b> — adequate country</td><td>Lithuania or Germany would be natural candidates (GDPR), but no country has been approved because no list exists.</td><td class="a">Not available today</td></tr>
+      <tr><td><b>Art. 23(1)(a)</b> — contract imposing the law's controls</td><td>Hostinger's DPA is GDPR-based and does not mention the UAE law; self-serve customers cannot add clauses <span class="b">[believed]</span>. Some commentators read (a) as written for countries <i>without</i> a data-protection law, which would not fit an EU data centre <span class="a">[uncertain]</span>.</td><td class="b">Accept the DPA — needed anyway as the processor contract — but do not rely on it alone</td></tr>
+      <tr class="hi"><td><b>Art. 23(1)(b)</b> — express consent</td><td>Notice 2.0 already asks everyone and is built from the configuration; add one line naming the host and its country and everyone is asked again. A withdrawal is handled by anonymising that person's records (built: People → Has left).</td><td class="v">Works — the main ground</td></tr>
+      <tr><td><b>Art. 23(1)(d)</b> — necessary to perform the employment contract</td><td>Hosting abroad is not <i>necessary</i> when UAE hosting exists at a similar price.</td><td class="a">Weak</td></tr>
+    </tbody>
+  </table>
+  <div class="grid g2" style="margin-top:12px">
+    <div class="card edge-ok"><h3 style="margin-top:0">If Hostinger: which data centre</h3>
+      <p class="small">Hostinger's VPS locations: France, Germany, Lithuania, UK, India, Indonesia, Malaysia, USA (Phoenix, Boston), Brazil — <b>none in the UAE or the Middle East</b>. <span class="v">[verified 21 Sep on Hostinger's page]</span> <span class="b">[re-checked 26 Sep and 29 Sep via search]</span></p>
+      <p class="small"><b>Choose an EU location</b> — Lithuania (Hostinger's home) or Germany — so the data sits under GDPR, the strictest regime on offer. Avoid the US, India, Indonesia, Malaysia and Brazil.</p></div>
+    <div class="card edge-warn"><h3 style="margin-top:0">The weakness of consent as the only ground</h3>
+      <p class="small">Consent can be withdrawn at any time, and in an employment relationship whether it is freely given is contested. A person who says no must still be able to work — without the system, or through a UAE-only path we have not built. With a UAE host the database needs no ground at all; only Telegram does.</p></div>
+  </div>
+</section>
+
+<!-- 6 ─────────────────────────────────────────────────────────────────────── -->
+<section class="slide" data-n="6" id="s6">
+  <span class="kicker">Hostinger · the conditions</span>
+  <h2>If the company chooses Hostinger: fourteen conditions, and who owns each</h2>
+  <table class="small">
+    <thead><tr><th>#</th><th>Condition</th><th>Law</th><th>Owner</th><th>Status</th></tr></thead>
+    <tbody>
+      <tr><td colspan="5" style="background:var(--card)"><b>Legal</b></td></tr>
+      <tr><td>1</td><td>Order the VPS in an <b>EU data centre</b> (Lithuania or Germany); never migrate it silently</td><td>22–23</td><td>CEO</td><td><span class="tag warn">to do</span></td></tr>
+      <tr><td>2</td><td>Accept <b>Hostinger's DPA</b>; keep a dated copy</td><td>7(5), 8(1)</td><td>company</td><td><span class="tag warn">to do</span></td></tr>
+      <tr><td>3</td><td>Consent notice names the host and its country; everyone agrees again</td><td>6, 23(1)(b)</td><td>developer</td><td><span class="tag ok">built</span> — add the host line</td></tr>
+      <tr><td>4</td><td><b>Counsel</b> confirms consent + DPA as the transfer basis, and consent in employment</td><td>23</td><td>counsel</td><td><span class="tag warn">to do</span></td></tr>
+      <tr><td>5</td><td>Record of processing: every service, country, ground, retention</td><td>7(4)</td><td>developer</td><td><span class="tag info">generated by the registry (slide 9)</span></td></tr>
+      <tr><td>6</td><td>Breach procedure and a named data-protection contact</td><td>9</td><td>company</td><td><span class="tag warn">to do</span></td></tr>
+      <tr><td>7</td><td>A retention period</td><td>5(7)</td><td>company</td><td><span class="tag ok">sweep built</span> — needs the number</td></tr>
+      <tr><td colspan="5" style="background:var(--card)"><b>Technical</b> — Art. 20: security appropriate to the risk</td></tr>
+      <tr><td>8</td><td>HTTPS everywhere (Caddy); Postgres and Redis never reachable from the internet</td><td>20</td><td>developer</td><td><span class="tag ok">in the design</span> — verify on the box</td></tr>
+      <tr><td>9</td><td>Encryption at rest: encrypted backups; the most sensitive text columns encrypted in the database; full-disk encryption if Hostinger's VPS allows it <span class="a">[uncertain]</span></td><td>20(1)(a)</td><td>developer</td><td><span class="tag warn">to do</span></td></tr>
+      <tr><td>10</td><td>Access: SSH keys only, root login off, firewall open on 80/443 only, two-factor sign-in on the Hostinger account, least-privilege database roles</td><td>20</td><td>developer + CEO</td><td><span class="tag ok">RLS built</span> · rest to do</td></tr>
+      <tr><td>11</td><td>Audit: who changed what (built), plus who read the database directly (e.g. pgaudit)</td><td>20</td><td>developer</td><td><span class="tag ok">app audit built</span> · DB log to do</td></tr>
+      <tr><td>12</td><td>Backups encrypted and tested, a second copy also in the EU</td><td>20</td><td>developer</td><td><span class="tag warn">to do</span></td></tr>
+      <tr><td>13</td><td>AI: Core42 (UAE) — or Groq/OpenRouter with zero retention and names removed from prompts</td><td>23, 20</td><td>developer</td><td><span class="tag warn">to do</span></td></tr>
+      <tr><td colspan="5" style="background:var(--card)"><b>Ongoing</b></td></tr>
+      <tr><td>14</td><td>Re-check the day the Executive Regulations appear — six months to comply</td><td>28–29</td><td>counsel</td><td><span class="tag mut">watch</span></td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- 7 ─────────────────────────────────────────────────────────────────────── -->
+<section class="slide" data-n="7" id="s7">
+  <span class="kicker">Groq and OpenRouter · re-checked 29 Sep</span>
+  <h2>Better than our last deck said — still outside the UAE</h2>
+  <table class="small">
+    <thead><tr><th>Provider</th><th>Where</th><th>Retention and training</th><th>Contract</th><th>Allowed for FreshNow?</th></tr></thead>
+    <tbody>
+      <tr><td><b>Groq</b></td><td>US company; retained data in Google Cloud in the US; no EU endpoint</td><td>No retention of inference by default; abuse/reliability logs up to 30 days unless <b>Zero Data Retention</b> is switched on — now available to every account in Data Controls; training on inputs prohibited by its Services Agreement</td><td>A DPA (deletion within 180 days of termination) — <b>check in the console that it applies to your account</b></td><td class="b">Employee words: only with consent (built) + ZDR on + DPA accepted + names removed</td></tr>
+      <tr><td><b>OpenRouter</b></td><td>US company; passes each request to the model's own provider</td><td>Does not log prompts by default; can enforce <b>ZDR-only</b> routing and <code>data_collection: "deny"</code> per request or account; EU/US residency only on paid business plans — no UAE</td><td>A DPA was not confirmed <span class="a">[uncertain]</span></td><td class="b">Same as Groq, plus ZDR and "deny" forced on every call — and it adds a second company to the chain</td></tr>
+      <tr><td><b>Core42</b> (G42)</td><td>UAE — "under UAE jurisdiction"</td><td>Terms to be obtained in writing</td><td>Business terms available</td><td class="v">Recommended — same model, no transfer, about $7 a month</td></tr>
+    </tbody>
+  </table>
+  <div class="grid g2" style="margin-top:12px">
+    <div class="card edge-ok"><h3 style="margin-top:0">Where Groq/OpenRouter are fine today</h3>
+      <p class="small">Code, public text, synthetic demo data, and anything with no person in it. The development setup already runs on synthetic data.</p></div>
+    <div class="card edge-crit"><h3 style="margin-top:0">Where they are not</h3>
+      <p class="small">Real employee updates with default settings: no zero retention, no DPA, prompts carrying names or phone numbers. That is the configuration the earlier decks said to stop — and it still is.</p></div>
+  </div>
+  <p class="cite">Groq: <a href="https://console.groq.com/docs/your-data">Your Data in GroqCloud</a>, <a href="https://trust.groq.com/faq">Trust Center</a>; OpenRouter: <a href="https://openrouter.ai/docs/guides/privacy/data-collection">Data collection</a>, <a href="https://openrouter.ai/docs/guides/features/zdr">Zero Data Retention</a> — all <span class="b">[believed — read through search on 29 Sep; the pages were blocked]</span>. This corrects our 21 Sep reading that Groq offered no DPA on self-serve.</p>
+</section>
+
+<!-- 8 ─────────────────────────────────────────────────────────────────────── -->
+<section class="slide" data-n="8" id="s8">
+  <span class="kicker">Policy as code · what it means for us</span>
+  <h2>Write the compliance rules down once — and let the system refuse to break them</h2>
+  <p class="lead" style="max-width:none">"Policy as code" means the rules live in files the system reads and checks, not in a PDF people forget. For FreshNow that is five layers — three of them already exist.</p>
+  <div class="viz" style="overflow-x:auto">
+    <svg viewBox="0 0 1200 300" style="width:100%;min-width:760px;height:auto" role="img" aria-label="Five layers of policy as code">
+      <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#59636e"/></marker></defs>
+      <g font-size="15" fill="#1f2328">
+        <rect x="10" y="40" width="210" height="190" rx="14" fill="#fff8ec" stroke="#f39c12" stroke-width="2"/>
+        <text x="115" y="72" text-anchor="middle" font-weight="800">1 · Registry</text>
+        <text x="115" y="100" text-anchor="middle" font-size="13">one file: every service</text>
+        <text x="115" y="118" text-anchor="middle" font-size="13">personal data reaches,</text>
+        <text x="115" y="136" text-anchor="middle" font-size="13">its country, legal ground,</text>
+        <text x="115" y="154" text-anchor="middle" font-size="13">DPA date, retention</text>
+        <text x="115" y="205" text-anchor="middle" font-size="13" font-weight="700" fill="#9d5404">TO BUILD</text>
+        <rect x="250" y="40" width="210" height="190" rx="14" fill="#fff8ec" stroke="#f39c12" stroke-width="2"/>
+        <text x="355" y="72" text-anchor="middle" font-weight="800">2 · Before deploy</text>
+        <text x="355" y="100" text-anchor="middle" font-size="13">checks that fail the</text>
+        <text x="355" y="118" text-anchor="middle" font-size="13">release: unregistered</text>
+        <text x="355" y="136" text-anchor="middle" font-size="13">provider, non-EU host,</text>
+        <text x="355" y="154" text-anchor="middle" font-size="13">no DPA, no retention</text>
+        <text x="355" y="205" text-anchor="middle" font-size="13" font-weight="700" fill="#9d5404">TO BUILD</text>
+        <rect x="490" y="40" width="210" height="190" rx="14" fill="#f4faec" stroke="#3d6b10" stroke-width="2"/>
+        <text x="595" y="72" text-anchor="middle" font-weight="800">3 · At start-up</text>
+        <text x="595" y="100" text-anchor="middle" font-size="13">the notice is built from</text>
+        <text x="595" y="118" text-anchor="middle" font-size="13">the configuration; senders</text>
+        <text x="595" y="136" text-anchor="middle" font-size="13">start only with keys;</text>
+        <text x="595" y="154" text-anchor="middle" font-size="13">daily AI budget</text>
+        <text x="595" y="205" text-anchor="middle" font-size="13" font-weight="700" fill="#3d6b10">PARTLY BUILT</text>
+        <rect x="730" y="40" width="210" height="190" rx="14" fill="#f4faec" stroke="#3d6b10" stroke-width="2"/>
+        <text x="835" y="72" text-anchor="middle" font-weight="800">4 · At every request</text>
+        <text x="835" y="100" text-anchor="middle" font-size="13">consent doors (bot, API,</text>
+        <text x="835" y="118" text-anchor="middle" font-size="13">outbox); row-level</text>
+        <text x="835" y="136" text-anchor="middle" font-size="13">security; channel gates;</text>
+        <text x="835" y="154" text-anchor="middle" font-size="13">+ names removed from prompts</text>
+        <text x="835" y="205" text-anchor="middle" font-size="13" font-weight="700" fill="#3d6b10">BUILT · +1 TO BUILD</text>
+        <rect x="970" y="40" width="210" height="190" rx="14" fill="#f4faec" stroke="#3d6b10" stroke-width="2"/>
+        <text x="1075" y="72" text-anchor="middle" font-weight="800">5 · Evidence</text>
+        <text x="1075" y="100" text-anchor="middle" font-size="13">append-only audit log;</text>
+        <text x="1075" y="118" text-anchor="middle" font-size="13">every AI call logged;</text>
+        <text x="1075" y="136" text-anchor="middle" font-size="13">consent by version;</text>
+        <text x="1075" y="154" text-anchor="middle" font-size="13">+ a nightly report</text>
+        <text x="1075" y="205" text-anchor="middle" font-size="13" font-weight="700" fill="#3d6b10">BUILT · +1 TO BUILD</text>
+        <line x1="222" y1="135" x2="246" y2="135" stroke="#59636e" stroke-width="2" marker-end="url(#ar)"/>
+        <line x1="462" y1="135" x2="486" y2="135" stroke="#59636e" stroke-width="2" marker-end="url(#ar)"/>
+        <line x1="702" y1="135" x2="726" y2="135" stroke="#59636e" stroke-width="2" marker-end="url(#ar)"/>
+        <line x1="942" y1="135" x2="966" y2="135" stroke="#59636e" stroke-width="2" marker-end="url(#ar)"/>
+        <text x="600" y="275" text-anchor="middle" font-size="13" fill="#59636e">Orange = to build · green = in the system today (TASK-043 to TASK-046). No new tool is required: the checks can be TypeScript tests, like the 483 already running.</text>
+      </g>
+    </svg>
+  </div>
+</section>
+
+<!-- 9 ─────────────────────────────────────────────────────────────────────── -->
+<section class="slide" data-n="9" id="s9">
+  <span class="kicker">Policy as code · the registry and the rules</span>
+  <h2>One file says where personal data may go; the system checks itself against it</h2>
+  <div class="grid g2">
+    <div>
+      <h3 style="margin-top:0">The registry — <code>compliance/processors.yaml</code> <span class="tag mut">design</span></h3>
+<pre style="background:#0d1117;color:#e6edf3;border-radius:12px;padding:12px 14px;font-size:.76rem;line-height:1.45;overflow-x:auto;margin:0"><code># Every service that personal data reaches. Nothing else may be reached.
+- id: hostinger
+  role: processor                 # hosts the database and the app
+  country: LT                     # Lithuania (EU) — chosen at order time
+  data: [all]
+  ground: [consent, contract]     # PDPL Art. 23(1)(b) + (a)
+  dpa: { accepted: 2026-10-01, copy: legal/hostinger-dpa.pdf }
+
+- id: groq
+  role: processor
+  country: US
+  data: [update_text, voice]
+  ground: [consent, contract]
+  dpa: { accepted: null }         # → release blocked until filled in
+  controls: { zero_data_retention: true }
+
+- id: telegram
+  role: independent_service
+  country: outside_UAE
+  data: [messages]
+  ground: [consent]
+
+retention_days: 365               # the company's number (Art. 5(7))
+hosting_countries_allowed: [AE, LT, DE, FR]</code></pre>
+    </div>
+    <div>
+      <h3 style="margin-top:0">The rules it enforces</h3>
+      <table class="small">
+        <thead><tr><th>#</th><th>Rule</th><th>Where it bites</th></tr></thead>
+        <tbody>
+          <tr><td>R1</td><td>Every service the configuration can reach is in the registry (a Groq key set ⇒ a <code>groq</code> entry)</td><td>deploy fails</td></tr>
+          <tr><td>R2</td><td>Every entry has a ground; "contract" needs a DPA date</td><td>deploy fails</td></tr>
+          <tr><td>R3</td><td>The host's country is in the allowed list — no US or Asian Hostinger location</td><td>deploy fails</td></tr>
+          <tr><td>R4</td><td>AI calls carry zero-retention (and OpenRouter <code>data_collection: "deny"</code>); a provider without it is skipped</td><td>every call</td></tr>
+          <tr><td>R5</td><td>The consent notice is generated from the registry — any change asks everyone again</td><td>built for AI, Telegram, push · add the host</td></tr>
+          <tr><td>R6</td><td>Production refuses to start with retention unset, unencrypted backups, or the database reachable from the internet</td><td>start-up</td></tr>
+          <tr><td>R7</td><td>Names, phone numbers, emails and IDs replaced before a prompt leaves; tested against real anonymised updates</td><td>every call</td></tr>
+          <tr><td>R8</td><td>Nightly report: consents by version, transfers per service (from the AI-call and outbox logs), retention runs</td><td>evidence</td></tr>
+        </tbody>
+      </table>
+      <p class="small mut">The same file generates the record of processing (Art. 7(4)) and the notice's list of recipients — one truth, three uses.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 10 ────────────────────────────────────────────────────────────────────── -->
+<section class="slide" data-n="10" id="s10">
+  <span class="kicker">Policy as code · built vs to build</span>
+  <h2>Most of the enforcement already runs — the registry ties it together</h2>
+  <div class="grid g2">
+    <div class="card edge-ok"><h3 style="margin-top:0">In the system today <span class="v">[verified — our code and tests]</span></h3>
+      <ul class="small">
+        <li><b>Consent notice 2.0</b> built from the configuration; a change asks everyone again (TASK-046)</li>
+        <li><b>Three consent doors</b>: the bot and the API take nothing, and the outbox sends nothing abroad, until a person agrees</li>
+        <li><b>Row-level security</b>, default deny, per role</li>
+        <li><b>Append-only audit log</b> with a correlation id per run</li>
+        <li><b>Every AI call logged</b> (<code>llm_call</code>): provider, tokens, cost — the transfer record</li>
+        <li><b>Daily AI budget</b> with fall-back to rules only</li>
+        <li><b>Channel switches</b>: a channel needs keys, the CEO's switch and the person's preference</li>
+        <li><b>Retention sweep</b> (waiting for the company's number) and <b>erasure by anonymisation</b></li>
+      </ul></div>
+    <div class="card edge-warn"><h3 style="margin-top:0">To build <span class="tag mut">estimate</span></h3>
+      <table class="small">
+        <thead><tr><th>Piece</th><th>Rules</th><th>Size</th></tr></thead>
+        <tbody>
+          <tr><td>Registry file + deploy checks</td><td>R1–R3</td><td>about a day</td></tr>
+          <tr><td>Zero-retention parameters enforced in the AI wrapper</td><td>R4</td><td>hours</td></tr>
+          <tr><td>Host line in the notice, from the registry</td><td>R5</td><td>hours</td></tr>
+          <tr><td>Production start-up refusals</td><td>R6</td><td>about a day</td></tr>
+          <tr><td>Prompt pseudonymiser + tests in each language</td><td>R7</td><td>a day or two</td></tr>
+          <tr><td>Nightly evidence report</td><td>R8</td><td>about a day</td></tr>
+          <tr><td>Encrypted backups, DB access log, server hardening</td><td>—</td><td>a day or two, on the chosen host</td></tr>
+        </tbody>
+      </table>
+      <p class="small mut">Sizes are the developer's estimate for this codebase, not measured. Nothing here needs a new tool.</p></div>
+  </div>
+</section>
+
+<!-- 11 ────────────────────────────────────────────────────────────────────── -->
+<section class="slide" data-n="11" id="s11">
+  <span class="kicker">Policy as code · its limits</span>
+  <h2>What no amount of code can promise</h2>
+  <div class="grid g3">
+    <div class="card edge-crit"><h3 style="margin-top:0">It cannot sign or negotiate</h3><p class="small">Accepting Hostinger's DPA, asking for UAE clauses, getting Core42's terms in writing — people do these. The registry only refuses to proceed until they are recorded.</p></div>
+    <div class="card edge-crit"><h3 style="margin-top:0">It cannot decide the law</h3><p class="small">Whether consent from an employee is valid, or whether Art. 23(1)(a) covers an EU country, is for counsel. Code enforces the answer once it exists.</p></div>
+    <div class="card edge-crit"><h3 style="margin-top:0">It cannot see inside Hostinger</h3><p class="small">Their staff, their sub-processors, the machine under our VPS. The DPA and encryption we hold the keys to are the only controls there.</p></div>
+    <div class="card edge-warn"><h3 style="margin-top:0">It cannot stop hand copying</h3><p class="small">A screenshot, a forwarded Telegram message, an export. That is policy, training and access roles.</p></div>
+    <div class="card edge-warn"><h3 style="margin-top:0">It cannot foresee the Regulations</h3><p class="small">When they arrive, the rules change. The registry makes that a one-file change, re-checked and re-consented automatically.</p></div>
+    <div class="card edge-ok"><h3 style="margin-top:0">What it does guarantee</h3><p class="small">That a <b>known</b> rule is never silently broken by a deploy or a configuration change — and that every claim of compliance can be shown from the database.</p></div>
+  </div>
+  <div class="card brand" style="margin-top:12px"><b>So "without any violation" is three things together:</b> counsel's reading of the law · the company's contracts and decisions · code that enforces both and keeps the evidence. Code alone is one of three.</div>
+</section>
+
+<!-- 12 ────────────────────────────────────────────────────────────────────── -->
+<section class="slide" data-n="12" id="s12">
+  <span class="kicker">The options, side by side</span>
+  <h2>Where the data sits, what must justify it, and what it costs</h2>
+  <table class="small">
+    <thead><tr><th>Option</th><th>Database and system</th><th>AI</th><th>Ground needed for the transfers</th><th class="n">Per month</th><th>Legal risk</th></tr></thead>
+    <tbody>
+      <tr class="hi"><td><b>A · UAE VPS + Core42</b> <span class="tag ok">recommended</span></td><td>Dubai (LightNode, Tier 3+)</td><td>Core42, UAE</td><td>None for the database or AI — only Telegram (consent, built)</td><td class="n">$27.70–$52.70 + ≈ $7</td><td class="v">Lowest</td></tr>
+      <tr><td><b>A2 · Azure UAE North + Core42</b></td><td>Dubai, backups to Abu Dhabi</td><td>Core42, UAE</td><td>As A</td><td class="n">≈ $202 <span class="tag mut">estimate</span></td><td class="v">Lowest, most resilient</td></tr>
+      <tr><td><b>B · Hostinger EU + Core42</b></td><td>Lithuania or Germany</td><td>Core42, UAE</td><td>Consent + DPA for the whole database, permanently</td><td class="n">$29.99 → $49.99 + ≈ $7</td><td class="b">Medium — consent-dependent, reading of Art. 23 unsettled</td></tr>
+      <tr><td><b>B2 · Hostinger EU + Groq (ZDR)</b></td><td>Lithuania or Germany</td><td>Groq, US</td><td>Consent + DPA, for two services abroad</td><td class="n">$29.99 → $49.99 + cents</td><td class="b">Medium–high</td></tr>
+      <tr><td><b>C · Hostinger any location + Groq/OpenRouter on default settings</b></td><td>anywhere</td><td>US, no ZDR</td><td>None in place</td><td class="n">—</td><td class="a">Not acceptable for real employee data</td></tr>
+    </tbody>
+  </table>
+  <p class="cite">Prices: Hostinger KVM 8 (8 vCPU / 32 GB) intro and renewal <span class="b">[believed — 2026 round-ups, 26 Sep]</span>; LightNode Dubai 4 vCPU / 8 GB $27.70, 8 vCPU / 16 GB $52.70 <span class="b">[checked 19–21 Sep]</span>; Azure and Core42 from <code>ceo-deck-azure-aws-uae.html</code> (Core42: our measured tokens × its price list). Our measured load fits a 4 vCPU / 16 GB server <span class="a">[uncertain — not load-tested]</span>. Re-check every price before ordering.</p>
+  <div class="card edge-info" style="margin-top:10px"><p class="small" style="margin:0"><b>The honest comparison:</b> Option B saves at most a few dollars a month over Option A, and adds a permanent dependency on every employee's consent, an unsettled legal reading, and the conditions on slide 6. Option A needs none of that. Hostinger is <i>possible</i>; it is not <i>cheaper in any way that matters</i>.</p></div>
+</section>
+
+<!-- 13 ────────────────────────────────────────────────────────────────────── -->
+<section class="slide" data-n="13" id="s13">
+  <span class="kicker">Decision and next steps</span>
+  <h2>Choose A or B — then this is the order of work</h2>
+  <div class="grid g2">
+    <div class="card edge-ok"><h3 style="margin-top:0">If A — UAE host + Core42</h3>
+      <ol class="small">
+        <li>Order the Dubai VPS; buy the domain. <i>CEO · an hour</i></li>
+        <li>Move the Docker stack unchanged; Caddy gives HTTPS; phones use the domain — no tunnel. <i>developer · days</i></li>
+        <li>Switch the AI to Core42; remove the US fallbacks. The notice rewrites itself; everyone agrees again. <i>developer · hours after sign-up</i></li>
+        <li>Registry + rules R1–R8 (slide 9). <i>developer · about a week in total</i> <span class="tag mut">estimate</span></li>
+        <li>Company: retention number, breach contact, notice wording, counsel's read.</li>
+      </ol></div>
+    <div class="card edge-warn"><h3 style="margin-top:0">If B — Hostinger (EU)</h3>
+      <ol class="small">
+        <li>Counsel confirms consent + DPA for a permanent EU database — <b>before</b> ordering.</li>
+        <li>Order the VPS in Lithuania or Germany; accept and file the DPA; turn on two-factor sign-in.</li>
+        <li>Add the host line to the notice; everyone agrees again before real data goes in.</li>
+        <li>Harden the server; encrypted backups with a second EU copy; DB access log (slide 6, rows 8–12).</li>
+        <li>Registry + rules R1–R8, with <code>hosting_countries_allowed</code> set to the EU.</li>
+        <li>Decide the path for anyone who does not consent.</li>
+      </ol></div>
+  </div>
+  <div class="card brand" style="margin-top:12px"><b>Either way, one thing is already done:</b> consent is asked, enforced and recorded in Telegram and the app, and it follows the configuration automatically. What remains is a choice of host, a few contracts, and the registry that makes every future change safe.</div>
+</section>
+
+<!-- 14 ────────────────────────────────────────────────────────────────────── -->
+<section class="slide" data-n="14" id="s14">
+  <span class="kicker">Sources</span>
+  <h2>Every claim above, and where to check it</h2>
+  <div class="grid g2">
+    <div>
+      <h3 style="margin-top:0">The law and its status</h3>
+      <ul class="small">
+        <li>Federal Decree-Law No. 45 of 2021 — official listing: <a href="https://uaelegislation.gov.ae/en/legislations/1972">uaelegislation.gov.ae</a> · English translation (LexisNexis Middle East), read 21 Sep</li>
+        <li>ABS Partners, <a href="https://abspartners.ae/cross-border-data-transfers-uae-pdpl/">Cross-border data transfers under the UAE PDPL</a> — no adequacy list or clauses issued</li>
+        <li>Kayrouz &amp; Associates, <a href="https://www.kayrouzandassociates.com/insights/cross-border-data-transfers-under-uae-law-in-2026">Cross-border data transfers under UAE law in 2026</a></li>
+        <li>SMEX, <a href="https://smex.org/uaes-data-protection-law-between-exceptions-and-exemptions/">Between exceptions and exemptions</a> · DLA Piper, <a href="https://www.dlapiperdataprotection.com/countries/uae-general/law.html">Data Protection Laws of the World — UAE</a></li>
+        <li>Ashurst, <a href="https://www.ashurstperkinscoie.com/en/insights/data-bytes-67-your-emea-data-privacy-update-for-july-2026/">Data Bytes 67 (July 2026)</a> — Regulations pending</li>
+        <li>Morgan Lewis, <a href="https://www.morganlewis.com/pubs/2026/06/uae-establishes-federal-authority-for-artificial-intelligence-and-data">UAE establishes Federal Authority for AI and Data (June 2026)</a></li>
+        <li>Bird &amp; Bird, <a href="https://www.twobirds.com/en/insights/2021/uae/how-does-the-new-uae-federal-decree-law-on-personal-data-protection-compare-against-the-gdpr">PDPL compared with GDPR</a> — security and breach duties</li>
+      </ul>
+      <h3>Hosting</h3>
+      <ul class="small">
+        <li>Hostinger, <a href="https://www.hostinger.com/support/1583267-where-are-hostinger-servers-located/">Where are Hostinger servers located?</a> · <a href="https://www.hostinger.com/legal/hosting-agreement">Hosting agreement</a></li>
+        <li>LightNode, <a href="https://go.lightnode.com/the-united-arab-emirates-vps">UAE VPS</a> · Azure prices: <code>ceo-deck-azure-aws-uae.html</code></li>
+      </ul>
+    </div>
+    <div>
+      <h3 style="margin-top:0">AI providers</h3>
+      <ul class="small">
+        <li>Groq, <a href="https://console.groq.com/docs/your-data">Your Data in GroqCloud</a> · <a href="https://trust.groq.com/faq">Trust Center FAQ</a> · <a href="https://console.groq.com/docs/legal/archive/">Policies &amp; notices</a></li>
+        <li>OpenRouter, <a href="https://openrouter.ai/docs/guides/privacy/data-collection">Data collection</a> · <a href="https://openrouter.ai/docs/guides/features/zdr">Zero Data Retention</a> · <a href="https://openrouter.ai/blog/insights/ai-data-residency/">Data residency</a></li>
+        <li>Core42, GPT-OSS on Compass — see <code>ceo-deck-data-residency.html</code>, slide 17</li>
+      </ul>
+      <h3>Policy as code</h3>
+      <ul class="small">
+        <li>Open Policy Agent — the general-purpose policy engine (Rego), for teams that want the checks outside the application: <a href="https://www.openpolicyagent.org/">openpolicyagent.org</a></li>
+        <li>Our own enforcement: <code>packages/core/src/consent.ts</code>, <code>packages/worker/src/outbox-relay.ts</code>, migrations (RLS, append-only audit), <code>docs/tasks/TASK-046…</code></li>
+      </ul>
+      <h3>The second opinion</h3>
+      <ul class="small"><li>A Google AI answer supplied by the owner on 29 Sep — checked claim by claim on slide 3.</li></ul>
+    </div>
+  </div>
+</section>
+
+<!-- 15 ────────────────────────────────────────────────────────────────────── -->
+<section class="slide" data-n="15" id="s15">
+  <span class="kicker">What is not verified</span>
+  <h2>Where this briefing could be wrong, stated plainly</h2>
+  <div class="grid g2">
+    <div class="card edge-warn"><ul class="small">
+      <li><b>The exact scope of Art. 23(1)(a).</b> Whether the contract route applies to an EU country (a country <i>with</i> a data-protection law not yet approved) is unsettled in the commentary found. <b>Counsel.</b></li>
+      <li><b>Consent in employment</b> as the ground for a permanent transfer of the whole database. <b>Counsel.</b></li>
+      <li><b>Hostinger's DPA text</b> and whether a self-serve account can add clauses — the page could not be opened; search results only.</li>
+      <li><b>Full-disk encryption on a Hostinger VPS</b> — not confirmed either way.</li>
+      <li><b>Groq's DPA applying to our account</b> and <b>OpenRouter having a DPA</b> — search results only; check in each console.</li>
+    </ul></div>
+    <div class="card edge-warn"><ul class="small">
+      <li><b>No primary page was readable this session</b>: the law's PDF, Hostinger, Groq, OpenRouter and the government portal were all blocked by the network policy. Earlier readings (21 Sep) of the law's text are relied on.</li>
+      <li><b>Prices</b> are from 19–26 Sep and from third-party round-ups for Hostinger; re-check before ordering.</li>
+      <li><b>Build sizes</b> on slide 10 are the developer's estimates.</li>
+      <li><b>Daily Vending LLC is assumed mainland</b>; a free-zone licence changes the regime.</li>
+      <li><b>No lawyer has reviewed this.</b> It is written to be checked quickly — and it should be.</li>
+    </ul></div>
+  </div>
+  <div class="foot">FreshNow Operations · briefing prepared 29 September 2026 · press P to print or save as PDF</div>
+</section>
+
+<script>
+(function(){
+  // ── Navigation (as in the other CEO briefings) ──────────────────────────────
+  const slides=[...document.querySelectorAll("section.slide")]; const nav=document.getElementById("nav");
+  slides.forEach((sl,i)=>{ const a=document.createElement("a"); a.href="#"; a.title="Slide "+(i+1); a.addEventListener("click",e=>{e.preventDefault(); sl.scrollIntoView({behavior:"smooth"});}); nav.appendChild(a); });
+  const cur=()=>{ const y=window.scrollY+window.innerHeight/2; return Math.max(0,slides.findIndex(s=>s.offsetTop+s.offsetHeight>y)); };
+  const paint=()=>{ const c=cur(); [...nav.children].forEach((a,i)=>a.classList.toggle("on",i===c)); };
+  window.addEventListener("scroll",paint,{passive:true}); paint();
+  window.addEventListener("keydown",e=>{
+    const c=cur(); let n=null;
+    if(["ArrowRight","ArrowDown","PageDown"," "].includes(e.key)) n=Math.min(slides.length-1,c+1);
+    if(["ArrowLeft","ArrowUp","PageUp"].includes(e.key)) n=Math.max(0,c-1);
+    if(e.key==="Home") n=0; if(e.key==="End") n=slides.length-1;
+    if(e.key==="p"||e.key==="P"){ window.print(); return; }
+    if(n!==null){ e.preventDefault(); slides[n].scrollIntoView({behavior:"smooth"}); }
+  });
+})();
+</script>
+</body>
+</html>

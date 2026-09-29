@@ -638,3 +638,12 @@ this Chromium the install offer existed already; the owner not finding it on the
 (menu ⋮ at the bottom right) rather than by the manifest. In an incognito context the only error is `in-incognito`
 (G122). Not measured: Android Chrome's WebAPK decision, Brave Android's `beforeinstallprompt`.
 
+## VF39 (2026-09-29) — Groq and OpenRouter privacy terms re-checked; Hostinger still has no UAE location [believed — via search; pages blocked]
+Groq: no retention of inference by default; abuse/reliability logs up to 30 days unless Zero Data Retention is on,
+now a switch for every account; its Services Agreement prohibits training on inputs; a DPA commits to deletion
+within 180 days; retained data in Google Cloud in the US, no EU endpoint. OpenRouter: prompt logging off by default,
+`data_collection: "deny"` and ZDR enforceable per request or account; EU/US residency on business plans only; no DPA
+found. Hostinger: VPS locations unchanged (no UAE/Middle East); a GDPR DPA exists for customers. UAE: no adequacy
+list and no standard contractual clauses issued (ABS Partners, Kayrouz 2026). Used in
+`docs/reports/ceo-deck-hostinger-final-verdict.html`.
+

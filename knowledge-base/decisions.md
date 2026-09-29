@@ -999,6 +999,9 @@ the AI runs. Not deployed by me: the wording is the company's and its lawyer's.
 
 ## D121 — Model calls move to a UAE-hosted provider; the US fallbacks are removed, not reordered [verified]
 Groq, OpenRouter and NVIDIA are self-serve APIs with no data-processing agreement, processing outside the UAE.
+**Corrected 2026-09-29 (VF39):** Groq now offers every account a Zero Data Retention switch and publishes a DPA; OpenRouter does
+not log prompts by default and can force zero-retention routing. Both still process outside the UAE, so the conclusion
+(Core42 for real employee text) stands; the "no DPA" part is out of date for Groq [believed].
 PDPL Art. 7(5) and 8(1) require an appointed processor under a contract; Art. 22's adequacy route does not exist
 while the Executive Regulations are unissued. So: Core42 Compass (same `openai/gpt-oss-120b`, UAE jurisdiction,
 $0.15–0.25/M in) as the provider, OpenAI's `ae.api.openai.com` (approval required) as the optional second, Azure
