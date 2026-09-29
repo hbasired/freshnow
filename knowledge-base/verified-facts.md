@@ -630,3 +630,20 @@ cloudflared's metrics server listens on the first free port of 127.0.0.1:20241�
 same way). `pnpm urls` now prints `https://<hostname>/app/` and probes `/health` through Cloudflare. Tested
 against a local stand-in on 20242 and with no tunnel running; not against a real cloudflared.
 
+## VF38 (2026-09-28) — Installability measured in Chromium before and after D145 [verified — desktop Chromium, mobile emulation]
+DevTools `Page.getInstallabilityErrors` on http://localhost:3001/app/ in a persistent (non-incognito) profile,
+Android user agent, 360 px: BEFORE — errors `[]`, no service worker on load, `beforeinstallprompt` fired; AFTER —
+errors `[]`, service worker registered on load, `beforeinstallprompt` fired, header "Install app" shown. So in
+this Chromium the install offer existed already; the owner not finding it on the phone is explained by Brave
+(menu ⋮ at the bottom right) rather than by the manifest. In an incognito context the only error is `in-incognito`
+(G122). Not measured: Android Chrome's WebAPK decision, Brave Android's `beforeinstallprompt`.
+
+## VF39 (2026-09-29) — Groq and OpenRouter privacy terms re-checked; Hostinger still has no UAE location [believed — via search; pages blocked]
+Groq: no retention of inference by default; abuse/reliability logs up to 30 days unless Zero Data Retention is on,
+now a switch for every account; its Services Agreement prohibits training on inputs; a DPA commits to deletion
+within 180 days; retained data in Google Cloud in the US, no EU endpoint. OpenRouter: prompt logging off by default,
+`data_collection: "deny"` and ZDR enforceable per request or account; EU/US residency on business plans only; no DPA
+found. Hostinger: VPS locations unchanged (no UAE/Middle East); a GDPR DPA exists for customers. UAE: no adequacy
+list and no standard contractual clauses issued (ABS Partners, Kayrouz 2026). Used in
+`docs/reports/ceo-deck-hostinger-final-verdict.html`.
+

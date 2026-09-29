@@ -345,6 +345,19 @@ Routing goes to the **CEO only** for now (company routing data not yet supplied)
   after a pull and how to get the address onto a phone.
   -> `docs/tasks/TASK-047-inbox-panel-and-phone-address.html`
 
+- **T48 The phone as an app: install button, worker on load, honest status line** (2026-09-28): from the first
+  real phone (Brave, Android) — service worker registered on load with a no-cache navigation pass-through, an
+  Install FreshNow button, "refreshing every 20 s" instead of "polling" (D145); installability measured before and
+  after (VF38); use Chrome on Android (G121).
+  -> `docs/tasks/TASK-048-phone-install-and-status.html`
+
+- **CEO deck: Hostinger, Groq, OpenRouter — the final answer** (2026-09-29, document only, no code): a Google AI
+  answer checked claim by claim; Hostinger lawful only with an EU data centre + every employee's consent + its DPA +
+  Art. 20 controls, with Art. 23(1)(a)'s reach to EU countries unsettled; Groq/OpenRouter only with consent + zero
+  retention + names removed; "policy as code" as a registry and eight rules (three layers already built); recommendation
+  unchanged — UAE host + Core42 at about the same price (VF39).
+  -> `docs/reports/ceo-deck-hostinger-final-verdict.html`
+
 ## Blocked on the user
 - ~~`CEO_TELEGRAM_USER_ID` is empty.~~ **Resolved 2026-09-04:** CEO = 6051615734,
   employee = 8903000291. Both have run `/start`; the CEO is linked to the CEO employee row.

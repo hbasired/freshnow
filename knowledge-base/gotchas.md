@@ -922,3 +922,13 @@ the API let `.env` put the real token back. `BOT_TOKEN=` (empty) survives, becau
 variable. It matters twice now: to run without reaching real Telegram users, and because the consent notice is
 built from the environment — two processes with different variables show different words (D139).
 
+## G121 — Brave on Android is not a safe browser for the web-push demo [believed 2026-09-28]
+Brave routes web push through Google's service only when "Use Google services for push messaging" is on (off by
+default on desktop), and its community forum has reports of Android PWAs receiving no notifications. The owner's
+phone opened the tunnel in Brave, whose ⋮ menu sits at the bottom right. Demo guide now says: use Chrome on Android.
+
+## G122 — Playwright's default context is incognito, so Chromium reports `in-incognito` as an installability error [verified 2026-09-28]
+`browser.newContext()` is an off-the-record profile; `Page.getInstallabilityErrors` then returns only
+`in-incognito` and `beforeinstallprompt` never fires. Use `chromium.launchPersistentContext(dir)` to measure
+installability.
+

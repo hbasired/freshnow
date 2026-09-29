@@ -999,6 +999,9 @@ the AI runs. Not deployed by me: the wording is the company's and its lawyer's.
 
 ## D121 — Model calls move to a UAE-hosted provider; the US fallbacks are removed, not reordered [verified]
 Groq, OpenRouter and NVIDIA are self-serve APIs with no data-processing agreement, processing outside the UAE.
+**Corrected 2026-09-29 (VF39):** Groq now offers every account a Zero Data Retention switch and publishes a DPA; OpenRouter does
+not log prompts by default and can force zero-retention routing. Both still process outside the UAE, so the conclusion
+(Core42 for real employee text) stands; the "no DPA" part is out of date for Groq [believed].
 PDPL Art. 7(5) and 8(1) require an appointed processor under a contract; Art. 22's adequacy route does not exist
 while the Executive Regulations are unissued. So: Core42 Compass (same `openai/gpt-oss-120b`, UAE jurisdiction,
 $0.15–0.25/M in) as the provider, OpenAI's `ae.api.openai.com` (approval required) as the optional second, Azure
@@ -1194,4 +1197,14 @@ inside both window edges, height capped to the space below. Into `<body>` becaus
 `recordConsent` marks the person's `consent.requested` inbox rows read, and the worker's sweep settles any
 left unread by people who agreed earlier. Only those rows are touched. Before this, Hemanth — already agreed —
 still had "until you do, your updates can't be taken" at the top of his inbox.
+
+## D145 — The service worker is registered on load, handles page loads pass-through, and the app offers its own Install button (TASK-048) [verified in Chromium; phone unverified]
+Registered in `main.tsx` before React renders (it was registered only on "Turn on notifications"). `sw.js` gains a
+`fetch` handler for navigations only, network-only (`respondWith(fetch(request))`) — no cache, so D-level rule
+"a board is a count from the database" stands; data calls, SSE and sign-in never reach `respondWith`. Reason:
+Chrome's guidance is that Android treats a site as an installable app (WebAPK) rather than a shortcut only with
+a service worker that handles fetch [believed — developer.chrome.com, via search]. `lib/install.ts` keeps the
+browser's `beforeinstallprompt` and the dashboard shows **Install FreshNow** in Alerts → This device, plus a
+header button on small screens; iPhone and browsers without the event get instructions for their menu. The live
+status reads "refreshing every 20 s" instead of "polling", which looked like a fault through the quick tunnel.
 

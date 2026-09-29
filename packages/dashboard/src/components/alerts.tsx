@@ -17,6 +17,7 @@ import {
 } from "../lib/api";
 import { Card, DataTable, Empty, Pill, Severity, Spinner } from "./ui";
 import { disablePush, enablePush, pushState, type PushState } from "../lib/push";
+import { installState, onInstallChange, promptInstall, type InstallState } from "../lib/install";
 import { loadAppConfig } from "../lib/auth";
 import { Button, Select, TextField, Toast, useAction } from "./form";
 
@@ -292,6 +293,61 @@ export function AlertsTab({ viewer, canAck, isCeo = false, onChanged, tick }: { 
  * somebody nothing they can act on; "this page is not on HTTPS" and "add it to your Home
  * Screen first" tell them exactly what to do next.
  */
+/**
+ * Installing FreshNow as an app on this device (lib/install.ts). The full row sits in the
+ * device card, above notifications, because installing comes first on a phone — on iPhone
+ * notifications do not exist until it is done. `compact` is the header button, shown only on
+ * small screens and only when the browser has offered an install that one tap can accept.
+ */
+export function InstallApp({ compact = false }: { compact?: boolean }) {
+  const [st, setSt] = useState<InstallState>(() => installState());
+  const act = useAction();
+  useEffect(() => onInstallChange(() => setSt(installState())), []);
+
+  const install = () =>
+    void act.run(async () => {
+      const accepted = await promptInstall();
+      setSt(installState());
+      return accepted ? "Installed — open FreshNow from your home screen." : "Not installed. You can do it later from here.";
+    });
+
+  if (compact) {
+    if (st !== "available") return null;
+    return (
+      <button
+        onClick={install}
+        title="Install FreshNow on this device"
+        className="rounded-xl border border-ok/50 bg-ok/10 px-2.5 py-1.5 text-sm font-semibold text-ok hover:border-ok lg:hidden"
+      >
+        📲 Install app
+      </button>
+    );
+  }
+  const TEXT: Record<InstallState, string> = {
+    installed: "FreshNow is installed on this device. Open it from the home screen for the full-screen app.",
+    available: "Put FreshNow on this device as an app, with its own icon and window.",
+    ios: "On iPhone: open this page in Safari, tap Share ⬆ → Add to Home Screen, then open FreshNow from the Home Screen. Notifications only work from there.",
+    menu:
+      "This browser has not offered to install the app by itself. Use its menu: ⋮ → Install app (or Add to Home screen). In Brave the ⋮ is at the bottom right. On Android, Chrome is the most dependable browser for this.",
+    insecure: "Installing needs a secure (https) address. On a phone, open the tunnel address from pnpm urls.",
+  };
+  return (
+    <div className="mb-3 rounded-lg border border-edge bg-sunken p-2.5">
+      <Toast message={act.message} tone={act.tone} onDone={act.clear} />
+      <div className="flex flex-wrap items-center gap-2">
+        <b className="text-sm">📲 The app</b>
+        <span className={`text-xs ${st === "installed" ? "text-ok" : "text-mut"}`}>{st === "installed" ? "● installed" : "○ not installed"}</span>
+        {st === "available" ? (
+          <Button tone="primary" busy={act.busy} onClick={install}>
+            Install FreshNow
+          </Button>
+        ) : null}
+      </div>
+      <p className="mt-1 text-xs text-mut">{TEXT[st]}</p>
+    </div>
+  );
+}
+
 function DeviceCard({ viewer }: { viewer: string }) {
   const [state, setState] = useState<PushState | null>(null);
   const [vapid, setVapid] = useState<string | null>(null);
@@ -329,7 +385,9 @@ function DeviceCard({ viewer }: { viewer: string }) {
   return (
     <Card className="p-4">
       <Toast message={act.message} tone={act.tone} onDone={act.clear} />
-      <h3 className="mb-1 font-semibold">Notifications on this device</h3>
+      <h3 className="mb-2 font-semibold">This device</h3>
+      <InstallApp />
+      <b className="text-sm">🔔 Notifications</b>
       <p className="mb-3 text-xs text-mut">{MESSAGE[state.kind]}</p>
       {canAct ? (
         <div className="flex flex-wrap items-center gap-2">
@@ -370,8 +428,8 @@ function DeviceCard({ viewer }: { viewer: string }) {
         </div>
       ) : null}
       <p className="mt-3 text-[11px] text-mut">
-        No app store and nothing to install: add this page to your Home Screen and it behaves like an app. Your words are encrypted
-        to this device — Google, Apple and Mozilla pass the message along but cannot read it.
+        No app store: installed from this page, it behaves like an app and notifications arrive like any other app's. Your words are
+        encrypted to this device — Google, Apple and Mozilla pass the message along but cannot read it.
       </p>
     </Card>
   );
