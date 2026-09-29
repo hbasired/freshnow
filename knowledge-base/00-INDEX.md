@@ -355,7 +355,10 @@ Routing goes to the **CEO only** for now (company routing data not yet supplied)
   answer checked claim by claim; Hostinger lawful only with an EU data centre + every employee's consent + its DPA +
   Art. 20 controls, with Art. 23(1)(a)'s reach to EU countries unsettled; Groq/OpenRouter only with consent + zero
   retention + names removed; "policy as code" as a registry and eight rules (three layers already built); recommendation
-  unchanged — UAE host + Core42 at about the same price (VF39).
+  unchanged — UAE host + Core42 (VF39). **Price corrected the same day** after the owner challenged "about the same
+  price": like for like, Hostinger is ≈ $25/month (≈ $300/yr) cheaper than the cheapest UAE server and $140–285 cheaper
+  than AWS/Azure; new slides 13–14 compare prices and the UAE-hosted companies (VF40, G123). The data-residency
+  deck's slide 9 now carries the correction too.
   -> `docs/reports/ceo-deck-hostinger-final-verdict.html`
 
 ## Blocked on the user

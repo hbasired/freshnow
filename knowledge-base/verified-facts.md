@@ -647,3 +647,17 @@ found. Hostinger: VPS locations unchanged (no UAE/Middle East); a GDPR DPA exist
 list and no standard contractual clauses issued (ABS Partners, Kayrouz 2026). Used in
 `docs/reports/ceo-deck-hostinger-final-verdict.html`.
 
+
+## VF40 (2026-09-29) — Monthly price for Hostinger's size (8 vCPU · 32 GB · ~400 GB) inside the UAE [believed — via search; vendor pages blocked; AWS verified]
+Like for like: Hostinger KVM 8 $25.99 intro (12–48-month prepay; $29.99 in 19–26 Sep round-ups) → ≈ $49.99 renewal
+(reports $47.99–59.99) — **not in the UAE**. In the UAE: Oracle Arm A1 8 cores/32 GB + 400 GB ≈ $110, ≈ $74 if the
+Always Free allowance applies (computed from list unit prices, same in every region; allowance since 15 Jun 2026 is
+2 cores/12 GB/200 GB, home region only); LightNode 8/32/300 GB ≈ $74.70 (one source); is*hosting 8/32/100 GB
+$75.99–79.99; Oracle x86 E4 ≈ $125; Alibaba ≈ $143–238 [uncertain]; BlessHost 32 GB AED 591 ≈ $161; AWS
+t4g.2xlarge + 400 GB gp3 $189 (1-yr) – $277 [verified, price list 25 Sep]; EDIS ≈ €222; Azure D8as v5 $310 + disk.
+AEserver has an 8/32/500 GB plan (5 Mbps port) with no price found. Right-sized 4/16/~200 GB: Hostinger KVM 4
+$9.99–12.99 → $16.99–28.99; Oracle A1 ≈ $19–55; LightNode 8/16/50 GB $52.70; is*hosting 6/16/80 GB $53.19–55.99;
+AWS $95–138; Azure ≈ $155 + disk. Companies: is*hosting — Tallinn, Estonia, 2005; LightNode — Wan Chai, Hong Kong;
+AEserver — Dubai, TDRA-accredited registrar since 2008; BlessHost — Abu Dhabi/Dubai offices, 2014 (also sells
+Germany/Canada); Serverspace — base not found, Equinix DX1. **Not in the UAE:** HostZealot "Dubai VPS" (UAE IP,
+servers abroad) and HOSTKEY (Dubai "coming soon"). Used in `ceo-deck-hostinger-final-verdict.html` slides 13–14.

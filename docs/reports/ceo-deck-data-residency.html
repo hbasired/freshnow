@@ -281,7 +281,7 @@
           <tr><td>AWS · me-central-1</td><td>m6i.2xlarge · 8 vCPU / 32 GB</td><td class="n">$344</td><td>Non-burstable; disk extra <span class="v">[verified — AWS price list]</span></td></tr>
           <tr><td><b>Azure · UAE North (Dubai)</b></td><td>D8as v5 · 8 vCPU / 32 GB</td><td class="n">$310</td><td>$0.424/hr pay-as-you-go; disk extra</td></tr>
           <tr><td>Azure · UAE Central (Abu Dhabi)</td><td>D8as v5</td><td class="n">$402</td><td>$0.551/hr</td></tr>
-          <tr><td>Oracle Cloud · Abu Dhabi / Dubai</td><td>—</td><td class="n">not priced</td><td>Region exists; price not checked</td></tr>
+          <tr><td>Oracle Cloud · Abu Dhabi / Dubai</td><td>Arm A1 · 8 cores / 32 GB + 400 GB</td><td class="n">≈ $74–110</td><td>Priced 29 Sep from unit prices (same in every region); the low end uses the free allowance <span class="b">[believed]</span> — see <code>ceo-deck-hostinger-final-verdict.html</code>, slide 13</td></tr>
         </tbody>
       </table>
       <p class="cite">AWS: official <a href="https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonEC2/current/region_index.json">AWS Price List API</a>, me-central-1 file published 25 Sep 2026 (earlier: <a href="https://aws-pricing.com/me-central-1.html">aws-pricing.com</a>, 19 Sep — same figures); Azure: <a href="https://www.azurespeed.com/AzureVmPricing/Standard_D8as_v5">azurespeed.com D8as_v5</a>; LightNode: <a href="https://go.lightnode.com/the-united-arab-emirates-vps">UAE VPS page</a>; EDIS: <a href="https://www.edisglobal.com/vps-hosting/united-arab-emirates-dubai">Dubai VPS</a>. Azure figures are from a third-party tracker — <b>confirm on the official calculator before signing</b>. Monthly = hourly × 730. Google Cloud has <b>no</b> UAE region (Dammam only) <span class="v">[verified]</span>.</p>
@@ -290,7 +290,7 @@
       <h3 style="margin-top:0">Monthly price for 8 vCPU / 32 GB-class servers</h3>
       <p class="small mut">Grey = not in the UAE. LightNode's plan is 16 GB, shown for the cheapest in-country option.</p>
       <div class="viz" id="viz-hosting"></div>
-      <div class="card edge-info" style="margin-top:12px"><b>Reading it honestly:</b> a hyperscaler in the UAE costs 5–8× Hostinger on demand (about 3–4× with a one-year reservation); a Dubai VPS costs about the same as Hostinger's renewal price for half the RAM. The platform's real load is modest (Postgres + three small Node services), so <b>LightNode 8/16 or a 4-vCPU plan is a credible start</b>, with <b>Azure</b> as the "grow into it" path. All of them keep every byte in the UAE. <b>Update 26 Sep:</b> AWS's UAE region has been impaired since drone strikes on 1 March and AWS advises customers to consider moving — not the place to start now; the Azure/AWS briefing prices both in full.</div>
+      <div class="card edge-info" style="margin-top:12px"><b>Reading it honestly:</b> a hyperscaler in the UAE costs 5–8× Hostinger on demand (about 3–4× with a one-year reservation); a Dubai VPS costs about the same as Hostinger's renewal price for half the RAM. <b>Correction 29 Sep:</b> like for like (8 vCPU / 32 GB), the cheapest UAE servers are ≈ $74–80 a month, so Hostinger's renewal is about $25 a month cheaper (≈ $300 a year) — see <code>ceo-deck-hostinger-final-verdict.html</code>, slides 13–14. The platform's real load is modest (Postgres + three small Node services), so <b>LightNode 8/16 or a 4-vCPU plan is a credible start</b>, with <b>Azure</b> as the "grow into it" path. All of them keep every byte in the UAE. <b>Update 26 Sep:</b> AWS's UAE region has been impaired since drone strikes on 1 March and AWS advises customers to consider moving — not the place to start now; the Azure/AWS briefing prices both in full.</div>
     </div>
   </div>
 </section>
@@ -568,7 +568,10 @@
   const providers = [["Groq (US)",250],["NVIDIA (US)",54],["OpenRouter (US)",17],["Groq Whisper — a voice recording",1]];
   const hosting = [
     ["Hostinger KVM 8 (renewal) · not in UAE",49.99,"grey"],
-    ["LightNode Dubai · 8 vCPU / 16 GB",52.70,"ok"],
+    ["LightNode Dubai · 8 vCPU / 16 GB (half the RAM)",52.70,"ok"],
+    ["LightNode Dubai · 8 / 32 / 300 GB (29 Sep)",74.70,"ok"],
+    ["is*hosting Dubai · 8 / 32 / 100 GB (29 Sep)",79.99,"ok"],
+    ["Oracle Dubai · Arm 8 / 32 + 400 GB (29 Sep)",110,"ok"],
     ["AWS me-central-1 · t4g.2xlarge (ARM)",238,"info"],
     ["EDIS Dubai · built to 8 / 32 (≈€222)",240,"info"],
     ["AWS me-central-1 · t3.2xlarge",293,"info"],

@@ -932,3 +932,10 @@ phone opened the tunnel in Brave, whose ⋮ menu sits at the bottom right. Demo 
 `in-incognito` and `beforeinstallprompt` never fires. Use `chromium.launchPersistentContext(dir)` to measure
 installability.
 
+
+## G123 — Compare hosting like for like, and do not trust "Dubai VPS" in a product name [verified 2026-09-29]
+The Hostinger deck first said a Dubai server cost "about the same" as Hostinger. It compared Hostinger's 8 vCPU/32 GB/
+400 GB with LightNode's 8 vCPU/16 GB/50 GB — half the memory, an eighth of the disk. The owner caught it. Always put
+vCPU, RAM *and* disk in the same row, and state intro vs renewal. Separately, some "Dubai VPS" offers are a UAE IP
+address on a server in Europe (HostZealot, HOSTKEY per search): require the data-centre name and address in the
+contract and ping from Dubai (a few ms local, ~100 ms from Europe).

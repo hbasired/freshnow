@@ -22,7 +22,7 @@
   html{scroll-snap-type:y proximity;scroll-behavior:smooth}
   html,body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.55 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
   section.slide{min-height:100vh;scroll-snap-align:start;padding:44px 56px 56px;position:relative;display:flex;flex-direction:column;justify-content:center;max-width:1400px;margin:0 auto}
-  section.slide::after{content:attr(data-n)" / 15";position:absolute;right:56px;bottom:22px;font-size:12px;color:var(--mut)}
+  section.slide::after{content:attr(data-n)" / 17";position:absolute;right:56px;bottom:22px;font-size:12px;color:var(--mut)}
   h1{font-size:2.6rem;line-height:1.15;margin:0 0 .6rem;letter-spacing:-.01em}
   h2{font-size:1.9rem;line-height:1.2;margin:0 0 1rem;letter-spacing:-.01em}
   h3{font-size:1.05rem;margin:1.2rem 0 .4rem}
@@ -83,10 +83,10 @@
     <div class="card stat edge-warn"><div class="l">Hostinger</div><div class="n" style="font-size:1.35rem">Lawful — with conditions</div><div class="l">EU data centre · every employee's express consent · Hostinger's DPA · encryption and access controls</div></div>
     <div class="card stat edge-warn"><div class="l">Groq / OpenRouter</div><div class="n" style="font-size:1.35rem">Only with consent + zero retention</div><div class="l">and never with names, phone numbers or IDs in the prompt</div></div>
     <div class="card stat edge-info"><div class="l">Policy as code</div><div class="n" style="font-size:1.35rem">Yes — as the guard</div><div class="l">stops known violations and proves compliance; cannot sign a contract or decide the law</div></div>
-    <div class="card stat edge-ok"><div class="l">Our recommendation</div><div class="n" style="font-size:1.35rem">UAE host + Core42</div><div class="l">about the same monthly price as Hostinger's renewal, and nothing to justify</div></div>
+    <div class="card stat edge-ok"><div class="l">Our recommendation</div><div class="n" style="font-size:1.35rem">UAE host + Core42</div><div class="l">Hostinger is cheaper — about $25–50 a month like for like — but the UAE server needs no transfer abroad to justify</div></div>
   </div>
   <p class="small mut" style="margin-top:18px">Markers: <span class="v">[verified]</span> read in the law's text or our own system · <span class="b">[believed]</span> reputable sources or search results that agree · <span class="a">[uncertain]</span> sources conflict or none found · <span class="tag mut">estimate</span> computed from stated inputs. <b>This session could not open the law's PDF, Hostinger's, Groq's or OpenRouter's pages directly</b> (network policy) — their findings rest on search results. A technical reading for counsel to confirm, not legal advice.</p>
-  <div class="foot">Prepared by the development team · follows <code>ceo-deck-data-residency.html</code> and <code>ceo-deck-azure-aws-uae.html</code> · sources on slide 14 · not verified on slide 15</div>
+  <div class="foot">Prepared by the development team · follows <code>ceo-deck-data-residency.html</code> and <code>ceo-deck-azure-aws-uae.html</code> · sources on slide 16 · not verified on slide 17</div>
 </section>
 
 <!-- 2 ─────────────────────────────────────────────────────────────────────── -->
@@ -101,7 +101,7 @@
     <div class="card edge-info"><h3 style="margin-top:0">3 · Can "policy as code" make sure there is no violation?</h3>
       <p>It can make <b>known</b> violations impossible to deploy or to run — an AI provider nobody registered, a message to someone who has not agreed, retention unset, backups unencrypted — and it produces the <b>evidence</b>. It cannot sign a DPA, decide what the law means, or see inside Hostinger. "No violation" is a legal conclusion: counsel draws it, code enforces it and proves it. <span class="b">[slides 8–11]</span></p></div>
     <div class="card edge-ok"><h3 style="margin-top:0">4 · What do we recommend?</h3>
-      <p><b>A UAE host + Core42 for the AI.</b> A Dubai VPS costs <b>$27.70–$52.70</b> a month; Hostinger's KVM 8 is <b>$29.99</b> the first term, then <b>$49.99</b>. The saving from Hostinger is at most a few dollars a month, against a permanent transfer of the whole database that rests on consent any employee can withdraw. If the company still chooses Hostinger: <b>Option B</b>, with every condition on slide 6. <span class="b">[prices believed, 19–26 Sep]</span></p></div>
+      <p><b>A UAE host + Core42 for the AI — though not because it is cheaper.</b> Like for like (8 vCPU · 32 GB), Hostinger's KVM 8 is <b>$25.99</b> a month prepaid, then <b>≈ $49.99</b>; the cheapest Dubai servers of that size are <b>≈ $74–80</b>, and AWS or Azure in the UAE <b>$189–310+</b>. Hostinger saves about <b>$300 a year</b> at renewal. What it costs instead is a permanent transfer of the whole database, resting on consent any employee can withdraw. If the company takes the saving: <b>Option B</b>, with every condition on slide 6. <span class="b">[prices believed, 29 Sep — slides 13–14]</span></p></div>
   </div>
 </section>
 
@@ -395,25 +395,98 @@ hosting_countries_allowed: [AE, LT, DE, FR]</code></pre>
   <table class="small">
     <thead><tr><th>Option</th><th>Database and system</th><th>AI</th><th>Ground needed for the transfers</th><th class="n">Per month</th><th>Legal risk</th></tr></thead>
     <tbody>
-      <tr class="hi"><td><b>A · UAE VPS + Core42</b> <span class="tag ok">recommended</span></td><td>Dubai (LightNode, Tier 3+)</td><td>Core42, UAE</td><td>None for the database or AI — only Telegram (consent, built)</td><td class="n">$27.70–$52.70 + ≈ $7</td><td class="v">Lowest</td></tr>
+      <tr class="hi"><td><b>A · UAE VPS + Core42</b> <span class="tag ok">recommended</span></td><td>Dubai — Oracle, LightNode or is*hosting (slide 14)</td><td>Core42, UAE</td><td>None for the database or AI — only Telegram (consent, built)</td><td class="n">8·32: ≈ $74–80<br>4·16: ≈ $19–56<br>+ ≈ $7</td><td class="v">Lowest</td></tr>
       <tr><td><b>A2 · Azure UAE North + Core42</b></td><td>Dubai, backups to Abu Dhabi</td><td>Core42, UAE</td><td>As A</td><td class="n">≈ $202 <span class="tag mut">estimate</span></td><td class="v">Lowest, most resilient</td></tr>
-      <tr><td><b>B · Hostinger EU + Core42</b></td><td>Lithuania or Germany</td><td>Core42, UAE</td><td>Consent + DPA for the whole database, permanently</td><td class="n">$29.99 → $49.99 + ≈ $7</td><td class="b">Medium — consent-dependent, reading of Art. 23 unsettled</td></tr>
-      <tr><td><b>B2 · Hostinger EU + Groq (ZDR)</b></td><td>Lithuania or Germany</td><td>Groq, US</td><td>Consent + DPA, for two services abroad</td><td class="n">$29.99 → $49.99 + cents</td><td class="b">Medium–high</td></tr>
+      <tr><td><b>B · Hostinger EU + Core42</b></td><td>Lithuania or Germany</td><td>Core42, UAE</td><td>Consent + DPA for the whole database, permanently</td><td class="n">8·32: $25.99 → ≈ $49.99<br>4·16: $9.99 → $16.99–28.99<br>+ ≈ $7</td><td class="b">Medium — consent-dependent, reading of Art. 23 unsettled</td></tr>
+      <tr><td><b>B2 · Hostinger EU + Groq (ZDR)</b></td><td>Lithuania or Germany</td><td>Groq, US</td><td>Consent + DPA, for two services abroad</td><td class="n">as B, with cents for the AI</td><td class="b">Medium–high</td></tr>
       <tr><td><b>C · Hostinger any location + Groq/OpenRouter on default settings</b></td><td>anywhere</td><td>US, no ZDR</td><td>None in place</td><td class="n">—</td><td class="a">Not acceptable for real employee data</td></tr>
     </tbody>
   </table>
-  <p class="cite">Prices: Hostinger KVM 8 (8 vCPU / 32 GB) intro and renewal <span class="b">[believed — 2026 round-ups, 26 Sep]</span>; LightNode Dubai 4 vCPU / 8 GB $27.70, 8 vCPU / 16 GB $52.70 <span class="b">[checked 19–21 Sep]</span>; Azure and Core42 from <code>ceo-deck-azure-aws-uae.html</code> (Core42: our measured tokens × its price list). Our measured load fits a 4 vCPU / 16 GB server <span class="a">[uncertain — not load-tested]</span>. Re-check every price before ordering.</p>
-  <div class="card edge-info" style="margin-top:10px"><p class="small" style="margin:0"><b>The honest comparison:</b> Option B saves at most a few dollars a month over Option A, and adds a permanent dependency on every employee's consent, an unsettled legal reading, and the conditions on slide 6. Option A needs none of that. Hostinger is <i>possible</i>; it is not <i>cheaper in any way that matters</i>.</p></div>
+  <p class="cite">Prices: slide 13, read through search on 29 Sep <span class="b">[believed]</span>; "8·32" is Hostinger KVM 8's size, "4·16" the right size for our measured load <span class="a">[uncertain — not load-tested]</span>. Azure and Core42 from <code>ceo-deck-azure-aws-uae.html</code> (Core42: our measured tokens × its price list). Re-check every price before ordering.</p>
+  <div class="card edge-info" style="margin-top:10px"><p class="small" style="margin:0"><b>The honest comparison (corrected 29 Sep):</b> Hostinger is the cheapest option. Like for like it costs about <b>$25 a month less</b> than the cheapest UAE server at renewal (≈ $300 a year), about $49 less while the prepaid introductory price lasts, and <b>$140–260 less</b> than AWS or Azure. The saving buys a permanent transfer of the whole database abroad, a dependency on every employee's consent, a legal reading counsel must confirm before ordering, and the conditions on slide 6. We still recommend A. The choice is roughly <b>$300–600 a year</b> against that dependency, and it is the company's to make.</p></div>
 </section>
 
-<!-- 13 ────────────────────────────────────────────────────────────────────── -->
+<!-- 13 · price, like for like ─────────────────────────────────────────────── -->
 <section class="slide" data-n="13" id="s13">
+  <span class="kicker">Price, like for like · corrected 29 September</span>
+  <h2>Same specification, per month: Hostinger is the cheapest — by $25–50 against the UAE, $140–285 against AWS or Azure</h2>
+  <p class="small" style="margin:0 0 8px"><b>Correction:</b> an earlier version of this deck said a Dubai server cost "about the same" as Hostinger. That compared Hostinger's 8 vCPU / 32 GB with a Dubai plan that had half the memory and an eighth of the disk. The like-for-like numbers are below.</p>
+  <div class="grid g2">
+    <div>
+      <h3 style="margin-top:0">Like for like — 8 vCPU · 32 GB RAM · ~400 GB (Hostinger KVM 8)</h3>
+      <table class="small">
+        <thead><tr><th>Provider · where</th><th>What you get</th><th class="n">USD / month</th></tr></thead>
+        <tbody>
+          <tr class="hi"><td><b>Hostinger KVM 8</b> · EU (not UAE)</td><td>8 vCPU · 32 GB · 400 GB NVMe · 32 TB traffic</td><td class="n"><b>25.99</b> intro* → <b>≈ 49.99</b> renewal</td></tr>
+          <tr><td><b>Oracle Cloud</b> · Dubai or Abu Dhabi — Arm (A1)</td><td>8 cores · 32 GB · 400 GB block storage</td><td class="n">≈ 74 – 110 †</td></tr>
+          <tr><td><b>LightNode</b> · Dubai</td><td>8 vCPU · 32 GB · 300 GB SSD</td><td class="n">≈ 74.70 ‡</td></tr>
+          <tr><td><b>is*hosting</b> · Dubai (Equinix DX1)</td><td>8 cores · 32 GB · 100 GB NVMe · weekly backup</td><td class="n">75.99 – 79.99</td></tr>
+          <tr><td><b>Oracle Cloud</b> · Dubai or Abu Dhabi — x86 (E4)</td><td>8 vCPU · 32 GB · 400 GB</td><td class="n">≈ 125 †</td></tr>
+          <tr><td><b>Alibaba Cloud</b> · Dubai</td><td>ecs.g7.2xlarge · 8 vCPU · 32 GB</td><td class="n">≈ 143 – 238 <span class="a">[uncertain]</span></td></tr>
+          <tr><td><b>BlessHost</b> · Abu Dhabi</td><td>32 GB plan (CPU and disk not confirmed)</td><td class="n">AED 591 ≈ 161</td></tr>
+          <tr><td><b>AWS</b> · UAE (impaired since March)</td><td>t4g.2xlarge + 400 GB gp3</td><td class="n">189 (1-yr) – 277</td></tr>
+          <tr><td><b>EDIS Global</b> · Dubai (Equinix DX1)</td><td>built up from a 2 vCPU base</td><td class="n">≈ €222</td></tr>
+          <tr><td><b>Azure</b> · UAE North</td><td>D8as v5, disk extra</td><td class="n">310 +</td></tr>
+          <tr><td><b>AEserver</b> · Dubai (UAE company)</td><td>8 vCPU · 32 GB · 500 GB · 5 Mbps port</td><td class="n">not published — ask</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div>
+      <h3 style="margin-top:0">Right-sized — 4 vCPU · 16 GB · ~200 GB (enough for our load <span class="a">[uncertain — not load-tested]</span>)</h3>
+      <table class="small">
+        <thead><tr><th>Provider · where</th><th>What you get</th><th class="n">USD / month</th></tr></thead>
+        <tbody>
+          <tr class="hi"><td><b>Hostinger KVM 4</b> · EU (not UAE)</td><td>4 vCPU · 16 GB · 200 GB NVMe</td><td class="n"><b>9.99 – 12.99</b> intro* → <b>16.99 – 28.99</b></td></tr>
+          <tr><td><b>Oracle Cloud</b> · Dubai or Abu Dhabi — Arm (A1)</td><td>4 cores · 16 GB · 200 GB</td><td class="n">≈ 19 – 55 †</td></tr>
+          <tr><td><b>LightNode</b> · Dubai</td><td>8 vCPU · 16 GB · 50 GB (4 vCPU · 8 GB: $27.70)</td><td class="n">52.70</td></tr>
+          <tr><td><b>is*hosting</b> · Dubai (Equinix DX1)</td><td>6 cores · 16 GB · 80 GB NVMe</td><td class="n">53.19 – 55.99</td></tr>
+          <tr><td><b>AWS</b> · UAE</td><td>t4g.xlarge + 200 GB gp3</td><td class="n">95 (1-yr) – 138</td></tr>
+          <tr><td><b>Azure</b> · UAE North</td><td>D4as v5, disk extra</td><td class="n">≈ 155 +</td></tr>
+        </tbody>
+      </table>
+      <div class="card edge-info" style="margin-top:10px;padding:12px 14px"><p class="small" style="margin:0"><b>The gap, per year:</b> like for like, Hostinger at renewal is about <b>$300</b> cheaper than the cheapest UAE server (≈ $50 vs ≈ $75 a month), and about <b>$590</b> cheaper while its prepaid introductory price lasts. Right-sized, Oracle's Arm servers in Dubai can come within a few dollars of Hostinger — if the account's home region is in the UAE, so its free allowance applies.</p></div>
+    </div>
+  </div>
+  <p class="cite">* Hostinger's introductory price needs a 12–48-month prepayment (round-ups on 19–26 Sep showed $29.99; on 29 Sep, $25.99); renewal prices vary by term (reports range $47.99–59.99 for KVM 8). † Oracle: same list price in every region — Arm A1 $0.01 per core-hour + $0.0015 per GB-hour; x86 E4 $0.025 per OCPU-hour (1 OCPU = 2 vCPU) + $0.0015 per GB-hour; block storage $0.0425 per GB-month (balanced); the low end subtracts the Always Free allowance (since 15 June 2026: 2 Arm cores, 12 GB, 200 GB — home region only); a third-party quote implies x86 up to ~$159. ‡ one source. AWS: official price list (25 Sep); t4g.xlarge is exactly half of t4g.2xlarge. Azure 4-vCPU derived as half of the 8-vCPU tracker price. AED at the 3.6725 peg. All <span class="b">[believed — read through search, 29 Sep]</span> except AWS <span class="v">[verified]</span>. <b>Re-check every price at checkout.</b></p>
+</section>
+
+<!-- 14 · UAE providers ───────────────────────────────────────────────────── -->
+<section class="slide" data-n="14" id="s14">
+  <span class="kicker">Hosted inside the UAE · the companies</span>
+  <h2>Hostinger-style providers with servers physically in the UAE — and two that only look like it</h2>
+  <table class="small">
+    <thead><tr><th>Company</th><th>Company base</th><th>UAE facility</th><th>What it is</th><th>Price range seen</th><th>Fit for FreshNow</th></tr></thead>
+    <tbody>
+      <tr><td><b>is*hosting</b></td><td>Tallinn, Estonia · founded 2005</td><td>Dubai — <b>Equinix DX1</b></td><td>Fixed-price VPS, KVM, weekly backup, monthly billing</td><td>$29 (3 cores · 4 GB) → $80 (8 · 32 GB)</td><td class="v">Closest to Hostinger in style; disk is small (100 GB at 8 · 32)</td></tr>
+      <tr><td><b>LightNode</b></td><td>Wan Chai, Hong Kong · data-centre business since 2002, this platform since 2021</td><td>Dubai, "Tier 3+" (facility not named)</td><td>VPS with hourly billing; dedicated-CPU plans too</td><td>$7.71 → $74.70; dedicated CPU $80.70 – $158.70</td><td class="v">Cheapest UAE option at 4 · 8; small disks on standard plans</td></tr>
+      <tr><td><b>Oracle Cloud (OCI)</b></td><td>USA (Oracle Corporation)</td><td>Two regions: <b>UAE East (Dubai)</b> and <b>UAE Central (Abu Dhabi)</b></td><td>Hyperscale cloud, pay per hour, same price in every region</td><td>≈ $19 (4 Arm cores · 16 GB) → ≈ $125 (x86 8 · 32)</td><td class="v">Best value in the UAE if Arm works for us (our stack is Node, Postgres, Redis — all publish Arm images <span class="b">[believed; not tested]</span>); a DPA is standard</td></tr>
+      <tr><td><b>AEserver</b></td><td><b>Dubai</b> — TDRA-accredited .ae registrar since 2008</td><td>Dubai (DX1)</td><td>Local cloud VPS, AED billing, Arabic and English support 24/7</td><td>AED 99 → 4,255 a month; has an <b>8 vCPU · 32 GB · 500 GB</b> plan, but its price was not in what we could read, and its traffic is "unmetered at 5 Mbps"</td><td class="b">UAE company — ask for the 8 · 32 quote and a faster port</td></tr>
+      <tr><td><b>Serverspace</b></td><td>not found (7 data centres: US, NL, CA, BR, TR, KZ, UAE)</td><td>Dubai — <b>Equinix DX1</b></td><td>Cloud VPS billed every 10 minutes, configurator pricing</td><td>price for 8 · 32 not found</td><td class="b">Get a configurator quote</td></tr>
+      <tr><td><b>EDIS Global</b></td><td>Austria <span class="b">[believed]</span></td><td>Dubai — <b>Equinix DX1</b></td><td>VPS built up from a small base</td><td>€21.99 base → ≈ €222 at 8 · 32</td><td class="a">Expensive at our size</td></tr>
+      <tr><td><b>BlessHost</b></td><td><b>Abu Dhabi and Dubai</b> offices · founded 2014 · 2–10 staff</td><td>Abu Dhabi or Dubai — but it also sells Germany and Canada</td><td>SSD VPS, yearly billing</td><td>AED 591 (≈ $161) for 32 GB</td><td class="b">UAE company — confirm the location and specification in writing</td></tr>
+      <tr><td><b>Alibaba Cloud</b></td><td>China</td><td>Dubai region (me-east-1)</td><td>Hyperscale cloud</td><td>≈ $143 – 238 at 8 · 32 <span class="a">[uncertain]</span></td><td class="a">No price advantage</td></tr>
+      <tr style="background:#ffe3e0"><td><b>HostZealot</b> "Dubai VPS"</td><td colspan="4">Sold as Dubai, but described as a <b>UAE-located IP address on servers outside the UAE</b>. <span class="b">[believed — search summary of its pages]</span></td><td class="a">Not in the UAE — exclude</td></tr>
+      <tr style="background:#ffe3e0"><td><b>HOSTKEY</b> "Dubai VPS"</td><td colspan="4">Dubai VPS marked "coming soon"; its UAE offers are hosted in the Netherlands, the USA or Russia. <span class="b">[believed]</span></td><td class="a">Not in the UAE — exclude</td></tr>
+    </tbody>
+  </table>
+  <div class="grid g2" style="margin-top:10px">
+    <div class="card edge-warn"><h3 style="margin-top:0">"Dubai VPS" is not proof of Dubai</h3>
+      <p class="small">Some sellers rent an IP address that looks Emirati and run the server in Europe. Before ordering: get the <b>data-centre name and address in writing</b> (e.g. Equinix DX1, Dubai) and put it in the contract; ping the server from Dubai — a local server answers in a few milliseconds, Europe in about 100; an IP-location website is not evidence.</p></div>
+    <div class="card edge-info"><h3 style="margin-top:0">A UAE data centre, a foreign company</h3>
+      <p class="small">Most of these companies are based abroad. The data stays in the UAE, but their support staff may reach the server from elsewhere — which can itself count as access from abroad. Ask where administrative access comes from, and put it in the DPA. AEserver and BlessHost are the UAE-based companies in the list.</p></div>
+  </div>
+  <p class="cite">is*hosting: <a href="https://ishosting.com/en/vps/ae">VPS UAE</a>, <a href="https://www.linkedin.com/company/is-hosting">company</a>, <a href="https://help.ishosting.com/en/the-physical-location-of-our-servers">physical location</a> · LightNode: <a href="https://go.lightnode.com/the-united-arab-emirates-vps">UAE VPS</a>, <a href="https://www.lightnode.com/en-US/aboutUs">about</a>, <a href="https://go.lightnode.com/dubai-vds">Dubai VDS</a> · Oracle: <a href="https://www.oracle.com/cloud/price-list/">price list</a>, <a href="https://docs.oracle.com/en-us/iaas/Content/FreeTier/freetier_topic-Always_Free_Resources.htm">Always Free</a>, <a href="https://www.infoq.com/news/2026/07/oracle-cloud-free-tier-limits/">InfoQ on the June 2026 cut</a> · AEserver: <a href="https://www.aeserver.com/cloud-vps/">Cloud VPS</a>, <a href="https://www.aeserver.com/infrastructure/">infrastructure</a> · Serverspace: <a href="https://serverspace.io/infrastructure/data-center-dubai/">Equinix DX1</a> · EDIS: <a href="https://www.edisglobal.com/vps-hosting/united-arab-emirates-dubai">Dubai VPS</a> · BlessHost: <a href="https://www.blesshost.com/vps-hosting">VPS UAE</a>, <a href="https://www.blesshost.com/about">about</a> · HostZealot: <a href="https://www.hostzealot.com/vps/city-ae-dubai">Dubai VPS</a> · HOSTKEY: <a href="https://hostkey.com/vps/uae/">VPS UAE</a> · Hostinger: <a href="https://www.vpsbenchmarks.com/hosters/hostinger/plans/kvm-8">KVM 8</a>, <a href="https://hostadvice.com/hosting-company/hostinger-reviews/vps-pricing/">renewal costs</a>. All <span class="b">[believed — via search, 29 Sep; vendor pages blocked here]</span>.</p>
+</section>
+
+
+<!-- 15 ────────────────────────────────────────────────────────────────────── -->
+<section class="slide" data-n="15" id="s15">
   <span class="kicker">Decision and next steps</span>
   <h2>Choose A or B — then this is the order of work</h2>
   <div class="grid g2">
     <div class="card edge-ok"><h3 style="margin-top:0">If A — UAE host + Core42</h3>
       <ol class="small">
-        <li>Order the Dubai VPS; buy the domain. <i>CEO · an hour</i></li>
+        <li>Order the Dubai VPS — data-centre name and address in the contract (slide 14); buy the domain. <i>CEO · an hour</i></li>
         <li>Move the Docker stack unchanged; Caddy gives HTTPS; phones use the domain — no tunnel. <i>developer · days</i></li>
         <li>Switch the AI to Core42; remove the US fallbacks. The notice rewrites itself; everyone agrees again. <i>developer · hours after sign-up</i></li>
         <li>Registry + rules R1–R8 (slide 9). <i>developer · about a week in total</i> <span class="tag mut">estimate</span></li>
@@ -432,8 +505,8 @@ hosting_countries_allowed: [AE, LT, DE, FR]</code></pre>
   <div class="card brand" style="margin-top:12px"><b>Either way, one thing is already done:</b> consent is asked, enforced and recorded in Telegram and the app, and it follows the configuration automatically. What remains is a choice of host, a few contracts, and the registry that makes every future change safe.</div>
 </section>
 
-<!-- 14 ────────────────────────────────────────────────────────────────────── -->
-<section class="slide" data-n="14" id="s14">
+<!-- 16 ────────────────────────────────────────────────────────────────────── -->
+<section class="slide" data-n="16" id="s16">
   <span class="kicker">Sources</span>
   <h2>Every claim above, and where to check it</h2>
   <div class="grid g2">
@@ -452,6 +525,7 @@ hosting_countries_allowed: [AE, LT, DE, FR]</code></pre>
       <ul class="small">
         <li>Hostinger, <a href="https://www.hostinger.com/support/1583267-where-are-hostinger-servers-located/">Where are Hostinger servers located?</a> · <a href="https://www.hostinger.com/legal/hosting-agreement">Hosting agreement</a></li>
         <li>LightNode, <a href="https://go.lightnode.com/the-united-arab-emirates-vps">UAE VPS</a> · Azure prices: <code>ceo-deck-azure-aws-uae.html</code></li>
+        <li>Every provider compared, and the UAE companies: the links on slides 13 and 14 · AWS: <a href="https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonEC2/current/region_index.json">AWS Price List API</a> (me-central-1, 25 Sep)</li>
       </ul>
     </div>
     <div>
@@ -472,8 +546,8 @@ hosting_countries_allowed: [AE, LT, DE, FR]</code></pre>
   </div>
 </section>
 
-<!-- 15 ────────────────────────────────────────────────────────────────────── -->
-<section class="slide" data-n="15" id="s15">
+<!-- 17 ────────────────────────────────────────────────────────────────────── -->
+<section class="slide" data-n="17" id="s17">
   <span class="kicker">What is not verified</span>
   <h2>Where this briefing could be wrong, stated plainly</h2>
   <div class="grid g2">
@@ -486,7 +560,8 @@ hosting_countries_allowed: [AE, LT, DE, FR]</code></pre>
     </ul></div>
     <div class="card edge-warn"><ul class="small">
       <li><b>No primary page was readable this session</b>: the law's PDF, Hostinger, Groq, OpenRouter and the government portal were all blocked by the network policy. Earlier readings (21 Sep) of the law's text are relied on.</li>
-      <li><b>Prices</b> are from 19–26 Sep and from third-party round-ups for Hostinger; re-check before ordering.</li>
+      <li><b>Prices</b> were read through search on 29 Sep; no vendor page opened. Hostinger's renewal varies by term ($47.99–59.99 reported). LightNode's 8 · 32 price has one source. AEserver and Serverspace have no 8 · 32 price here. Oracle's figures are computed from unit prices, and its Arm servers are not tested with our stack. Re-check at checkout.</li>
+      <li><b>Company details</b> (base, founding year) and the HostZealot / HOSTKEY exclusions rest on search summaries. <b>Physical location</b> is only proven by the data-centre name in the contract and a ping from Dubai.</li>
       <li><b>Build sizes</b> on slide 10 are the developer's estimates.</li>
       <li><b>Daily Vending LLC is assumed mainland</b>; a free-zone licence changes the regime.</li>
       <li><b>No lawyer has reviewed this.</b> It is written to be checked quickly — and it should be.</li>
