@@ -26,6 +26,20 @@ export {
   bandMidpoint,
 } from "./progress.js";
 export type { ProgressBand, ProgressSource, RelationKind, TaskStep } from "./progress.js";
+export {
+  checkPolicyAtStartup,
+  evaluatePolicy,
+  isProduction,
+  isQuickTunnel,
+  readRegistry,
+  registry,
+  registryPath,
+  DETECTORS,
+} from "./compliance.js";
+export type { Finding, PolicyReport, Registry, RegistryService } from "./compliance.js";
+export { complianceEvidence, exportPersonData, recordComplianceSnapshot } from "./compliance-evidence.js";
+export type { ComplianceEvidence } from "./compliance-evidence.js";
+export { redactIdentifiers } from "./llm/redact.js";
 export type { ViewerOrg } from "./org.js";
 
 export { logAudit } from "./audit.js";

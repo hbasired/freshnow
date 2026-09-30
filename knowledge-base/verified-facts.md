@@ -672,3 +672,10 @@ Full suite on Postgres 16 + pgvector 0.6.0 + Redis: 493 pass, 9 fail (8 real-mod
 second provider key). Browser (Playwright 1.56 Chromium, 390×844 touch in light and dark, 1440×900): 37/37 checks —
 tab bar, no sideways scroll on six phone pages, the range list, "20–30%" shown never "25%", starters, full-screen task
 with Back, back gesture closing the task then stepping back a page, desktop sidebar and tables unchanged.
+
+## VF43 (2026-09-30) — Policy-as-code facts used in TASK-050 [believed — search summaries; pages blocked]
+OpenRouter routing fields `provider.data_collection: "deny"` and `provider.zdr: true`; Emirates ID = 15 digits 784-YYYY-NNNNNNN-C;
+PDPL Art. 13 information, Art. 14 portability (machine-readable), Art. 15 correction/erasure; a Cloudflare quick tunnel
+terminates TLS at Cloudflare's edge (Cloudflare can read the traffic) and quick tunnels are for testing; Langfuse Cloud EU is
+stored in Ireland and Langfuse offers a DPA. Measured here: 530 tests pass (37 new), 9 need a live model; 12/12 + 37/37
+browser checks.

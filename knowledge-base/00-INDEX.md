@@ -367,6 +367,12 @@ Routing goes to the **CEO only** for now (company routing data not yet supplied)
   (G125). 493 tests, 37/37 browser checks (VF42).
   -> `docs/tasks/TASK-049-progress-ranges-phone-app-hostinger-groq.html` · `docs/reports/ceo-deck-hostinger-final-verdict.html`
 
+- **T50 Policy as code** (2026-09-30): `compliance/processors.json` + rules R0–R6 at every start of the api, worker and bot
+  (demo reports, production refuses — D151), identifiers removed from AI prompts and counted (R7, migration 0019, D152), the
+  CEO's Compliance page + daily audit snapshot (R8) and Download my data / Export (D153). The consent notice is unchanged.
+  530 tests, 12/12 + 37/37 browser checks (VF43). Guides and deck slides 10–12 updated.
+  -> `docs/tasks/TASK-050-policy-as-code.html`
+
 ## Blocked on the user
 - ~~`CEO_TELEGRAM_USER_ID` is empty.~~ **Resolved 2026-09-04:** CEO = 6051615734,
   employee = 8903000291. Both have run `/start`; the CEO is linked to the CEO employee row.

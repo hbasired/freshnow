@@ -35,6 +35,8 @@ const CONSENT_FREE_PATHS = new Set([
   "/dashboard/me",
   "/dashboard/me/consent",
   "/dashboard/me/consent/withdraw",
+  // A person's own data is theirs to download whether or not they have agreed to the newest notice.
+  "/dashboard/me/export",
   "/dashboard/events",
 ]);
 

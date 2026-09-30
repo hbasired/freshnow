@@ -321,51 +321,51 @@
 <section class="slide" data-n="10" id="s10">
   <span class="kicker">Policy as code · what it means for us</span>
   <h2>Write the compliance rules down once — and let the system refuse to break them</h2>
-  <p class="lead" style="max-width:none">"Policy as code" means the rules live in files the system reads and checks, not in a PDF people forget. For FreshNow that is five layers — three of them already exist.</p>
+  <p class="lead" style="max-width:none">"Policy as code" means the rules live in files the system reads and checks, not in a PDF people forget. For FreshNow that is five layers — <b>all five run in the system since 30 September</b> (TASK-050).</p>
   <div class="viz" style="overflow-x:auto">
     <svg viewBox="0 0 1200 300" style="width:100%;min-width:760px;height:auto" role="img" aria-label="Five layers of policy as code">
       <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#59636e"/></marker></defs>
       <g font-size="15" fill="#1f2328">
-        <rect x="10" y="40" width="210" height="190" rx="14" fill="#fff8ec" stroke="#f39c12" stroke-width="2"/>
+        <rect x="10" y="40" width="210" height="190" rx="14" fill="#f4faec" stroke="#3d6b10" stroke-width="2"/>
         <text x="115" y="72" text-anchor="middle" font-weight="800">1 · Registry</text>
         <text x="115" y="100" text-anchor="middle" font-size="13">one file: every service</text>
         <text x="115" y="118" text-anchor="middle" font-size="13">personal data reaches,</text>
         <text x="115" y="136" text-anchor="middle" font-size="13">its country, legal ground,</text>
         <text x="115" y="154" text-anchor="middle" font-size="13">DPA date, retention</text>
-        <text x="115" y="205" text-anchor="middle" font-size="13" font-weight="700" fill="#9d5404">TO BUILD</text>
-        <rect x="250" y="40" width="210" height="190" rx="14" fill="#fff8ec" stroke="#f39c12" stroke-width="2"/>
+        <text x="115" y="205" text-anchor="middle" font-size="13" font-weight="700" fill="#3d6b10">BUILT · processors.json</text>
+        <rect x="250" y="40" width="210" height="190" rx="14" fill="#f4faec" stroke="#3d6b10" stroke-width="2"/>
         <text x="355" y="72" text-anchor="middle" font-weight="800">2 · Before deploy</text>
         <text x="355" y="100" text-anchor="middle" font-size="13">checks that fail the</text>
         <text x="355" y="118" text-anchor="middle" font-size="13">release: unregistered</text>
-        <text x="355" y="136" text-anchor="middle" font-size="13">provider, non-EU host,</text>
+        <text x="355" y="136" text-anchor="middle" font-size="13">provider, laptop host,</text>
         <text x="355" y="154" text-anchor="middle" font-size="13">no DPA, no retention</text>
-        <text x="355" y="205" text-anchor="middle" font-size="13" font-weight="700" fill="#9d5404">TO BUILD</text>
+        <text x="355" y="205" text-anchor="middle" font-size="13" font-weight="700" fill="#3d6b10">BUILT · pnpm compliance</text>
         <rect x="490" y="40" width="210" height="190" rx="14" fill="#f4faec" stroke="#3d6b10" stroke-width="2"/>
         <text x="595" y="72" text-anchor="middle" font-weight="800">3 · At start-up</text>
         <text x="595" y="100" text-anchor="middle" font-size="13">the notice is built from</text>
         <text x="595" y="118" text-anchor="middle" font-size="13">the configuration; senders</text>
         <text x="595" y="136" text-anchor="middle" font-size="13">start only with keys;</text>
-        <text x="595" y="154" text-anchor="middle" font-size="13">daily AI budget</text>
-        <text x="595" y="205" text-anchor="middle" font-size="13" font-weight="700" fill="#3d6b10">PARTLY BUILT</text>
+        <text x="595" y="154" text-anchor="middle" font-size="13">+ production refuses to start</text>
+        <text x="595" y="205" text-anchor="middle" font-size="13" font-weight="700" fill="#3d6b10">BUILT</text>
         <rect x="730" y="40" width="210" height="190" rx="14" fill="#f4faec" stroke="#3d6b10" stroke-width="2"/>
         <text x="835" y="72" text-anchor="middle" font-weight="800">4 · At every request</text>
         <text x="835" y="100" text-anchor="middle" font-size="13">consent doors (bot, API,</text>
         <text x="835" y="118" text-anchor="middle" font-size="13">outbox); row-level</text>
         <text x="835" y="136" text-anchor="middle" font-size="13">security; channel gates;</text>
-        <text x="835" y="154" text-anchor="middle" font-size="13">+ names removed from prompts</text>
-        <text x="835" y="205" text-anchor="middle" font-size="13" font-weight="700" fill="#3d6b10">BUILT · +1 TO BUILD</text>
+        <text x="835" y="154" text-anchor="middle" font-size="13">+ phone, email, IDs removed</text>
+        <text x="835" y="205" text-anchor="middle" font-size="13" font-weight="700" fill="#3d6b10">BUILT · names kept</text>
         <rect x="970" y="40" width="210" height="190" rx="14" fill="#f4faec" stroke="#3d6b10" stroke-width="2"/>
         <text x="1075" y="72" text-anchor="middle" font-weight="800">5 · Evidence</text>
         <text x="1075" y="100" text-anchor="middle" font-size="13">append-only audit log;</text>
         <text x="1075" y="118" text-anchor="middle" font-size="13">every AI call logged;</text>
         <text x="1075" y="136" text-anchor="middle" font-size="13">consent by version;</text>
-        <text x="1075" y="154" text-anchor="middle" font-size="13">+ a nightly report</text>
-        <text x="1075" y="205" text-anchor="middle" font-size="13" font-weight="700" fill="#3d6b10">BUILT · +1 TO BUILD</text>
+        <text x="1075" y="154" text-anchor="middle" font-size="13">+ page + daily snapshot</text>
+        <text x="1075" y="205" text-anchor="middle" font-size="13" font-weight="700" fill="#3d6b10">BUILT</text>
         <line x1="222" y1="135" x2="246" y2="135" stroke="#59636e" stroke-width="2" marker-end="url(#ar)"/>
         <line x1="462" y1="135" x2="486" y2="135" stroke="#59636e" stroke-width="2" marker-end="url(#ar)"/>
         <line x1="702" y1="135" x2="726" y2="135" stroke="#59636e" stroke-width="2" marker-end="url(#ar)"/>
         <line x1="942" y1="135" x2="966" y2="135" stroke="#59636e" stroke-width="2" marker-end="url(#ar)"/>
-        <text x="600" y="275" text-anchor="middle" font-size="13" fill="#59636e">Orange = to build · green = in the system today (TASK-043 to TASK-046). No new tool is required: the checks can be TypeScript tests, like the 483 already running.</text>
+        <text x="600" y="275" text-anchor="middle" font-size="13" fill="#59636e">Green = in the system (TASK-043 to TASK-050). No new tool was needed: the checks are TypeScript, run at start-up and by 37 tests among the 530 that pass.</text>
       </g>
     </svg>
   </div>
@@ -377,82 +377,70 @@
   <h2>One file says where personal data may go; the system checks itself against it</h2>
   <div class="grid g2">
     <div>
-      <h3 style="margin-top:0">The registry — <code>compliance/processors.yaml</code> <span class="tag mut">design</span></h3>
-<pre style="background:#0d1117;color:#e6edf3;border-radius:12px;padding:12px 14px;font-size:.76rem;line-height:1.45;overflow-x:auto;margin:0"><code># Every service that personal data reaches. Nothing else may be reached.
-- id: hostinger
-  role: processor                 # hosts the database and the app
-  country: LT                     # Lithuania (EU) — chosen at order time
-  data: [all]
-  ground: [consent, contract]     # PDPL Art. 23(1)(b) + (a)
-  dpa: { accepted: 2026-10-01, copy: legal/hostinger-dpa.pdf }
-
-- id: groq
-  role: processor
-  country: US
-  data: [update_text, voice]
-  ground: [consent, contract]
-  dpa: { accepted: null }         # → release blocked until filled in
-  controls: { zero_data_retention: true }
-
-- id: telegram
-  role: independent_service
-  country: outside_UAE
-  data: [messages]
-  ground: [consent]
-
-retention_days: 365               # the company's number (Art. 5(7))
-hosting_countries_allowed: [AE, LT, DE, FR]</code></pre>
+      <h3 style="margin-top:0">The registry — <code>compliance/processors.json</code> <span class="tag ok">built 30 Sep</span></h3>
+<pre style="background:#0d1117;color:#e6edf3;border-radius:12px;padding:12px 14px;font-size:.74rem;line-height:1.45;overflow-x:auto;margin:0"><code>{ "hosting": { "provider": "this-computer", "country": "AE" },
+  "hosting_countries_allowed": ["AE", "LT", "DE", "FR"],
+  "retention_days": null,
+  "services": [
+    { "id": "groq", "role": "processor", "country": "US",
+      "ground": ["consent", "contract"],
+      "dpa": { "status": "not_filed", "accepted_on": null },
+      "controls": { "zero_data_retention": false,
+                    "confirmed_on": null },
+      "how_to_confirm": "console.groq.com → Data Controls →
+         Zero Data Retention → global ON; then set true + date" },
+    { "id": "openrouter", "dpa": { "status": "not_available" }, … },
+    { "id": "telegram", "role": "independent", "ground": ["consent"] },
+    { "id": "cloudflare_quick_tunnel", "role": "demo_only", … }
+  ] }            // excerpt — nine services in the file</code></pre>
     </div>
     <div>
-      <h3 style="margin-top:0">The rules it enforces</h3>
+      <h3 style="margin-top:0">The rules it enforces <span class="tag ok">built 30 Sep</span></h3>
       <table class="small">
         <thead><tr><th>#</th><th>Rule</th><th>Where it bites</th></tr></thead>
         <tbody>
-          <tr><td>R1</td><td>Every service the configuration can reach is in the registry (a Groq key set ⇒ a <code>groq</code> entry)</td><td>deploy fails</td></tr>
-          <tr><td>R2</td><td>Every entry has a ground; "contract" needs a DPA date</td><td>deploy fails</td></tr>
-          <tr><td>R3</td><td>The host's country is in the allowed list — no US or Asian Hostinger location</td><td>deploy fails</td></tr>
-          <tr><td>R4</td><td>AI calls carry zero-retention (and OpenRouter <code>data_collection: "deny"</code>); a provider without it is skipped</td><td>every call</td></tr>
-          <tr><td>R5</td><td>The consent notice is generated from the registry — any change asks everyone again</td><td>built for AI, Telegram, push · add the host</td></tr>
-          <tr><td>R6</td><td>Production refuses to start with retention unset, unencrypted backups, or the database reachable from the internet</td><td>start-up</td></tr>
-          <tr><td>R7</td><td>Names, phone numbers, emails and IDs replaced before a prompt leaves; tested against real anonymised updates</td><td>every call</td></tr>
-          <tr><td>R8</td><td>Nightly report: consents by version, transfers per service (from the AI-call and outbox logs), retention runs</td><td>evidence</td></tr>
+          <tr><td>R1</td><td>Every service the configuration can reach is in the registry (a Groq key set ⇒ a <code>groq</code> entry)</td><td>production start refused · <code>pnpm compliance --production</code> exits 1</td></tr>
+          <tr><td>R2</td><td>Every service has a ground; "contract" needs a filed DPA with its date; a processor with no DPA on offer is refused</td><td>same</td></tr>
+          <tr><td>R3</td><td>The host is named, in an allowed country — and not a laptop</td><td>same</td></tr>
+          <tr><td>R4</td><td>AI providers keep nothing: zero retention confirmed with a date; OpenRouter also <code>data_collection: "deny"</code>, sent on every call once confirmed</td><td>start-up · every OpenRouter call</td></tr>
+          <tr><td>R5</td><td>The consent notice names every service that receives personal data, and a host abroad</td><td>start-up (notice still built from the configuration; R5 checks they agree)</td></tr>
+          <tr><td>R6</td><td>A retention period, sign-in on, no quick tunnel, no prompt copies to tracing</td><td>start-up · the Compliance page flags a visit through the tunnel</td></tr>
+          <tr><td>R7</td><td>Phone numbers, emails, Emirates IDs, IBANs and card numbers removed before a prompt leaves; names kept — routing needs them</td><td>every call, counted in <code>llm_call.redacted</code></td></tr>
+          <tr><td>R8</td><td>Evidence: consent by version, AI calls and removals, messages per channel, retention, erasures, exports</td><td>CEO's Compliance page · daily audit-log snapshot</td></tr>
         </tbody>
       </table>
-      <p class="small mut">The same file generates the record of processing (Art. 7(4)) and the notice's list of recipients — one truth, three uses.</p>
+      <p class="small mut">The file is also the record of processing (Art. 7(4)), shown on the Compliance page and by <code>pnpm compliance</code>. In the demo every rule is reported, never enforced; with <code>IS_DEMO=false</code> the api, worker and bot refuse to start while one blocks — tested both ways.</p>
     </div>
   </div>
 </section>
 
 <!-- 12 ────────────────────────────────────────────────────────────────────── -->
 <section class="slide" data-n="12" id="s12">
-  <span class="kicker">Policy as code · built vs to build</span>
-  <h2>Most of the enforcement already runs — the registry ties it together</h2>
+  <span class="kicker">Policy as code · built vs left · updated 30 Sep</span>
+  <h2>The system now checks itself — what is left is for people, and for the host</h2>
   <div class="grid g2">
     <div class="card edge-ok"><h3 style="margin-top:0">In the system today <span class="v">[verified — our code and tests]</span></h3>
       <ul class="small">
-        <li><b>Consent notice 2.0</b> built from the configuration; a change asks everyone again (TASK-046)</li>
-        <li><b>Three consent doors</b>: the bot and the API take nothing, and the outbox sends nothing abroad, until a person agrees</li>
-        <li><b>Row-level security</b>, default deny, per role</li>
-        <li><b>Append-only audit log</b> with a correlation id per run</li>
-        <li><b>Every AI call logged</b> (<code>llm_call</code>): provider, tokens, cost — the transfer record</li>
-        <li><b>Daily AI budget</b> with fall-back to rules only</li>
-        <li><b>Channel switches</b>: a channel needs keys, the CEO's switch and the person's preference</li>
-        <li><b>Retention sweep</b> (waiting for the company's number) and <b>erasure by anonymisation</b></li>
+        <li><b>Registry</b> <code>compliance/processors.json</code> and rules <b>R0–R6</b>, checked at every start of the api, worker and bot; production refuses to start on a blocking rule (TASK-050)</li>
+        <li><b><code>pnpm compliance</code></b> and <b><code>--production</code></b> — the same checks in a terminal, exit code for a deploy</li>
+        <li><b>R7</b>: identifiers removed from every AI prompt, counted per call · <b>R4</b>: OpenRouter's zero-retention fields sent once confirmed</li>
+        <li><b>R8</b>: the CEO's <b>Compliance</b> page and a daily snapshot in the append-only audit log</li>
+        <li><b>Download my data</b> for everyone; <b>Export</b> for the CEO — the PDPL's rights to information and a machine-readable copy (Art. 13–14 <span class="b">[believed]</span>)</li>
+        <li>Already there: consent notice 2.0 and three consent doors, row-level security, append-only audit, every AI call logged, daily AI budget, channel switches, retention sweep, erasure by anonymisation</li>
       </ul></div>
-    <div class="card edge-warn"><h3 style="margin-top:0">To build <span class="tag mut">estimate</span></h3>
+    <div class="card edge-warn"><h3 style="margin-top:0">Left to do</h3>
       <table class="small">
-        <thead><tr><th>Piece</th><th>Rules</th><th>Size</th></tr></thead>
+        <thead><tr><th>What</th><th>Who</th></tr></thead>
         <tbody>
-          <tr><td>Registry file + deploy checks</td><td>R1–R3</td><td>about a day</td></tr>
-          <tr><td>Zero-retention parameters enforced in the AI wrapper</td><td>R4</td><td>hours</td></tr>
-          <tr><td>Host line in the notice, from the registry</td><td>R5</td><td>hours</td></tr>
-          <tr><td>Production start-up refusals</td><td>R6</td><td>about a day</td></tr>
-          <tr><td>Prompt pseudonymiser + tests in each language</td><td>R7</td><td>a day or two</td></tr>
-          <tr><td>Nightly evidence report</td><td>R8</td><td>about a day</td></tr>
-          <tr><td>Encrypted backups, DB access log, server hardening</td><td>—</td><td>a day or two, on the chosen host</td></tr>
+          <tr><td>Choose the retention period; switch on Groq's zero retention; file the DPAs — then record each in the registry with its date</td><td>company</td></tr>
+          <tr><td>Name the production host in the registry (and a notice line if it is abroad)</td><td>CEO + developer</td></tr>
+          <tr><td>Encrypted backups, database access log, server hardening — config cannot see these, so no rule checks them</td><td>developer, on the chosen host</td></tr>
+          <tr><td>Run <code>pnpm compliance --production</code> in the deploy pipeline (CI is paused)</td><td>developer</td></tr>
+          <tr><td>Measure how redaction changes the AI's reading of real updates — needs a live model key</td><td>developer</td></tr>
+          <tr><td>Counsel's reading of the grounds; the notice's final wording</td><td>counsel</td></tr>
         </tbody>
       </table>
-      <p class="small mut">Sizes are the developer's estimate for this codebase, not measured. Nothing here needs a new tool.</p></div>
+      <p class="small mut">Names are deliberately <b>not</b> removed from prompts: the document planner routes work by name. That is a decision, recorded, not an oversight.</p></div>
   </div>
 </section>
 
@@ -499,7 +487,7 @@ hosting_countries_allowed: [AE, LT, DE, FR]</code></pre>
         <li>Order the Dubai VPS; buy the domain. <i>CEO · an hour</i></li>
         <li>Move the Docker stack unchanged; Caddy gives HTTPS; phones use the domain — no tunnel. <i>developer · days</i></li>
         <li>Switch the AI to Core42; remove the US fallbacks. The notice rewrites itself; everyone agrees again. <i>developer · hours after sign-up</i></li>
-        <li>Registry + rules R1–R8 (slide 11). <i>developer · about a week in total</i> <span class="tag mut">estimate</span></li>
+        <li>Registry + rules R1–R8 — <b>built 30 Sep</b> (slide 11); fill in the real host, contracts and dates. <i>company + developer · hours</i></li>
         <li>Company: retention number, breach contact, notice wording, counsel's read.</li>
       </ol></div>
     <div class="card edge-warn"><h3 style="margin-top:0">If B — Hostinger (EU)</h3>
@@ -508,7 +496,7 @@ hosting_countries_allowed: [AE, LT, DE, FR]</code></pre>
         <li>Order the VPS in Lithuania or Germany; turn on two-factor sign-in; file the DPA, SCCs and sub-processor list; check the backup location; write to Hostinger (slide 8).</li>
         <li>Add the host line to the notice; everyone agrees again before real data goes in.</li>
         <li>Harden the server; encrypted backups with a second EU copy; DB access log (slide 6, rows 8–12).</li>
-        <li>Registry + rules R1–R8, with <code>hosting_countries_allowed</code> set to the EU.</li>
+        <li>Registry (built): set the Hostinger entry and <code>hosting_countries_allowed</code> to the EU; <code>pnpm compliance --production</code> must pass.</li>
         <li>Decide the path for anyone who does not consent.</li>
       </ol></div>
   </div>
@@ -577,7 +565,7 @@ hosting_countries_allowed: [AE, LT, DE, FR]</code></pre>
     <div class="card edge-warn"><ul class="small">
       <li><b>No primary page was readable in either session</b> (29 and 30 Sep): the law's PDF, Hostinger, Groq, OpenRouter, the government portal and most law-firm pages were blocked by the network policy. Earlier readings (21 Sep) of the law's text are relied on; every newer claim links to its page.</li>
       <li><b>Prices</b> are from 19–26 Sep and from third-party round-ups for Hostinger; re-check before ordering.</li>
-      <li><b>Build sizes</b> on slide 12 are the developer's estimates.</li>
+      <li><b>Policy as code (slide 12)</b> is built and tested, but the redaction's effect on the AI's reading of real updates is unmeasured (no live model in the build environment).</li>
       <li><b>Daily Vending LLC is assumed mainland</b>; a free-zone licence changes the regime.</li>
       <li><b>No lawyer has reviewed this.</b> It is written to be checked quickly — and it should be.</li>
     </ul></div>

@@ -14,6 +14,7 @@ import { registerProjectRoutes } from "./routes/projects.js";
 import { registerEventRoutes } from "./routes/events.js";
 import { registerInboundRoutes } from "./routes/inbound.js";
 import { registerAuthProxyRoutes } from "./routes/auth-proxy.js";
+import { registerComplianceRoutes } from "./routes/compliance.js";
 
 declare module "fastify" {
   interface FastifyRequest {
@@ -84,6 +85,7 @@ export function buildServer(logger = true): FastifyInstance {
   registerDocumentRoutes(app);
   registerTaskRoutes(app);
   registerAlertRoutes(app);
+  registerComplianceRoutes(app);
   registerProjectRoutes(app);
   registerEventRoutes(app);
   // Outside /dashboard/* on purpose: a mail edge is a machine and cannot hold a JWT. It

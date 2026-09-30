@@ -61,8 +61,15 @@ pnpm start:api                             # terminal 1 — leave it running
 pnpm start:worker                          # terminal 2 — leave it running
 pnpm start:bot                             # terminal 3 — leave it running
 
-pnpm urls                                  # the addresses to use right now
+cloudflared tunnel --url http://localhost:3001   # terminal 4 — only for the phone/app demo; leave it running
+
+pnpm urls                                  # the addresses to use right now (the phone's is the "Phone" line)
 ```
+
+The app demo (phone notifications) needs the tunnel: `cloudflared` gives the laptop an `https://` address the
+phone can use. Install it once with `winget install --id Cloudflare.cloudflared`. Every restart of the tunnel
+gives a **new** address, so keep terminal 4 running for the whole demo. Cloudflare can read what passes through a
+quick tunnel — test accounts and the synthetic data only. Full walk-through: **`DEMO-GUIDE-APP.md` §3 and §5.3**.
 
 **Local-only start** (this PC only — nothing reachable from the Wi-Fi, so a changing
 Wi-Fi address does not matter):
@@ -83,6 +90,12 @@ Wait until each terminal prints its ready line:
 | api | `API listening on http://127.0.0.1:3001 — React dashboard at .../app/` |
 | worker | `[worker] outbox relay every 3000ms; sla_sweep every 60000ms` (and one line per channel sender it found keys for — `web push sender ready`, `email sender ready`, `chat sender ready`) |
 | bot | `[bot] @freshnow1bot polling concurrently …` |
+| tunnel | an `https://<words>.trycloudflare.com` address (the exact lines vary by `cloudflared` version) — `pnpm urls` then shows `Phone … HTTP 200` |
+
+Each of api, worker and bot first prints one **`policy: demo mode, not enforced — N rule(s) would stop
+production`** line. That is expected: the configuration is checked against `compliance/processors.json`
+(policy as code, §7c) and in the demo nothing is blocked. **`refusing to start`** means `.env` has
+`IS_DEMO=false` — remove it for the demo.
 
 Supabase takes about 30 seconds on a warm machine. `docker compose up -d` is instant.
 
@@ -121,7 +134,7 @@ New-NetFirewallRule -DisplayName "FreshNow demo" -Direction Inbound -Action Allo
 ```
 
 **Phone notifications need HTTPS**, which the Wi-Fi address is not. For the web push / in-app
-demo use the tunnel in **`DEMO-GUIDE-APP.md` §4** — one command, and it also means the phone does
+demo use the tunnel in **`DEMO-GUIDE-APP.md` §3** — one command, and it also means the phone does
 not need to be on the same Wi-Fi.
 
 ---
@@ -188,19 +201,20 @@ Record any new password in `CREDENTIALS.local.md`.
 ## 7 · Checks, tests and reports
 
 ```bash
-pnpm verify            # typecheck + the full test suite (~500 tests, ~2–3 minutes, makes real model calls)
+pnpm verify            # typecheck + the full test suite (~540 tests, ~2–3 minutes, makes real model calls)
 pnpm e2e               # 19 end-to-end checks against the real database and model — sends real Telegram messages
 python scripts/render-guides.py   # re-render docs/guides/*.html from the .md guides (DB-WALKTHROUGH, BACKEND-OPERATIONS, FRESH-RUN, CHANNELS-GUIDE)
 pnpm test              # tests only
 pnpm typecheck
-pnpm migrate           # apply any new migrations to the live database (18 so far)
+pnpm migrate           # apply any new migrations to the live database (19 so far)
+pnpm compliance        # the policy checks, the record of processing and the evidence (§7c)
 pnpm bench             # benchmark models (costs a few cents)
 pnpm bench:report      # rebuild docs/reports/model-benchmark.html
 ```
 
 Nine tests need a live model provider: eight call the model for real (and **fail with a 30 s
 timeout whenever Groq is slow** — it was timing out at 25 s per call on 19 Sep 2026), and one
-checks the fall-back to a second provider, so it needs two provider keys in `.env`. The other 493
+checks the fall-back to a second provider, so it needs two provider keys in `.env`. The other 530
 do not depend on a provider (counted 30 Sep 2026). `curl localhost:3001/health` shows `load.llm`
 if you want to know before running.
 
@@ -231,6 +245,34 @@ Details and what to click: `CHANNELS-GUIDE.md` (rendered at `docs/guides/channel
 
 ---
 
+## 7c · Policy as code — the compliance checks
+
+`compliance/processors.json` is the registry: every outside service personal data can reach, its country,
+the legal ground (PDPL Art. 22–23), the contract (DPA) and the controls that must be on. The api, worker and bot
+check the configuration against it at every start; the CEO sees the same checks on **Records → Compliance**.
+
+```bash
+pnpm compliance                  # as configured now — the demo reports, never blocks
+pnpm compliance --production     # what a production start (IS_DEMO=false) would check; exits 1 if anything blocks
+```
+
+| Rule | Checks | Fix by |
+|---|---|---|
+| R0 | the registry exists and parses | restore it from git |
+| R1 | every service the config can reach (a key in `.env`) is registered | add an entry, or remove the key |
+| R2 | a legal ground; a "contract" ground has a filed DPA | file the DPA, set `dpa.status` and `dpa.accepted_on` |
+| R3 | the host is named and in an allowed country — not a laptop | set `hosting` to the real server |
+| R4 | AI providers keep nothing (zero data retention, confirmed with a date) | switch it on in the provider's console, then record it |
+| R5 | the consent notice names every service receiving personal data, and a host abroad | the notice is built from `.env`; a host abroad needs a line |
+| R6 | a retention period, sign-in on, no quick tunnel, no prompt copies to tracing | set `RETENTION_DAYS`, `SUPABASE_URL`; use a real domain |
+| R7 | every AI prompt has phone numbers, emails, Emirates IDs, IBANs, card numbers removed | automatic — counted per call in `llm_call.redacted` |
+| R8 | evidence: consent by version, transfers, removals, retention, rights — plus a daily snapshot in the audit log | automatic (the worker) |
+
+Edit the registry when a contract is filed or a setting is switched on, then restart the api, worker and bot.
+Everyone can **Download my data** (Alerts → Your consent); the CEO can **Export** anyone's (People).
+
+---
+
 ## 8 · When something is wrong
 
 | Symptom | Cause and fix |
@@ -240,6 +282,8 @@ Details and what to click: `CHANNELS-GUIDE.md` (rendered at `docs/guides/channel
 | Dashboard loads, sign-in spins or says "Sign-in service is not reachable" | Supabase is not running (`npx supabase start …`, §1). Sign-in goes through port 3001, so no firewall rule for 54321 is needed. |
 | `/app/` is a 404, or the dashboard looks like it did before a pull | Not rebuilt: `pnpm build:web`, then restart the api. |
 | After a pull, the task lists say **Request failed (500)**; the api window logs `column … does not exist` | A migration was not applied: `pnpm migrate`, then restart the api. |
+| A window says **`refusing to start: N compliance rule(s) block production (IS_DEMO=false)`** | `.env` has `IS_DEMO=false`. For the demo delete that line. For a real deployment fix what `pnpm compliance --production` lists (§7c). |
+| The phone's address stopped working | The tunnel was restarted or closed — it has a new address now: `pnpm urls`, send the `Phone` line to the phone again, and turn notifications on again there. |
 | `git pull` refuses: *"Your local changes … would be overwritten"* | You changed a tracked file. `git stash`, pull, then `git stash pop` (or `git stash drop` if you do not need the change). |
 | Nothing arrives in Telegram | The worker is not running; it is what delivers messages. |
 | "429" or slow replies | The provider rate-limited us; the wrapper backs off and falls through the provider order (`LLM_PROVIDER_ORDER`). `curl localhost:3001/health` shows `load.llm`. |
@@ -262,6 +306,7 @@ docker exec supabase_db_freshnow psql -U postgres -d postgres -c "select display
 | What | Where |
 |---|---|
 | Secrets and settings | `.env` (git-ignored) |
+| Where personal data may go (policy as code) | `compliance/processors.json` · checks `packages/core/src/compliance.ts` · `pnpm compliance` |
 | Dashboard logins | `CREDENTIALS.local.md` (git-ignored) |
 | Demo runbook | `DEMO-GUIDE.md` |
 | What state the system is in | `SESSION-STATUS.md` |

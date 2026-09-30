@@ -31,7 +31,9 @@
 <p><em>Written 2026-09-28 for the local build on the Windows laptop. The Telegram demo is in
 <code>DEMO-GUIDE.md</code>; this guide adds the app channel — the dashboard inbox plus notifications on
 each person's devices — and runs alongside it. Everything below was run end to end against a
-real Supabase Auth server, except the last step on a real phone (see §10).</em></p>
+real Supabase Auth server, except the last step on a real phone (see §10). <strong>Updated 2026-09-30</strong>
+(TASK-049/050): the phone layout, progress ranges, and policy as code — the Compliance page,
+"Download my data", and identifiers removed from AI prompts.</em></p>
 <blockquote>
 <p><strong>This repository is public on GitHub.</strong> No password is written in this file. §4 has you
 set them; keep them in <code>CREDENTIALS.local.md</code>, which git ignores.</p>
@@ -87,20 +89,25 @@ laptop an <code>https://</code> address for as long as it runs — free, no acco
 <p>PowerShell, in the project folder:</p>
 <pre><code class="language-powershell">cd C:\Users\acer\Downloads\freshnow
 git status                      # anything listed as modified is yours: git stash  (or commit it)
-git checkout main
-git pull
+git fetch origin
+git checkout claude/elegant-curie-bgpzqh        # this update's branch — or: git checkout main, once its pull request is merged
+git pull origin claude/elegant-curie-bgpzqh     # (or: git pull origin main)
 pnpm install
-pnpm migrate                    # database changes (Supabase must be running) — "skip" for ones already applied
+pnpm migrate                    # database changes (Supabase must be running) — &quot;skip&quot; for ones already applied
 pnpm build:web                  # rebuild the dashboard — every pull, not optional
 </code></pre>
+<p>Which branch: new work arrives on a pull request. Before it is merged, pull its branch (the name is on the
+pull request page); after it is merged, <code>git checkout main</code> and <code>git pull origin main</code>. <code>COMMANDS.md</code> §0 has both.</p>
 <ul>
 <li><strong><code>pnpm build:web</code> is not optional.</strong> The API serves the dashboard from <code>packages/dashboard/dist</code>,
   which is build output and not in git — after a pull the laptop keeps serving the <em>old</em> dashboard
   (no consent notice, no delivery-mode switch, sign-in aimed at port 54321, so the phone cannot sign
   in through the tunnel) until you rebuild. Build before starting the API (§3).</li>
-<li><strong><code>pnpm migrate</code> is not optional either</strong> when a pull adds a migration (TASK-049 added
-  <code>0018_progress_band.sql</code>). Skipped, the task lists fail with <em>Request failed (500)</em> and the api window logs
-  <code>column … does not exist</code>. It needs Supabase running; run it before starting the api.</li>
+<li><strong><code>pnpm migrate</code> is not optional either</strong> when a pull adds a migration (30 Sep added
+  <code>0018_progress_band.sql</code> and <code>0019_llm_call_redacted.sql</code>). Skipped, the task lists fail with <em>Request failed
+  (500)</em> and the api window logs <code>column … does not exist</code>. It needs Supabase running; run it before starting the api.</li>
+<li><strong>Nobody is asked to agree again.</strong> The 30 Sep updates do not change the privacy notice's words, so everyone's
+  consent still counts.</li>
 </ul>
 <h3>1.1 · Already running when you pulled? What to restart</h3>
 <p>Nothing reloads by itself — <code>pnpm start:*</code> runs the code as it was when it started.</p>
@@ -242,13 +249,13 @@ line marked "terminal", all in the project folder.</p>
 <td>3</td>
 <td><strong>api</strong></td>
 <td><code>$env:HOST = "127.0.0.1"; pnpm start:api</code></td>
-<td><code>API listening on http://127.0.0.1:3001 — React dashboard at …/app/</code></td>
+<td><code>API listening on http://127.0.0.1:3001 — React dashboard at …/app/</code> (first comes one <code>[api] policy: demo mode, not enforced — N rule(s) would stop production</code> line — expected, see below)</td>
 </tr>
 <tr>
 <td>4</td>
 <td><strong>worker</strong></td>
 <td><code>pnpm start:worker</code></td>
-<td><code>[worker] telegram sender ready</code> <strong>and</strong> <code>[worker] web push sender ready</code></td>
+<td><code>[worker] telegram sender ready</code> <strong>and</strong> <code>[worker] web push sender ready</code> (after the same <code>policy</code> line)</td>
 </tr>
 <tr>
 <td>5</td>
@@ -275,6 +282,11 @@ line marked "terminal", all in the project folder.</p>
 </code></pre>
 <p>→ <code>{"status":"ok","db":"ok","redis":"ok", …}</code></p>
 <ul>
+<li><strong>The <code>policy: demo mode, not enforced</code> line is expected.</strong> The api, worker and bot check the configuration
+  against <code>compliance/processors.json</code> at start-up. In the demo they only report what would stop a production
+  start (no retention period, a laptop as the host, zero retention not yet confirmed at Groq …); nothing is
+  blocked. <code>pnpm compliance</code> prints the details; the CEO sees them on <strong>Records → Compliance</strong>. If a window says
+  <strong><code>refusing to start</code></strong>, <code>.env</code> has <code>IS_DEMO=false</code> — remove that line for the demo (§7).</li>
 <li><strong><code>$env:HOST = "127.0.0.1"</code></strong> keeps the API off the Wi-Fi: the laptop reaches it on
   <code>localhost</code>, the phone reaches it through the tunnel. Nothing else on the network can.</li>
 <li><strong>Keep terminal 6 running for the whole demo.</strong> Every restart of <code>cloudflared</code> gives a new
@@ -412,6 +424,9 @@ with a new password <strong>resets</strong> it; the account and its history stay
 - <code>pnpm urls</code> shows <strong><code>Phone https://&lt;words&gt;.trycloudflare.com/app/ HTTP 200</code></strong>. <code>DOWN</code> right after starting
   the tunnel: wait 30 seconds and run it again. Still <code>DOWN</code>: the <strong>api</strong> window is not running, or
   cloudflared was closed.</p>
+<p><strong>What the tunnel means for data:</strong> Cloudflare decrypts traffic through a quick tunnel at its edge — sign-in
+included. Use it with the demo's synthetic data and your own test accounts only, never with real employees. The
+system says so itself: open the CEO's <strong>Compliance</strong> page through the tunnel address and it adds a finding for it.</p>
 <p><strong>Getting the address onto the phone:</strong> copy the <code>Phone</code> line from <code>pnpm urls</code> and send it to yourself —
 Telegram → <strong>Saved Messages</strong> is quickest — then tap it on the phone. It is long and random; typing it is
 where most attempts go wrong.</p>
@@ -441,20 +456,18 @@ Settings → Apps → Chrome → Battery → <em>Unrestricted</em>.</p>
 <p>The phone does <strong>not</strong> need to be on the laptop's Wi-Fi — mobile data works, because the tunnel is
 on the internet.</p>
 <p><strong>Finding your way on the phone (since 30 Sep).</strong> The phone no longer shows a squeezed copy of the laptop
-screen. It is one page at a time:</p>
-<ul>
-<li><strong>The bar at the bottom</strong> — <strong>Home · My work · Assign · Alerts · More</strong>. People who cannot give work
+screen. It is one page at a time:
+- <strong>The bar at the bottom</strong> — <strong>Home · My work · Assign · Alerts · More</strong>. People who cannot give work
   out see <strong>Projects</strong> in the middle instead of <strong>Assign</strong>. A red number on <strong>Alerts</strong> is urgent problems;
-  the number on <strong>My work</strong> is your open tasks.</li>
-<li><strong>More</strong> — everything else (Carry-over, End of day, People, Activity, Ask, Projects), a search box over
+  the number on <strong>My work</strong> is your open tasks.
+- <strong>More</strong> — everything else (Carry-over, End of day, People, Activity, Ask, Projects), a search box over
   everything on the board, and <strong>This device</strong>: theme, install, refresh, sign out. A page opened from More
-  has a <strong>‹</strong> back arrow at the top left.</li>
-<li><strong>Home</strong> — the day with <strong>‹ ›</strong> to step a day back or forward (tap the date for a calendar), then the
-  counts, what needs a human, the week, and the day's reports as cards.</li>
-<li><strong>My work</strong> — one card per task: tap its title to open it, <strong>✅ Done / ⏳ Pending / 🚫 Problem</strong> to report,
-  <strong>📊 Update progress</strong> to pick a range (0–10%, 10–20% …). A task opens as its own page with <strong>‹ Back</strong>.</li>
-<li>Tables on the laptop are cards on the phone — nothing scrolls sideways.</li>
-</ul>
+  has a <strong>‹</strong> back arrow at the top left.
+- <strong>Home</strong> — the day with <strong>‹ ›</strong> to step a day back or forward (tap the date for a calendar), then the
+  counts, what needs a human, the week, and the day's reports as cards.
+- <strong>My work</strong> — one card per task: tap its title to open it, <strong>✅ Done / ⏳ Pending / 🚫 Problem</strong> to report,
+  <strong>📊 Update progress</strong> to pick a range (0–10%, 10–20% …). A task opens as its own page with <strong>‹ Back</strong>.
+- Tables on the laptop are cards on the phone — nothing scrolls sideways.</p>
 <p><strong>If the phone will not cooperate:</strong></p>
 <table>
 <thead>
@@ -595,6 +608,9 @@ laptop, in the inbox, and on Telegram.</p>
 Point at the section <em>"Where your data goes beyond FreshNow's database"</em>: it names Telegram, each AI
 provider that has a key in <code>.env</code>, and the push relays — built from the configuration, so it cannot
 fall out of date. Add or remove a provider and <strong>everyone is asked again</strong> automatically.
+Tap <strong>⬇ Download my data</strong>: the phone saves a JSON file of everything the system holds about Priya — profile,
+tasks, her own words, problems, assignments, inbox, consent record (the PDPL's rights to information and to a
+machine-readable copy). On Android it lands in <em>Downloads</em>; on iPhone Safari offers to save it to <em>Files</em>.
 <strong>Withdraw consent…</strong> exists and asks twice — <strong>do not tap it in the demo</strong>: it switches the account
 off (§8 has the undo). Point out what is <em>not</em> built: no location tracking, no productivity score,
 no sentiment analysis.</p>
@@ -616,6 +632,27 @@ minutes the CEO gets <strong>Escalated — level 1</strong>. Put the windows bac
 <li><strong>Projects</strong> (top switcher on the laptop; <strong>More → Projects</strong> on the CEO's phone) — purpose, requirements, milestones, progress.</li>
 <li><strong>Activity</strong> — the audit trail of everything above.</li>
 </ul>
+<h3>Act 11b — Compliance the system checks itself (CEO, 3 min)</h3>
+<ol>
+<li><strong>CEO → Records → Compliance</strong> (phone: <strong>More → Compliance</strong>). The top line: <em>Demo — reported, not enforced.
+   N rule(s) would stop production.</em></li>
+<li>Walk down the findings — each names the rule (R2 contract, R3 host, R4 AI keeps nothing, R6 retention and
+   sign-in) and the fix. <em>"In production — <code>IS_DEMO=false</code> — the api, worker and bot refuse to start until every
+   one of these passes."</em></li>
+<li><strong>Where personal data can go</strong> — the record of processing, read from <code>compliance/processors.json</code>: each service,
+   its country, the legal ground, whether a contract is filed, whether it keeps nothing, and <em>reachable</em> for the
+   ones this server has keys for.</li>
+<li><strong>Sent to AI services</strong> — calls per provider and <strong>identifiers removed</strong>: phone numbers, emails, Emirates IDs,
+   IBANs and card numbers are taken out of every prompt before it leaves.</li>
+<li>Optional, in a spare terminal: <code>pnpm compliance --production</code> — the same checks as a production start would
+   run, with the exit code a deployment would use.</li>
+<li><strong>People → ⬇ Export</strong> — the CEO answers a data request for someone who asked in person.</li>
+</ol>
+<blockquote>
+<p>"The law's rules are written down once, the system checks itself against them at every start, and the
+evidence is counted in the database. What code cannot do — sign a contract, decide what the law means — is
+listed on the page, not hidden."</p>
+</blockquote>
 <h3>Act 12 — Back to the default (CEO, 30 s)</h3>
 <p><strong>Alerts → How people hear from us → Telegram.</strong> Recorded in Activity like every other switch.</p>
 <blockquote>
@@ -635,6 +672,22 @@ the message is encrypted to each device — Google, Apple and Microsoft relay it
 <tr>
 <td><code>/app/</code> shows <strong>404</strong>, or the dashboard has no <strong>Before you start</strong> notice / no <strong>How people hear from us</strong> switch</td>
 <td>The dashboard was not rebuilt after the pull: <code>pnpm build:web</code>, then restart the <strong>api</strong>.</td>
+</tr>
+<tr>
+<td>The task lists say <strong>Request failed (500)</strong> after a pull; the api window logs <code>column … does not exist</code></td>
+<td>A migration was not applied: <code>pnpm migrate</code>, then restart the <strong>api</strong>.</td>
+</tr>
+<tr>
+<td>A window says <strong><code>refusing to start: N compliance rule(s) block production (IS_DEMO=false)</code></strong></td>
+<td><code>.env</code> has <code>IS_DEMO=false</code> — that is the production switch. For the demo delete the line (or set <code>IS_DEMO=true</code>) and start again. <code>pnpm compliance --production</code> lists what production would need.</td>
+</tr>
+<tr>
+<td>No <strong>Compliance</strong> under Records / More</td>
+<td>Only the CEO sees it (the API refuses everyone else). Signed in as the CEO and still missing: <code>pnpm build:web</code>, restart the api.</td>
+</tr>
+<tr>
+<td><strong>Download my data</strong> does nothing on iPhone</td>
+<td>Safari asks where to save — look for the download arrow in the address bar, then <em>Files</em>.</td>
 </tr>
 <tr>
 <td>The bot answers every message with the <strong>privacy notice</strong></td>
@@ -761,7 +814,18 @@ docker compose stop        # keeps all data
   wait (except the inbox and the request itself). The API refuses their data too, not just the screen.
 - The wording is a <strong>draft</strong> until FreshNow and a lawyer sign it off; Hindi and Malayalam need a native
   speaker — until then everyone sees English.</p>
+<p><strong>Added on 30 Sept (TASK-049, TASK-050)</strong>
+- <strong>The phone is an app</strong>: bottom bar Home · My work · Assign · Alerts · More, one page at a time, tables as cards,
+  a task as its own page, and the back gesture goes back a page.
+- <strong>Progress as a range</strong> (0–10% … 90–100%) with tap-to-fill phrases; totals use the range's midpoint.
+- <strong>Policy as code</strong>: <code>compliance/processors.json</code> lists every outside service, its country, legal ground,
+  contract and controls; rules R0–R6 run at every start (reported in the demo, enforced in production); phone
+  numbers, emails, Emirates IDs, IBANs and card numbers are removed from AI prompts (R7); the Compliance page and
+  a daily audit snapshot are the evidence (R8); <strong>Download my data</strong> for everyone, <strong>Export</strong> for the CEO.</p>
 <p><strong>Limits — say them if asked</strong>
+- <strong>Policy as code checks what it can see.</strong> It cannot see Groq's console (zero retention is a switch a person
+  flips and records in the registry), sign a contract, or decide what the law means. Names are not removed from
+  prompts — the document planner routes work by name. Voice notes go to Groq as audio.
 - <strong>The tunnel passes through Cloudflare</strong>, a US company. For a demo with test data that is fine; for
   real employee data it is a cross-border transfer. Production needs a domain on a UAE host (see the
   CEO decks), after which the tunnel is not used at all.

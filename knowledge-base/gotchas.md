@@ -945,3 +945,11 @@ D150. Anything that opens as a "page" on a phone (the task drawer) needs its own
 ## G125 — Search results keep asserting the PDPL Executive Regulations were issued [believed 2026-09-30]
 Six claims so far, each naming a different instrument or date; none traced to the official portal, and law-firm updates
 from June–July 2026 say not issued. Treat any "issued" claim as false until uaelegislation.gov.ae shows it.
+
+## G126 — `pkill -f <pattern>` inside a shell command whose own text contains the pattern kills that shell [verified 2026-09-30]
+The shell running `pkill -f "packages/api/src/index.ts"; …` matches its own command line and is killed (exit 144). Use
+`pkill -f "packages/api/src/[i]ndex.ts"` or find the pid first.
+
+## G127 — A quick tunnel is not private: Cloudflare terminates TLS [believed 2026-09-30]
+Fine for synthetic data and test accounts; never for real employees. The Compliance page flags a visit through it (Host or
+cf-ray), and R6 refuses a production PUBLIC_URL on trycloudflare.com.

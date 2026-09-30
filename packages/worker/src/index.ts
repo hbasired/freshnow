@@ -6,6 +6,8 @@ import {
   projectSweep,
   requestConsentFromEveryone,
   retentionSweep,
+  checkPolicyAtStartup,
+  recordComplianceSnapshot,
   slaSweep,
   sweepUnroutedBlockers,
 } from "@freshnow/core";
@@ -33,6 +35,9 @@ import { makeChatSender } from "./chat-sender.js";
 // needs to be exact, and recorded as not done rather than implied.
 async function main(): Promise<void> {
   loadConfig();
+  // Policy as code: reported in the demo; in production (IS_DEMO=false) a blocking rule stops the
+  // worker, and with it every message that would have left for an unregistered service.
+  checkPolicyAtStartup("worker");
   // One sender per channel. A channel with no sender here is never claimed by the relay,
   // so an unconfigured channel is inert rather than broken — and `channel_setting` decides
   // separately whether the company is using it at all.
@@ -110,6 +115,9 @@ async function main(): Promise<void> {
         const r = await retentionSweep();
         if (!r.enabled) console.log("[worker] retention sweep: disabled (RETENTION_DAYS not set) — free text is kept indefinitely");
         else if (r.notesAged > 0) console.log(`[worker] retention sweep: aged out ${r.notesAged} note(s) older than ${r.days} days`);
+        // Rule R8: once per company day, the compliance counts go into the append-only audit log.
+        const snap = await recordComplianceSnapshot();
+        if (snap.recorded) console.log("[worker] compliance snapshot recorded for today");
       }
     } catch (err) {
       console.error("[worker] loop error", err);

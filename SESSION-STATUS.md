@@ -1,3 +1,17 @@
+# Session status — 2026-09-30 (cloud session, TASK-050)
+
+- **Policy as code is in the system.** `compliance/processors.json` says where personal data may go; the api, worker and bot
+  check themselves at every start. **In the demo this is one log line — `policy: demo mode, not enforced` — nothing is
+  blocked.** `IS_DEMO=false` makes them refuse to start while a rule fails. `pnpm compliance` shows the details.
+- **CEO → Records → Compliance** (phone: More → Compliance): the findings with fixes, where data goes, and the evidence.
+- **Download my data** (Alerts → Your consent) for everyone; **People → Export** for the CEO.
+- Phone numbers, emails, Emirates IDs, IBANs and card numbers are removed from every AI prompt (names stay).
+- **After pulling:** `pnpm install`, `pnpm migrate` (adds 0019), `pnpm build:web`, restart api, worker, bot. Nobody is asked to
+  agree to the notice again.
+- Tests: 530 pass, 9 need a live model provider.
+
+---
+
 # Session status — 2026-09-30 (cloud session, TASK-049)
 
 - **Progress as a range.** My work and the task page offer *How far along is it?* — 0–10% … 90–100% — plus tap-to-fill

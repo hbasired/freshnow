@@ -115,6 +115,9 @@ export const Icon = {
   menu: (p: P) => (
     <svg {...base(p)}><path d="M4 6h16M4 12h16M4 18h16" /></svg>
   ),
+  shield: (p: P) => (
+    <svg {...base(p)}><path d="M12 3 5 6v6c0 4.5 3 7.6 7 9 4-1.4 7-4.5 7-9V6Z" /><path d="m9 12 2 2 4-4" /></svg>
+  ),
   chevronLeft: (p: P) => (
     <svg {...base(p)}><path d="m15 6-6 6 6 6" /></svg>
   ),

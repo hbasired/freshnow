@@ -814,13 +814,14 @@ tables:
     columns:
       id: Primary key.
       correlation_id: The run this call belongs to.
-      provider: groq | nvidia (the wrapper's active provider).
+      provider: groq | openrouter | nvidia — the provider that answered (voice transcription is logged as groq).
       model: Model id used.
       prompt_tokens: Input tokens.
       completion_tokens: Output tokens.
       cost_usd: Estimated cost.
       latency_ms: Round-trip latency.
       success: Whether the call succeeded.
+      redacted: How many identifiers (phone numbers, emails, Emirates IDs, IBANs, card numbers) were removed from the prompt before it was sent — rule R7. A count only; what was removed is never stored.
       created_at: When.
 
   job_run:

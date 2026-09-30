@@ -31,7 +31,8 @@
     "dev:web": "pnpm --filter @freshnow/dashboard dev",
     "build:web": "pnpm --filter @freshnow/dashboard build",
     "bench": "tsx scripts/bench-models.ts",
-    "bench:report": "node scripts/bench-report.mjs"
+    "bench:report": "node scripts/bench-report.mjs",
+    "compliance": "tsx scripts/compliance.ts"
   },
   "devDependencies": {
     "@types/node": "^22.20.1",

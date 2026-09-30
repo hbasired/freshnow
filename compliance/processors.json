@@ -1,0 +1,128 @@
+{
+  "$comment": [
+    "The registry: every service outside FreshNow's own database that personal data can reach, where it is, on what legal ground, under what contract, and how to confirm each claim.",
+    "The system checks itself against this file (packages/core/src/compliance.ts, rules R1-R6) at start-up and with `pnpm compliance`. In demo mode (IS_DEMO not 'false') a failed rule is a warning; in production (IS_DEMO=false) the api, worker and bot refuse to start.",
+    "Edit it when a contract is signed, a setting is switched on, or a provider is added. Change a 'false' to 'true' only after doing what 'how_to_confirm' says, and put the date in 'confirmed_on'.",
+    "Legal grounds follow UAE Federal Decree-Law No. 45 of 2021 as read in docs/reports/ceo-deck-hostinger-final-verdict.html (Art. 22-23 for transfers abroad). A developer's reading, not a lawyer's."
+  ],
+  "version": 1,
+  "reviewed_on": "2026-09-30",
+  "hosting": {
+    "provider": "this-computer",
+    "name": "The demo laptop",
+    "country": "AE",
+    "note": "Demo only. Production names the real host here (e.g. a Dubai VPS, or Hostinger in LT/DE) — a laptop is refused as a production host (rule R3). [assumed] the laptop is in the UAE."
+  },
+  "hosting_countries_allowed": ["AE", "LT", "DE", "FR"],
+  "retention_days": null,
+  "services": [
+    {
+      "id": "telegram",
+      "name": "Telegram",
+      "role": "independent",
+      "country": "outside the UAE",
+      "personal_data": ["messages with the bot", "Telegram user id"],
+      "ground": ["consent"],
+      "dpa": { "status": "not_available", "accepted_on": null, "note": "Telegram is not our processor and offers no DPA; the transfer rests on each person's express consent (notice 2.0)." },
+      "controls": {},
+      "how_to_confirm": "Nothing to sign. Consent is recorded per person (consent_record).",
+      "sources": ["https://telegram.org/privacy"]
+    },
+    {
+      "id": "groq",
+      "name": "Groq, Inc.",
+      "role": "processor",
+      "country": "US",
+      "personal_data": ["update text", "voice notes", "document text", "questions"],
+      "ground": ["consent", "contract"],
+      "dpa": { "status": "not_filed", "accepted_on": null, "note": "A DPA is part of Groq's Services Agreement (effective 15 Oct 2025) [believed]. Download it, file it, then set status 'accepted' with the date." },
+      "controls": { "zero_data_retention": false, "confirmed_on": null },
+      "how_to_confirm": "Organisation admin: console.groq.com -> Data Controls -> Zero Data Retention -> global ON. Screenshot it, then set zero_data_retention true and confirmed_on.",
+      "sources": ["https://console.groq.com/docs/your-data", "https://console.groq.com/docs/legal/customer-data-processing-addendum"]
+    },
+    {
+      "id": "openrouter",
+      "name": "OpenRouter, Inc.",
+      "role": "processor",
+      "country": "US (and the model's own provider)",
+      "personal_data": ["update text", "document text", "questions"],
+      "ground": ["consent"],
+      "dpa": { "status": "not_available", "accepted_on": null, "note": "OpenRouter's DPA applies to enterprise accounts only [believed]. Without it there is no processor contract: keep OpenRouter for synthetic/demo data." },
+      "controls": { "zero_data_retention": false, "data_collection": "allow", "confirmed_on": null },
+      "how_to_confirm": "Setting zero_data_retention true and data_collection 'deny' makes every OpenRouter call send provider.zdr=true and provider.data_collection='deny'. Test a call first: some models have no endpoint that qualifies.",
+      "sources": ["https://openrouter.ai/docs/guides/features/zdr", "https://openrouter.ai/docs/guides/routing/provider-selection"]
+    },
+    {
+      "id": "nvidia",
+      "name": "NVIDIA Corporation",
+      "role": "processor",
+      "country": "US",
+      "personal_data": ["update text"],
+      "ground": ["consent"],
+      "dpa": { "status": "not_filed", "accepted_on": null, "note": "Not researched; the free NIM tier is a last-resort fallback." },
+      "controls": { "zero_data_retention": false, "confirmed_on": null },
+      "how_to_confirm": "Remove NVIDIA_API_KEY before real data, or find and file its terms.",
+      "sources": []
+    },
+    {
+      "id": "webpush",
+      "name": "Push relays (Google, Apple, Microsoft, Mozilla)",
+      "role": "relay",
+      "country": "outside the UAE",
+      "personal_data": ["an encrypted notification", "the device's push address"],
+      "ground": ["consent"],
+      "dpa": { "status": "not_available", "accepted_on": null, "note": "Messages are encrypted to the device (RFC 8291); the relay carries ciphertext." },
+      "controls": {},
+      "how_to_confirm": "Nothing to sign. Each person turns notifications on per device.",
+      "sources": ["https://www.rfc-editor.org/rfc/rfc8291"]
+    },
+    {
+      "id": "email",
+      "name": "The SMTP provider in SMTP_HOST",
+      "role": "processor",
+      "country": "depends on the provider",
+      "personal_data": ["email address", "message text"],
+      "ground": ["consent", "contract"],
+      "dpa": { "status": "not_filed", "accepted_on": null, "note": "Fill in when a provider is chosen (Brevo was the candidate)." },
+      "controls": {},
+      "how_to_confirm": "File the provider's DPA and its data location.",
+      "sources": []
+    },
+    {
+      "id": "chat",
+      "name": "The company chat in CHAT_WEBHOOK_URL",
+      "role": "internal",
+      "country": "AE",
+      "personal_data": ["work messages"],
+      "ground": ["not_personal_data_transfer"],
+      "dpa": { "status": "not_available", "accepted_on": null, "note": "Assumes a chat server FreshNow runs itself. If it is a hosted service, change role to 'processor' and fill in the DPA." },
+      "controls": {},
+      "how_to_confirm": "Confirm where the chat server runs.",
+      "sources": []
+    },
+    {
+      "id": "langfuse",
+      "name": "Langfuse (tracing)",
+      "role": "processor",
+      "country": "EU — Ireland for Langfuse Cloud EU [believed]; this computer when self-hosted",
+      "personal_data": ["call timings and costs; prompts only if LANGFUSE_CAPTURE_CONTENT=1"],
+      "ground": ["consent"],
+      "dpa": { "status": "not_filed", "accepted_on": null, "note": "Metadata only by default (D97). Langfuse offers a DPA [believed]; file it before capturing content." },
+      "controls": {},
+      "how_to_confirm": "Keep LANGFUSE_CAPTURE_CONTENT off for real data, or self-host.",
+      "sources": ["https://langfuse.com/security", "https://langfuse.com/security/gdpr"]
+    },
+    {
+      "id": "cloudflare_quick_tunnel",
+      "name": "Cloudflare quick tunnel (*.trycloudflare.com)",
+      "role": "demo_only",
+      "country": "global",
+      "personal_data": ["everything the phone sends and receives, including sign-in"],
+      "ground": ["not_for_real_data"],
+      "dpa": { "status": "not_available", "accepted_on": null, "note": "Cloudflare terminates TLS at its edge and can read the traffic [believed]. Demo with synthetic data and test accounts only; production uses its own domain and certificate (Caddy)." },
+      "controls": {},
+      "how_to_confirm": "Detected per request by the host name; refused in production.",
+      "sources": ["https://developers.cloudflare.com/tunnel/"]
+    }
+  ]
+}

@@ -1238,3 +1238,22 @@ same notifications. The install button (D145) moved from the header to the top o
 The hash was only ever replaced, so a phone's back gesture left the app. Page changes now push (the first sync
 replaces, so a shared link adds no entry); opening a task pushes `{task: true}`; closing it from the page calls
 `history.back()`; `popstate` closes any task and re-reads the hash. Back = close the task, then the previous page.
+
+## D151 — Policy as code: a JSON registry, rules checked at every start, enforced only in production (TASK-050) [verified — tests + real start-up]
+`compliance/processors.json` lists every outside service, its country, legal ground, DPA and controls. `core/compliance.ts`
+checks R0–R6 against the environment at the start of the api, worker and bot: in the demo it prints one line and never
+blocks; with IS_DEMO=false it prints every finding and exits (observed: the api exited before opening its port). JSON, not
+YAML: the project has no YAML parser and CLAUDE.md asks for no new dependency without a reason. "Reachable" uses the same
+tests as the senders and the AI client, so the registry cannot disagree with what is actually used. A person's
+confirmation (ZDR on, DPA filed) is recorded with a date; code cannot see another company's console.
+
+## D152 — Identifiers leave no prompt; names stay (TASK-050) [verified — tests]
+The AI wrapper removes phone numbers (UAE and international), emails, Emirates IDs, IBANs (mod-97) and card numbers (Luhn)
+from user messages once per call, before any provider or trace; the count goes to `llm_call.redacted` (migration 0019).
+Names are kept on purpose — the document planner routes work by name. Bare 10-digit Indian mobiles are kept: they look like
+the order and batch numbers this business writes. Voice goes to Groq as audio; its transcript is redacted when parsed.
+
+## D153 — Evidence and the right to a copy (TASK-050) [verified — tests + browser]
+The CEO's Compliance page and `pnpm compliance` show the findings, the registry (record of processing) and SQL counts; the
+worker writes one `compliance.snapshot` a Dubai day to the append-only audit log (counts only). Everyone can download their
+own data as JSON (Alerts → Your consent), consent-free; the CEO can export anyone's (People). Push keys are excluded.

@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { loadConfig } from "@freshnow/core";
+import { checkPolicyAtStartup, loadConfig } from "@freshnow/core";
 import { registerAppShell } from "./routes/app-shell.js";
 import { buildServer } from "./server.js";
 
@@ -7,6 +7,8 @@ import { buildServer } from "./server.js";
 // HOST defaults to 0.0.0.0 for the DEMO so the dashboard is reachable from the
 // phones on the same wifi. Production binds localhost behind Caddy (DEVIATIONS #5).
 const cfg = loadConfig();
+// Policy as code (compliance/processors.json): reported in the demo, enforced when IS_DEMO=false.
+checkPolicyAtStartup("api");
 const app = buildServer();
 const port = Number(process.env.PORT ?? 3001);
 const host = process.env.HOST ?? "0.0.0.0";

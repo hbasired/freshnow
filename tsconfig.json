@@ -15,6 +15,7 @@
     "scripts/seed.ts",
     "scripts/e2e-demo.ts",
     "scripts/employee-sim.ts",
-    "scripts/reset-employee.ts"
+    "scripts/reset-employee.ts",
+    "scripts/compliance.ts"
   ]
 }

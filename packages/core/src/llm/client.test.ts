@@ -1,3 +1,6 @@
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { closeDb, getServiceSql } from "../db.js";
@@ -201,5 +204,69 @@ describe("cost is recorded, not assumed to be zero", () => {
     expect(estimateCost("openai/gpt-oss-120b", 1_000_000, 1_000_000)).toBeCloseTo(0.75, 6);
     expect(estimateCost("openai/gpt-4o-mini", 1_000_000, 1_000_000)).toBeCloseTo(0.75, 6);
     expect(estimateCost("some/unpriced-model", 1_000_000, 1_000_000)).toBe(0);
+  });
+});
+
+describe("what leaves the building (rules R7 and R4)", () => {
+  const ok = JSON.stringify({ status: "blocker", category: "equipment", severity: "high" });
+
+  /** Run `fn` with some environment variables set, and put them back afterwards. */
+  async function withEnv(vars: Record<string, string>, fn: () => Promise<void>): Promise<void> {
+    const before = Object.fromEntries(Object.keys(vars).map((k) => [k, process.env[k]]));
+    Object.assign(process.env, vars);
+    try {
+      await fn();
+    } finally {
+      for (const [k, v] of Object.entries(before)) {
+        if (v === undefined) delete process.env[k];
+        else process.env[k] = v;
+      }
+    }
+  }
+
+  it("a phone number in an update never reaches the provider, and the removal is counted on the call", async () => {
+    const bodies: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (_url: string | URL, init?: RequestInit) => {
+      bodies.push(String(init?.body));
+      return fakeResponse(completion(ok));
+    }));
+    await withEnv({ GROQ_API_KEY: process.env.GROQ_API_KEY ?? "test-key", LLM_PROVIDER_ORDER: "groq" }, async () => {
+      await llmComplete({
+        messages: [{ role: "user", content: "chiller in van 2 broken, call Ramesh on 050 123 4567" }],
+        schema: Schema,
+        correlationId: CORR,
+      });
+    });
+    expect(bodies[0]).not.toContain("050 123 4567");
+    expect(bodies[0]).toContain("call Ramesh on [phone]"); // the name stays: routing needs it
+    const rows = await getServiceSql()<{ redacted: number }[]>`
+      select redacted from llm_call where correlation_id = ${CORR} and success = true`;
+    expect(rows[0]?.redacted).toBe(1);
+  });
+
+  it("OpenRouter is asked for zero-retention endpoints only once the registry confirms it", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "fn-or-call-"));
+    const confirmed = join(dir, "confirmed.json");
+    const shipped = JSON.parse(readFileSync(join(process.cwd(), "compliance", "processors.json"), "utf8")) as {
+      services: { id: string; controls: Record<string, unknown> }[];
+    };
+    shipped.services.find((s) => s.id === "openrouter")!.controls = { zero_data_retention: true, data_collection: "deny", confirmed_on: "2026-10-01" };
+    writeFileSync(confirmed, JSON.stringify(shipped));
+
+    const sent: Record<string, unknown>[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (_url: string | URL, init?: RequestInit) => {
+      sent.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+      return fakeResponse(completion(ok));
+    }));
+    const call = async (): Promise<void> => {
+      await llmComplete({ messages: [{ role: "user", content: "x" }], schema: Schema, correlationId: CORR });
+    };
+
+    await withEnv({ OPENROUTER_API_KEY: "test-or", LLM_PROVIDER_ORDER: "openrouter", COMPLIANCE_REGISTRY: confirmed }, call);
+    expect(sent[0]?.provider).toEqual({ zdr: true, data_collection: "deny" });
+
+    // The shipped registry has not confirmed it: the request is exactly what it was before.
+    await withEnv({ OPENROUTER_API_KEY: "test-or", LLM_PROVIDER_ORDER: "openrouter", COMPLIANCE_REGISTRY: join(process.cwd(), "compliance", "processors.json") }, call);
+    expect(sent[1]?.provider).toBeUndefined();
   });
 });
