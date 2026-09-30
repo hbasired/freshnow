@@ -18,6 +18,39 @@ import { getServiceSql } from "./db.js";
  */
 
 export type ProgressSource = "counted" | "status" | "self_reported";
+
+/**
+ * A self-reported range, as the person picked it: "10–20%" is `{ low: 10, high: 20 }`.
+ * The list a person picks from is ten steps of ten points, so that is also the only shape
+ * accepted — a band the pickers cannot produce is a client bug, refused rather than stored.
+ */
+export interface ProgressBand {
+  low: number;
+  high: number;
+}
+
+export const PROGRESS_BAND_WIDTH = 10;
+
+/** 0–10, 10–20 … 90–100, in order. "100% — finished" is not a band: that is reporting Done. */
+export const PROGRESS_BANDS: readonly ProgressBand[] = Array.from({ length: 100 / PROGRESS_BAND_WIDTH }, (_, i) => ({
+  low: i * PROGRESS_BAND_WIDTH,
+  high: (i + 1) * PROGRESS_BAND_WIDTH,
+}));
+
+/**
+ * The one number a band stands for in totals and the behind flag: its midpoint (0–10 → 5).
+ * Nothing says where inside the range the work sits, and the midpoint is the value that
+ * neither flatters nor punishes the estimate. The band is stored beside it and shown instead
+ * of it, so the midpoint is never presented as something anybody measured.
+ */
+export function bandMidpoint(b: ProgressBand): number {
+  return Math.round((b.low + b.high) / 2);
+}
+
+export function isAllowedBand(b: ProgressBand): boolean {
+  return PROGRESS_BANDS.some((x) => x.low === b.low && x.high === b.high);
+}
+
 export type RelationKind = "blocks" | "blocked_by" | "precedes" | "follows" | "relates" | "duplicates";
 
 /** The inverse of each directional relation; `relates` and `duplicates` are symmetric. */
@@ -102,6 +135,8 @@ export async function recomputeProgress(taskId: string, correlationId?: string, 
     update task t
     set progress_pct = d.pct, progress_source = d.source,
         progress_note = case when d.source = 'counted' then null else t.progress_note end,
+        -- A band belongs to a person's estimate; a derived figure is exact, so it has none.
+        progress_band_low = null, progress_band_high = null,
         progress_updated_at = now()
     from derived d
     where t.id = ${taskId}
@@ -123,29 +158,41 @@ export async function recomputeProgress(taskId: string, correlationId?: string, 
 export async function reportProgress(p: {
   taskId: string;
   employeeId: string;
-  pct: number;
+  /** An exact figure. Give this or `band`, not both. */
+  pct?: number;
+  /** A range picked from the list — stored as given, counted as its midpoint. */
+  band?: ProgressBand;
   note: string;
   correlationId?: string;
-}): Promise<void> {
+}): Promise<{ pct: number; band: ProgressBand | null }> {
   const note = p.note.trim();
   if (note.length < 3) throw new Error("A self-reported percentage needs a note saying what was done");
-  if (!Number.isInteger(p.pct) || p.pct < 0 || p.pct > 100) throw new Error("Percentage must be a whole number from 0 to 100");
+  if ((p.pct === undefined) === (p.band === undefined)) throw new Error("Give either a percentage or a range, not both");
+  if (p.band !== undefined && !isAllowedBand(p.band)) {
+    throw new Error(`A range must be one of the ${PROGRESS_BAND_WIDTH}-point steps: 0–${PROGRESS_BAND_WIDTH}, ${PROGRESS_BAND_WIDTH}–${2 * PROGRESS_BAND_WIDTH} … 90–100`);
+  }
+  const band = p.band ?? null;
+  const pct = band ? bandMidpoint(band) : p.pct!;
+  if (!Number.isInteger(pct) || pct < 0 || pct > 100) throw new Error("Percentage must be a whole number from 0 to 100");
 
   const sql = getServiceSql();
-  await sql`update task set progress_pct = ${p.pct}, progress_source = 'self_reported',
+  await sql`update task set progress_pct = ${pct}, progress_source = 'self_reported',
+              progress_band_low = ${band?.low ?? null}, progress_band_high = ${band?.high ?? null},
               progress_note = ${note.slice(0, 500)}, progress_updated_at = now(),
               started_at = coalesce(started_at, now())
             where id = ${p.taskId}`;
-  await sql`insert into progress_event (task_id, employee_id, pct, source, note, correlation_id)
-            values (${p.taskId}, ${p.employeeId}, ${p.pct}, 'self_reported', ${note.slice(0, 500)}, ${p.correlationId ?? null})`;
+  await sql`insert into progress_event (task_id, employee_id, pct, band_low, band_high, source, note, correlation_id)
+            values (${p.taskId}, ${p.employeeId}, ${pct}, ${band?.low ?? null}, ${band?.high ?? null},
+                    'self_reported', ${note.slice(0, 500)}, ${p.correlationId ?? null})`;
   await logAudit({
     correlationId: p.correlationId,
     actor: `employee:${p.employeeId}`,
     action: "task.progress_reported",
     entity: "task",
     entityId: p.taskId,
-    detail: { pct: p.pct, source: "self_reported" },
+    detail: { pct, ...(band ? { band } : {}), source: "self_reported" },
   });
+  return { pct, band };
 }
 
 /** Priority, due date, estimate, details — the descriptive fields, each optional. */

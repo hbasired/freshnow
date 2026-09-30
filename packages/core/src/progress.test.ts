@@ -4,8 +4,10 @@ import { closeDb, getServiceSql, withContext } from "./db.js";
 import { DEMO_CEO_ID } from "./meta.js";
 import {
   addTaskStep,
+  bandMidpoint,
   closeTask,
   linkTasks,
+  PROGRESS_BANDS,
   recomputeProgress,
   reportProgress,
   resolveBlocker,
@@ -89,6 +91,69 @@ describe("where the percentage comes from", () => {
     const s = await addTaskStep({ taskId: t, title: "van 3", by: who });
     await setStepDone({ stepId: s.id, done: true, by: who });
     expect(await taskRow(t)).toMatchObject({ progress_pct: 100, progress_source: "counted" });
+  });
+
+  it("a picked range is kept as the range, counted as its midpoint, and refused when off the list", async () => {
+    const t = await createTask(who, "PRG band", true);
+    // Off the list: not a ten-point step, reversed, or both a range and a figure at once.
+    await expect(reportProgress({ taskId: t, employeeId: who, band: { low: 10, high: 30 }, note: "about a fifth" })).rejects.toThrow(/range/);
+    await expect(reportProgress({ taskId: t, employeeId: who, band: { low: 20, high: 10 }, note: "about a fifth" })).rejects.toThrow(/range/);
+    await expect(reportProgress({ taskId: t, employeeId: who, band: { low: 10, high: 20 }, pct: 15, note: "both" })).rejects.toThrow(/not both/);
+    await expect(reportProgress({ taskId: t, employeeId: who, band: { low: 10, high: 20 }, note: "" })).rejects.toThrow(/note/);
+
+    const r = await reportProgress({ taskId: t, employeeId: who, band: { low: 10, high: 20 }, note: "cleaned two of the machines" });
+    expect(r).toEqual({ pct: 15, band: { low: 10, high: 20 } });
+    const [row] = await getServiceSql()<{ progress_pct: number; progress_source: string; progress_band_low: number | null; progress_band_high: number | null }[]>`
+      select progress_pct, progress_source, progress_band_low, progress_band_high from task where id = ${t}`;
+    expect(row).toEqual({ progress_pct: 15, progress_source: "self_reported", progress_band_low: 10, progress_band_high: 20 });
+
+    // The ends of the list: 0–10 counts as 5, 90–100 as 95 — never 100, which is Done.
+    await reportProgress({ taskId: t, employeeId: who, band: { low: 90, high: 100 }, note: "final checks left" });
+    expect(await taskRow(t)).toMatchObject({ progress_pct: 95, progress_source: "self_reported" });
+
+    // An exact figure afterwards carries no band.
+    await reportProgress({ taskId: t, employeeId: who, pct: 40, note: "recounted the crates" });
+    const [exact] = await getServiceSql()<{ progress_band_low: number | null }[]>`select progress_band_low from task where id = ${t}`;
+    expect(exact?.progress_band_low).toBeNull();
+
+    // History keeps each range exactly as picked.
+    const hist = await getServiceSql()<{ pct: number; band_low: number | null; band_high: number | null }[]>`
+      select pct, band_low, band_high from progress_event where task_id = ${t} order by created_at`;
+    expect(hist).toEqual([
+      { pct: 15, band_low: 10, band_high: 20 },
+      { pct: 95, band_low: 90, band_high: 100 },
+      { pct: 40, band_low: null, band_high: null },
+    ]);
+  });
+
+  it("the dashboard offers exactly the ranges the server accepts", async () => {
+    // Read the browser's list from its source, untyped: the dashboard is a separate build, and
+    // a list that drifted from this one would offer ranges the API refuses with a 400.
+    const url = new URL("../../dashboard/src/lib/api.ts", import.meta.url).pathname;
+    const browser = ((await import(url)) as { PROGRESS_BANDS: { low: number; high: number }[] }).PROGRESS_BANDS;
+    expect(browser.map((b) => [b.low, b.high])).toEqual(PROGRESS_BANDS.map((b) => [b.low, b.high]));
+    expect(PROGRESS_BANDS[0]).toEqual({ low: 0, high: 10 });
+    expect(PROGRESS_BANDS.at(-1)).toEqual({ low: 90, high: 100 });
+    expect(bandMidpoint({ low: 0, high: 10 })).toBe(5);
+  });
+
+  it("evidence replaces a picked range, and the range goes with it", async () => {
+    const t = await createTask(who, "PRG band replaced", true);
+    await reportProgress({ taskId: t, employeeId: who, band: { low: 30, high: 40 }, note: "halfway through the first van" });
+    const s = await addTaskStep({ taskId: t, title: "van 1", by: who });
+    await setStepDone({ stepId: s.id, done: true, by: who });
+    const [row] = await getServiceSql()<{ progress_pct: number; progress_source: string; progress_band_low: number | null; progress_band_high: number | null }[]>`
+      select progress_pct, progress_source, progress_band_low, progress_band_high from task where id = ${t}`;
+    expect(row).toEqual({ progress_pct: 100, progress_source: "counted", progress_band_low: null, progress_band_high: null });
+  });
+
+  it("the database itself refuses a range on a figure nobody picked", async () => {
+    const t = await createTask(who, "PRG band constraint", true);
+    // status-derived progress with a band is a contradiction; so is a number outside its band.
+    await expect(getServiceSql()`update task set progress_band_low = 0, progress_band_high = 10 where id = ${t}`).rejects.toThrow(/task_progress_band_ck/);
+    await expect(
+      getServiceSql()`update task set progress_source = 'self_reported', progress_pct = 50, progress_band_low = 0, progress_band_high = 10 where id = ${t}`,
+    ).rejects.toThrow(/task_progress_band_ck/);
   });
 
   it("every change is appended to the history with its source", async () => {

@@ -78,6 +78,36 @@ describe("steps and progress", () => {
     expect(d.history[0]).toMatchObject({ source: "self_reported", note: "two of three vans" });
   });
 
+  it("a range from the picker is stored as the range; one not on the list, or with a figure too, is a 400", async () => {
+    const t = await newTask("TSK band");
+    const bad = [
+      { band: { low: 10, high: 30 }, note: "about a fifth" }, // not a ten-point step
+      { band: { low: 15, high: 25 }, note: "about a fifth" }, // not on the list
+      { band: { low: 10, high: 20 }, pct: 15, note: "both at once" },
+      { note: "neither" },
+    ];
+    for (const payload of bad) {
+      expect((await call("POST", `/dashboard/tasks/${t}/progress?viewer=${OWNER}`, payload)).statusCode).toBe(400);
+    }
+    const ok = await call("POST", `/dashboard/tasks/${t}/progress?viewer=${OWNER}`, { band: { low: 20, high: 30 }, note: "filled 3 of 12 crates" });
+    expect(ok.statusCode).toBe(200);
+    expect(ok.json()).toMatchObject({ pct: 25, band: { low: 20, high: 30 }, source: "self_reported" });
+
+    const d = (await call("GET", `/dashboard/tasks/${t}?viewer=${MGR}`)).json() as {
+      task: { progress_pct: number; progress_band_low: number; progress_band_high: number };
+      history: { pct: number; band_low: number | null; band_high: number | null }[];
+    };
+    expect(d.task).toMatchObject({ progress_pct: 25, progress_band_low: 20, progress_band_high: 30 });
+    expect(d.history[0]).toMatchObject({ pct: 25, band_low: 20, band_high: 30 });
+
+    // The board shows the same range the panel does.
+    const open = (await call("GET", `/dashboard/open-tasks?viewer=${OWNER}`)).json() as { id: string; progress_band_low: number | null; progress_band_high: number | null }[];
+    expect(open.find((x) => x.id === t)).toMatchObject({ progress_band_low: 20, progress_band_high: 30 });
+
+    // A stranger cannot report on it at all.
+    expect((await call("POST", `/dashboard/tasks/${t}/progress?viewer=${STRANGER}`, { band: { low: 90, high: 100 }, note: "not mine" })).statusCode).toBe(403);
+  });
+
   it("flags a task as behind when the clock has run further than the work", async () => {
     const t = await newTask("TSK behind");
     // Started two days ago, due in one day: 67% of the time gone, 0% of the work.

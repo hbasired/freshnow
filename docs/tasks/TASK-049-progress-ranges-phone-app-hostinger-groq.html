@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TASK-049 — Progress as a range, a real phone app, and Hostinger/Groq re-checked</title>
+<style>
+  :root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#3fb950;--warn:#d29922;--bad:#f85149;--card:#161b22;--bd:#30363d}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;max-width:980px;padding:48px 24px;margin-inline:auto}
+  h1{font-size:1.9rem;margin:0 0 4px} h2{margin-top:2.5rem;color:var(--acc);font-size:1.25rem}
+  .meta{color:var(--mut);font-size:.9rem;margin-bottom:2rem}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:18px;margin:14px 0}
+  .unverified{border-left:3px solid var(--warn)} .ok{border-left:3px solid var(--acc)}
+  code{background:#1f2630;padding:2px 6px;border-radius:4px;font-size:.9em}
+  .tw{overflow-x:auto} table{border-collapse:collapse;width:100%;margin:14px 0}
+  th,td{border:1px solid var(--bd);padding:7px 9px;text-align:left;font-size:.88rem;vertical-align:top} th{background:#1f2630}
+  .bad{color:var(--bad);font-weight:600}.good{color:var(--acc);font-weight:600}.warn{color:var(--warn);font-weight:600}
+  ul{padding-left:1.1rem} li{margin:3px 0} a{color:#88c0f0}
+</style></head><body>
+<h1>TASK-049 — Progress as a range, a real phone app, and Hostinger/Groq re-checked</h1>
+<p class="meta">2026-09-30 · migration <code>0018_progress_band.sql</code> · core: <code>progress.ts</code> · api: <code>routes/tasks.ts</code>, <code>routes/dashboard.ts</code> ·
+dashboard: <code>App.tsx</code>, <code>components/quick.tsx</code> (new), <code>components/task-detail.tsx</code>, <code>components/ui.tsx</code>, <code>components/form.tsx</code>,
+<code>components/icons.tsx</code>, <code>lib/media.ts</code> (new), <code>lib/dates.ts</code> (new), <code>lib/api.ts</code> · <code>semantic/schema.yaml</code> ·
+deck: <code>docs/reports/ceo-deck-hostinger-final-verdict.html</code> (15 → 17 slides) · guide: <code>DEMO-GUIDE-APP.md</code> + its HTML ·
+<b>493 tests passing</b>, 9 needing a live model provider</p>
+
+<div class="card ok"><strong>One-sentence summary:</strong> An employee now reports progress by picking a range from a list (0–10%, 10–20% … 90–100%),
+starts a note or a problem by tapping a ready-made phrase, and sets priority, due date and close reason by tapping; the phone gets its own layout —
+a bottom tab bar, one page at a time, cards instead of tables; and the CEO deck on Hostinger, Groq and OpenRouter gains two slides of evidence on
+what the agreements say and exactly how to use each lawfully.</div>
+
+<h2>What was asked</h2>
+<ol>
+  <li>Read the system and the new CEO deck on Hostinger and Groq/OpenRouter (DPA, policy as code, UAE law).</li>
+  <li>Search again: how to host on Hostinger lawfully; whether an extra agreement is needed for hosting and the database; whether Groq's DPA,
+    storage and training terms allow employee data, and how.</li>
+  <li>Progress in the dashboard as a dropdown of ranges; any other clickable, easy selections.</li>
+  <li>The phone app was "a mini version of the dashboard compressed to fit": make it page by page, with clear buttons and easy navigation for
+    exploring, logging and checking.</li>
+  <li>Update the deck with the findings, with evidence.</li>
+</ol>
+<p class="warn">CLAUDE.md step 3 asks for confirmation before multi-file code. The request itself said to build it ("then do it"), so this task
+proceeded without a separate plan sign-off. The plan is recorded here instead.</p>
+
+<h2>1 · Research (30 Sep) — what the searches found</h2>
+<p>Every primary page — Hostinger, Groq, OpenRouter, the UAE legislation portal, most law firms — was <b>blocked by this environment's network
+policy</b>, as on 29 Sep. The findings below come from search-result summaries of those pages and carry <b>[believed]</b>; each is linked in the
+deck so a person can open it.</p>
+<div class="tw"><table>
+  <thead><tr><th>Question</th><th>Finding</th><th>Changes what</th></tr></thead>
+  <tbody>
+    <tr><td>Who is the Hostinger contract with?</td><td>Hostinger International Ltd, Cyprus, for customers outside the regions its Terms list separately</td><td>An EU processor: GDPR processor duties apply to it even for a UAE customer (EDPB Guidelines 3/2018)</td></tr>
+    <tr><td>Is there an extra agreement to sign?</td><td>No: the DPA is incorporated into the Terms by reference. Its scope clause covers data "subject to" EU/EEA/Swiss/UK law; it carries the EU SCCs (2021/914, Modules 2–3); Appendix 3 lists AWS EMEA, Google Cloud EMEA, Cloudflare, MailChannels, Proofpoint, Anthropic Ireland, Spectra Tech UAB; objection = terminate within 10 days of notice</td><td>Deck slide 8 and conditions 15–18: file the DPA dated, get written confirmation that it covers the account, ask for a PDPL clause</td></tr>
+    <tr><td>Hostinger security and location</td><td>ISO/IEC 27001:2022 (TÜV Thüringen); VPS location changeable only by a reinstall that deletes all data; automatic backups on separate servers whose location the panel shows, reported as possibly different from the VPS</td><td>Condition 15: check the backup location at order time</td></tr>
+    <tr><td>Groq: storage, training, contract</td><td>No retention by default; up to 30-day logs for reliability/abuse unless Zero Data Retention is on (any org admin, Data Controls, global or per feature); no training on customer data by contract; DPA part of the Services Agreement (effective 15 Oct 2025), SCCs deemed signed, deletion within 180 days; US processing. Nvidia licensing deal (Dec 2025); GroqCloud continues independently</td><td>Deck slide 9: yes for employee words, with six conditions</td></tr>
+    <tr><td>OpenRouter DPA</td><td>Enterprise accounts only (mutually signed via its trust portal); a normal account can read it but it does not apply; covers OpenRouter's layer, not upstream providers</td><td><b>Changes the verdict</b>: not for employee words on a normal account; remove it from the fallback chain before real data</td></tr>
+    <tr><td>PDPL Executive Regulations</td><td>Still not issued (Morgan Lewis, June 2026; Ashurst, July 2026). A sixth "issued" claim — "Cabinet Decision No. 33 of 2024" on a compliance-vendor page — found no support on the official portal search</td><td>Deck slide 4: six unsupported claims now traced</td></tr>
+  </tbody>
+</table></div>
+
+<h2>2 · Progress as a range</h2>
+<ul>
+  <li><b>Why a range is the honest input.</b> A person's estimate is a range; a typed "15%" claims a precision nobody measured. So the range is stored
+    as given (<code>task.progress_band_low/high</code>, <code>progress_event.band_low/high</code>) and shown as given: "20–30%", with a bar that is solid to
+    20 and lighter to 30.</li>
+  <li><b>One number for arithmetic.</b> <code>progress_pct</code> still holds one number because project rollups and the "behind" flag are sums over it.
+    For a range it is the <b>midpoint</b> (0–10 → 5, 90–100 → 95): the value that neither flatters nor punishes an estimate when nothing says where in
+    the range the work sits. The task page says so: <i>"a range, counted as 25% in totals"</i>. A choice, not a standard; recorded as D146.</li>
+  <li><b>One list, checked twice.</b> <code>PROGRESS_BANDS</code> in core is the rule; the API refuses any other range with a 400 (Zod) and core refuses
+    it again; the database refuses a range on a figure nobody picked, or a number outside its range (CHECK constraints). A test reads the dashboard's
+    list from its source and fails if it drifts from core's.</li>
+  <li><b>No 100% range.</b> "90–100%" is the top. Finished is reported with ✅ Done, which moves the status and makes it 100% by status.</li>
+  <li><b>Evidence still wins.</b> Ticking a step recomputes from the count and clears the range (existing rule D77, extended).</li>
+  <li>"I know the exact number…" stays in the list for the rare person who has one.</li>
+</ul>
+
+<h2>3 · Tap instead of type</h2>
+<div class="tw"><table>
+  <thead><tr><th>Where</th><th>Before</th><th>Now</th></tr></thead>
+  <tbody>
+    <tr><td>Progress note</td><td>blank box</td><td>starters — Started the work · Materials ready · Some of it done · Most of it done · Final checks left · Paused for today</td></tr>
+    <tr><td>Problem (blocker)</td><td>blank box</td><td>starters — Machine not working · Out of oranges / stock · Waiting for parts · No power or water · Vehicle problem · Need help from someone; several combine ("Machine not working; Waiting for parts")</td></tr>
+    <tr><td>Priority</td><td>dropdown</td><td>four chips</td></tr>
+    <tr><td>Due date</td><td>date picker</td><td>Today · Tomorrow · Friday · end of week · Next Monday · No due date, plus the picker for anything else (UAE week, Mon–Fri)</td></tr>
+    <tr><td>Close a task</td><td>dropdown + button</td><td>three reason chips; the button names the reason</td></tr>
+    <tr><td>My work</td><td>one row of small buttons</td><td>filters (All · Behind · High priority · Not started), thumb-sized Done / Pending / Problem, a progress panel per card</td></tr>
+    <tr><td>Task page</td><td>no status buttons</td><td>Done / Pending / Problem on your own task</td></tr>
+  </tbody>
+</table></div>
+<p><b>A starter is only a start.</b> It lands in an ordinary text box the person can change. Their words are what the CEO reads and what the blocker
+parser classifies, so the starters are plain phrases the parser already reads well, not category codes (D147).</p>
+
+<h2>4 · The phone app</h2>
+<p>The old phone view was the desktop page with the sidebar turned into a 4×3 grid of buttons, the six count tiles repeated on every page, and wide
+tables scrolling sideways. Now, below 1024 px:</p>
+<ul>
+  <li><b>A tab bar at the bottom</b> — Home · My work · Assign (or Projects, for people who cannot give work out) · Alerts · More — with badges for open
+    tasks and urgent problems. <b>More</b> holds every other page as a large row with what it is for, a search over everything on the board, and this
+    device's settings (theme, install, refresh, sign out, and the demo "see as" picker).</li>
+  <li><b>A title bar</b> — the page's name, the live status, the attention button and the inbox bell. A page reached from More, or a project, has a
+    ‹ back arrow.</li>
+  <li><b>One layout mounted, not two hidden.</b> <code>useMedia</code> picks the layout on the first paint; hiding one copy with CSS would have mounted
+    two inbox bells fetching the same notifications (D148).</li>
+  <li><b>Tables become cards</b> below 640 px, in <code>DataTable</code>, so every list on every page changed at once (D149).</li>
+  <li><b>The counts live on Home only</b>, three across. "Needs a human" comes before the week chart. A day switcher (‹ date ›, Today) replaces the
+    header's date field.</li>
+  <li><b>A task is its own page</b> on the phone, with ‹ Back, a sticky header, and room for the safe areas of phones with notches.</li>
+  <li><b>Back goes back.</b> The URL hash was only ever <i>replaced</i>, so a phone's back gesture left the app. Each page change now <i>pushes</i> a history entry (the first sync still replaces, so a shared link adds none), an open task is an entry of its own, and <code>popstate</code> makes the URL the truth: Back closes the task first, then steps back a page (D150).</li>
+  <li>The desktop layout is unchanged except for the new pickers and chips.</li>
+</ul>
+
+<h2>5 · The deck</h2>
+<ul>
+  <li>Two new slides: <b>8 — Hostinger: the agreements and what to do with them</b> (nothing extra to sign; four things to get in writing and file; the
+    order of work), and <b>9 — Groq with employee data: yes, when six things are true</b> (ZDR on, DPA filed, notice names Groq and the US, names removed,
+    OpenRouter out of the fallback chain, every call logged).</li>
+  <li>Changed: slide 1–2 verdict on OpenRouter; slide 4 enforcement status; slide 6 gains conditions 15–18; slide 7 table; slides 15–17 steps, sources
+    and "not verified". Slides renumbered 1–17 and every cross-reference checked by script.</li>
+</ul>
+
+<h2>How it was verified</h2>
+<div class="tw"><table>
+  <thead><tr><th>Check</th><th>Result</th></tr></thead>
+  <tbody>
+    <tr><td>Full suite on a throwaway Postgres 16 + pgvector + Redis in this container</td><td><span class="good">493 pass</span>, 9 fail — the same 9 the last session recorded as needing a live model (8 real-model calls; the fallback test needs a second provider key). Before this task: 483 pass.</td></tr>
+    <tr><td>New tests (written from the rules)</td><td class="good">core: a range is stored and counted as its midpoint, off-list ranges refused, evidence clears it, the database refuses a contradictory range, the dashboard's list equals core's · api: 400s for bad ranges, the range on the board and in history, a stranger refused · dashboard: due shortcuts on every weekday of the UAE week</td></tr>
+    <tr><td>Typecheck (root) and dashboard typecheck (<code>exactOptionalPropertyTypes</code>, <code>noUncheckedIndexedAccess</code>)</td><td class="good">clean</td></tr>
+    <tr><td>Real browser (Chromium via Playwright) against the running API and seeded synthetic data, 390×844 phone in light and dark, and 1440×900 desktop</td><td class="good">37/37 checks: five tabs, no sidebar on the phone; no sideways scroll on Home, My work, Carry-over, People, Alerts, Projects; the range list has 12 entries; a saved range shows "20–30%" and never "25%"; starters fill and combine; the task opens full screen with Back; priority and due chips save; pages from More have a Back arrow; the phone's back gesture (browser Back) closes an open task, then steps back a page without leaving the app, and Forward returns; desktop keeps the sidebar and tables, shows the range, Escape closes the drawer and Back returns to the previous section; no page or console errors</td></tr>
+    <tr><td>Screenshots reviewed by eye</td><td>Found and fixed: the "20–30%" headline wrapping onto two lines, and the "Update progress" label wrapping. Both re-checked.</td></tr>
+  </tbody>
+</table></div>
+
+<h2>Concepts and techniques</h2>
+<ul>
+  <li><b>Interval input, point storage.</b> Store what the person said (the interval) and derive the number arithmetic needs (the midpoint), labelling
+    the derived number as derived. The same idea as D89, where a person's claimed percentage sits beside the computed one.</li>
+  <li><b>Defence in depth for one list.</b> The same allowed set enforced at the API schema, in core, and as a database constraint, plus a test that
+    the browser's copy matches.</li>
+  <li><b>Mobile navigation pattern.</b> A bottom tab bar for the few daily destinations plus an overflow page is the pattern the major phone
+    platforms document for top-level navigation <span class="warn">[believed — Material Design and Apple HIG describe tab bars; not re-read this session]</span>.</li>
+</ul>
+
+<h2 class="bad">What we have not verified</h2>
+<div class="card unverified"><ul>
+  <li><b>A real phone.</b> Every phone check ran in desktop Chromium emulating a 390 px touch screen. Safe-area padding on a notched iPhone, Android's
+    back gesture in an <i>installed</i> app (tested as browser Back in Chromium), and the native date and select pickers on a device are unobserved.</li>
+  <li><b>Whether employees find it easier.</b> The layout follows the owner's description of what was confusing; nobody who does the work has used it.
+    The starter phrases are English only — Hindi, Malayalam and Urdu versions need a native speaker, and whether the blocker parser classifies each
+    starter well was not measured (no live model in this container).</li>
+  <li><b>The midpoint choice</b> is a judgement (D146). If FreshNow prefers ranges to count conservatively (the low end) for the "behind" flag, it is one
+    function to change.</li>
+  <li><b>The Telegram bot</b> has no progress input, so ranges exist in the dashboard and the phone app only.</li>
+  <li><b>All research findings</b> rest on search summaries; no primary page opened (network policy). The Hostinger DPA's exact wording, whether it
+    covers a UAE customer, where VPS backups live, whether Groq's ZDR can be set per request, and OpenRouter's enterprise-only DPA should each be read
+    on the page itself before relying on them.</li>
+  <li><b>No lawyer</b> has reviewed the deck's legal readings.</li>
+</ul></div>
+</body></html>

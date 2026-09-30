@@ -217,6 +217,9 @@ export interface OpenTask {
   last_reported_at: string | null;
   progress_pct: number;
   progress_source: ProgressSource;
+  /** The range a person picked ("10–20%"); null otherwise. When set, show it — not the midpoint. */
+  progress_band_low: number | null;
+  progress_band_high: number | null;
   priority: Priority;
   due_at: string | null;
   started_at: string | null;
@@ -227,6 +230,42 @@ export interface OpenTask {
 }
 
 export type ProgressSource = "counted" | "status" | "self_reported";
+
+/** "10–20%" is `{ low: 10, high: 20 }`. */
+export interface ProgressBand {
+  low: number;
+  high: number;
+}
+
+/**
+ * The ranges a person picks from. The same ten steps as PROGRESS_BANDS in core, which the
+ * API checks every submission against — a range not on this list is refused, not stored.
+ * "100% — finished" is not here on purpose: finishing is reporting Done.
+ */
+export const PROGRESS_BANDS: readonly (ProgressBand & { hint: string })[] = [
+  { low: 0, high: 10, hint: "just started" },
+  { low: 10, high: 20, hint: "" },
+  { low: 20, high: 30, hint: "about a quarter" },
+  { low: 30, high: 40, hint: "" },
+  { low: 40, high: 50, hint: "nearly half" },
+  { low: 50, high: 60, hint: "just over half" },
+  { low: 60, high: 70, hint: "" },
+  { low: 70, high: 80, hint: "about three quarters" },
+  { low: 80, high: 90, hint: "" },
+  { low: 90, high: 100, hint: "almost finished" },
+];
+
+/**
+ * How a task's percentage reads on screen: a picked range as the range ("10–20%"), anything
+ * else as its number. The midpoint behind a range is for totals and is never shown as if it
+ * were measured.
+ */
+export function progressLabel(t: { progress_pct: number; progress_band_low?: number | null; progress_band_high?: number | null }): string {
+  return t.progress_band_low != null && t.progress_band_high != null
+    ? `${t.progress_band_low}–${t.progress_band_high}%`
+    : `${t.progress_pct}%`;
+}
+
 export type Priority = "low" | "normal" | "high" | "urgent";
 export type RelationKind = "blocks" | "blocked_by" | "precedes" | "follows" | "relates" | "duplicates";
 
@@ -235,13 +274,14 @@ export interface TaskDetail {
     id: string; title: string; details: string | null; status: string; status_category: string;
     resolution: string | null; resolved_at: string | null;
     progress_pct: number; progress_source: ProgressSource; progress_note: string | null; progress_updated_at: string | null;
+    progress_band_low: number | null; progress_band_high: number | null;
     started_at: string | null; due_at: string | null; priority: Priority; estimate_minutes: number | null;
     parent_task_id: string | null; task_type: string; created_at: string; is_synthetic: boolean;
     employee_id: string; employee_name: string; elapsed_pct: number | null; behind: boolean; behind_threshold: number;
   };
   steps: { id: string; title: string; position: number; done: boolean; done_at: string | null; done_by_name: string | null }[];
   relations: { id: string; kind: RelationKind; to_task_id: string; other_title: string; other_status: string; other_owner: string | null }[];
-  history: { pct: number; source: ProgressSource; note: string | null; created_at: string; by_name: string | null }[];
+  history: { pct: number; band_low: number | null; band_high: number | null; source: ProgressSource; note: string | null; created_at: string; by_name: string | null }[];
   blockers: { id: string; severity: string | null; category: string | null; status: string; raised_at: string; resolved_at: string | null; resolution_note: string | null; resolved_by_name: string | null; note_raw: string | null }[];
   subtasks: { id: string; title: string; status: string; progress_pct: number; progress_source: ProgressSource }[];
 }
@@ -416,8 +456,9 @@ export const api = {
     post<{ id: string }>(`/dashboard/tasks/${taskId}/steps`, { title }, { viewer }),
   setStep: (viewer: string, stepId: string, done: boolean) =>
     post<{ stepId: string; done: boolean }>(`/dashboard/steps/${stepId}`, { done }, { viewer }, "PATCH"),
-  reportProgress: (viewer: string, taskId: string, pct: number, note: string) =>
-    post<{ pct: number }>(`/dashboard/tasks/${taskId}/progress`, { pct, note }, { viewer }),
+  /** A range from the picker, or an exact figure — the server counts a range as its midpoint. */
+  reportProgress: (viewer: string, taskId: string, amount: { band: ProgressBand } | { pct: number }, note: string) =>
+    post<{ pct: number; band: ProgressBand | null }>(`/dashboard/tasks/${taskId}/progress`, { ...amount, note }, { viewer }),
   updateTask: (viewer: string, taskId: string, body: { priority?: Priority; dueAt?: string | null; estimateMinutes?: number | null; details?: string | null }) =>
     post<{ updated: boolean }>(`/dashboard/tasks/${taskId}`, body, { viewer }, "PATCH"),
   linkTasks: (viewer: string, taskId: string, toTaskId: string, kind: RelationKind) =>

@@ -1,4 +1,5 @@
 import { useState, type KeyboardEvent, type ReactNode } from "react";
+import { NARROW, useMedia } from "../lib/media";
 
 /** Small shared primitives. Deliberately plain — this is a dashboard, not a design system. */
 
@@ -94,7 +95,19 @@ export function DataTable<T>({
   detail?: (row: T) => ReactNode | null;
   rowKey: (row: T) => string;
 }) {
+  const narrow = useMedia(NARROW);
   if (rows.length === 0) return <Empty>{empty}</Empty>;
+  // On a phone a six-column table is a sideways scroll nobody finds. Each row becomes a card:
+  // the first column is its heading, the rest are labelled lines, the words underneath.
+  if (narrow) {
+    return (
+      <ul className="space-y-2">
+        {rows.map((r) => (
+          <CardRow key={rowKey(r)} row={r} columns={columns} detail={detail?.(r) ?? null} />
+        ))}
+      </ul>
+    );
+  }
   return (
     <div className="overflow-x-auto rounded-lg border border-edge">
       <table className="w-full border-collapse text-sm">
@@ -172,6 +185,40 @@ function Row<T>({ row, columns, detail }: { row: T; columns: Column<T>[]; detail
         </tr>
       ) : null}
     </>
+  );
+}
+
+/**
+ * One row as a card, for a phone. Columns with no heading (action buttons, the DEMO tag) sit
+ * on the card's own line at the bottom; a cell that renders nothing is left out rather than
+ * shown as an empty label.
+ */
+function CardRow<T>({ row, columns, detail }: { row: T; columns: Column<T>[]; detail: ReactNode | null }) {
+  const [first, ...rest] = columns;
+  const labelled = rest.filter((c) => c.head !== "");
+  const unlabelled = rest.filter((c) => c.head === "");
+  return (
+    <li className="rounded-xl border border-edge bg-panel p-3 text-sm">
+      {first ? <div className="font-semibold text-ink">{first.cell(row)}</div> : null}
+      {labelled.length ? (
+        <dl className="mt-1.5 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+          {labelled.map((c) => (
+            <div key={c.head} className="contents">
+              <dt className="text-[11px] uppercase tracking-wide text-mut">{c.head}</dt>
+              <dd className="min-w-0 break-words">{c.cell(row)}</dd>
+            </div>
+          ))}
+        </dl>
+      ) : null}
+      {detail ? <div className="mt-2">{detail}</div> : null}
+      {unlabelled.length ? (
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          {unlabelled.map((c, i) => (
+            <span key={i}>{c.cell(row)}</span>
+          ))}
+        </div>
+      ) : null}
+    </li>
   );
 }
 

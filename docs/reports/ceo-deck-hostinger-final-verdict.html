@@ -22,7 +22,7 @@
   html{scroll-snap-type:y proximity;scroll-behavior:smooth}
   html,body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.55 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
   section.slide{min-height:100vh;scroll-snap-align:start;padding:44px 56px 56px;position:relative;display:flex;flex-direction:column;justify-content:center;max-width:1400px;margin:0 auto}
-  section.slide::after{content:attr(data-n)" / 15";position:absolute;right:56px;bottom:22px;font-size:12px;color:var(--mut)}
+  section.slide::after{content:attr(data-n)" / 17";position:absolute;right:56px;bottom:22px;font-size:12px;color:var(--mut)}
   h1{font-size:2.6rem;line-height:1.15;margin:0 0 .6rem;letter-spacing:-.01em}
   h2{font-size:1.9rem;line-height:1.2;margin:0 0 1rem;letter-spacing:-.01em}
   h3{font-size:1.05rem;margin:1.2rem 0 .4rem}
@@ -75,18 +75,18 @@
 
 <!-- 1 ─────────────────────────────────────────────────────────────────────── -->
 <section class="slide" data-n="1" id="s1">
-  <span class="kicker">CEO briefing · 29 September 2026 · the final answer on Hostinger, Groq and OpenRouter</span>
+  <span class="kicker">CEO briefing · 29 September 2026, updated 30 September · the final answer on Hostinger, Groq and OpenRouter</span>
   <h1>Can FreshNow run on Hostinger —<br>and stay inside UAE law?</h1>
   <p class="lead">A second opinion (a Google AI answer) said: yes, with rules; and not Groq or OpenRouter. This briefing checks that answer line by line
   against the law and fresh sources, then gives one conclusion: what is allowed, under which conditions, what "policy as code" can enforce — and what it cannot.</p>
   <div class="grid g4" style="margin-top:22px">
     <div class="card stat edge-warn"><div class="l">Hostinger</div><div class="n" style="font-size:1.35rem">Lawful — with conditions</div><div class="l">EU data centre · every employee's express consent · Hostinger's DPA · encryption and access controls</div></div>
-    <div class="card stat edge-warn"><div class="l">Groq / OpenRouter</div><div class="n" style="font-size:1.35rem">Only with consent + zero retention</div><div class="l">and never with names, phone numbers or IDs in the prompt</div></div>
+    <div class="card stat edge-warn"><div class="l">Groq / OpenRouter</div><div class="n" style="font-size:1.35rem">Groq: yes, with conditions · OpenRouter: no</div><div class="l">Groq only with consent + zero retention + its DPA + names removed. OpenRouter's DPA is for enterprise accounts only (30 Sep)</div></div>
     <div class="card stat edge-info"><div class="l">Policy as code</div><div class="n" style="font-size:1.35rem">Yes — as the guard</div><div class="l">stops known violations and proves compliance; cannot sign a contract or decide the law</div></div>
     <div class="card stat edge-ok"><div class="l">Our recommendation</div><div class="n" style="font-size:1.35rem">UAE host + Core42</div><div class="l">about the same monthly price as Hostinger's renewal, and nothing to justify</div></div>
   </div>
-  <p class="small mut" style="margin-top:18px">Markers: <span class="v">[verified]</span> read in the law's text or our own system · <span class="b">[believed]</span> reputable sources or search results that agree · <span class="a">[uncertain]</span> sources conflict or none found · <span class="tag mut">estimate</span> computed from stated inputs. <b>This session could not open the law's PDF, Hostinger's, Groq's or OpenRouter's pages directly</b> (network policy) — their findings rest on search results. A technical reading for counsel to confirm, not legal advice.</p>
-  <div class="foot">Prepared by the development team · follows <code>ceo-deck-data-residency.html</code> and <code>ceo-deck-azure-aws-uae.html</code> · sources on slide 14 · not verified on slide 15</div>
+  <p class="small mut" style="margin-top:18px">Markers: <span class="v">[verified]</span> read in the law's text or our own system · <span class="b">[believed]</span> reputable sources or search results that agree · <span class="a">[uncertain]</span> sources conflict or none found · <span class="tag mut">estimate</span> computed from stated inputs. <b>Neither session (29 or 30 Sep) could open the law's PDF, Hostinger's, Groq's or OpenRouter's pages directly</b> (network policy) — their findings rest on search results, each linked to the page it came from so it can be opened and checked. A technical reading for counsel to confirm, not legal advice.</p>
+  <div class="foot">Prepared by the development team · follows <code>ceo-deck-data-residency.html</code> and <code>ceo-deck-azure-aws-uae.html</code> · sources on slide 16 · not verified on slide 17 · <b>updated 30 September 2026</b> with a re-check of Hostinger's and Groq's terms (slides 8–9)</div>
 </section>
 
 <!-- 2 ─────────────────────────────────────────────────────────────────────── -->
@@ -95,11 +95,11 @@
   <h2>Four questions, four answers</h2>
   <div class="grid g2">
     <div class="card edge-warn"><h3 style="margin-top:0">1 · Can we host the database and system on Hostinger?</h3>
-      <p><b>Yes, it can be lawful.</b> The PDPL has no rule forcing employee data to stay in the UAE. But every record on Hostinger is a <b>transfer abroad</b>, and today only two grounds work: each employee's <b>express consent</b>, and a <b>contract that imposes the law's controls</b> — whose use for an EU country is unsettled. So: an EU data centre, consent (built — notice 2.0), Hostinger's DPA accepted, and the security controls on slide 6. <span class="b">[believed — counsel to confirm]</span></p></div>
+      <p><b>Yes, it can be lawful.</b> The PDPL has no rule forcing employee data to stay in the UAE. But every record on Hostinger is a <b>transfer abroad</b>, and today only two grounds work: each employee's <b>express consent</b>, and a <b>contract that imposes the law's controls</b> — whose use for an EU country is unsettled. So: an EU data centre, consent (built — notice 2.0), Hostinger's DPA accepted, and the security controls on slide 6. <b>No extra contract has to be signed</b> — the DPA is part of Hostinger's Terms — but <b>file it, and ask Hostinger in writing</b> to confirm it covers your account and where the backups live (slide 8). <span class="b">[believed — counsel to confirm]</span></p></div>
     <div class="card edge-warn"><h3 style="margin-top:0">2 · Can we keep Groq or OpenRouter?</h3>
-      <p><b>For code or anonymous text: yes, freely.</b> For employee words: only with consent (built), their <b>zero-data-retention</b> settings on, and names and numbers removed first. Both have improved since our last deck — Groq now offers every account a zero-retention switch and a DPA; OpenRouter does not log prompts by default and can force zero-retention routing — but both still process in the US. <span class="b">[believed — slide 7]</span></p></div>
+      <p><b>For code or anonymous text: yes, freely.</b> For employee words: <b>Groq yes</b>, with consent (built), <b>Zero Data Retention</b> switched on, its DPA filed, and names and numbers removed first — its contract already forbids training on our data (slide 9). <b>OpenRouter no</b> for employee words on a normal account: its DPA applies to enterprise accounts only, so there is no processor contract to rely on. Both process in the US. <span class="b">[believed — slides 7 and 9]</span></p></div>
     <div class="card edge-info"><h3 style="margin-top:0">3 · Can "policy as code" make sure there is no violation?</h3>
-      <p>It can make <b>known</b> violations impossible to deploy or to run — an AI provider nobody registered, a message to someone who has not agreed, retention unset, backups unencrypted — and it produces the <b>evidence</b>. It cannot sign a DPA, decide what the law means, or see inside Hostinger. "No violation" is a legal conclusion: counsel draws it, code enforces it and proves it. <span class="b">[slides 8–11]</span></p></div>
+      <p>It can make <b>known</b> violations impossible to deploy or to run — an AI provider nobody registered, a message to someone who has not agreed, retention unset, backups unencrypted — and it produces the <b>evidence</b>. It cannot sign a DPA, decide what the law means, or see inside Hostinger. "No violation" is a legal conclusion: counsel draws it, code enforces it and proves it. <span class="b">[slides 10–13]</span></p></div>
     <div class="card edge-ok"><h3 style="margin-top:0">4 · What do we recommend?</h3>
       <p><b>A UAE host + Core42 for the AI.</b> A Dubai VPS costs <b>$27.70–$52.70</b> a month; Hostinger's KVM 8 is <b>$29.99</b> the first term, then <b>$49.99</b>. The saving from Hostinger is at most a few dollars a month, against a permanent transfer of the whole database that rests on consent any employee can withdraw. If the company still chooses Hostinger: <b>Option B</b>, with every condition on slide 6. <span class="b">[prices believed, 19–26 Sep]</span></p></div>
   </div>
@@ -149,12 +149,12 @@
       </tbody>
     </table>
     <div>
-      <div class="card edge-info"><h3 style="margin-top:0">Where enforcement stands (29 Sep 2026)</h3>
+      <div class="card edge-info"><h3 style="margin-top:0">Where enforcement stands (re-checked 30 Sep 2026)</h3>
         <ul class="small">
-          <li>Executive Regulations: <b>still pending</b> (Ashurst, July 2026) <span class="b">[believed]</span></li>
+          <li>Executive Regulations: <b>still pending</b> (Ashurst, July 2026; Morgan Lewis, June 2026: "have still not been issued") <span class="b">[believed]</span></li>
           <li>Adequacy list and contract templates: <b>not issued</b> <span class="b">[believed — ABS Partners, Kayrouz 2026]</span></li>
-          <li>A <b>Federal Authority for AI and Data</b> exists since 14 June 2026 and absorbed the Data Office <span class="b">[believed — four reports]</span></li>
-          <li>Five search claims that named an "issued" Regulations instrument have been traced and found false — which is why every legal status here carries a marker.</li>
+          <li>A <b>Federal Authority for AI and Data</b> exists since 14 June 2026 and absorbed the Data Office; the market expects it to finish the Regulations <span class="b">[believed — Morgan Lewis and three other reports]</span></li>
+          <li><b>Six</b> search claims that named an "issued" Regulations instrument have now been traced and found unsupported. The sixth (30 Sep): a compliance-vendor page calling <i>"Cabinet Decision No. 33 of 2024"</i> the Executive Regulation — a search for that number returned only other 2024 Cabinet Resolutions on the official legislation portal, and the June–July 2026 law-firm updates above say nothing has been issued <span class="b">[believed — treated as false]</span>. This is why every legal status here carries a marker.</li>
         </ul></div>
       <div class="card edge-warn"><h3 style="margin-top:0">What that means for choosing a host</h3>
         <p class="small">Nothing forbids Hostinger today and nobody is auditing today. But a choice made now has to survive the day the Regulations arrive — they may add procedures for exactly the transfers Hostinger would require, with six months to comply. A UAE host is the only choice those Regulations cannot touch.</p></div>
@@ -188,7 +188,7 @@
 <!-- 6 ─────────────────────────────────────────────────────────────────────── -->
 <section class="slide" data-n="6" id="s6">
   <span class="kicker">Hostinger · the conditions</span>
-  <h2>If the company chooses Hostinger: fourteen conditions, and who owns each</h2>
+  <h2>If the company chooses Hostinger: eighteen conditions, and who owns each</h2>
   <table class="small">
     <thead><tr><th>#</th><th>Condition</th><th>Law</th><th>Owner</th><th>Status</th></tr></thead>
     <tbody>
@@ -197,7 +197,7 @@
       <tr><td>2</td><td>Accept <b>Hostinger's DPA</b>; keep a dated copy</td><td>7(5), 8(1)</td><td>company</td><td><span class="tag warn">to do</span></td></tr>
       <tr><td>3</td><td>Consent notice names the host and its country; everyone agrees again</td><td>6, 23(1)(b)</td><td>developer</td><td><span class="tag ok">built</span> — add the host line</td></tr>
       <tr><td>4</td><td><b>Counsel</b> confirms consent + DPA as the transfer basis, and consent in employment</td><td>23</td><td>counsel</td><td><span class="tag warn">to do</span></td></tr>
-      <tr><td>5</td><td>Record of processing: every service, country, ground, retention</td><td>7(4)</td><td>developer</td><td><span class="tag info">generated by the registry (slide 9)</span></td></tr>
+      <tr><td>5</td><td>Record of processing: every service, country, ground, retention</td><td>7(4)</td><td>developer</td><td><span class="tag info">generated by the registry (slide 11)</span></td></tr>
       <tr><td>6</td><td>Breach procedure and a named data-protection contact</td><td>9</td><td>company</td><td><span class="tag warn">to do</span></td></tr>
       <tr><td>7</td><td>A retention period</td><td>5(7)</td><td>company</td><td><span class="tag ok">sweep built</span> — needs the number</td></tr>
       <tr><td colspan="5" style="background:var(--card)"><b>Technical</b> — Art. 20: security appropriate to the risk</td></tr>
@@ -209,19 +209,24 @@
       <tr><td>13</td><td>AI: Core42 (UAE) — or Groq/OpenRouter with zero retention and names removed from prompts</td><td>23, 20</td><td>developer</td><td><span class="tag warn">to do</span></td></tr>
       <tr><td colspan="5" style="background:var(--card)"><b>Ongoing</b></td></tr>
       <tr><td>14</td><td>Re-check the day the Executive Regulations appear — six months to comply</td><td>28–29</td><td>counsel</td><td><span class="tag mut">watch</span></td></tr>
+      <tr><td colspan="5" style="background:var(--card)"><b>Added 30 Sep</b> — from Hostinger's own terms and help pages (slide 8)</td></tr>
+      <tr><td>15</td><td>Check <b>where Hostinger's automatic backups are stored</b> (the panel names the location; reported as possibly different from the VPS's own). If not in the EU: turn them off and keep only our own encrypted backups</td><td>22–23, 20</td><td>developer</td><td><span class="tag warn">to do at order time</span></td></tr>
+      <tr><td>16</td><td>Get <b>written confirmation</b> from Hostinger that its DPA covers this account (its scope clause names EU/EEA/Swiss/UK law), and ask for a one-page UAE PDPL clause; file the answer either way</td><td>7(5), 23(1)(a)</td><td>company</td><td><span class="tag warn">to do</span></td></tr>
+      <tr><td>17</td><td>File the <b>sub-processor list</b> as of the order date (AWS, Google Cloud, Cloudflare, MailChannels, Proofpoint, Anthropic, Spectra Tech); objections must be sent within 10 days of a change notice</td><td>7(4), 8</td><td>company</td><td><span class="tag warn">to do</span></td></tr>
+      <tr><td>18</td><td>Never paste employee data into Hostinger's support chat, and do not connect Hostinger's AI assistant to this server — its sub-processors include AI providers</td><td>20</td><td>everyone</td><td><span class="tag info">policy</span></td></tr>
     </tbody>
   </table>
 </section>
 
 <!-- 7 ─────────────────────────────────────────────────────────────────────── -->
 <section class="slide" data-n="7" id="s7">
-  <span class="kicker">Groq and OpenRouter · re-checked 29 Sep</span>
-  <h2>Better than our last deck said — still outside the UAE</h2>
+  <span class="kicker">Groq and OpenRouter · re-checked 29 and 30 Sep</span>
+  <h2>Groq can be made acceptable; OpenRouter, on a normal account, cannot</h2>
   <table class="small">
     <thead><tr><th>Provider</th><th>Where</th><th>Retention and training</th><th>Contract</th><th>Allowed for FreshNow?</th></tr></thead>
     <tbody>
-      <tr><td><b>Groq</b></td><td>US company; retained data in Google Cloud in the US; no EU endpoint</td><td>No retention of inference by default; abuse/reliability logs up to 30 days unless <b>Zero Data Retention</b> is switched on — now available to every account in Data Controls; training on inputs prohibited by its Services Agreement</td><td>A DPA (deletion within 180 days of termination) — <b>check in the console that it applies to your account</b></td><td class="b">Employee words: only with consent (built) + ZDR on + DPA accepted + names removed</td></tr>
-      <tr><td><b>OpenRouter</b></td><td>US company; passes each request to the model's own provider</td><td>Does not log prompts by default; can enforce <b>ZDR-only</b> routing and <code>data_collection: "deny"</code> per request or account; EU/US residency only on paid business plans — no UAE</td><td>A DPA was not confirmed <span class="a">[uncertain]</span></td><td class="b">Same as Groq, plus ZDR and "deny" forced on every call — and it adds a second company to the chain</td></tr>
+      <tr><td><b>Groq</b></td><td>US company; retained data in Google Cloud in the US. A Helsinki data centre opened July 2025, but no EU-only processing option for a normal account was found <span class="a">[uncertain]</span></td><td>No retention of inference by default; abuse/reliability logs up to 30 days unless <b>Zero Data Retention</b> is switched on — any organisation admin can do it, globally or per feature, in Console → Data Controls; <b>no training</b> on customer data under its Services Agreement</td><td>DPA <b>part of the Services Agreement</b> (effective 15 Oct 2025) — nothing to sign; EU SCCs deemed signed with it; deletion on request within 180 days</td><td class="b">Employee words: yes, with consent (built) + ZDR on + DPA filed + names removed (slide 9)</td></tr>
+      <tr><td><b>OpenRouter</b></td><td>US company; passes each request to the model's own provider</td><td>Does not log prompts by default; can enforce <b>ZDR-only</b> routing and <code>data_collection: "deny"</code> per request or account; EU residency only on enterprise plans — no UAE</td><td><b>DPA for enterprise accounts only</b> (mutually signed via its trust portal); a normal account can read it but it does not apply. It covers OpenRouter's own layer, not the model providers behind it</td><td class="a">Not for employee words on a normal account — no processor contract. Keep for synthetic/demo data; remove it from the fallback chain before real data</td></tr>
       <tr><td><b>Core42</b> (G42)</td><td>UAE — "under UAE jurisdiction"</td><td>Terms to be obtained in writing</td><td>Business terms available</td><td class="v">Recommended — same model, no transfer, about $7 a month</td></tr>
     </tbody>
   </table>
@@ -231,11 +236,89 @@
     <div class="card edge-crit"><h3 style="margin-top:0">Where they are not</h3>
       <p class="small">Real employee updates with default settings: no zero retention, no DPA, prompts carrying names or phone numbers. That is the configuration the earlier decks said to stop — and it still is.</p></div>
   </div>
-  <p class="cite">Groq: <a href="https://console.groq.com/docs/your-data">Your Data in GroqCloud</a>, <a href="https://trust.groq.com/faq">Trust Center</a>; OpenRouter: <a href="https://openrouter.ai/docs/guides/privacy/data-collection">Data collection</a>, <a href="https://openrouter.ai/docs/guides/features/zdr">Zero Data Retention</a> — all <span class="b">[believed — read through search on 29 Sep; the pages were blocked]</span>. This corrects our 21 Sep reading that Groq offered no DPA on self-serve.</p>
+  <p class="cite">Groq: <a href="https://console.groq.com/docs/your-data">Your Data in GroqCloud</a>, <a href="https://console.groq.com/docs/legal/customer-data-processing-addendum">Data Processing Addendum</a>, <a href="https://console.groq.com/docs/legal/services-agreement">Services Agreement</a>, <a href="https://trust.groq.com/faq">Trust Center</a>, <a href="https://groq.com/newsroom/groq-launches-european-data-center-footprint-in-helsinki-finland">Helsinki data centre</a>; OpenRouter: <a href="https://openrouter.zendesk.com/hc/en-us/articles/47828437697051-How-do-I-get-OpenRouter-s-Data-Processing-Agreement-DPA-for-GDPR-compliance">How do I get OpenRouter's DPA?</a> (help centre), <a href="https://openrouter.ai/docs/guides/privacy/data-collection">Data collection</a>, <a href="https://openrouter.ai/docs/guides/features/zdr">Zero Data Retention</a> — all <span class="b">[believed — read through search on 29–30 Sep; the pages were blocked]</span>. Corrects our 21 Sep reading (Groq has a DPA) and settles 29 Sep's open question (OpenRouter's DPA: enterprise only).</p>
 </section>
 
 <!-- 8 ─────────────────────────────────────────────────────────────────────── -->
 <section class="slide" data-n="8" id="s8">
+  <span class="kicker">Hostinger · the agreements, and what to do with them · added 30 Sep</span>
+  <h2>No extra contract to sign — but four things to get in writing and file</h2>
+  <div class="grid g32">
+    <div>
+      <table class="small">
+        <thead><tr><th style="width:18%">Point</th><th>What Hostinger's terms say</th><th style="width:36%">What it means for FreshNow</th></tr></thead>
+        <tbody>
+          <tr><td><b>Who we contract with</b></td><td>Hostinger International Ltd, Cyprus — the contracting entity for customers outside the regions its Terms list separately <span class="b">[believed]</span></td><td>An EU company. EU guidance says an EU processor is bound by the GDPR's processor rules even for a customer outside the EU <span class="b">[believed — EDPB Guidelines 3/2018]</span></td></tr>
+          <tr><td><b>The DPA</b></td><td>Part of the Terms of Service by reference; Hostinger is the processor, the customer the controller; it processes only on documented instructions <span class="b">[believed]</span></td><td><b>Nothing to sign.</b> Download it on the day you order: that dated copy is the processor contract Art. 7–8 ask for</td></tr>
+          <tr class="hi"><td><b>The DPA's scope</b></td><td>Applies where the personal data is "subject to" EU, EEA, Swiss or UK data-protection law <span class="b">[believed]</span></td><td>Probably yes for an EU-hosted VPS run by an EU company — but that is a reading, not a sentence in the DPA. <b>Ask Hostinger to confirm it covers this account</b> <span class="a">[uncertain]</span></td></tr>
+          <tr><td><b>Data leaving the EU</b></td><td>EU Standard Contractual Clauses (Commission decision 2021/914), Modules 2 and 3, for anything Hostinger sends outside the EEA <span class="b">[believed]</span></td><td>Protects the data if Hostinger moves it on. Says nothing about UAE law</td></tr>
+          <tr><td><b>Sub-processors</b></td><td>Appendix 3: AWS EMEA, Google Cloud EMEA, Cloudflare, MailChannels, Proofpoint, Anthropic Ireland, Spectra Tech UAB; new ones are added to the list; an objection means terminating within 10 days of the notice <span class="b">[believed]</span></td><td>File the list; watch for notices. AI providers on the list are why employee data never goes into a support chat</td></tr>
+          <tr><td><b>Security</b></td><td>ISO/IEC 27001:2022 certified (audited by TÜV Thüringen); PCI DSS; two-factor sign-in and a panel firewall available <span class="b">[believed]</span></td><td>A sound baseline for the building and the machine. Encrypting <i>our</i> data is still ours to do</td></tr>
+          <tr><td><b>Location</b></td><td>A VPS's location cannot be changed in place — only by a reinstall that deletes all data, backups and snapshots <span class="b">[believed — Hostinger help centre]</span></td><td>Good: the server cannot drift to another country from the panel. Order it in the EU from day one</td></tr>
+          <tr><td><b>Backups</b></td><td>Automatic weekly backups (daily optional) on separate servers; the panel names their location, which reviews report can differ from the VPS <span class="b">[believed — third-party review]</span></td><td>Condition 15: check it; if it is not the EU, turn them off and keep only our own encrypted copy</td></tr>
+          <tr><td><b>Full-disk encryption</b></td><td>Not found either way <span class="a">[uncertain]</span></td><td>Encrypt the backups and the most sensitive columns ourselves (condition 9)</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div>
+      <div class="card edge-ok"><h3 style="margin-top:0">What to do with Hostinger — in this order</h3>
+        <ol class="small">
+          <li><b>Before ordering:</b> counsel's read of consent + DPA (condition 4).</li>
+          <li><b>Order:</b> KVM plan in <b>Lithuania or Germany</b>; turn on two-factor sign-in on the account the same hour.</li>
+          <li><b>File, dated:</b> the DPA, its SCC annex and the sub-processor list, as they read that day.</li>
+          <li><b>First day on the box:</b> check the backup location; panel firewall default-deny plus the server's own; SSH keys only; root login off.</li>
+          <li><b>Write to Hostinger</b> (the privacy contact in its Privacy Policy): confirm the DPA covers this account; confirm the VPS and backup locations; ask them to accept a one-page UAE PDPL clause. Expect "no" on a self-serve plan <span class="b">[believed]</span> — then consent carries the transfer, as planned.</li>
+          <li><b>Ongoing:</b> sub-processor notices (10 days to object); re-check when the Regulations appear.</li>
+        </ol></div>
+      <div class="card edge-info" style="margin-top:12px"><h3 style="margin-top:0">"Do we need an extra agreement?"</h3>
+        <ul class="small">
+          <li><b>With Hostinger — no separate one exists to sign</b> on a normal account; the DPA is already in the Terms. A PDPL clause is worth asking for, not something to wait on.</li>
+          <li><b>With each employee — yes:</b> express consent to the transfer (built: notice 2.0; the host line is added from the configuration).</li>
+          <li><b>Inside the company — yes:</b> a record of processing and a breach procedure with a named contact (conditions 5–6).</li>
+        </ul></div>
+    </div>
+  </div>
+  <p class="cite">Hostinger: <a href="https://www.hostinger.com/legal/dpa">Data processing addendum</a> · <a href="https://www.hostinger.com/legal/universal-terms-of-service-agreement">Terms of service</a> · <a href="https://www.hostinger.com/legal/privacy-policy">Privacy policy</a> · <a href="https://www.hostinger.com/blog/iso-27001">ISO 27001 announcement</a> · <a href="https://trust.hostinger.com/">Trust Center</a> · <a href="https://www.hostinger.com/support/10289743-how-to-transfer-your-vps-to-a-different-location-in-hostinger/">Transfer a VPS to a different location</a> · <a href="https://www.hostinger.com/support/1583232-how-to-back-up-or-restore-a-vps-at-hostinger/">VPS backups</a> · <a href="https://hostadvice.com/blog/web-hosting/hostinger-backups/">HostAdvice on backup locations</a> · EDPB, <a href="https://www.edpb.europa.eu/our-work-tools/our-documents/guidelines/guidelines-32018-territorial-scope-gdpr-article-3-version_en">Guidelines 3/2018 on territorial scope</a>. All read through search results on 30 Sep — the pages themselves were blocked from this environment <span class="b">[believed]</span>. Open each before relying on it.</p>
+</section>
+
+<!-- 9 ─────────────────────────────────────────────────────────────────────── -->
+<section class="slide" data-n="9" id="s9">
+  <span class="kicker">Groq · employee data, step by step · added 30 Sep</span>
+  <h2>Can employees' words go to Groq? Yes — when these six things are true</h2>
+  <div class="grid g2">
+    <div>
+      <table class="small">
+        <thead><tr><th style="width:24%">Question</th><th>Answer</th></tr></thead>
+        <tbody>
+          <tr><td><b>Is it stored?</b></td><td>By default, inference inputs and outputs are not retained; they may be logged for up to <b>30 days</b> only to troubleshoot reliability or investigate abuse. With <b>Zero Data Retention</b> on, not even that <span class="b">[believed — Your Data in GroqCloud]</span></td></tr>
+          <tr class="hi"><td><b>Is it used for training?</b></td><td><b>No.</b> Groq does not use customer data to train models; data given for fine-tuning is used only to serve that customer. This is in the contract, so there is no switch to find <span class="b">[believed — Services Agreement, Trust Center]</span></td></tr>
+          <tr><td><b>Where?</b></td><td>United States; retained data in Google Cloud in the US <span class="b">[believed]</span>. The Helsinki data centre did not show up as an EU-only option for a normal account <span class="a">[uncertain]</span></td></tr>
+          <tr><td><b>Under what contract?</b></td><td>The DPA is part of the Services Agreement (effective 15 Oct 2025): Groq is processor, EU SCCs deemed signed, deletion on request within 180 days <span class="b">[believed — DPA]</span></td></tr>
+          <tr><td><b>Will Groq be there?</b></td><td>Nvidia licensed Groq's chip technology and hired its founders in Dec 2025; GroqCloud continues as an independent company under a new CEO, and was reported raising money in May 2026 <span class="b">[believed — CNBC, DCD]</span>. A reason to keep Core42 ready as the alternative</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div>
+      <table class="small">
+        <thead><tr><th>#</th><th>Condition</th><th>Owner</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td><b>Zero Data Retention on for the whole organisation</b> — Console → Data Controls → global. Screenshot it, dated</td><td>account admin · minutes</td><td><span class="tag warn">to do</span></td></tr>
+          <tr><td>2</td><td>The DPA downloaded, dated and filed</td><td>company</td><td><span class="tag warn">to do</span></td></tr>
+          <tr><td>3</td><td>The notice names Groq and the US; everyone agrees</td><td>developer</td><td><span class="tag ok">built</span> — notice 2.0 is generated from the configuration</td></tr>
+          <tr><td>4</td><td>Names, phone numbers and IDs replaced before a prompt leaves (rule R7), tested in every language the staff write</td><td>developer · a day or two <span class="tag mut">estimate</span></td><td><span class="tag warn">to build</span></td></tr>
+          <tr><td>5</td><td><b>OpenRouter out of the fallback chain</b> for real data — no DPA on a normal account (slide 7)</td><td>developer · hours <span class="tag mut">estimate</span></td><td><span class="tag warn">to do</span></td></tr>
+          <tr><td>6</td><td>Every call logged as the transfer record</td><td>—</td><td><span class="tag ok">built</span> — <code>llm_call</code></td></tr>
+        </tbody>
+      </table>
+      <div class="card edge-info" style="margin-top:12px"><p class="small" style="margin:0"><b>What code can and cannot check here.</b> Zero Data Retention is an account setting, not something found in the API request <span class="a">[uncertain]</span> — so the system cannot see it. The registry (slide 11) records who switched it on and when, and rule R4 refuses to call a provider whose entry says it is off. A person still has to switch it on.</p></div>
+      <div class="card edge-ok" style="margin-top:12px"><p class="small" style="margin:0"><b>Against Core42:</b> Groq needs these six conditions and every employee's consent to a US transfer. Core42 is in the UAE and needs neither for the AI. The recommendation does not change; this slide is the lawful route if the company keeps Groq.</p></div>
+    </div>
+  </div>
+  <p class="cite">Groq: <a href="https://console.groq.com/docs/your-data">Your Data in GroqCloud</a> · <a href="https://console.groq.com/docs/legal/customer-data-processing-addendum">Data Processing Addendum</a> · <a href="https://console.groq.com/docs/legal/services-agreement">Services Agreement</a> · <a href="https://trust.groq.com/faq">Trust Center FAQ</a> · <a href="https://groq.com/newsroom/groq-launches-european-data-center-footprint-in-helsinki-finland">Helsinki data centre</a>. Company: <a href="https://www.cnbc.com/2025/12/24/nvidia-buying-ai-chip-startup-groq-for-about-20-billion-biggest-deal.html">CNBC, 24 Dec 2025</a> · <a href="https://www.datacenterdynamics.com/en/news/nvidia-to-license-tech-from-ai-inference-chip-company-groq-hire-its-leadership/">DCD</a>. All through search results on 30 Sep; pages blocked <span class="b">[believed]</span>.</p>
+</section>
+
+<!-- 10 ────────────────────────────────────────────────────────────────────── -->
+<section class="slide" data-n="10" id="s10">
   <span class="kicker">Policy as code · what it means for us</span>
   <h2>Write the compliance rules down once — and let the system refuse to break them</h2>
   <p class="lead" style="max-width:none">"Policy as code" means the rules live in files the system reads and checks, not in a PDF people forget. For FreshNow that is five layers — three of them already exist.</p>
@@ -288,8 +371,8 @@
   </div>
 </section>
 
-<!-- 9 ─────────────────────────────────────────────────────────────────────── -->
-<section class="slide" data-n="9" id="s9">
+<!-- 11 ────────────────────────────────────────────────────────────────────── -->
+<section class="slide" data-n="11" id="s11">
   <span class="kicker">Policy as code · the registry and the rules</span>
   <h2>One file says where personal data may go; the system checks itself against it</h2>
   <div class="grid g2">
@@ -340,8 +423,8 @@ hosting_countries_allowed: [AE, LT, DE, FR]</code></pre>
   </div>
 </section>
 
-<!-- 10 ────────────────────────────────────────────────────────────────────── -->
-<section class="slide" data-n="10" id="s10">
+<!-- 12 ────────────────────────────────────────────────────────────────────── -->
+<section class="slide" data-n="12" id="s12">
   <span class="kicker">Policy as code · built vs to build</span>
   <h2>Most of the enforcement already runs — the registry ties it together</h2>
   <div class="grid g2">
@@ -373,8 +456,8 @@ hosting_countries_allowed: [AE, LT, DE, FR]</code></pre>
   </div>
 </section>
 
-<!-- 11 ────────────────────────────────────────────────────────────────────── -->
-<section class="slide" data-n="11" id="s11">
+<!-- 13 ────────────────────────────────────────────────────────────────────── -->
+<section class="slide" data-n="13" id="s13">
   <span class="kicker">Policy as code · its limits</span>
   <h2>What no amount of code can promise</h2>
   <div class="grid g3">
@@ -388,8 +471,8 @@ hosting_countries_allowed: [AE, LT, DE, FR]</code></pre>
   <div class="card brand" style="margin-top:12px"><b>So "without any violation" is three things together:</b> counsel's reading of the law · the company's contracts and decisions · code that enforces both and keeps the evidence. Code alone is one of three.</div>
 </section>
 
-<!-- 12 ────────────────────────────────────────────────────────────────────── -->
-<section class="slide" data-n="12" id="s12">
+<!-- 14 ────────────────────────────────────────────────────────────────────── -->
+<section class="slide" data-n="14" id="s14">
   <span class="kicker">The options, side by side</span>
   <h2>Where the data sits, what must justify it, and what it costs</h2>
   <table class="small">
@@ -403,11 +486,11 @@ hosting_countries_allowed: [AE, LT, DE, FR]</code></pre>
     </tbody>
   </table>
   <p class="cite">Prices: Hostinger KVM 8 (8 vCPU / 32 GB) intro and renewal <span class="b">[believed — 2026 round-ups, 26 Sep]</span>; LightNode Dubai 4 vCPU / 8 GB $27.70, 8 vCPU / 16 GB $52.70 <span class="b">[checked 19–21 Sep]</span>; Azure and Core42 from <code>ceo-deck-azure-aws-uae.html</code> (Core42: our measured tokens × its price list). Our measured load fits a 4 vCPU / 16 GB server <span class="a">[uncertain — not load-tested]</span>. Re-check every price before ordering.</p>
-  <div class="card edge-info" style="margin-top:10px"><p class="small" style="margin:0"><b>The honest comparison:</b> Option B saves at most a few dollars a month over Option A, and adds a permanent dependency on every employee's consent, an unsettled legal reading, and the conditions on slide 6. Option A needs none of that. Hostinger is <i>possible</i>; it is not <i>cheaper in any way that matters</i>.</p></div>
+  <div class="card edge-info" style="margin-top:10px"><p class="small" style="margin:0"><b>The honest comparison:</b> Option B saves at most a few dollars a month over Option A, and adds a permanent dependency on every employee's consent, an unsettled legal reading, and the eighteen conditions on slide 6. Option A needs none of that. Hostinger is <i>possible</i>; it is not <i>cheaper in any way that matters</i>.</p></div>
 </section>
 
-<!-- 13 ────────────────────────────────────────────────────────────────────── -->
-<section class="slide" data-n="13" id="s13">
+<!-- 15 ────────────────────────────────────────────────────────────────────── -->
+<section class="slide" data-n="15" id="s15">
   <span class="kicker">Decision and next steps</span>
   <h2>Choose A or B — then this is the order of work</h2>
   <div class="grid g2">
@@ -416,13 +499,13 @@ hosting_countries_allowed: [AE, LT, DE, FR]</code></pre>
         <li>Order the Dubai VPS; buy the domain. <i>CEO · an hour</i></li>
         <li>Move the Docker stack unchanged; Caddy gives HTTPS; phones use the domain — no tunnel. <i>developer · days</i></li>
         <li>Switch the AI to Core42; remove the US fallbacks. The notice rewrites itself; everyone agrees again. <i>developer · hours after sign-up</i></li>
-        <li>Registry + rules R1–R8 (slide 9). <i>developer · about a week in total</i> <span class="tag mut">estimate</span></li>
+        <li>Registry + rules R1–R8 (slide 11). <i>developer · about a week in total</i> <span class="tag mut">estimate</span></li>
         <li>Company: retention number, breach contact, notice wording, counsel's read.</li>
       </ol></div>
     <div class="card edge-warn"><h3 style="margin-top:0">If B — Hostinger (EU)</h3>
       <ol class="small">
         <li>Counsel confirms consent + DPA for a permanent EU database — <b>before</b> ordering.</li>
-        <li>Order the VPS in Lithuania or Germany; accept and file the DPA; turn on two-factor sign-in.</li>
+        <li>Order the VPS in Lithuania or Germany; turn on two-factor sign-in; file the DPA, SCCs and sub-processor list; check the backup location; write to Hostinger (slide 8).</li>
         <li>Add the host line to the notice; everyone agrees again before real data goes in.</li>
         <li>Harden the server; encrypted backups with a second EU copy; DB access log (slide 6, rows 8–12).</li>
         <li>Registry + rules R1–R8, with <code>hosting_countries_allowed</code> set to the EU.</li>
@@ -432,8 +515,8 @@ hosting_countries_allowed: [AE, LT, DE, FR]</code></pre>
   <div class="card brand" style="margin-top:12px"><b>Either way, one thing is already done:</b> consent is asked, enforced and recorded in Telegram and the app, and it follows the configuration automatically. What remains is a choice of host, a few contracts, and the registry that makes every future change safe.</div>
 </section>
 
-<!-- 14 ────────────────────────────────────────────────────────────────────── -->
-<section class="slide" data-n="14" id="s14">
+<!-- 16 ────────────────────────────────────────────────────────────────────── -->
+<section class="slide" data-n="16" id="s16">
   <span class="kicker">Sources</span>
   <h2>Every claim above, and where to check it</h2>
   <div class="grid g2">
@@ -445,20 +528,25 @@ hosting_countries_allowed: [AE, LT, DE, FR]</code></pre>
         <li>Kayrouz &amp; Associates, <a href="https://www.kayrouzandassociates.com/insights/cross-border-data-transfers-under-uae-law-in-2026">Cross-border data transfers under UAE law in 2026</a></li>
         <li>SMEX, <a href="https://smex.org/uaes-data-protection-law-between-exceptions-and-exemptions/">Between exceptions and exemptions</a> · DLA Piper, <a href="https://www.dlapiperdataprotection.com/countries/uae-general/law.html">Data Protection Laws of the World — UAE</a></li>
         <li>Ashurst, <a href="https://www.ashurstperkinscoie.com/en/insights/data-bytes-67-your-emea-data-privacy-update-for-july-2026/">Data Bytes 67 (July 2026)</a> — Regulations pending</li>
-        <li>Morgan Lewis, <a href="https://www.morganlewis.com/pubs/2026/06/uae-establishes-federal-authority-for-artificial-intelligence-and-data">UAE establishes Federal Authority for AI and Data (June 2026)</a></li>
+        <li>Morgan Lewis, <a href="https://www.morganlewis.com/pubs/2026/06/uae-establishes-federal-authority-for-artificial-intelligence-and-data">UAE establishes Federal Authority for AI and Data (June 2026)</a> — Implementing Regulations "have still not been issued"</li>
+        <li>The unsupported "issued" claim traced on 30 Sep: <a href="https://itsecnow.com/regulators/pdpl-executive-regulations-2026">itsecnow.com, "PDPL Executive Regulations 2026"</a> (names Cabinet Decision No. 33 of 2024) — against it, the official portal search (<a href="https://uaelegislation.gov.ae/">uaelegislation.gov.ae</a>) and the two law-firm updates above</li>
+        <li>EDPB, <a href="https://www.edpb.europa.eu/our-work-tools/our-documents/guidelines/guidelines-32018-territorial-scope-gdpr-article-3-version_en">Guidelines 3/2018 on the territorial scope of the GDPR</a> — an EU processor serving a non-EU controller</li>
         <li>Bird &amp; Bird, <a href="https://www.twobirds.com/en/insights/2021/uae/how-does-the-new-uae-federal-decree-law-on-personal-data-protection-compare-against-the-gdpr">PDPL compared with GDPR</a> — security and breach duties</li>
       </ul>
       <h3>Hosting</h3>
       <ul class="small">
         <li>Hostinger, <a href="https://www.hostinger.com/support/1583267-where-are-hostinger-servers-located/">Where are Hostinger servers located?</a> · <a href="https://www.hostinger.com/legal/hosting-agreement">Hosting agreement</a></li>
+        <li>Hostinger, <a href="https://www.hostinger.com/legal/dpa">Data processing addendum</a> (scope, SCCs, Appendix 3 sub-processors, 10-day objection) · <a href="https://www.hostinger.com/legal/universal-terms-of-service-agreement">Terms of service</a> (contracting entity) · <a href="https://www.hostinger.com/legal/privacy-policy">Privacy policy</a></li>
+        <li>Hostinger, <a href="https://www.hostinger.com/blog/iso-27001">ISO 27001 certification</a> · <a href="https://trust.hostinger.com/">Trust Center</a> · <a href="https://www.hostinger.com/support/10289743-how-to-transfer-your-vps-to-a-different-location-in-hostinger/">Transfer a VPS to a different location</a> · <a href="https://www.hostinger.com/support/1583232-how-to-back-up-or-restore-a-vps-at-hostinger/">Back up or restore a VPS</a> · HostAdvice, <a href="https://hostadvice.com/blog/web-hosting/hostinger-backups/">Hostinger backups</a></li>
         <li>LightNode, <a href="https://go.lightnode.com/the-united-arab-emirates-vps">UAE VPS</a> · Azure prices: <code>ceo-deck-azure-aws-uae.html</code></li>
       </ul>
     </div>
     <div>
       <h3 style="margin-top:0">AI providers</h3>
       <ul class="small">
-        <li>Groq, <a href="https://console.groq.com/docs/your-data">Your Data in GroqCloud</a> · <a href="https://trust.groq.com/faq">Trust Center FAQ</a> · <a href="https://console.groq.com/docs/legal/archive/">Policies &amp; notices</a></li>
-        <li>OpenRouter, <a href="https://openrouter.ai/docs/guides/privacy/data-collection">Data collection</a> · <a href="https://openrouter.ai/docs/guides/features/zdr">Zero Data Retention</a> · <a href="https://openrouter.ai/blog/insights/ai-data-residency/">Data residency</a></li>
+        <li>Groq, <a href="https://console.groq.com/docs/your-data">Your Data in GroqCloud</a> · <a href="https://console.groq.com/docs/legal/customer-data-processing-addendum">Data Processing Addendum</a> · <a href="https://console.groq.com/docs/legal/services-agreement">Services Agreement</a> · <a href="https://trust.groq.com/faq">Trust Center FAQ</a> · <a href="https://console.groq.com/docs/legal/archive/">Policies &amp; notices</a> · <a href="https://groq.com/newsroom/groq-launches-european-data-center-footprint-in-helsinki-finland">Helsinki data centre</a></li>
+        <li>Groq and Nvidia: <a href="https://www.cnbc.com/2025/12/24/nvidia-buying-ai-chip-startup-groq-for-about-20-billion-biggest-deal.html">CNBC, 24 Dec 2025</a> · <a href="https://www.datacenterdynamics.com/en/news/nvidia-to-license-tech-from-ai-inference-chip-company-groq-hire-its-leadership/">DCD</a></li>
+        <li>OpenRouter, <a href="https://openrouter.zendesk.com/hc/en-us/articles/47828437697051-How-do-I-get-OpenRouter-s-Data-Processing-Agreement-DPA-for-GDPR-compliance">How do I get OpenRouter's DPA?</a> · <a href="https://openrouter.ai/docs/guides/privacy/data-collection">Data collection</a> · <a href="https://openrouter.ai/docs/guides/features/zdr">Zero Data Retention</a> · <a href="https://openrouter.ai/blog/insights/ai-data-residency/">Data residency</a></li>
         <li>Core42, GPT-OSS on Compass — see <code>ceo-deck-data-residency.html</code>, slide 17</li>
       </ul>
       <h3>Policy as code</h3>
@@ -472,27 +560,29 @@ hosting_countries_allowed: [AE, LT, DE, FR]</code></pre>
   </div>
 </section>
 
-<!-- 15 ────────────────────────────────────────────────────────────────────── -->
-<section class="slide" data-n="15" id="s15">
+<!-- 17 ────────────────────────────────────────────────────────────────────── -->
+<section class="slide" data-n="17" id="s17">
   <span class="kicker">What is not verified</span>
   <h2>Where this briefing could be wrong, stated plainly</h2>
   <div class="grid g2">
     <div class="card edge-warn"><ul class="small">
       <li><b>The exact scope of Art. 23(1)(a).</b> Whether the contract route applies to an EU country (a country <i>with</i> a data-protection law not yet approved) is unsettled in the commentary found. <b>Counsel.</b></li>
       <li><b>Consent in employment</b> as the ground for a permanent transfer of the whole database. <b>Counsel.</b></li>
-      <li><b>Hostinger's DPA text</b> and whether a self-serve account can add clauses — the page could not be opened; search results only.</li>
+      <li><b>Hostinger's DPA text</b> — its scope clause, SCCs, sub-processor list and 10-day objection are from search summaries of the page, not the page. Whether a self-serve account can add a PDPL clause is still unknown: ask.</li>
+      <li><b>Whether Hostinger's DPA applies to a UAE customer's EU-hosted data</b> (slide 8) — a reading of its scope clause and the EDPB's guidance. Hostinger or counsel.</li>
+      <li><b>Where Hostinger keeps VPS backups</b> — one third-party review; the panel shows it at order time.</li>
       <li><b>Full-disk encryption on a Hostinger VPS</b> — not confirmed either way.</li>
-      <li><b>Groq's DPA applying to our account</b> and <b>OpenRouter having a DPA</b> — search results only; check in each console.</li>
+      <li><b>Groq</b>: that its DPA applies to our account, that ZDR is an account setting only, and that no EU-only option exists for a normal account — search results; check in the console. <b>OpenRouter's DPA being enterprise-only</b> — from its help centre, via search.</li>
     </ul></div>
     <div class="card edge-warn"><ul class="small">
-      <li><b>No primary page was readable this session</b>: the law's PDF, Hostinger, Groq, OpenRouter and the government portal were all blocked by the network policy. Earlier readings (21 Sep) of the law's text are relied on.</li>
+      <li><b>No primary page was readable in either session</b> (29 and 30 Sep): the law's PDF, Hostinger, Groq, OpenRouter, the government portal and most law-firm pages were blocked by the network policy. Earlier readings (21 Sep) of the law's text are relied on; every newer claim links to its page.</li>
       <li><b>Prices</b> are from 19–26 Sep and from third-party round-ups for Hostinger; re-check before ordering.</li>
-      <li><b>Build sizes</b> on slide 10 are the developer's estimates.</li>
+      <li><b>Build sizes</b> on slide 12 are the developer's estimates.</li>
       <li><b>Daily Vending LLC is assumed mainland</b>; a free-zone licence changes the regime.</li>
       <li><b>No lawyer has reviewed this.</b> It is written to be checked quickly — and it should be.</li>
     </ul></div>
   </div>
-  <div class="foot">FreshNow Operations · briefing prepared 29 September 2026 · press P to print or save as PDF</div>
+  <div class="foot">FreshNow Operations · briefing prepared 29 September 2026, updated 30 September · press P to print or save as PDF</div>
 </section>
 
 <script>

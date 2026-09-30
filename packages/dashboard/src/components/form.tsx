@@ -14,6 +14,7 @@ export function Button({
   disabled = false,
   type = "button",
   title,
+  className = "",
 }: {
   children: ReactNode;
   onClick?: () => void;
@@ -22,6 +23,8 @@ export function Button({
   disabled?: boolean;
   type?: "button" | "submit";
   title?: string;
+  /** Size and layout only (e.g. a full-width thumb-sized button on a phone) — never colour. */
+  className?: string;
 }) {
   const tones = {
     primary: "border-ok bg-ok/10 text-ok hover:bg-ok/20",
@@ -34,7 +37,7 @@ export function Button({
       title={title}
       onClick={onClick}
       disabled={disabled || busy}
-      className={`rounded-lg border px-3 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${tones[tone]}`}
+      className={`rounded-lg border px-3 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${tones[tone]} ${className}`}
     >
       {busy ? "…" : children}
     </button>

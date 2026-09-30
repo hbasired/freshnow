@@ -437,6 +437,21 @@ Settings → Apps → Chrome → Battery → <em>Unrestricted</em>.</p>
 3. Sign in as Priya → agree to the notice → <strong>Alerts → Turn on → Allow → Send a test notification.</strong></p>
 <p>The phone does <strong>not</strong> need to be on the laptop's Wi-Fi — mobile data works, because the tunnel is
 on the internet.</p>
+<p><strong>Finding your way on the phone (since 30 Sep).</strong> The phone no longer shows a squeezed copy of the laptop
+screen. It is one page at a time:</p>
+<ul>
+<li><strong>The bar at the bottom</strong> — <strong>Home · My work · Assign · Alerts · More</strong>. People who cannot give work
+  out see <strong>Projects</strong> in the middle instead of <strong>Assign</strong>. A red number on <strong>Alerts</strong> is urgent problems;
+  the number on <strong>My work</strong> is your open tasks.</li>
+<li><strong>More</strong> — everything else (Carry-over, End of day, People, Activity, Ask, Projects), a search box over
+  everything on the board, and <strong>This device</strong>: theme, install, refresh, sign out. A page opened from More
+  has a <strong>‹</strong> back arrow at the top left.</li>
+<li><strong>Home</strong> — the day with <strong>‹ ›</strong> to step a day back or forward (tap the date for a calendar), then the
+  counts, what needs a human, the week, and the day's reports as cards.</li>
+<li><strong>My work</strong> — one card per task: tap its title to open it, <strong>✅ Done / ⏳ Pending / 🚫 Problem</strong> to report,
+  <strong>📊 Update progress</strong> to pick a range (0–10%, 10–20% …). A task opens as its own page with <strong>‹ Back</strong>.</li>
+<li>Tables on the laptop are cards on the phone — nothing scrolls sideways.</li>
+</ul>
 <p><strong>If the phone will not cooperate:</strong></p>
 <table>
 <thead>
@@ -532,14 +547,23 @@ switched on in a way that leaves people unreachable."</p>
 </ol>
 <h3>Act 4 — A problem reported from the phone reaches the CEO at once (phone → CEO, 3 min)</h3>
 <ol>
-<li>Phone → <strong>My work</strong> → the chiller task → <strong>🚫 Blocker</strong> → type in any language, e.g.
-   <code>van 2 chiller not cooling, juice getting warm</code> → <strong>🚫 Send blocker</strong>.</li>
-<li>Toast: <em>"Saved as a blocker (high) — the CEO has been alerted."</em></li>
+<li>Phone → <strong>My work</strong> → the chiller task → <strong>🚫 Problem</strong> → tap <strong>Machine not working</strong> (it fills the
+   box; tap more to add them) and/or type in any language, e.g.
+   <code>van 2 chiller not cooling, juice getting warm</code> → <strong>🚫 Send problem</strong>.</li>
+<li>Toast: <em>"Saved as a problem (high) — the CEO has been alerted."</em></li>
 <li>The CEO's laptop shows <strong>Problem for you to resolve</strong>, and it <strong>stays on screen until dismissed</strong>
    — a blocker should not be glanced at and lost. The CEO's Telegram gets it too.
    - If the AI key is not working, the CEO instead gets <strong>An update needs a human reader</strong> with
      the employee's exact words. Nothing is lost either way.</li>
 <li><strong>Overview</strong> now shows the problem under <em>Urgent open</em>.</li>
+</ol>
+<h3>Act 4b — Progress as a range, not a guess at a number (phone → CEO, 1 min)</h3>
+<ol>
+<li>Phone → <strong>My work</strong> → any task → <strong>📊 Update progress</strong> → <em>How far along is it?</em> <strong>20–30% · about a
+   quarter</strong> → tap <strong>Materials ready</strong> → <strong>Save progress</strong>.</li>
+<li>The card now reads <strong>20–30%</strong> — never "25%". The CEO's <strong>Carry-over</strong> shows the same range.</li>
+<li>CEO opens the task: <strong>20–30%</strong> · <em>self-reported · a range, counted as 25% in totals</em>. The midpoint is
+   used only for sums and the "behind" flag; the person's range is what is shown. Ticking steps replaces it.</li>
 </ol>
 <h3>Act 5 — Acknowledge stops the escalation (CEO, 1 min)</h3>
 <p><strong>CEO → Alerts → Open problems → ✅ Acknowledge.</strong> The row turns <em>on it · DEMO CEO</em>. Every report
@@ -586,7 +610,7 @@ minutes the CEO gets <strong>Escalated — level 1</strong>. Put the windows bac
 <li><strong>Ask</strong> — <code>how many blockers are open right now?</code> → the answer <strong>with the SQL that produced it</strong>.</li>
 <li><strong>End of day → Generate end-of-day reports</strong> — one report per person, counts computed in SQL.</li>
 <li><strong>People</strong> — access roles; the database decides who sees what.</li>
-<li><strong>Projects</strong> (top switcher) — purpose, requirements, milestones, progress.</li>
+<li><strong>Projects</strong> (top switcher on the laptop; <strong>More → Projects</strong> on the CEO's phone) — purpose, requirements, milestones, progress.</li>
 <li><strong>Activity</strong> — the audit trail of everything above.</li>
 </ul>
 <h3>Act 12 — Back to the default (CEO, 30 s)</h3>

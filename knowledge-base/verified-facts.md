@@ -643,7 +643,32 @@ Groq: no retention of inference by default; abuse/reliability logs up to 30 days
 now a switch for every account; its Services Agreement prohibits training on inputs; a DPA commits to deletion
 within 180 days; retained data in Google Cloud in the US, no EU endpoint. OpenRouter: prompt logging off by default,
 `data_collection: "deny"` and ZDR enforceable per request or account; EU/US residency on business plans only; no DPA
-found. Hostinger: VPS locations unchanged (no UAE/Middle East); a GDPR DPA exists for customers. UAE: no adequacy
+found. **Corrected 2026-09-30 (VF41):** a DPA exists but applies to enterprise accounts only; a normal account has none. Hostinger: VPS locations unchanged (no UAE/Middle East); a GDPR DPA exists for customers. UAE: no adequacy
 list and no standard contractual clauses issued (ABS Partners, Kayrouz 2026). Used in
 `docs/reports/ceo-deck-hostinger-final-verdict.html`.
 
+
+## VF40 (2026-09-30) — Hostinger's terms, re-checked [believed — search summaries; every Hostinger page blocked]
+Contracting entity for customers outside the regions its Terms list: Hostinger International Ltd, Cyprus. The DPA is
+incorporated into the Terms by reference (nothing to sign); scope: personal data "subject to" EU/EEA/Swiss/UK law; EU
+SCCs (2021/914) Modules 2–3 for transfers out of the EEA; Appendix 3 sub-processors: AWS EMEA, Google Cloud EMEA,
+Cloudflare, MailChannels, Proofpoint, Anthropic Ireland, Spectra Tech UAB; objection = terminate within 10 days of a
+notice. ISO/IEC 27001:2022 (TÜV Thüringen). A VPS's location changes only by a reinstall that deletes all data.
+Automatic backups sit on separate servers; the panel shows where, reported (one third-party review) as possibly not
+the VPS's location. Full-disk encryption: not found either way. EDPB Guidelines 3/2018: an EU processor is subject to
+the GDPR's processor provisions even for a non-EU controller. Used in the CEO deck, slides 6 and 8.
+
+## VF41 (2026-09-30) — Groq, OpenRouter and the PDPL's status, re-checked [believed — search summaries; pages blocked]
+Groq: DPA incorporated into the Services Agreement, effective 15 Oct 2025, EU SCCs deemed signed, deletion within 180
+days; Zero Data Retention set by an organisation admin in Console → Data Controls, globally or per feature; no training
+on customer data; a Helsinki data centre since July 2025, but no EU-only option for a normal account found. Nvidia
+licensed Groq's technology and hired its founders (Dec 2025); GroqCloud continues independently. OpenRouter: its DPA
+applies to enterprise accounts only (help-centre article) and covers OpenRouter's layer, not upstream providers. PDPL
+Executive Regulations still not issued (Morgan Lewis June 2026, Ashurst July 2026); a sixth "issued" claim —
+"Cabinet Decision No. 33 of 2024", itsecnow.com — found no support on the official portal search. CEO deck slides 4, 7, 9.
+
+## VF42 (2026-09-30) — TASK-049 measured in this container [verified]
+Full suite on Postgres 16 + pgvector 0.6.0 + Redis: 493 pass, 9 fail (8 real-model calls, 1 fallback test needing a
+second provider key). Browser (Playwright 1.56 Chromium, 390×844 touch in light and dark, 1440×900): 37/37 checks —
+tab bar, no sideways scroll on six phone pages, the range list, "20–30%" shown never "25%", starters, full-screen task
+with Back, back gesture closing the task then stepping back a page, desktop sidebar and tables unchanged.

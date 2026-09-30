@@ -358,6 +358,15 @@ Routing goes to the **CEO only** for now (company routing data not yet supplied)
   unchanged — UAE host + Core42 at about the same price (VF39).
   -> `docs/reports/ceo-deck-hostinger-final-verdict.html`
 
+- **T49 Progress as a range, a real phone app, Hostinger/Groq re-checked** (2026-09-30): employees pick progress from
+  0–10% … 90–100%; the range is stored and shown, its midpoint used for sums (migration 0018, D146); starter phrases and
+  chips for notes, problems, priority, due date (UAE week) and closing (D147); the phone gets a tab bar, a More page, one
+  page at a time, cards instead of tables, and a back gesture that goes back (D148–D150, G124). Deck: two new slides —
+  Hostinger's agreements (nothing extra to sign; four things to get in writing) and Groq with employee data (yes, six
+  conditions); OpenRouter's DPA is enterprise-only (VF40, VF41; VF39 corrected); a sixth false "Regulations issued" claim
+  (G125). 493 tests, 37/37 browser checks (VF42).
+  -> `docs/tasks/TASK-049-progress-ranges-phone-app-hostinger-groq.html` · `docs/reports/ceo-deck-hostinger-final-verdict.html`
+
 ## Blocked on the user
 - ~~`CEO_TELEGRAM_USER_ID` is empty.~~ **Resolved 2026-09-04:** CEO = 6051615734,
   employee = 8903000291. Both have run `/start`; the CEO is linked to the CEO employee row.

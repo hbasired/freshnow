@@ -932,3 +932,16 @@ phone opened the tunnel in Brave, whose ⋮ menu sits at the bottom right. Demo 
 `in-incognito` and `beforeinstallprompt` never fires. Use `chromium.launchPersistentContext(dir)` to measure
 installability.
 
+
+## G123 — In a fresh container, `pnpm test` needs pgvector and some model key to reach the known 9 failures [verified 2026-09-30]
+Ubuntu's Postgres 16 has no `vector` extension (migration 0001 needs it): `apt-get install postgresql-16-pgvector`.
+With no `GROQ_API_KEY` at all, 14 tests fail — five stub `fetch` but still need *a* key configured. With a dummy key
+(`GROQ_API_KEY=dummy-not-a-key`) the stubbed ones pass and only the 9 real-model tests fail.
+
+## G124 — `history.replaceState`-only navigation makes a phone's back gesture leave the app [verified 2026-09-30]
+The dashboard kept its place in the hash with replaceState, so there was never a previous page to go back to. Fixed in
+D150. Anything that opens as a "page" on a phone (the task drawer) needs its own history entry too.
+
+## G125 — Search results keep asserting the PDPL Executive Regulations were issued [believed 2026-09-30]
+Six claims so far, each naming a different instrument or date; none traced to the official portal, and law-firm updates
+from June–July 2026 say not issued. Treat any "issued" claim as false until uaelegislation.gov.ae shows it.

@@ -1,3 +1,19 @@
+# Session status — 2026-09-30 (cloud session, TASK-049)
+
+- **Progress as a range.** My work and the task page offer *How far along is it?* — 0–10% … 90–100% — plus tap-to-fill
+  phrases for the note. The range is what everyone sees ("20–30%"); totals use its midpoint. Needs migration 0018.
+- **Tap instead of type:** problem phrases (Machine not working, Waiting for parts …), priority, due date (Today /
+  Tomorrow / Friday / Next Monday) and close reason are buttons.
+- **The phone is now an app, not a squeezed dashboard:** bottom bar Home · My work · Assign · Alerts · More; everything
+  else under More; tables are cards; a task opens as its own page; the back gesture goes back a page.
+- **CEO deck (Hostinger/Groq/OpenRouter) updated, 17 slides:** Hostinger needs no extra contract, but file its DPA and
+  get four things in writing (slide 8); Groq is usable for employee words with six conditions (slide 9); OpenRouter is
+  not, on a normal account — its DPA is enterprise-only. Every finding is from search results; the pages were blocked.
+- **After pulling:** `pnpm install`, `pnpm migrate` (0018), `pnpm build:web`, restart the api.
+- Tests: 493 pass, 9 need a live model provider. Browser: 37/37 at phone and desktop sizes (Chromium, not a real phone).
+
+---
+
 # Session status — 2026-09-28 (cloud session, TASK-048)
 
 - First real phone (Brave on Android): **use Chrome on Android** for the demo — Brave can block web push.
