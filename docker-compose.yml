@@ -58,6 +58,27 @@ services:
       - db
     restart: unless-stopped
 
+  # Virus scanner for attachments (TASK-051). Opt-in: `docker compose up -d` does NOT start it;
+  #   docker compose --profile security up -d clamav
+  # The official image runs freshclam (signature updates, several times a day) and clamd, which
+  # the API reaches on 127.0.0.1:3310 (CLAMAV_HOST). First start downloads the signature
+  # databases before clamd listens — several minutes; `docker logs -f freshnow-clamav`.
+  # Memory: ClamAV holds its signatures in RAM (roughly 1.5 GB, more while reloading an update)
+  # — fine on the 32 GB server; on a laptop give Docker Desktop enough memory.
+  clamav:
+    # UNVERIFIED: tag chosen from ClamAV's 1.5 series; pinned rather than `latest` (TASK-051, D158).
+    image: clamav/clamav:1.5
+    container_name: freshnow-clamav
+    profiles: ["security"]
+    # No config override: clamd's stream limit (25 MB in the sample config, larger in the image
+    # by some accounts) is already above the 15 MB upload cap (MAX_FILE_BYTES). [believed]
+    ports:
+      - "127.0.0.1:3310:3310"
+    volumes:
+      - freshnow_clamav:/var/lib/clamav
+    restart: unless-stopped
+
 volumes:
   freshnow_db:
   freshnow_redis:
+  freshnow_clamav:

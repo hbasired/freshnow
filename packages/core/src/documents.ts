@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { extractPdfTextSandboxed } from "./pdf-sandbox.js";
+import { checkNamedPerson } from "./people-match.js";
 import { logAudit } from "./audit.js";
 import { llmComplete } from "./llm/client.js";
 import type { ContextPerson } from "./context.js";
@@ -54,17 +56,12 @@ export interface ExtractedDocument {
  * silently assigning nothing.
  */
 export async function extractPdfText(bytes: Uint8Array): Promise<ExtractedDocument> {
-  const { extractText, getDocumentProxy } = await import("unpdf");
-  const pdf = await getDocumentProxy(bytes);
-
-  // Refuse a page count that would cost more CPU than any real work order justifies,
-  // before extracting anything. A crafted file can declare tens of thousands of pages.
-  if (pdf.numPages > SEC_MAX_PAGES) {
-    throw new Error(`document has ${pdf.numPages} pages; the limit is ${SEC_MAX_PAGES}`);
-  }
-
-  const { totalPages, text } = await extractText(pdf, { mergePages: true });
-  const joined = (Array.isArray(text) ? text.join("\n") : text).trim();
+  // Read in a sandboxed worker (pdf-sandbox.ts): capped memory, capped time, no keys, no
+  // database — a hostile or bomb-shaped PDF can take down that worker, never this process.
+  // The page limit is checked inside, before any text is extracted: a crafted file can declare
+  // tens of thousands of pages.
+  const { totalPages, text } = await extractPdfTextSandboxed(bytes, { maxPages: SEC_MAX_PAGES });
+  const joined = text.trim();
   return {
     text: joined.slice(0, MAX_DOC_CHARS),
     pages: totalPages,
@@ -109,6 +106,14 @@ export interface DocumentTask {
   assignee: ContextPerson | null;
   /** The name the document used, kept even when it matched nobody — so we can ask. */
   namedAs: string | null;
+  /**
+   * How the owner was found (people-match.ts): "name" = the written name matches exactly this
+   * person; "ai" = only the model's reading (a nickname, another script, no name written) — shown
+   * to the CEO as a guess to check. Null when there is no owner.
+   */
+  matchedBy: "name" | "ai" | null;
+  /** When the written name fits several people: all of them, so the CEO chooses. Else empty. */
+  candidates: ContextPerson[];
 }
 
 export interface DocumentPlan {
@@ -134,10 +139,10 @@ Return ONE JSON object, values in ENGLISH, no prose outside the JSON:
                              supplied. 0 if the document names nobody you recognise.
                              A heading like "Assign Hemanth the following tasks" applies to
                              EVERY task under it unless a later line names someone else.
-             named_as        The person's name EXACTLY as the document writes it, even when
-                             that name is not in the list. Null only if the document names
-                             nobody at all for this task. Always fill this in when a name
-                             appears — it is how the CEO is told who the document meant.
+             named_as        The person's name EXACTLY as it is written — in the document, or in
+                             what the CEO said when sending it — even when that name is not in
+                             the list. Null only if nobody is named at all for this task. Always
+                             fill this in when a name appears: it is checked against the list.
   summary  One clause saying what this document is.
 
 Never invent a person. If the name in the document is not in the list, use 0.
@@ -196,32 +201,7 @@ export async function planDocumentTasks(p: {
     maxTokens: 2500,
   });
 
-  // Grounding: an index is honoured only if it points into the list we supplied, so a
-  // hallucinated name resolves to "ask the CEO" rather than to the wrong person.
-  const tasks: DocumentTask[] = out.tasks
-    .slice(0, MAX_DOC_TASKS)
-    .map((t) => {
-      const assignee =
-        t.assignee_index >= 1 && t.assignee_index <= p.colleagues.length
-          ? p.colleagues[t.assignee_index - 1]!
-          : null;
-      return {
-        // Output validation: a title is delivered to an employee's phone, so anything
-        // the model carried through from the document — a link, a control character, a
-        // hidden marker — is stripped before it can be shown or stored.
-        title: sanitiseModelText(t.title, 160),
-        detail: t.detail?.trim() ? sanitiseModelText(t.detail, 600) : null,
-        assignee,
-        // Kept even — especially — when it matched nobody, so the CEO is told which name
-        // the document used rather than just that one was missing.
-        namedAs: t.named_as?.trim()
-          ? sanitiseModelText(t.named_as, 80)
-          : (assignee?.display_name ?? null),
-      };
-    })
-    // A "task" that still reads as an instruction to a model is not a task. Dropping it
-    // is safe: the CEO sees the count and the injection warning, so nothing is hidden.
-    .filter((t) => t.title.length > 0 && !outputLooksInjected(t.title));
+  const { tasks, overridden } = groundDocumentTasks(out.tasks, p.colleagues);
 
   await logAudit({
     correlationId: p.correlationId,
@@ -234,6 +214,11 @@ export async function planDocumentTasks(p: {
     detail: {
       taskCount: tasks.length,
       unassigned: tasks.filter((t) => !t.assignee).length,
+      // How each owner was decided — so "why did this go to Rashid?" has an answer later.
+      byName: tasks.filter((t) => t.matchedBy === "name").length,
+      aiGuesses: tasks.filter((t) => t.matchedBy === "ai").length,
+      ambiguous: tasks.filter((t) => t.candidates.length > 0).length,
+      modelOverridden: overridden,
       chars: p.text.length,
     },
   });
@@ -244,6 +229,58 @@ export async function planDocumentTasks(p: {
     needsOwner: tasks.some((t) => !t.assignee),
     injection: scan,
   };
+}
+
+/** The tasks as the model returned them, before anything in them is trusted. */
+export type ModelDocumentTask = z.infer<typeof taskSchema>;
+
+/**
+ * Turn the model's tasks into validated ones: the owner checked against the directory (the
+ * written name must fit exactly one person), the text sanitised. Pure and exported, so WHO a
+ * document's work goes to is tested without a model and replays identically.
+ */
+export function groundDocumentTasks(
+  modelTasks: readonly ModelDocumentTask[],
+  colleagues: readonly ContextPerson[],
+): { tasks: DocumentTask[]; overridden: number } {
+  // Grounding: an index is honoured only if it points into the list we supplied, so a
+  // hallucinated name resolves to "ask the CEO" rather than to the wrong person.
+  //
+  // Then the written name is checked in code (people-match.ts): it must fit exactly one person.
+  // Two Ahmeds → the CEO chooses; the model naming someone other than the name written → the
+  // name wins; a name nobody has → the model's pick is shown as a guess to check.
+  let overridden = 0;
+  const tasks: DocumentTask[] = modelTasks
+    .slice(0, MAX_DOC_TASKS)
+    .map((t) => {
+      const modelPick =
+        t.assignee_index >= 1 && t.assignee_index <= colleagues.length
+          ? colleagues[t.assignee_index - 1]!
+          : null;
+      const check = checkNamedPerson({ namedAs: t.named_as, modelPick, people: colleagues });
+      if (check.status === "confirmed" && check.overridden) overridden++;
+      const assignee = check.status === "confirmed" ? check.person : check.status === "unverified" ? check.suggested : null;
+      return {
+        // Output validation: a title is delivered to an employee's phone, so anything
+        // the model carried through from the document — a link, a control character, a
+        // hidden marker — is stripped before it can be shown or stored.
+        title: sanitiseModelText(t.title, 160),
+        detail: t.detail?.trim() ? sanitiseModelText(t.detail, 600) : null,
+        assignee,
+        // Kept even — especially — when it matched nobody, so the CEO is told which name
+        // the document used rather than just that one was missing.
+        namedAs: t.named_as?.trim()
+          ? sanitiseModelText(t.named_as, 80)
+          : (assignee?.display_name ?? null),
+        matchedBy: check.status === "confirmed" ? ("name" as const) : check.status === "unverified" ? ("ai" as const) : null,
+        candidates: check.status === "ambiguous" ? check.candidates : [],
+      };
+    })
+    // A "task" that still reads as an instruction to a model is not a task. Dropping it
+    // is safe: the CEO sees the count and the injection warning, so nothing is hidden.
+    .filter((t) => t.title.length > 0 && !outputLooksInjected(t.title));
+
+  return { tasks, overridden };
 }
 
 /** Render a plan for the CEO to check before anything is created. */
@@ -258,10 +295,17 @@ export function formatDocumentPlan(plan: DocumentPlan, fileName: string): string
 
   plan.tasks.forEach((t, i) => {
     const owner = t.assignee
-      ? escapeMarkdown(t.assignee.display_name)
-      : t.namedAs
-        ? `⚠️ document says "${escapeMarkdown(t.namedAs)}" — not in the system, tap to say who`
-        : "⚠️ nobody named — tap to say who";
+      ? escapeMarkdown(t.assignee.display_name) +
+        (t.matchedBy === "ai"
+          ? t.namedAs && t.namedAs !== t.assignee.display_name
+            ? ` ⚠️ _my guess for "${escapeMarkdown(t.namedAs)}" — check_`
+            : " ⚠️ _my guess, no name written — check_"
+          : "")
+      : t.candidates.length > 1
+        ? `⚠️ "${escapeMarkdown(t.namedAs ?? "")}" could be ${t.candidates.map((c) => escapeMarkdown(c.display_name)).join(" or ")} — tap to say who`
+        : t.namedAs
+          ? `⚠️ document says "${escapeMarkdown(t.namedAs)}" — not in the system, tap to say who`
+          : "⚠️ nobody named — tap to say who";
     lines.push(`*${i + 1}. ${escapeMarkdown(t.title)}*`, `   → ${owner}`);
     if (t.detail) lines.push(`   _${escapeMarkdown(t.detail)}_`);
   });

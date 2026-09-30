@@ -5,6 +5,8 @@ import { llmSemaphore } from "../concurrency.js";
 import { estimateCost } from "./cost.js";
 import { extractJson } from "./extract.js";
 import { traceLlmCall } from "./langfuse.js";
+import { redactMessages } from "./redact.js";
+import { openRouterDataPolicy } from "../compliance-registry.js";
 
 /** Raised when the daily LLM budget is spent — callers must degrade to rules-only. */
 export class LlmBudgetExceededError extends Error {}
@@ -149,6 +151,9 @@ async function callProvider(
         // OpenRouter will put its own bill for the call in `usage.cost`. Ask for it, so the
         // cost log records what was charged rather than an estimate.
         ...(p.name === "openrouter" ? { usage: { include: true } } : {}),
+        // Rule R4: route only to endpoints that keep nothing / collect nothing — sent only once
+        // the registry says a person confirmed it (compliance/processors.json).
+        ...(p.name === "openrouter" && openRouterDataPolicy() ? { provider: openRouterDataPolicy() } : {}),
       }),
       signal: ctrl.signal,
     });
@@ -190,15 +195,17 @@ async function logLlmCall(
   success: boolean,
   correlationId?: string,
   trace?: { operation: string; attempt: number; messages: LlmMessage[]; errorMessage?: string | undefined },
+  /** Identifiers taken out of this call's prompt before it left (rule R7). */
+  redacted = 0,
 ): Promise<void> {
   const sql = getServiceSql();
   // The provider's own bill when it sends one; otherwise list price x tokens.
   const cost = raw.costUsd ?? estimateCost(p.model, raw.promptTokens, raw.completionTokens);
   await sql`
     insert into llm_call
-      (correlation_id, provider, model, prompt_tokens, completion_tokens, cost_usd, latency_ms, success)
+      (correlation_id, provider, model, prompt_tokens, completion_tokens, cost_usd, latency_ms, success, redacted)
     values (${correlationId ?? null}, ${p.name}, ${p.model}, ${raw.promptTokens},
-            ${raw.completionTokens}, ${cost}, ${latencyMs}, ${success})`;
+            ${raw.completionTokens}, ${cost}, ${latencyMs}, ${success}, ${redacted})`;
 
   // `llm_call` stays the record of what things cost — it is queried by the budget cap and
   // must not depend on a third party. Langfuse is the timeline on top of it: same facts,
@@ -251,6 +258,10 @@ async function llmCompleteInner<T>(opts: LlmCompleteOpts<T>): Promise<T> {
   const provs = providers();
   if (provs.length === 0) throw new LlmError("No LLM provider configured");
 
+  // Rule R7: phone numbers, emails, Emirates IDs, IBANs and card numbers never leave. Done once,
+  // here, so every caller and every provider (and the trace) sees the same redacted words.
+  const outbound = redactMessages(opts.messages);
+
   // Collect EVERY provider's failure. Reporting only the last one hid the real cause:
   // the primary was rejecting the response in ~1.5 s while the slow fallback's timeout
   // was the only error anyone ever saw.
@@ -262,13 +273,15 @@ async function llmCompleteInner<T>(opts: LlmCompleteOpts<T>): Promise<T> {
       const started = Date.now();
       let raw: RawCompletion | undefined;
       try {
-        raw = await callProvider(p, opts.messages, maxTokens, timeoutMs);
-        const parsed = opts.schema.parse(extractJson(raw.content));
+        raw = await callProvider(p, outbound.messages, maxTokens, timeoutMs);
+        // Validated as the model wrote it, then the real values are put back on OUR side, so
+        // "call [phone-1]" reaches the assignee as the number the CEO wrote (redact.ts).
+        const parsed = outbound.names.restoreDeep(opts.schema.parse(extractJson(raw.content)));
         await logLlmCall(p, raw, Date.now() - started, true, opts.correlationId, {
           operation,
           attempt: attempt + 1,
-          messages: opts.messages,
-        });
+          messages: outbound.messages,
+        }, outbound.total);
         return parsed;
       } catch (err) {
         const detail = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
@@ -294,7 +307,8 @@ async function llmCompleteInner<T>(opts: LlmCompleteOpts<T>): Promise<T> {
           Date.now() - started,
           false,
           opts.correlationId,
-          { operation, attempt: attempt + 1, messages: opts.messages, errorMessage: detail },
+          { operation, attempt: attempt + 1, messages: outbound.messages, errorMessage: detail },
+          outbound.total,
         ).catch(() => {
           /* logging failure must not mask the original error */
         });

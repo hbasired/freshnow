@@ -55,9 +55,21 @@ self.addEventListener("push", (event) => {
   event.waitUntil(self.registration.showNotification(title, options));
 });
 
+function sameOriginAppUrl(raw) {
+  try {
+    const u = new URL(typeof raw === "string" ? raw : "/app/", self.location.origin);
+    if (u.origin === self.location.origin && u.pathname.startsWith("/app")) return u.href;
+  } catch (e) {
+    /* not a URL — fall through to the board */
+  }
+  return new URL("/app/", self.location.origin).href;
+}
+
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const target = (event.notification.data && event.notification.data.url) || "/app/";
+  // Only ever open a page of THIS app. The URL arrives inside the push message; if a push
+  // were ever forged or a sender compromised, a tap must not take someone to a phishing page.
+  const target = sameOriginAppUrl(event.notification.data && event.notification.data.url);
   event.waitUntil(
     (async () => {
       const all = await self.clients.matchAll({ type: "window", includeUncontrolled: true });

@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TASK-050 — Policy as code: the registry, rules R0–R8, and the right to a copy</title>
+<style>
+  :root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#3fb950;--warn:#d29922;--bad:#f85149;--card:#161b22;--bd:#30363d}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;max-width:980px;padding:48px 24px;margin-inline:auto}
+  h1{font-size:1.9rem;margin:0 0 4px} h2{margin-top:2.5rem;color:var(--acc);font-size:1.25rem}
+  .meta{color:var(--mut);font-size:.9rem;margin-bottom:2rem}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:18px;margin:14px 0}
+  .unverified{border-left:3px solid var(--warn)} .ok{border-left:3px solid var(--acc)}
+  code{background:#1f2630;padding:2px 6px;border-radius:4px;font-size:.9em}
+  .tw{overflow-x:auto} table{border-collapse:collapse;width:100%;margin:14px 0}
+  th,td{border:1px solid var(--bd);padding:7px 9px;text-align:left;font-size:.88rem;vertical-align:top} th{background:#1f2630}
+  .bad{color:var(--bad);font-weight:600}.good{color:var(--acc);font-weight:600}.warn{color:var(--warn);font-weight:600}
+  ul{padding-left:1.1rem} li{margin:3px 0} a{color:#88c0f0}
+</style></head><body>
+<h1>TASK-050 — Policy as code: the registry, rules R0–R8, and the right to a copy</h1>
+<p class="meta">2026-09-30 · migration <code>0019_llm_call_redacted.sql</code> · new: <code>compliance/processors.json</code>, <code>core/compliance.ts</code>,
+<code>core/compliance-registry.ts</code>, <code>core/compliance-evidence.ts</code>, <code>core/llm/redact.ts</code>, <code>api/routes/compliance.ts</code>,
+<code>dashboard/components/compliance.tsx</code>, <code>scripts/compliance.ts</code> · changed: the AI wrapper, api/worker/bot start-up, Alerts and People pages ·
+guides: <code>COMMANDS.md</code>, <code>DEMO-GUIDE-APP.md</code> · deck slides 10–12 · <b>530 tests passing</b>, 9 needing a live model provider</p>
+
+<div class="card ok"><strong>One-sentence summary:</strong> The compliance rules the CEO deck designed are now in the system: one file says where personal data may
+go and on what ground, the api, worker and bot check themselves against it at every start (reported in the demo, refusing to start in production),
+every AI prompt loses its phone numbers, emails, Emirates IDs, IBANs and card numbers before it leaves, the CEO has a Compliance page with the
+evidence and a daily snapshot in the audit log, and everyone can download a copy of their own data.</div>
+
+<h2>Research (30 Sep)</h2>
+<ul>
+  <li>OpenRouter's routing fields are <code>provider: { data_collection: "deny", zdr: true }</code> — its provider-routing documentation, through search
+    <span class="warn">[believed; not exercised against OpenRouter from here]</span>.</li>
+  <li>Emirates ID: 15 digits, <code>784-YYYY-NNNNNNN-C</code> — several guides agree <span class="warn">[believed]</span>.</li>
+  <li>PDPL data-subject rights: information (Art. 13), a machine-readable copy (Art. 14), correction and erasure (Art. 15) — search summaries
+    <span class="warn">[believed; article numbers to confirm on the law's text]</span>.</li>
+  <li>A Cloudflare quick tunnel terminates TLS at Cloudflare's edge, which can therefore read the traffic, sign-in included; quick tunnels are for
+    testing <span class="warn">[believed — Cloudflare's docs and two write-ups, through search]</span>. This changed the demo guide.</li>
+  <li>Langfuse offers a DPA and stores its EU cloud in Ireland <span class="warn">[believed]</span>.</li>
+  <li>No YAML parser is in the project, so the registry is JSON (Zod-validated) rather than add a dependency (CLAUDE.md).</li>
+</ul>
+
+<h2>What was built</h2>
+<div class="tw"><table>
+  <thead><tr><th>Rule</th><th>What it checks</th><th>Where</th></tr></thead>
+  <tbody>
+    <tr><td>R0</td><td>The registry exists and matches its schema</td><td rowspan="7">At start-up of the api, worker and bot (<code>checkPolicyAtStartup</code>); on the Compliance page; <code>pnpm compliance [--production]</code>. Demo: one summary line, nothing blocked. <code>IS_DEMO=false</code>: every finding printed and the process exits.</td></tr>
+    <tr><td>R1</td><td>Every service the configuration can reach (the same tests the senders and the AI client use) is registered</td></tr>
+    <tr><td>R2</td><td>A legal ground; "contract" needs a filed DPA with a date; a processor offering none is refused</td></tr>
+    <tr><td>R3</td><td>The host is in an allowed country and is not a laptop</td></tr>
+    <tr><td>R4</td><td>AI providers keep nothing — confirmed, with a date; OpenRouter also <code>data_collection: "deny"</code></td></tr>
+    <tr><td>R5</td><td>The consent notice names every service receiving personal data (and a host abroad)</td></tr>
+    <tr><td>R6</td><td>Retention set, sign-in on, no quick tunnel, no prompt copies to tracing; a page reached through Cloudflare says so</td></tr>
+    <tr><td>R7</td><td>Identifiers removed from every AI prompt; count per call in <code>llm_call.redacted</code></td><td>The AI wrapper, once per call, before any provider or trace sees it</td></tr>
+    <tr><td>R8</td><td>Evidence: consent by version, AI calls and removals, messages per channel, retention, erasures, exports, withdrawals</td><td>CEO's Compliance page; a daily snapshot in the append-only audit log (worker)</td></tr>
+  </tbody>
+</table></div>
+<ul>
+  <li><b>Download my data</b> (Alerts → Your consent) and <b>Export</b> (People, CEO only): a JSON file of one person's profile, consent, tasks, own words,
+    problems, assignments, progress, inbox, devices (push keys left out — they are secrets), reports and actions; bounded to 5 000 entries per section;
+    audited as <code>data.exported</code>. The self-export is on the consent-free list: a person's data is theirs whatever notice they agreed to.</li>
+  <li><b>Names are not removed</b> from prompts — the document planner routes by name and the parser needs to know who is affected. A decision, not a gap.</li>
+  <li><b>The notice did not change</b>, so nobody is asked to agree again; the demo on the laptop starts exactly as before, with one extra log line per service.</li>
+</ul>
+
+<h2>How it was verified</h2>
+<div class="tw"><table>
+  <thead><tr><th>Check</th><th>Result</th></tr></thead>
+  <tbody>
+    <tr><td>Full suite (Postgres 16 + pgvector, Redis)</td><td><span class="good">530 pass</span> (37 new), 9 fail — the same model-dependent 9</td></tr>
+    <tr><td>New tests</td><td class="good">redaction 17 (UAE and international numbers, email, Emirates ID, IBAN mod-97, card Luhn; lots, batches, times, Hindi and Malayalam untouched; the injection fence never cut) · rules 13 (each rule failing and passing; production refuses, demo does not) · AI wrapper 2 (the phone number never in the request body, count logged; OpenRouter fields only when confirmed) · API 5 (CEO-only page, tunnel finding, own data only, no push keys, audited, CEO export, 404, snapshot once a day)</td></tr>
+    <tr><td>Start-up, for real</td><td class="good">api and worker in demo mode print one policy line and run; with <code>IS_DEMO=false</code> the api printed five findings and exited before opening its port; the worker wrote the day's snapshot</td></tr>
+    <tr><td>Browser (Chromium)</td><td class="good">12/12: Compliance page on desktop and phone (cards, no sideways scroll, Back arrow), Download my data saves the file, People → Export saves another person's, an employee gets 403, no console errors · and the 37 earlier checks still pass</td></tr>
+  </tbody>
+</table></div>
+
+<h2 class="bad">What we have not verified</h2>
+<div class="card unverified"><ul>
+  <li><b>Through a real Cloudflare tunnel</b>: detection uses the Host header or Cloudflare's <code>cf-ray</code> header; tested by sending those headers,
+    not by a request through cloudflared.</li>
+  <li><b>OpenRouter's zero-retention fields</b> against a live call — the shipped registry leaves them off, so the demo sends exactly what it did before.</li>
+  <li><b>How redaction changes the AI's reading</b> of real updates — no live model in this environment. A parse that needed a phone number now sees "[phone]".</li>
+  <li><b>Bare 10-digit Indian mobiles</b> without +91 are not removed (they look like order numbers); names are never removed.</li>
+  <li><b>Encrypted backups, database exposure, server hardening</b> — not visible from configuration, so no rule checks them.</li>
+  <li><b>The legal readings</b> (grounds, Art. 13–14 numbering) — no lawyer has reviewed them.</li>
+  <li><b>A real phone</b> saving the download (Android Downloads, iPhone Files) — tested in desktop Chromium only.</li>
+</ul></div>
+</body></html>

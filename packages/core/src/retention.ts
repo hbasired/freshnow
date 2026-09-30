@@ -64,14 +64,27 @@ export async function retentionSweep(correlationId?: string): Promise<RetentionR
        and note_raw <> ${REDACTED}
      returning id`;
 
-  if (aged.length > 0) {
+  // The replay trace keeps a copy of the same words (parse_update's input, and the extraction
+  // made from them). Found by the 30 Sep audit: without this the sweep aged the original and
+  // left the copy for ever. Judged by the trace's own age, so rows from before this fix are
+  // caught too. A trace aged here can no longer be replayed — the retention window wins.
+  const tracesAged = await sql`
+    update run_trace
+       set input = jsonb_set(input, '{noteRaw}', to_jsonb(${REDACTED}::text)),
+           output = jsonb_build_object('redacted', true, 'is_blocker', output->'is_blocker')
+     where step = 'parse_update'
+       and created_at < now() - make_interval(days => ${days})
+       and input ? 'noteRaw'
+       and input->>'noteRaw' is distinct from ${REDACTED}`;
+
+  if (aged.length > 0 || tracesAged.count > 0) {
     await logAudit({
       correlationId,
       actor: "system",
       action: "retention.notes_aged",
       entity: "task_update",
       entityId: "sweep",
-      detail: { days, count: aged.length },
+      detail: { days, count: aged.length, traces: tracesAged.count },
     });
   }
   return { enabled: true, days, notesAged: aged.length };
@@ -109,6 +122,15 @@ export async function eraseEmployee(p: {
                               else jsonb_build_object('erased', true, 'is_blocker', note_parsed->'is_blocker') end
      where employee_id = ${p.employeeId} and coalesce(note_raw, '') <> '[erased]'
      returning id`;
+
+  // …and every copy of those words in the replay trace (see retentionSweep).
+  await sql`
+    update run_trace
+       set input = jsonb_set(input, '{noteRaw}', '"[erased]"'::jsonb),
+           output = jsonb_build_object('erased', true, 'is_blocker', output->'is_blocker')
+     where step = 'parse_update'
+       and input->>'taskUpdateId' in (select id::text from task_update where employee_id = ${p.employeeId})
+       and input->>'noteRaw' is distinct from '[erased]'`;
 
   const assignmentNotes = await sql<{ id: string }[]>`
     update assignment set note = '[erased]'

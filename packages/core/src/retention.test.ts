@@ -27,7 +27,22 @@ async function update(employeeId: string, note: string, daysAgo: number): Promis
   return rows[0]!.id;
 }
 
+// The replay trace of a parse keeps the words it read; these rows stand in for it.
+const TRACE_CORR = "7e7e7e7e-0000-4000-8000-000000000051";
+async function trace(taskUpdateId: string, note: string, daysAgo: number): Promise<void> {
+  const sql = getServiceSql();
+  await sql`insert into run_trace (correlation_id, step, input, output, created_at)
+            values (${TRACE_CORR}, 'parse_update', ${sql.json({ taskUpdateId, noteRaw: note } as never)},
+                    ${sql.json({ is_blocker: true, summary: note } as never)}, now() - make_interval(days => ${daysAgo}))`;
+}
+async function traceOf(taskUpdateId: string): Promise<{ input: Record<string, unknown>; output: Record<string, unknown> }> {
+  const rows = await getServiceSql()<{ input: Record<string, unknown>; output: Record<string, unknown> }[]>`
+    select input, output from run_trace where correlation_id = ${TRACE_CORR} and input->>'taskUpdateId' = ${taskUpdateId}`;
+  return rows[0]!;
+}
+
 afterEach(async () => {
+  await getServiceSql()`delete from run_trace where correlation_id = ${TRACE_CORR}`;
   if (saved === undefined) delete process.env.RETENTION_DAYS;
   else process.env.RETENTION_DAYS = saved;
   const sql = getServiceSql();
@@ -85,6 +100,7 @@ describe("retention", () => {
     expect(n.note_raw).toBe("sab theek hai");
 
     // Running again ages nothing more, and the audit carries a count, never content.
+    // (The copy in the replay trace is covered by the next test.)
     expect((await retentionSweep()).notesAged).toBe(0);
     const audit = await sql<{ detail: Record<string, unknown> }[]>`
       select detail from audit_log where action = 'retention.notes_aged' order by created_at desc limit 1`;
@@ -93,10 +109,29 @@ describe("retention", () => {
   });
 });
 
+describe("retention reaches the copies", () => {
+  it("ages the employee's words kept in the replay trace, by the trace's own age", async () => {
+    process.env.RETENTION_DAYS = "90";
+    const emp = await person("traced");
+    const old = await update(emp, "filler head 3 jammed", 120);
+    const recent = await update(emp, "filler fixed", 10);
+    await trace(old, "filler head 3 jammed", 120);
+    await trace(recent, "filler fixed", 10);
+
+    await retentionSweep();
+    const o = await traceOf(old);
+    expect(o.input["noteRaw"]).toMatch(/redacted/);
+    expect(JSON.stringify(o)).not.toContain("jammed");
+    expect(o.output).toEqual({ redacted: true, is_blocker: true }); // the fact survives, the words do not
+    expect((await traceOf(recent)).input["noteRaw"]).toBe("filler fixed");
+  });
+});
+
 describe("erasure", () => {
   it("anonymises a person — name, Telegram, login, every word — and keeps the record of work", async () => {
     const emp = await person("leaver", 9_900_000_000_002);
     const u = await update(emp, "filler head 3 jammed again", 3);
+    await trace(u, "filler head 3 jammed again", 3);
     const sql = getServiceSql();
     const t = await sql<{ id: string }[]>`insert into task (employee_id, title, status, is_synthetic) values (${emp}, ${`${TAG} task`}, 'done', true) returning id`;
     await sql`insert into assignment (task_id, assigned_by, assigned_to, note, status, is_synthetic)
@@ -112,6 +147,9 @@ describe("erasure", () => {
 
     const words = await sql<{ note_raw: string }[]>`select note_raw from task_update where id = ${u}`;
     expect(words[0]?.note_raw).toBe("[erased]");
+    const tr = await traceOf(u);
+    expect(JSON.stringify(tr)).not.toContain("jammed");
+    expect(tr.input["noteRaw"]).toBe("[erased]");
     const asg = await sql<{ note: string }[]>`select note from assignment where task_id = ${t[0]!.id}`;
     expect(asg[0]?.note).toBe("[erased]");
 

@@ -740,6 +740,13 @@ function ConsentCard({ viewer, isCeo }: { viewer: string; isCeo: boolean }) {
         <summary className="cursor-pointer text-link">Read the notice</summary>
         <p className="mt-2 whitespace-pre-wrap text-ink">{c.notice}</p>
       </details>
+      {/* The PDPL's right to know what is held and to a copy in a machine-readable form. */}
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <Button busy={act.busy} onClick={() => void act.run(async () => `Saved ${await api.downloadMyData(viewer)} — everything this system holds about you.`)}>
+          ⬇ Download my data
+        </Button>
+        <span className="text-[11px] text-mut">A JSON file: your profile, tasks, your own words, problems, assignments, inbox and consent record.</span>
+      </div>
       {isCeo ? (
         <p className="text-[11px] text-mut">The CEO account cannot withdraw here — hand the CEO role to someone else first.</p>
       ) : !confirming ? (

@@ -367,6 +367,26 @@ Routing goes to the **CEO only** for now (company routing data not yet supplied)
   (G125). 493 tests, 37/37 browser checks (VF42).
   -> `docs/tasks/TASK-049-progress-ranges-phone-app-hostinger-groq.html` · `docs/reports/ceo-deck-hostinger-final-verdict.html`
 
+- **T50 Policy as code** (2026-09-30): `compliance/processors.json` + rules R0–R6 at every start of the api, worker and bot
+  (demo reports, production refuses — D151), identifiers removed from AI prompts and counted (R7, migration 0019, D152), the
+  CEO's Compliance page + daily audit snapshot (R8) and Download my data / Export (D153). The consent notice is unchanged.
+  530 tests, 12/12 + 37/37 browser checks (VF43). Guides and deck slides 10–12 updated.
+  -> `docs/tasks/TASK-050-policy-as-code.html`
+
+- **T51 Security in depth** (2026-09-30): ClamAV virus scan of every attachment, fail closed once configured, required in
+  production by R6 (D154); PDFs parsed in a capped child process with no secrets (D155; worker limits not enforced, G128);
+  documents checked on arrival in Telegram and never stored as attachments when not forwardable (D156); CSP and security
+  headers (D157; G129); per-device sign-in brake (D158); backups with checksum, age encryption and restore tests (D159);
+  `pnpm security:scan` with pinned scanners after the Trivy compromise, dependency advisories fixed (D160, VF45, G130).
+  -> `docs/tasks/TASK-051-security-in-depth.html` · COMMANDS.md §7d–7e
+
+- **T52 System audit — who gets the work** (2026-09-30): chat assignment used to act on the model's pick; now every "who"
+  goes through one deterministic whole-word name check — one match assigns, several ask, a guess is only suggested (D161,
+  G132, A-T52.1); identifier placeholders are numbered and restored so tasks keep their phone numbers (D162, G133);
+  retention and erasure now reach the replay trace (D163). Hard rules re-audited; the legal ground per processor goes to a
+  lawyer. 591 tests (VF46), 37/37 + 13/13 browser checks (VF44).
+  -> `docs/tasks/TASK-052-system-audit-routing.html`
+
 ## Blocked on the user
 - ~~`CEO_TELEGRAM_USER_ID` is empty.~~ **Resolved 2026-09-04:** CEO = 6051615734,
   employee = 8903000291. Both have run `/start`; the CEO is linked to the CEO employee row.

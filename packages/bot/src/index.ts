@@ -1,11 +1,13 @@
 import "dotenv/config";
-import { loadConfig } from "@freshnow/core";
+import { checkPolicyAtStartup, loadConfig } from "@freshnow/core";
 import { run } from "@grammyjs/runner";
 import { llmSemaphore } from "@freshnow/core";
 import { createBot } from "./bot.js";
 import { startWebhookServer } from "./webhook.js";
 
 const config = loadConfig();
+// Policy as code: reported in the demo, enforced when IS_DEMO=false (compliance/processors.json).
+checkPolicyAtStartup("bot");
 if (!config.BOT_TOKEN) throw new Error("BOT_TOKEN is required to start the bot");
 
 const bot = createBot({ token: config.BOT_TOKEN, ceoUserId: config.CEO_TELEGRAM_USER_ID });

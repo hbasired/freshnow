@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TASK-052 — System audit: who gets the work, and the rules re-checked</title>
+<style>
+  :root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#3fb950;--warn:#d29922;--bad:#f85149;--card:#161b22;--bd:#30363d}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;max-width:980px;padding:48px 24px;margin-inline:auto}
+  h1{font-size:1.9rem;margin:0 0 4px} h2{margin-top:2.5rem;color:var(--acc);font-size:1.25rem}
+  .meta{color:var(--mut);font-size:.9rem;margin-bottom:2rem}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:18px;margin:14px 0}
+  .unverified{border-left:3px solid var(--warn)} .ok{border-left:3px solid var(--acc)}
+  code{background:#1f2630;padding:2px 6px;border-radius:4px;font-size:.9em}
+  .tw{overflow-x:auto} table{border-collapse:collapse;width:100%;margin:14px 0}
+  th,td{border:1px solid var(--bd);padding:7px 9px;text-align:left;font-size:.88rem;vertical-align:top} th{background:#1f2630}
+  .bad{color:var(--bad);font-weight:600}.good{color:var(--acc);font-weight:600}.warn{color:var(--warn);font-weight:600}
+  ul{padding-left:1.1rem} li{margin:3px 0} a{color:#88c0f0}
+</style></head><body>
+<h1>TASK-052 — System audit: who gets the work, and the rules re-checked</h1>
+<p class="meta">2026-09-30 · no migration · new: <code>core/people-match.ts</code> (+ tests), <code>core/assignment-routing.test.ts</code> · changed:
+<code>core/context.ts</code> (<code>named_as</code>, <code>groundResolution</code>), <code>core/documents.ts</code> (<code>groundDocumentTasks</code>),
+<code>core/llm/redact.ts</code> + <code>client.ts</code> (numbered placeholders, restore), <code>core/retention.ts</code> (traces), <code>bot/bot.ts</code>
+(ask instead of guess), <code>api/routes/documents.ts</code> + the plan screen's owner label · <b>591 tests passing</b>, 9 needing a live model provider</p>
+
+<div class="card ok"><strong>One-sentence summary:</strong> The audit found that a chat message like "ask Ahmed to count stock" was assigned
+<b>immediately to whichever person the model picked</b> — with two Ahmeds, a coin toss nobody would see — so every "who" decision now goes through one
+deterministic check (the name as written must fit exactly one person, by whole words, or the sender is asked); it also found that identifier
+placeholders made two phone numbers indistinguishable and left "[phone]" in the assignee's task, and that employees' words survived retention and
+erasure inside the replay trace — all three are fixed and tested.</div>
+
+<h2>The question asked: does routing stay correct when prompts are cleaned?</h2>
+<p><b>Names were never removed</b> from prompts — by design (D152): the model has to read "Rashid" to route to Rashid. What is removed is phone numbers,
+emails, Emirates IDs, IBANs and card numbers. The audit traced every path that decides <i>who</i> and found the real risk was elsewhere:</p>
+<div class="tw"><table>
+<tr><th>Path</th><th>Before</th><th>Now</th></tr>
+<tr><td>Telegram chat: "ask Rashid to fix van 2 and Priya to restock"</td><td class="bad">Model's pick assigned at once, no confirmation, no check for shared names or a pick that contradicts the written name</td>
+<td class="good">Assigned only when the written name fits exactly one person; two Ahmeds → "could be Ahmed Khan or Ahmed Ali" with just those two buttons; a nickname or another script → "did you mean …?"; clear items in the same message are still assigned</td></tr>
+<tr><td>Document read into tasks (bot, dashboard, email in)</td><td class="warn">Model's pick shown to the CEO, who confirms — but nothing flagged a shared name or a guess</td>
+<td class="good">Written name checked the same way; shared name → owner left empty with the candidates listed; a guess is shown as "my guess — check"; the model contradicting the name → the name wins (counted in the audit row)</td></tr>
+<tr><td>The "who?" prompt when a name is typed</td><td class="bad">Substring match — "Ali" matched Khalid (G132)</td><td class="good">Same whole-word matcher; several matches → buttons for just those</td></tr>
+<tr><td>Blocker routing and escalation</td><td class="good">Rules and lookups, no model</td><td class="good">Unchanged — re-confirmed: no model call in routing, escalation or the worker</td></tr>
+<tr><td>Identifiers in task text</td><td class="bad">Every number became the same "[phone]"; the assignee received "Call the supplier on [phone]"</td>
+<td class="good">"[phone-1]", "[phone-2]" per call (same number, same placeholder); the real values are put back into the model's answer on our side — the provider never saw them</td></tr>
+</table></div>
+
+<h2>The matching rule (people-match.ts)</h2>
+<ul>
+  <li>Words, not letters: every written word must equal a word of the person's name, or be the start of one if it has 3+ letters ("Rash" → Rashid). "Ali" ≠ Khalid.</li>
+  <li>A full-name match wins outright ("Ahmed Ali" means Ahmed Ali). Case, accents, punctuation and a few honorifics (Mr, ji, bhai …) are ignored (A-T52.1).</li>
+  <li>Strict on purpose: "Sara" with a Sara and a Sarah on the books, or "Jose" with a José and a Joseph, is <i>asked</i> — a mis-sent task reaches a real phone; asking costs one tap.</li>
+  <li>Pure and deterministic: the same message routes the same way every time, and the grounding functions are exported so routing is tested and replayed without a model.</li>
+</ul>
+
+<h2>Audit of the hard rules (CLAUDE.md)</h2>
+<div class="tw"><table>
+<tr><th>Rule</th><th>Checked how</th><th>Result</th></tr>
+<tr><td>RLS on every table, default deny</td><td>every <code>create table</code> in migrations vs <code>enable row level security</code></td><td class="good">37/37</td></tr>
+<tr><td>Telegram ids are bigint</td><td>migrations grep</td><td class="good">no int ids</td></tr>
+<tr><td>timestamptz always</td><td>migrations grep</td><td class="good">no bare timestamp</td></tr>
+<tr><td>Audit log append-only</td><td><code>revoke update, delete on audit_log from freshnow_app</code> (0001, 0005)</td><td class="good">yes</td></tr>
+<tr><td>Outbox for every outbound message</td><td>no <code>sendMessage</code> in core/api/worker outside the Telegram sender</td><td class="good">yes (bot conversation replies are the conversation itself)</td></tr>
+<tr><td>Raw words stored before the model</td><td><code>updates.ts</code>, inbound email</td><td class="good">yes</td></tr>
+<tr><td>Every model call through the wrapper</td><td>all 7 call sites are <code>llmComplete</code> in core</td><td class="good">yes; model ids only in config and the price table</td></tr>
+<tr><td>LLM never decides who / whether</td><td>routing, escalation, worker: no model calls; assignment: see above</td><td class="good">now yes — <span class="bad">was not</span> for chat assignment</td></tr>
+<tr><td>Bounded results, gates</td><td><code>MAX_ROWS = 50</code>, numeric-sanity and grounding gates, read-only SQL guard</td><td class="good">yes; the guard checks the SQL after placeholders are restored</td></tr>
+<tr><td>Webhook secret verified</td><td><code>bot/webhook.ts</code> <code>secretToken</code></td><td class="good">yes</td></tr>
+<tr><td>No people scoring</td><td>code search for sentiment, scoring, ranking</td><td class="good">none (only the notice saying so)</td></tr>
+<tr><td>Mon–Fri week, no hardcoded weekend</td><td>code search</td><td class="good">none (comments only)</td></tr>
+<tr><td>Retention and erasure cover the words</td><td>where do employees' words live?</td><td class="bad">run_trace kept them → fixed (D163)</td></tr>
+</table></div>
+
+<h2>Policy as code — the decisions re-examined</h2>
+<div class="tw"><table>
+<tr><th>Rule</th><th>Verdict</th><th>Note</th></tr>
+<tr><td>R0 registry parses</td><td class="good">right</td><td>fails closed in production</td></tr>
+<tr><td>R1 everything reachable is registered</td><td class="good">right</td><td>ClamAV is self-hosted, not a processor — correctly not in the registry (its signature downloads carry no personal data)</td></tr>
+<tr><td>R2 ground + contract</td><td class="warn">right as a check; the ground needs a lawyer</td><td>The registry leans on <b>consent</b>. For employees, consent can be questioned (they may not feel free to refuse), and the PDPL is believed to allow some processing for employment obligations without it. For transfers abroad (Groq, Telegram, OpenRouter) consent is the realistic ground. <b>Ask the lawyer which ground applies to each row</b> before production; the code only needs the registry edited.</td></tr>
+<tr><td>R3 host country</td><td class="good">right</td><td>AE, LT, DE, FR allowed — hosting abroad is disclosed via R5</td></tr>
+<tr><td>R4 AI keeps nothing</td><td class="good">right</td><td>a person must record the console setting; code cannot see it</td></tr>
+<tr><td>R5 the notice names every recipient</td><td class="good">right</td><td>built from the same configuration, so it cannot drift</td></tr>
+<tr><td>R6 production essentials</td><td class="good">right</td><td>now also a virus scanner (TASK-051) — presence of the setting, not reachability, so a down scanner blocks uploads, not start-up</td></tr>
+<tr><td>R7 identifiers out of prompts</td><td class="good">right, now without losing meaning</td><td>numbered placeholders + restore (D162); names stay by design</td></tr>
+<tr><td>R8 evidence</td><td class="good">right</td><td>now includes backups, restore tests and malware refusals</td></tr>
+</table></div>
+
+<h2>How it was verified</h2>
+<ul>
+  <li>14 matcher tests and 10 routing tests written from the rules (two Ahmeds; the name beats the model; "Ali" not Khalid; another script → suggestion only;
+    several people in one message each checked on its own; an out-of-range index is nobody); a <b>real-bot</b> test with two team members named Ahmed
+    (asked with only their two buttons, nothing created; "Ahmed Khan" then creates exactly one task for him).</li>
+  <li>Placeholder tests: two numbers stay two, the same number keeps its placeholder across messages, the answer is restored at any depth, an invented placeholder is
+    left alone; and end to end through <code>llmComplete</code> with a stand-in provider that reads the placeholders from the prompt as a model would.</li>
+  <li>Retention: a trace older than the window loses the words and keeps the fact; a recent one is untouched; erasure clears that person's traces.</li>
+  <li>Full suite 591 passing; typecheck clean (root and dashboard); 37/37 + 13/13 browser checks.</li>
+</ul>
+
+<h2 class="bad">What we have not verified</h2>
+<div class="card unverified"><ul>
+  <li><b>That a live model fills <code>named_as</code> reliably.</b> The 8 real-model tests could not run here (no route to Groq). If a model leaves it empty, chat
+    assignments are <i>asked about</i> rather than guessed — safe, but more taps. Run <code>pnpm test</code> on the laptop with a real key.</li>
+  <li><b>Names written in Devanagari or Malayalam script</b> never match by spelling (display names are in Latin script), so they always go to "did you mean …?". Not measured on real messages.</li>
+  <li><b>The honorifics list</b> (A-T52.1) and whether the strict prefix rule asks too often in practice.</li>
+  <li><b>The legal ground per processor</b> (R2) — a lawyer's question, not code's; nor whether the PDPL's executive regulations change any rule.</li>
+  <li><b>The owner label on the dashboard's document screen</b> with a real plan — it needs a model call; the label logic is typechecked, not seen in a browser.</li>
+  <li>Replay of a trace after the retention sweep is, by design, no longer possible.</li>
+</ul></div>
+</body></html>

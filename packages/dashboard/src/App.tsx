@@ -33,9 +33,13 @@ import { WeekChart } from "./components/week-chart";
 import { SearchBox, type SearchHit } from "./components/search";
 import { Hero } from "./components/hero";
 import { Chips, ProgressReport, StatusReport } from "./components/quick";
+import { ComplianceTab } from "./components/compliance";
 import { useMedia, WIDE } from "./lib/media";
 
-type TabId = "today" | "mine" | "carry" | "assign" | "alerts" | "eod" | "people" | "activity" | "ask" | "more";
+type TabId = "today" | "mine" | "carry" | "assign" | "alerts" | "eod" | "people" | "activity" | "compliance" | "ask" | "more";
+
+/** Pages that only the CEO can open — the API refuses them to anyone else anyway. */
+const CEO_ONLY = new Set<TabId>(["ask", "compliance"]);
 
 /** Present only when sign-in is real; the viewer is then fixed by who you are. */
 export interface Identity {
@@ -53,10 +57,25 @@ const TABS: { id: TabId; icon: IconName; label: string; group: string; blurb: st
   { id: "eod", icon: "barChart", label: "End of day", group: "Work", blurb: "one stored report per person per day" },
   { id: "people", icon: "users", label: "People", group: "Records", blurb: "everyone this viewer is allowed to see" },
   { id: "activity", icon: "scroll", label: "Activity", group: "Records", blurb: "the audit trail, newest first" },
+  { id: "compliance", icon: "shield", label: "Compliance", group: "Records", blurb: "where personal data goes and on what ground — checked by the system itself" },
   { id: "ask", icon: "search", label: "Ask", group: "Tools", blurb: "answered by SQL, with the SQL shown" },
   // The phone's menu page. Not in the sidebar (the sidebar IS the menu on a wide screen).
   { id: "more", icon: "menu", label: "More", group: "Phone", blurb: "every other page, search, and this device" },
 ];
+
+/**
+ * What the owner field says about how the owner was found — so a guess never looks like a fact.
+ * "name": the written name fits exactly this person. "ai": the model's reading only (a nickname,
+ * another script) — check it. Candidates: the name fits several people — choose.
+ */
+function ownerLabel(t: DocumentPlan["tasks"][number]): string {
+  if (t.assigneeId && t.matchedBy === "ai") {
+    return t.namedAs && t.namedAs !== t.assigneeName ? `Owner — my guess for "${t.namedAs}"; check it` : "Owner — my guess, no name was written; check it";
+  }
+  if (t.assigneeId) return "Owner (named in the document)";
+  if (t.candidates.length > 1) return `Owner — "${t.namedAs ?? ""}" could be ${t.candidates.map((c) => c.name).join(" or ")}; choose`;
+  return t.namedAs ? `Owner — the document said "${t.namedAs}", who is not on the list` : "Owner — the document named nobody";
+}
 
 /** Company day `n` days from `day` (both `YYYY-MM-DD`). Dubai has no daylight saving. */
 function shiftDay(day: string, n: number): string {
@@ -220,7 +239,7 @@ export default function App({
   // empty pane with no nav item highlighted: the tab is real but its content is CEO-only.
   // Resolve it once, here, to something the viewer can actually see — the nav highlight,
   // the rendered pane and the URL all follow this rather than the raw hash.
-  const visibleTab: TabId = tab === "ask" && !ceoTools ? "today" : tab;
+  const visibleTab: TabId = CEO_ONLY.has(tab) && !ceoTools ? "today" : tab;
   const setTab = setTabState;
 
   // Keep the place in the URL so a refresh or a shared link lands where you were — and make each
@@ -284,6 +303,7 @@ export default function App({
     eod: data?.eod.length ?? null,
     people: data?.people.length ?? null,
     activity: data?.activity.length ?? null,
+    compliance: null,
     ask: null,
     more: null,
   };
@@ -398,7 +418,7 @@ export default function App({
 
         <nav className="flex-1 overflow-y-auto px-3" aria-label="Sections">
           {["Today", "Work", "Records", "Tools"].map((group) => {
-            const items = TABS.filter((t) => t.group === group && (ceoTools || t.id !== "ask"));
+            const items = TABS.filter((t) => t.group === group && (ceoTools || !CEO_ONLY.has(t.id)));
             if (items.length === 0) return null;
             return (
               <div key={group} className="mb-4">
@@ -637,7 +657,7 @@ export default function App({
                     )}
                     {visibleTab === "more" && (
                       <MorePage
-                        tabs={TABS.filter((t) => t.id !== "more" && (ceoTools || t.id !== "ask") && !phoneTabs.some((p) => p.id === t.id))}
+                        tabs={TABS.filter((t) => t.id !== "more" && (ceoTools || !CEO_ONLY.has(t.id)) && !phoneTabs.some((p) => p.id === t.id))}
                         counts={counts}
                         showProjects={thirdTab !== "projects"}
                         onGo={(id) => goPhoneTab(id)}
@@ -690,6 +710,7 @@ export default function App({
                       <PeopleTab rows={data.people} viewer={viewer} canEditOrg={!!data.me?.isCeo} onChanged={() => void load()} />
                     )}
                     {visibleTab === "activity" && <ActivityTab rows={data.activity} />}
+                    {visibleTab === "compliance" && ceoTools && <ComplianceTab viewer={viewer} tick={tickOf(loadedAt)} />}
                     {visibleTab === "ask" && ceoTools && <AskTab />}
                   </>
                 )}
@@ -1586,7 +1607,7 @@ function DocumentCard({
                 {t.detail ? <div className="mt-0.5 text-xs text-mut">{t.detail}</div> : null}
                 <div className="mt-2 max-w-sm">
                   <PersonPicker
-                    label={t.assigneeId ? "Owner (recognised in the document)" : t.namedAs ? `Owner — the document said "${t.namedAs}", who is not on the list` : "Owner — the document named nobody"}
+                    label={ownerLabel(t)}
                     value={owners[i] ?? ""}
                     onChange={(v) => setOwners((prev) => prev.map((o, j) => (j === i ? v : o)))}
                     people={people.filter((p) => p.status === "active")}
@@ -1796,6 +1817,17 @@ function PeopleTab({
     { head: "State", cell: (e) => <Pill>{e.status}</Pill>, tight: true },
   ];
   if (canEditOrg) {
+    // A request for someone's data may come by word of mouth or from someone who has left:
+    // the CEO can answer it with the same file the person would download themselves.
+    cols.push({
+      head: "Their data",
+      tight: true,
+      cell: (e) => (
+        <Button tone="quiet" disabled={act.busy} title="Everything held about this person, as a JSON file — for a request they made" onClick={() => void act.run(async () => `Saved ${await api.downloadPersonData(viewer, e.id)}.`)}>
+          ⬇ Export
+        </Button>
+      ),
+    });
     cols.push({
       head: "Leaving",
       cell: (e) => {

@@ -164,6 +164,30 @@ async function postForm<T>(path: string, form: FormData, params: Record<string, 
   return (await res.json()) as T;
 }
 
+/**
+ * Fetch a file the API sends as an attachment and hand it to the browser as a download. A plain
+ * link cannot carry the sign-in token, so the file comes through fetch and a temporary object URL.
+ */
+async function download(path: string, params: Record<string, string>, fallbackName: string): Promise<string> {
+  const ctx = requestContext(params);
+  const res = await fetch(`${path}?${ctx.query}`, { headers: ctx.headers });
+  if (!res.ok) {
+    if (res.status === 401) unauthorized?.();
+    const why = await refusal(res);
+    throw new ApiError(res.status, why.message ?? `Request failed (${res.status})`);
+  }
+  const name = /filename="([^"]+)"/.exec(res.headers.get("content-disposition") ?? "")?.[1] ?? fallbackName;
+  const url = URL.createObjectURL(await res.blob());
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+  return name;
+}
+
 // ── Shapes ──────────────────────────────────────────────────────────────────
 export interface Employee {
   id: string;
@@ -440,6 +464,12 @@ export const api = {
   health: () => get<Health>("/health"),
   me: (viewer?: string) => get<Me>("/dashboard/me", viewer ? { viewer } : {}),
   generateEod: () => post<{ generated: number; date: string | null }>("/dashboard/eod/generate"),
+  /** Policy checks and their evidence — CEO only. */
+  compliance: (viewer: string) => get<ComplianceEvidence>("/dashboard/compliance", { viewer }),
+  /** Everything held about the signed-in person, saved as a JSON file. Returns the file name. */
+  downloadMyData: (viewer: string) => download("/dashboard/me/export", { viewer }, "freshnow-my-data.json"),
+  /** The CEO answering someone's request for their data. */
+  downloadPersonData: (viewer: string, id: string) => download(`/dashboard/people/${id}/export`, { viewer }, "freshnow-data.json"),
   ask: (question: string) => post<QueryAnswer>("/dashboard/query", { question }),
 
   // ── Writes. Each one is the browser half of something the bot can already do. ──
@@ -672,7 +702,15 @@ export interface DocumentPlan {
   injection: { suspicious: boolean; labels: string[] };
   summary: string;
   needsOwner: boolean;
-  tasks: { title: string; detail: string | null; assigneeId: string | null; assigneeName: string | null; namedAs: string | null }[];
+  tasks: {
+    title: string;
+    detail: string | null;
+    assigneeId: string | null;
+    assigneeName: string | null;
+    namedAs: string | null;
+    matchedBy: "name" | "ai" | null;
+    candidates: { id: string; name: string }[];
+  }[];
   /** Always false from the browser today: attachments are Telegram file ids, and an upload has none. */
   fileForwarded: boolean;
 }
@@ -757,4 +795,53 @@ export function companyDateToIso(date: string): string | null {
   if (!date) return null;
   const d = new Date(`${date}T12:00:00+04:00`);
   return Number.isNaN(d.getTime()) ? null : d.toISOString();
+}
+
+// ── Compliance (policy as code) ─────────────────────────────────────────────
+export interface PolicyFinding {
+  rule: "R0" | "R1" | "R2" | "R3" | "R4" | "R5" | "R6";
+  level: "block" | "warn";
+  service?: string;
+  message: string;
+  fix: string;
+}
+
+export interface RegistryServiceRow {
+  id: string;
+  name: string;
+  role: string;
+  country: string;
+  personal_data: string[];
+  ground: string[];
+  dpa: { status: "accepted" | "not_filed" | "not_available"; accepted_on: string | null; note?: string };
+  controls: { zero_data_retention?: boolean; data_collection?: "allow" | "deny"; confirmed_on?: string | null };
+  how_to_confirm: string;
+  sources: string[];
+}
+
+export interface ComplianceEvidence {
+  generatedAt: string;
+  days: number;
+  policy: { production: boolean; refuse: boolean; findings: PolicyFinding[]; reachable: string[] };
+  registry: {
+    reviewed_on: string;
+    hosting: { provider: string; name: string; country: string; note?: string };
+    hosting_countries_allowed: string[];
+    retention_days: number | null;
+    services: RegistryServiceRow[];
+  } | null;
+  consent: { version: string; people: number; current: number; older: number; none: number };
+  ai: { provider: string; calls: number; ok: number; redacted: number }[];
+  channels: { channel: string; sent: number; held: number }[];
+  retention: { days: number | null; lastAgedAt: string | null; notesAged: number };
+  rights: { erasures: number; withdrawals: number; exports: number };
+  lastSnapshotAt: string | null;
+  security: {
+    antivirus: { configured: boolean; reachable: boolean };
+    lastBackup: { at: string; encrypted: boolean } | null;
+    lastRestoreTest: { at: string; ok: boolean } | null;
+    malwareBlocked: number;
+    scanFailures: number;
+    signInThrottled: number;
+  };
 }

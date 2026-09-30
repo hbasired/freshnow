@@ -1238,3 +1238,88 @@ same notifications. The install button (D145) moved from the header to the top o
 The hash was only ever replaced, so a phone's back gesture left the app. Page changes now push (the first sync
 replaces, so a shared link adds no entry); opening a task pushes `{task: true}`; closing it from the page calls
 `history.back()`; `popstate` closes any task and re-reads the hash. Back = close the task, then the previous page.
+
+## D151 — Policy as code: a JSON registry, rules checked at every start, enforced only in production (TASK-050) [verified — tests + real start-up]
+`compliance/processors.json` lists every outside service, its country, legal ground, DPA and controls. `core/compliance.ts`
+checks R0–R6 against the environment at the start of the api, worker and bot: in the demo it prints one line and never
+blocks; with IS_DEMO=false it prints every finding and exits (observed: the api exited before opening its port). JSON, not
+YAML: the project has no YAML parser and CLAUDE.md asks for no new dependency without a reason. "Reachable" uses the same
+tests as the senders and the AI client, so the registry cannot disagree with what is actually used. A person's
+confirmation (ZDR on, DPA filed) is recorded with a date; code cannot see another company's console.
+
+## D152 — Identifiers leave no prompt; names stay (TASK-050) [verified — tests]
+The AI wrapper removes phone numbers (UAE and international), emails, Emirates IDs, IBANs (mod-97) and card numbers (Luhn)
+from user messages once per call, before any provider or trace; the count goes to `llm_call.redacted` (migration 0019).
+Names are kept on purpose — the document planner routes work by name. Bare 10-digit Indian mobiles are kept: they look like
+the order and batch numbers this business writes. Voice goes to Groq as audio; its transcript is redacted when parsed.
+
+## D153 — Evidence and the right to a copy (TASK-050) [verified — tests + browser]
+The CEO's Compliance page and `pnpm compliance` show the findings, the registry (record of processing) and SQL counts; the
+worker writes one `compliance.snapshot` a Dubai day to the append-only audit log (counts only). Everyone can download their
+own data as JSON (Alerts → Your consent), consent-free; the CEO can export anyone's (People). Push keys are excluded.
+
+## D154 — Every attachment is virus-scanned by ClamAV, spoken to directly (TASK-051) [verified — tests + real clamd]
+`core/antivirus.ts` speaks clamd's INSTREAM protocol over TCP (z-framed command, 4-byte length chunks, zero terminator) — no
+npm package, the file never touches disk. It runs inside `inspectFile` after the cheap checks and before any parser, for the
+dashboard, Telegram and the arrival gate. Unset `CLAMAV_HOST` = not scanned (demo default); set and down = the file is
+REFUSED (fail closed — a scanner you can bypass by stopping it is not a scanner). Production requires it (R6). Antivirus is
+one layer, not the defence (OWASP): the structural checks, the sandbox and "never forward a flagged file" stay.
+
+## D155 — PDFs are parsed in a separate process with a memory and time ceiling (TASK-051) [verified — tests]
+`core/pdf-sandbox.ts`: `node --max-old-space-size=256` child, 20 s kill, 8 MB output cap, and an EMPTY environment (no keys,
+no database URL). `isEvalSupported: false` (CVE-2024-4367 workaround). Not worker_threads: their `resourceLimits` were not
+enforced here (G128). Not an OS jail — same user; a separate container is the production step (not built).
+
+## D156 — Documents are checked when they ARRIVE, and a not-forwardable file is never stored as an attachment (TASK-051) [verified — tests]
+Attachments travel by Telegram file_id, so a document sent "for Rashid" used to reach Rashid unchecked. `gateIncomingDocument`
+fetches it once (download injected; bounded by the document rate limit and semaphore) and runs the full gate: refused files
+are never held; active-content PDFs are held for reading with `mayForward: false`; `saveAttachments` drops those for every
+path (reports, assignments, document plans) and audits `attachment.withheld`. Over 15 MB or not downloadable → refused.
+Photos are not fetched (Telegram re-encodes them — A-T51.2).
+
+## D157 — Browser rules are hand-written, not a library (TASK-051) [verified — tests + Chromium]
+`api/src/security-headers.ts` (OWASP headers cheat sheet): nosniff, no-referrer, DENY framing, Permissions-Policy, COOP/CORP on
+everything; the React app gets a strict CSP — scripts only from 'self' plus the SHA-256 of the one inline theme script, no
+'unsafe-inline'/'unsafe-eval', connect-src 'self' (+ the Supabase origin only when not proxied); JSON gets
+`default-src 'none'; frame-ancestors 'none'` and `no-store`. HSTS only when the request came over HTTPS through a proxy.
+No `upgrade-insecure-requests` (breaks the Wi-Fi demo) and no COEP. Legacy page `/` (auth off only) keeps inline handlers
+but cannot connect elsewhere.
+
+## D158 — Sign-in guessing is braked per device (TASK-051) [verified — tests]
+The auth proxy counts FAILED password sign-ins per client: CF-Connecting-IP, trusted only when the request came from this
+machine (cloudflared); otherwise the socket address. 10 in 15 min → 429 without reaching Supabase; a success clears the
+count. In memory (a restart forgets — accepted for a guessing brake; stores no addresses), audit keeps a hash only. The
+real address is passed to GoTrue so its own limit is per phone, not per tunnel.
+
+## D159 — Backups for ransomware: dump, checksum, encrypt to a public key, restore-test, one copy offline (TASK-051) [verified locally]
+`scripts/backup.ts`: pg_dump custom format (inside the Supabase container when it runs — same version, nothing to install on
+Windows), SHA-256 in sha256sum format, TOC check, manifest with row counts, keep N; `age` encryption to a PUBLIC key so the
+server can encrypt but never decrypt; restore test into a scratch database with the audit log checked against the manifest.
+All audited (`security.backup`, `security.restore_test`) and shown on Compliance → Security. The offline copy is a person's
+step — nothing on a server can make a copy that server cannot delete.
+
+## D160 — Supply chain: pinned scanners on an isolated clone; release-age quarantine respected (TASK-051) [verified — pnpm audit clean]
+`pnpm security:scan`: tracked secret files, `pnpm audit` (high+), ClamAV EICAR self-test from memory; with Docker, gitleaks
+(git history, `--network none`), OSV-Scanner and Trivy — images pinned (Trivy 0.69.3 per GHSA-69fq-xp46-6x23 after the March
+2026 compromise), run on a fresh `git clone` in a temp folder mounted read-only, never the working folder with `.env`.
+Fixes: nodemailer 7 → 10.0.12 (10.0.13 was inside pnpm's 1-day quarantine — no exclusion added), overrides for fast-uri and
+brace-expansion, vitest 2 → 4 (critical UI-server advisory; dev only).
+
+## D161 — WHO is decided by the name as written, in code; the model's pick is never enough on its own (TASK-052) [verified — tests]
+`core/people-match.ts`: the written name must fit exactly ONE person, by whole words (a 3+ letter start counts: "Rash" →
+Rashid; "Ali" is never Khalid). One match → that person, even over the model's pick. Several → ambiguous, the sender chooses
+from just those. None but the model picked someone (nickname, another script, no name written) → a suggestion. Chat
+assignment acts only on confirmed names and asks otherwise (buttons: the candidates + "someone else"); the document planner
+keeps a guess as owner but flags it ("my guess — check") because the CEO confirms the whole plan; the typed-name prompt uses
+the same matcher. The model now returns `named_as` for every item. Grounding is pure and exported (`groundResolution`,
+`groundDocumentTasks`) so routing is tested and replayed without a model.
+
+## D162 — Identifier placeholders are numbered per call and restored in the answer (TASK-052) [verified — tests]
+"[phone-1]", "[phone-2]" (same value → same placeholder) instead of a bare "[phone]", so two numbers stay two and each stays
+with its job; `llmComplete` validates the model's JSON and then restores real values on OUR side, so the assignee gets the
+real number the provider never saw. Unknown placeholders are left as they are. The SQL guard validates the restored SQL.
+
+## D163 — Retention and erasure reach the replay trace (TASK-052) [verified — tests]
+`run_trace` kept each parse's `noteRaw` and extraction for ever. The sweep now ages parse traces older than the window (by the
+trace's own age, so older rows are caught), and erasure clears that person's traces. An aged trace can no longer be replayed:
+the retention window outranks replayability.

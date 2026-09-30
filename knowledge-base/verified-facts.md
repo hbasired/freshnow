@@ -672,3 +672,26 @@ Full suite on Postgres 16 + pgvector 0.6.0 + Redis: 493 pass, 9 fail (8 real-mod
 second provider key). Browser (Playwright 1.56 Chromium, 390×844 touch in light and dark, 1440×900): 37/37 checks —
 tab bar, no sideways scroll on six phone pages, the range list, "20–30%" shown never "25%", starters, full-screen task
 with Back, back gesture closing the task then stepping back a page, desktop sidebar and tables unchanged.
+
+## VF43 (2026-09-30) — Policy-as-code facts used in TASK-050 [believed — search summaries; pages blocked]
+OpenRouter routing fields `provider.data_collection: "deny"` and `provider.zdr: true`; Emirates ID = 15 digits 784-YYYY-NNNNNNN-C;
+PDPL Art. 13 information, Art. 14 portability (machine-readable), Art. 15 correction/erasure; a Cloudflare quick tunnel
+terminates TLS at Cloudflare's edge (Cloudflare can read the traffic) and quick tunnels are for testing; Langfuse Cloud EU is
+stored in Ireland and Langfuse offers a DPA. Measured here: 530 tests pass (37 new), 9 need a live model; 12/12 + 37/37
+browser checks.
+
+## VF44 (2026-09-30) — Security layers, measured here (TASK-051)
+ClamAV 1.5.4 clamd over TCP: INSTREAM of the EICAR string → `FOUND` (with a local test signature — the official signature
+download was blocked here), clean → `OK`; through the live API an EICAR upload was refused with `security.malware_blocked`
+audited. PDF child with a 16 MB heap aborted; timeout kill works; the child's environment held no secrets. Chromium refused an
+injected inline script, an inline handler, `eval`/`new Function` from a page script, and a fetch to another origin under the
+new CSP; 37/37 + 13/13 browser checks pass with it. `pnpm audit` (all dependencies) clean after the upgrades. Backups: plain
+and age-encrypted dumps restore-tested with row counts equal to the manifest; a one-byte change fails the checksum.
+
+## VF45 (2026-09-30) — Trivy supply-chain compromise [believed — GitHub advisory + press, through search]
+GHSA-69fq-xp46-6x23 / CVE-2026-33634: Trivy 0.69.4 (and Docker images 0.69.5, 0.69.6) carried a credential stealer (March
+2026); 0.69.3 is named the last known clean release; 0.70.0 came out 17 April 2026.
+
+## VF46 (2026-09-30) — Test counts after TASK-051/052
+591 tests pass; 9 need a live model provider (8 call the model, 1 needs two provider keys); 1 skipped. 1 of the 591 needs a
+real ClamAV (`CLAMAV_TEST_HOST`).

@@ -178,3 +178,20 @@ A conservative company might prefer the low end. Confirm/refute: the CEO. Affect
 ## A-T49.3 — Home, My work, Assign/Projects, Alerts are the four places people go daily on a phone [assumed]
 Confirm/refute: which pages are opened most in the first weeks of real use (the audit log does not record page views;
 ask). Affects: `phoneTabs` in `App.tsx`.
+
+## A-T51.1 — The pinned scanner and ClamAV image tags exist and are clean [assumed]
+gitleaks v8.30.1, osv-scanner v2.6.0, Trivy 0.69.3, clamav/clamav:1.5 — from release notes via search; not pulled here (no
+Docker daemon). Confirm/refute: the first `pnpm security:scan` and `docker compose --profile security up -d clamav` on the
+laptop; then pin by digest. Affects: `scripts/security-scan.ts`, `docker-compose.yml`.
+
+## A-T51.2 — Telegram re-encodes photos, so a "photo" is not the sender's file [believed]
+Why photos are not fetched and scanned on arrival. Confirm/refute: Telegram Bot API documentation on photo processing.
+Affects: `gateIncomingDocument` (documents only).
+
+## A-T51.3 — cloudflared passes X-Forwarded-Proto / Cf-Visitor, so HSTS is sent through the tunnel [believed]
+Confirm/refute: `curl -sI https://<tunnel>/app/` shows `strict-transport-security`. Affects: HSTS only.
+
+## A-T52.1 — The honorifics this workforce uses [assumed]
+mr, mrs, ms, miss, dr, sir, madam, ji, bhai, sahab, saheb, chetta, chechi, anna are dropped from written names. A missing one
+only sends a name to "ask", never to the wrong person. Confirm/refute: real messages in the first weeks. Affects:
+`people-match.ts`.

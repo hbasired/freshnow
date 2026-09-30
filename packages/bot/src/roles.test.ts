@@ -24,6 +24,9 @@ const M = randomUUID(); // manager
 const R = randomUUID(); // reports to M
 const O = randomUUID(); // reports to the CEO — outside M's team
 const E = randomUUID(); // plain employee
+// Two of M's team share a first name — the case where a guess sends work to the wrong phone.
+const AK = randomUUID();
+const AA = randomUUID();
 const TAG = "ROLE-";
 
 const bot = createBot({ token: "0:test", ceoUserId: BigInt(CEO_TG) });
@@ -96,7 +99,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   const sql = getServiceSql();
-  const ids = [M, R, O, E];
+  const ids = [M, R, O, E, AK, AA];
   await sql`update employee set telegram_user_id = ${ceoTelegramBefore} where id = ${DEMO_CEO_ID}`;
   await sql`delete from bot_session where key = any(${[CEO_TG, M_TG, R_TG, O_TG, E_TG].map(String)})`;
   await sql`delete from notification_outbox where recipient_employee_id = any(${ids})`;
@@ -188,6 +191,35 @@ describe("a manager in Telegram", () => {
     expect(replies.join(" ")).toMatch(/don't recognise that name/i);
     const n = await getServiceSql()<{ n: number }[]>`select count(*)::int as n from task where employee_id = ${O}`;
     expect(n[0]?.n).toBe(0);
+  });
+
+  it("a typed first name two people share is asked about — only those two offered — and nothing is created", async () => {
+    const sql = getServiceSql();
+    await sql`insert into employee (id, display_name, status, is_synthetic, access_role, manager_employee_id, department) values
+      (${AK}, ${TAG + "Ahmed Khan"}, 'active', true, 'employee', ${M}, 'production'),
+      (${AA}, ${TAG + "Ahmed Ali"}, 'active', true, 'employee', ${M}, 'production')`;
+    const viewer = (await loadViewer(M))!;
+    const replies: { text: string; buttons: string[] }[] = [];
+    const ctx = {
+      session: { step: { kind: "assign_pending", title: "Count the crates" }, stepAt: Date.now() },
+      role: "manager",
+      employee: { id: M, display_name: TAG + "Maryam", status: "active", language: "en", access_role: "manager", department: "production" },
+      viewer,
+      message: { message_id: 1 },
+      reply: async (t: string, o?: { reply_markup?: { inline_keyboard?: { callback_data?: string }[][] } }) =>
+        void replies.push({ text: t, buttons: (o?.reply_markup?.inline_keyboard ?? []).flat().map((b) => b.callback_data ?? "") }),
+    } as unknown as FreshCtx;
+
+    await handleText(ctx, "Ahmed");
+    expect(replies[0]!.text).toMatch(/could be .*Ahmed (Khan|Ali) or .*Ahmed (Khan|Ali)/);
+    expect(replies[0]!.buttons.filter((b) => b.startsWith("assignto:")).sort()).toEqual([`assignto:${AA}`, `assignto:${AK}`].sort());
+    const none = await sql<{ n: number }[]>`select count(*)::int as n from task where employee_id = any(${[AK, AA]})`;
+    expect(none[0]?.n).toBe(0);
+
+    // The full name settles it: the work goes to that Ahmed and not the other.
+    await handleText(ctx, "Ahmed Khan");
+    const owners = await sql<{ employee_id: string }[]>`select employee_id from task where employee_id = any(${[AK, AA]}) and title = 'Count the crates'`;
+    expect(owners.map((o) => o.employee_id)).toEqual([AK]);
   });
 
   it("still cannot create invites", async () => {

@@ -1,3 +1,32 @@
+# Session status — 2026-09-30 (cloud session, TASK-051 + TASK-052)
+
+- **Security in depth.** Every document is checked when it arrives (type, dangerous names, PDF active content and — when
+  ClamAV runs — a virus scan); PDFs open in a sealed child process; the pages carry browser rules against injected scripts;
+  10 wrong passwords pause that phone for 15 minutes; `pnpm backup` + `backup:restore-test`; `pnpm security:scan`.
+  COMMANDS.md §7d–7e. **The demo needs none of it switched on** — ClamAV is optional (`CLAMAV_HOST` unset = as before).
+- **Who gets the work (audit).** A chat assignment is made only when the name fits exactly one person; two Ahmeds → the
+  CEO is asked with just those two. Documents flag shared names and AI guesses. Phone numbers come back in task text.
+  Retention and erasure now also clear the replay trace.
+- **After pulling:** `pnpm install` (nodemailer 10, vitest 4), `pnpm build:web`, restart api, worker, bot. No migration.
+- Tests: 591 pass, 9 need a live model provider — run `pnpm test` on the laptop with a Groq key to see routing with the
+  live model. Browser: 37/37 + 13/13.
+
+---
+
+# Session status — 2026-09-30 (cloud session, TASK-050)
+
+- **Policy as code is in the system.** `compliance/processors.json` says where personal data may go; the api, worker and bot
+  check themselves at every start. **In the demo this is one log line — `policy: demo mode, not enforced` — nothing is
+  blocked.** `IS_DEMO=false` makes them refuse to start while a rule fails. `pnpm compliance` shows the details.
+- **CEO → Records → Compliance** (phone: More → Compliance): the findings with fixes, where data goes, and the evidence.
+- **Download my data** (Alerts → Your consent) for everyone; **People → Export** for the CEO.
+- Phone numbers, emails, Emirates IDs, IBANs and card numbers are removed from every AI prompt (names stay).
+- **After pulling:** `pnpm install`, `pnpm migrate` (adds 0019), `pnpm build:web`, restart api, worker, bot. Nobody is asked to
+  agree to the notice again.
+- Tests: 530 pass, 9 need a live model provider.
+
+---
+
 # Session status — 2026-09-30 (cloud session, TASK-049)
 
 - **Progress as a range.** My work and the task page offer *How far along is it?* — 0–10% … 90–100% — plus tap-to-fill
@@ -9,7 +38,7 @@
 - **CEO deck (Hostinger/Groq/OpenRouter) updated, 17 slides:** Hostinger needs no extra contract, but file its DPA and
   get four things in writing (slide 8); Groq is usable for employee words with six conditions (slide 9); OpenRouter is
   not, on a normal account — its DPA is enterprise-only. Every finding is from search results; the pages were blocked.
-- **After pulling:** `pnpm install`, `pnpm migrate` (0018), `pnpm build:web`, restart the api.
+- **After pulling** (COMMANDS.md §0): `pnpm install`, `pnpm migrate` (adds 0018 — skipping it makes the task lists fail with a 500), `pnpm build:web`, then restart the api, worker and bot.
 - Tests: 493 pass, 9 need a live model provider. Browser: 37/37 at phone and desktop sizes (Chromium, not a real phone).
 
 ---

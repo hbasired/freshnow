@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TASK-051 — Security in depth: malware, ransomware and attack resilience</title>
+<style>
+  :root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#3fb950;--warn:#d29922;--bad:#f85149;--card:#161b22;--bd:#30363d}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;max-width:980px;padding:48px 24px;margin-inline:auto}
+  h1{font-size:1.9rem;margin:0 0 4px} h2{margin-top:2.5rem;color:var(--acc);font-size:1.25rem}
+  .meta{color:var(--mut);font-size:.9rem;margin-bottom:2rem}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:18px;margin:14px 0}
+  .unverified{border-left:3px solid var(--warn)} .ok{border-left:3px solid var(--acc)}
+  code{background:#1f2630;padding:2px 6px;border-radius:4px;font-size:.9em}
+  .tw{overflow-x:auto} table{border-collapse:collapse;width:100%;margin:14px 0}
+  th,td{border:1px solid var(--bd);padding:7px 9px;text-align:left;font-size:.88rem;vertical-align:top} th{background:#1f2630}
+  .bad{color:var(--bad);font-weight:600}.good{color:var(--acc);font-weight:600}.warn{color:var(--warn);font-weight:600}
+  ul{padding-left:1.1rem} li{margin:3px 0} a{color:#88c0f0}
+</style></head><body>
+<h1>TASK-051 — Security in depth: malware, ransomware and attack resilience</h1>
+<p class="meta">2026-09-30 · no migration · new: <code>core/antivirus.ts</code>, <code>core/pdf-sandbox.ts</code>, <code>api/src/security-headers.ts</code>,
+<code>scripts/backup.ts</code>, <code>scripts/security-scan.ts</code> · changed: <code>core/document-security.ts</code>, <code>core/documents.ts</code>,
+<code>core/attachments.ts</code> (arrival gate), <code>core/compliance.ts</code> (R6), <code>core/compliance-evidence.ts</code>, <code>core/rate-limit.ts</code>,
+<code>api/routes/auth-proxy.ts</code>, <code>api/routes/health.ts</code>, <code>bot/bot.ts</code>, <code>dashboard/public/sw.js</code>, the Compliance page,
+<code>docker-compose.yml</code> (clamav profile), <code>.env.example</code>, <code>pnpm-workspace.yaml</code> (overrides), nodemailer 10, vitest 4 ·
+guides: <code>COMMANDS.md</code> §7d–7e, <code>DEMO-GUIDE-APP.md</code> Act 11c · <b>591 tests passing</b> (with TASK-052), 9 needing a live model provider</p>
+
+<div class="card ok"><strong>One-sentence summary:</strong> Every file anyone sends is now checked when it arrives — true type, dangerous names, a
+ClamAV virus scan, PDF active content — and PDFs are opened in a sealed child process with a memory and time limit; every page carries browser rules that
+stop injected scripts from running or sending data anywhere; password guessing is braked per phone; backups are checksummed, encrypted, restore-tested
+and meant to sit offline; and the dependencies and git history are scanned by pinned open-source tools — with production refusing to start without a
+virus scanner.</div>
+
+<h2>The threats this answers</h2>
+<div class="tw"><table>
+<tr><th>Threat</th><th>How it would arrive</th><th>Layers now in the way</th></tr>
+<tr><td>Malware / ransomware dropper in a file</td><td>CEO forwards a PDF from email; an employee's phone sends a document</td><td>type-from-bytes + dangerous names → <b>ClamAV</b> → active-content check → never forwarded if flagged → arrival gate in Telegram</td></tr>
+<tr><td>Booby-trapped PDF exploiting the parser</td><td>any PDF</td><td><b>separate process</b>, 256 MB, 20 s, no secrets in its environment; <code>isEvalSupported: false</code> (CVE-2024-4367)</td></tr>
+<tr><td>"PDF bomb" / resource exhaustion</td><td>small file expanding to gigabytes</td><td>page cap before extraction, memory ceiling, timer, output cap, rate limit, semaphore</td></tr>
+<tr><td>Injected script in the dashboard (XSS)</td><td>a note, a file name, a model output rendered as HTML</td><td><b>Content-Security-Policy</b>: no inline scripts but one hashed, no eval, no other hosts; nosniff; no framing</td></tr>
+<tr><td>Password guessing</td><td>through the public tunnel address</td><td>10 wrong passwords per phone → 15-min pause; GoTrue's own limit now sees the real phone</td></tr>
+<tr><td>Phishing through a forged notification</td><td>a push carrying another site's URL</td><td>the service worker opens only this app's own pages</td></tr>
+<tr><td>Ransomware on the server; deletion; disk loss</td><td>—</td><td><b>backups</b>: checksum, age encryption to a public key, restore test, offline copy (3-2-1-1-0)</td></tr>
+<tr><td>Poisoned dependency or tool; leaked key</td><td>npm, Docker images, a committed <code>.env</code></td><td><code>pnpm audit</code>, gitleaks, OSV-Scanner, Trivy — pinned, on an isolated clone; pnpm's 1-day release quarantine</td></tr>
+</table></div>
+
+<h2>Research (30 Sep)</h2>
+<ul>
+  <li>ClamAV's daemon scans a byte stream with the INSTREAM command: length-prefixed chunks, a zero-length terminator, answer <code>stream: OK</code> or
+    <code>&lt;signature&gt; FOUND</code> — ClamAV documentation <span class="warn">[believed — through search; the protocol was then verified against a real clamd 1.5.4 here]</span>.
+    The official Docker image and its environment variables: <a href="https://docs.clamav.net/manual/Installing/Docker.html">docs.clamav.net — Docker</a>,
+    <a href="https://github.com/Cisco-Talos/clamav-docker/blob/main/clamav/README-debian.md">Cisco-Talos/clamav-docker</a>. Sources disagreed on whether
+    <code>CLAMD_CONF_*</code> overrides work in the official image, so none is used.</li>
+  <li>OWASP treats antivirus as one control among several for uploads (new malware evades signatures) — OWASP File Upload cheat sheet
+    <span class="warn">[believed — through search]</span>. HTTP headers per the
+    <a href="https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Headers_Cheat_Sheet.html">OWASP HTTP Headers cheat sheet</a> and, for JSON, the
+    <a href="https://cheatsheetseries.owasp.org/cheatsheets/REST_Security_Cheat_Sheet.html">REST Security cheat sheet</a> (<code>frame-ancestors 'none'</code>).</li>
+  <li>PDF.js CVE-2024-4367 — script execution through font handling when <code>isEvalSupported</code> is on, fixed in 4.2.67
+    (<a href="https://nvd.nist.gov/vuln/detail/CVE-2024-4367">NVD</a>) <span class="warn">[believed]</span>. The PDF.js version bundled by unpdf 1.8.1 could not be read
+    from the bundle, so the workaround is applied regardless.</li>
+  <li>Cloudflare passes the visitor's address in <code>CF-Connecting-IP</code>; <code>X-Forwarded-For</code> can be written by the client
+    (<a href="https://http.dev/cf-connecting-ip">http.dev</a>, <a href="https://github.com/cloudflare/cloudflared/issues/1426">cloudflared #1426</a>) — so the header is
+    believed only from this machine.</li>
+  <li><b>Trivy's own releases were compromised in March 2026</b> (0.69.4; Docker images 0.69.5–0.69.6), 0.69.3 named the last clean release —
+    <a href="https://github.com/aquasecurity/trivy/security/advisories/GHSA-69fq-xp46-6x23">GHSA-69fq-xp46-6x23</a>,
+    <a href="https://www.docker.com/blog/trivy-supply-chain-compromise-what-docker-hub-users-should-know/">Docker's note</a>,
+    <a href="https://www.stepsecurity.io/blog/trivy-compromised-a-second-time---malicious-v0-69-4-release">StepSecurity</a>. This changed the design: pinned images,
+    an isolated read-only clone, no network for gitleaks.</li>
+  <li>gitleaks v8.19+ replaced <code>detect</code> with <code>git</code>/<code>dir</code>; latest v8.30.1
+    (<a href="https://github.com/gitleaks/gitleaks">gitleaks</a>). OSV-Scanner v2 <code>scan source -r</code>, reads <code>pnpm-lock.yaml</code>
+    (<a href="https://google.github.io/osv-scanner/usage/">usage</a>, <a href="https://github.com/google/osv-scanner/releases">releases</a>).</li>
+  <li>UAE PDPL requires security measures appropriate to the risk, including restoring access to personal data after a failure — search summaries of the law
+    (<a href="https://securiti.ai/uae-personal-data-protection-law/">Securiti</a>, <a href="https://docs.modulos.ai/frameworks/uae-pdpl">Modulos</a>)
+    <span class="warn">[believed; article number (20) to confirm on the text]</span>. This is why R6 now requires a scanner in production.</li>
+  <li>CISA's ransomware guidance: offline, encrypted, tested backups <span class="warn">[believed — through search]</span>; "3-2-1-1-0" is an industry shorthand, not CISA's term.</li>
+</ul>
+
+<h2>What was built, layer by layer</h2>
+<div class="card"><b>1 · Files.</b> <code>scanBytes</code> (clamd INSTREAM, never throws) runs inside <code>inspectFile</code> after size/name/type and before any parser.
+Infected → refused, audited <code>security.malware_blocked</code>; scanner configured but down → refused <code>security.scan_failed</code> (fail closed).
+Both count toward the document rate limit. <code>extractPdfTextSandboxed</code> runs PDF.js in a child Node process with <code>--max-old-space-size</code>,
+a kill timer, an output cap and an environment holding nothing but its own settings. Documents sent in Telegram now pass the gate <b>on arrival</b>
+(<code>gateIncomingDocument</code>), and <code>saveAttachments</code> will not store a file marked not-forwardable — one chokepoint for every path.</div>
+<div class="card"><b>2 · Browser and API.</b> <code>security-headers.ts</code> sets the headers on every response and a strict CSP on the app, with the inline theme
+script allowed by its SHA-256 (computed from the built <code>index.html</code> at start-up). The auth proxy brakes password guessing per device. The
+service worker opens only same-origin <code>/app</code> URLs from a notification.</div>
+<div class="card"><b>3 · Recovery and supply chain.</b> <code>pnpm backup</code> / <code>backup:verify</code> / <code>backup:restore-test</code>; <code>pnpm security:scan</code>;
+ClamAV as an opt-in compose profile; <code>/health</code> reports <code>antivirus</code>; the Compliance page shows scanner, last backup, restore test and sign-in pauses;
+the daily snapshot records them. Policy rule R6 requires <code>CLAMAV_HOST</code> in production.</div>
+
+<h2>Decisions and why</h2>
+<ul>
+  <li><b>No new runtime dependency.</b> The clamd protocol is 40 lines; the headers are a dozen strings; the backup and scan tools are open-source binaries run
+    as processes. (Dev: nodemailer and vitest upgraded to fix advisories.)</li>
+  <li><b>Fail closed once a scanner is configured</b> — otherwise stopping ClamAV would be the bypass. The demo default stays "not configured", so the laptop demo works as before.</li>
+  <li><b>A process, not a worker thread</b>, for the PDF sandbox — the thread's memory limit was measured not to hold (G128).</li>
+  <li><b>Photos are not scanned</b> — Telegram re-encodes them; documents (including images sent as files) are.</li>
+  <li><b>nodemailer 10.0.12, not 10.0.13</b> — the newer one was inside pnpm's one-day quarantine; the older one has every fix. No exclusion was kept (G130).</li>
+  <li><b>In-memory sign-in counts</b> — a restart forgets; accepted for a brake, and it stores no addresses.</li>
+</ul>
+
+<h2>How it was verified</h2>
+<ul>
+  <li>Unit + integration tests written from the rules: a stand-in clamd that checks the wire protocol byte for byte, chunking over 64 KB, timeouts, fail-closed,
+    the gate's audit rows; <b>a real ClamAV 1.5.4</b> refusing EICAR and passing a clean file; the sandbox reading a real PDF, refusing 60 pages, killing a slow run,
+    aborting a 16 MB-heap run, and failing cleanly on garbage; the arrival gate (malware refused, too large and download failure refused, clean held, active content
+    held but never stored as an attachment); headers and CSP (the hash checked against the CSP specification's published example); the sign-in brake (per device,
+    tunnel header only from loopback, success clears, refresh not counted); R6; the Compliance security evidence.</li>
+  <li><b>Live</b>: an EICAR upload through the running API was refused and audited; a clean one passed the scanner. <code>/health</code> shows <code>"antivirus":"ok"</code>.</li>
+  <li><b>Chromium</b> (Playwright): 37/37 UI and 13/13 compliance checks with the CSP on, no console errors; injected inline script, inline handler, eval and
+    <code>new Function</code> from a page script, and a fetch to another origin were all refused.</li>
+  <li><b>Backups</b>: plain and age-encrypted dumps restore-tested (counts equal the manifest); restore test refuses an encrypted file without the key; one changed byte fails the checksum; pruning keeps N.</li>
+  <li><code>pnpm security:scan</code>: passes; a staged <code>.env.production</code> made it fail with exit 1. <code>pnpm audit</code> (all dependencies): clean.</li>
+</ul>
+
+<h2 class="bad">What we have not verified</h2>
+<div class="card unverified"><ul>
+  <li><b>ClamAV with its real signature database.</b> Signature downloads were blocked here; the real-scanner test used a local EICAR signature. The official image,
+    its first start and its memory use on the laptop are not observed.</li>
+  <li><b>The container scanners</b> (gitleaks, OSV-Scanner, Trivy) — no Docker daemon here. Image tags come from release notes and are assumed to exist (A-T51.1).</li>
+  <li><b>The backup script's Docker path</b> (pg_dump inside <code>supabase_db_freshnow</code>, restore into the Supabase cluster, where extensions may produce
+    warnings). Only the local <code>pg_dump</code> path against Postgres 16 was run. <code>winget install FiloSottile.age</code> and <code>robocopy</code> are not run here.</li>
+  <li><b>The CSP through the Cloudflare tunnel on a real phone</b>, and whether cloudflared sends <code>X-Forwarded-Proto</code> (A-T51.3). Nothing Cloudflare might inject is
+    allowed to run — if it tried, it would show as console errors, not a broken page.</li>
+  <li><b>The Telegram arrival gate against real Telegram</b> — download failures and large files were tested with injected downloads, not the Bot API.</li>
+  <li><b>The PDF.js version</b> bundled by unpdf — the CVE workaround is applied regardless. The sandbox is not an OS jail.</li>
+  <li><b>Legal reading</b>: that PDPL Art. 20 is the security article; that R6's scanner requirement is what a regulator would expect.</li>
+  <li><b>The 9 model-dependent tests</b> — no route to a model provider here; they need a real key on the laptop.</li>
+</ul></div>
+</body></html>

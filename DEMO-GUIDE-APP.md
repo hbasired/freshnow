@@ -3,7 +3,9 @@
 _Written 2026-09-28 for the local build on the Windows laptop. The Telegram demo is in
 `DEMO-GUIDE.md`; this guide adds the app channel — the dashboard inbox plus notifications on
 each person's devices — and runs alongside it. Everything below was run end to end against a
-real Supabase Auth server, except the last step on a real phone (see §10)._
+real Supabase Auth server, except the last step on a real phone (see §10). **Updated 2026-09-30**
+(TASK-049/050): the phone layout, progress ranges, and policy as code — the Compliance page,
+"Download my data", and identifiers removed from AI prompts._
 
 > **This repository is public on GitHub.** No password is written in this file. §4 has you
 > set them; keep them in `CREDENTIALS.local.md`, which git ignores.
@@ -38,17 +40,28 @@ PowerShell, in the project folder:
 ```powershell
 cd C:\Users\acer\Downloads\freshnow
 git status                      # anything listed as modified is yours: git stash  (or commit it)
-git checkout main
-git pull
+git fetch origin
+git checkout claude/elegant-curie-bgpzqh        # this update's branch — or: git checkout main, once its pull request is merged
+git pull origin claude/elegant-curie-bgpzqh     # (or: git pull origin main)
 pnpm install
+pnpm migrate                    # database changes (Supabase must be running) — "skip" for ones already applied
 pnpm build:web                  # rebuild the dashboard — every pull, not optional
 ```
+
+Which branch: new work arrives on a pull request. Before it is merged, pull its branch (the name is on the
+pull request page); after it is merged, `git checkout main` and `git pull origin main`. `COMMANDS.md` §0 has both.
 
 - **`pnpm build:web` is not optional.** The API serves the dashboard from `packages/dashboard/dist`,
   which is build output and not in git — after a pull the laptop keeps serving the *old* dashboard
   (no consent notice, no delivery-mode switch, sign-in aimed at port 54321, so the phone cannot sign
   in through the tunnel) until you rebuild. Build before starting the API (§3).
-- Nothing new to migrate: the database schema did not change.
+- **`pnpm migrate` is not optional either** when a pull adds a migration (30 Sep added
+  `0018_progress_band.sql` and `0019_llm_call_redacted.sql`). Skipped, the task lists fail with *Request failed
+  (500)* and the api window logs `column … does not exist`. It needs Supabase running; run it before starting the api.
+- **Nobody is asked to agree again.** The 30 Sep updates do not change the privacy notice's words, so everyone's
+  consent still counts.
+- **`pnpm install` matters this time**: the security update (TASK-051) upgrades the email library and the test
+  runner to versions without known vulnerabilities. It adds no migration.
 
 ### 1.1 · Already running when you pulled? What to restart
 
@@ -63,7 +76,7 @@ Nothing reloads by itself — `pnpm start:*` runs the code as it was when it sta
 | Docker, Supabase | leave running | nothing changed in them |
 | browsers, phone | reload the page (on the phone: close and reopen the app) | picks up the new dashboard |
 
-Order: `git pull` → `pnpm install` → `pnpm build:web` → restart **api**, **worker**, **bot** → reload the
+Order: `git pull` → `pnpm install` → `pnpm migrate` → `pnpm build:web` → restart **api**, **worker**, **bot** → reload the
 browsers. (`pnpm dev:api` instead of `start:api` reloads server code on every change, but the dashboard
 still needs `pnpm build:web`.)
 
@@ -129,8 +142,8 @@ line marked "terminal", all in the project folder.
 |---|---|---|---|
 | 1 | any | `docker compose up -d` | `freshnow-redis … Started` (instant) |
 | 2 | any | `npx supabase start -x realtime,storage-api,imgproxy,edge-runtime,logflare,vector,supavisor,mailpit,postgrest` | `Started supabase local development setup.` (~30 s) |
-| 3 | **api** | `$env:HOST = "127.0.0.1"; pnpm start:api` | `API listening on http://127.0.0.1:3001 — React dashboard at …/app/` |
-| 4 | **worker** | `pnpm start:worker` | `[worker] telegram sender ready` **and** `[worker] web push sender ready` |
+| 3 | **api** | `$env:HOST = "127.0.0.1"; pnpm start:api` | `API listening on http://127.0.0.1:3001 — React dashboard at …/app/` (first comes one `[api] policy: demo mode, not enforced — N rule(s) would stop production` line — expected, see below) |
+| 4 | **worker** | `pnpm start:worker` | `[worker] telegram sender ready` **and** `[worker] web push sender ready` (after the same `policy` line) |
 | 5 | **bot** | `pnpm start:bot` | `[bot] @freshnow1bot polling …` |
 | 6 | **tunnel** | `cloudflared tunnel --url http://localhost:3001` | connectivity checks that all say `PASS` (the address itself is printed near the top — you do not need to find it) |
 | 7 | any | `pnpm urls` | **`Phone https://<words>.trycloudflare.com/app/ HTTP 200`** — the phone's address, checked end to end — plus `Dashboard … HTTP 200`, `Sign-in Supabase Auth HTTP 200`, `Web push VAPID keys set`, `@freshnow1bot reachable` |
@@ -143,6 +156,11 @@ curl.exe http://localhost:3001/health
 
 → `{"status":"ok","db":"ok","redis":"ok", …}`
 
+- **The `policy: demo mode, not enforced` line is expected.** The api, worker and bot check the configuration
+  against `compliance/processors.json` at start-up. In the demo they only report what would stop a production
+  start (no retention period, a laptop as the host, zero retention not yet confirmed at Groq …); nothing is
+  blocked. `pnpm compliance` prints the details; the CEO sees them on **Records → Compliance**. If a window says
+  **`refusing to start`**, `.env` has `IS_DEMO=false` — remove that line for the demo (§7).
 - **`$env:HOST = "127.0.0.1"`** keeps the API off the Wi-Fi: the laptop reaches it on
   `localhost`, the phone reaches it through the tunnel. Nothing else on the network can.
 - **Keep terminal 6 running for the whole demo.** Every restart of `cloudflared` gives a new
@@ -249,6 +267,10 @@ Create `CREDENTIALS.local.md` in the project folder (git ignores it). Everything
 - `pnpm urls` shows **`Phone https://<words>.trycloudflare.com/app/ HTTP 200`**. `DOWN` right after starting
   the tunnel: wait 30 seconds and run it again. Still `DOWN`: the **api** window is not running, or
   cloudflared was closed.
+
+**What the tunnel means for data:** Cloudflare decrypts traffic through a quick tunnel at its edge — sign-in
+included. Use it with the demo's synthetic data and your own test accounts only, never with real employees. The
+system says so itself: open the CEO's **Compliance** page through the tunnel address and it adds a finding for it.
 
 **Getting the address onto the phone:** copy the `Phone` line from `pnpm urls` and send it to yourself —
 Telegram → **Saved Messages** is quickest — then tap it on the phone. It is long and random; typing it is
@@ -391,6 +413,9 @@ laptop, in the inbox, and on Telegram.
 Point at the section *"Where your data goes beyond FreshNow's database"*: it names Telegram, each AI
 provider that has a key in `.env`, and the push relays — built from the configuration, so it cannot
 fall out of date. Add or remove a provider and **everyone is asked again** automatically.
+Tap **⬇ Download my data**: the phone saves a JSON file of everything the system holds about Priya — profile,
+tasks, her own words, problems, assignments, inbox, consent record (the PDPL's rights to information and to a
+machine-readable copy). On Android it lands in *Downloads*; on iPhone Safari offers to save it to *Files*.
 **Withdraw consent…** exists and asks twice — **do not tap it in the demo**: it switches the account
 off (§8 has the undo). Point out what is *not* built: no location tracking, no productivity score,
 no sentiment analysis.
@@ -418,6 +443,43 @@ update sla_policy set minutes = case severity when 'critical' then 15 when 'high
 - **Projects** (top switcher on the laptop; **More → Projects** on the CEO's phone) — purpose, requirements, milestones, progress.
 - **Activity** — the audit trail of everything above.
 
+### Act 11b — Compliance the system checks itself (CEO, 3 min)
+1. **CEO → Records → Compliance** (phone: **More → Compliance**). The top line: *Demo — reported, not enforced.
+   N rule(s) would stop production.*
+2. Walk down the findings — each names the rule (R2 contract, R3 host, R4 AI keeps nothing, R6 retention and
+   sign-in) and the fix. *"In production — `IS_DEMO=false` — the api, worker and bot refuse to start until every
+   one of these passes."*
+3. **Where personal data can go** — the record of processing, read from `compliance/processors.json`: each service,
+   its country, the legal ground, whether a contract is filed, whether it keeps nothing, and *reachable* for the
+   ones this server has keys for.
+4. **Sent to AI services** — calls per provider and **identifiers removed**: phone numbers, emails, Emirates IDs,
+   IBANs and card numbers are taken out of every prompt before it leaves.
+5. Optional, in a spare terminal: `pnpm compliance --production` — the same checks as a production start would
+   run, with the exit code a deployment would use.
+6. **People → ⬇ Export** — the CEO answers a data request for someone who asked in person.
+
+> "The law's rules are written down once, the system checks itself against them at every start, and the
+> evidence is counted in the database. What code cannot do — sign a contract, decide what the law means — is
+> listed on the page, not hidden."
+
+### Act 11c — Security in depth (CEO, 3 min, optional)
+1. **Records → Compliance → Security** (phone: More → Compliance, scroll down): the virus scanner (*off* unless you
+   started ClamAV — COMMANDS.md §7d), files refused as malware, the last backup and whether its restore test passed,
+   and phones paused after 10 wrong passwords.
+2. In a spare terminal: `pnpm security:scan` — secret files in git, dependency advisories, and (with ClamAV on) the
+   scanner refusing the industry's EICAR test file, sent from memory so Windows Defender does not grab it first.
+3. `pnpm backup` then `pnpm backup:restore-test` — *"a backup that has never been restored is a hope"*; the Security
+   card updates.
+4. Say what it does to files: every document is checked when it **arrives** — true type, dangerous names, virus
+   scan, and PDFs with active content are read but never passed on to another phone. PDFs are opened in a
+   separate, sealed process with a memory and time limit, so a booby-trapped file cannot take the server down.
+
+> "Defence in depth: no single layer is trusted. The scanner can miss something new, so the structure checks and
+> the sealed reader are still there; a stolen password is slowed down per phone; and if the worst happens, a tested
+> backup sits unplugged in a drawer."
+
+Do **not** demonstrate the sign-in pause on the demo phone — it locks that phone out for 15 minutes.
+
 ### Act 12 — Back to the default (CEO, 30 s)
 **Alerts → How people hear from us → Telegram.** Recorded in Activity like every other switch.
 
@@ -431,6 +493,10 @@ update sla_policy set minutes = case severity when 'critical' then 15 when 'high
 | What you see | What to do |
 |---|---|
 | `/app/` shows **404**, or the dashboard has no **Before you start** notice / no **How people hear from us** switch | The dashboard was not rebuilt after the pull: `pnpm build:web`, then restart the **api**. |
+| The task lists say **Request failed (500)** after a pull; the api window logs `column … does not exist` | A migration was not applied: `pnpm migrate`, then restart the **api**. |
+| A window says **`refusing to start: N compliance rule(s) block production (IS_DEMO=false)`** | `.env` has `IS_DEMO=false` — that is the production switch. For the demo delete the line (or set `IS_DEMO=true`) and start again. `pnpm compliance --production` lists what production would need. |
+| No **Compliance** under Records / More | Only the CEO sees it (the API refuses everyone else). Signed in as the CEO and still missing: `pnpm build:web`, restart the api. |
+| **Download my data** does nothing on iPhone | Safari asks where to save — look for the download arrow in the address bar, then *Files*. |
 | The bot answers every message with the **privacy notice** | That account has not agreed to notice 2.0 — tap **✅ I agree** under it. |
 | Someone gets nothing in **Telegram** (the inbox still fills) | They have not agreed yet; their messages wait and go out the moment they do. Check: `select * from consent_record where employee_id = '<id>' order by consented_at desc;` |
 | The app shows **"The privacy notice has changed"** again later | The words changed — usually an AI key added or removed in `.env`, or `RETENTION_DAYS` set. Agree again; that is the point. |
@@ -448,6 +514,9 @@ update sla_policy set minutes = case severity when 'critical' then 15 when 'high
 | The phone stopped buzzing after a break | Was **cloudflared** restarted? New address = set the phone up again (§5.3). |
 | Two people in one browser get each other's banners | Use Chrome for one and Edge for the other (§0). |
 | Nothing arrives in **Telegram** any more | You are in **App only** — switch back to *Telegram* or *Telegram + App*. |
+| A file is refused: **"The virus scanner could not check this file"** | `CLAMAV_HOST` is in `.env` but ClamAV is not running or still loading. Start it (`docker compose --profile security up -d clamav`) or remove the line and restart **api** and **bot**. |
+| The bot says **"I could not download that file from Telegram to check it"** | Documents are now checked on arrival; Telegram's download failed. Send the file again. |
+| **"Too many wrong passwords from this device"** | Ten wrong passwords in 15 minutes from that phone. Wait, or restart the **api**. |
 | The problem arrives as **"needs a human reader"** | The AI key is not working. Check `GROQ_API_KEY` / `OPENROUTER_API_KEY`; the demo still works. |
 
 Useful looks inside (Studio → SQL Editor):
@@ -517,7 +586,37 @@ docker compose stop        # keeps all data
 - The wording is a **draft** until FreshNow and a lawyer sign it off; Hindi and Malayalam need a native
   speaker — until then everyone sees English.
 
+**Added on 30 Sept (TASK-049, TASK-050)**
+- **The phone is an app**: bottom bar Home · My work · Assign · Alerts · More, one page at a time, tables as cards,
+  a task as its own page, and the back gesture goes back a page.
+- **Progress as a range** (0–10% … 90–100%) with tap-to-fill phrases; totals use the range's midpoint.
+- **Policy as code**: `compliance/processors.json` lists every outside service, its country, legal ground,
+  contract and controls; rules R0–R6 run at every start (reported in the demo, enforced in production); phone
+  numbers, emails, Emirates IDs, IBANs and card numbers are removed from AI prompts (R7); the Compliance page and
+  a daily audit snapshot are the evidence (R8); **Download my data** for everyone, **Export** for the CEO.
+
+**Added on 30 Sept (TASK-051 — security in depth)**
+- Documents are checked **when they arrive** (Telegram, dashboard) — size, dangerous names, true type, optional
+  **ClamAV** virus scan, PDF active content — and a file that must not be passed on is never attached to anything.
+- PDFs are read in a **sealed child process** (256 MB, 20 s, no keys in its environment).
+- **Browser rules** (Content-Security-Policy and friends) on every page; notification taps open only this app.
+- **Sign-in brake**: 10 wrong passwords per phone → 15-minute pause.
+- **Backups** with checksum, optional encryption (age), restore test, offline copy; **`pnpm security:scan`**.
+- Production now also requires a virus scanner (rule R6).
+
+**Added on 30 Sept (TASK-052 — audit: who gets the work)**
+- **A chat assignment is made only when the name fits exactly one person.** "Ask Ahmed to count stock" with two Ahmeds now
+  answers *"Ahmed" could be Ahmed Khan or Ahmed Ali* with just those two buttons; a nickname or a name in another script
+  gets *"did you mean …?"*. Before, the AI's pick was assigned straight away. Documents show a shared name the same way and
+  mark the AI's guesses *"my guess — check"* before the CEO taps Create.
+- Phone numbers and emails in a document still never reach the AI, but now **come back in the task** the person receives
+  (before, they read "[phone]").
+- The retention sweep and "erase this person" now also clear the copies of people's words kept for replay.
+
 **Limits — say them if asked**
+- **Policy as code checks what it can see.** It cannot see Groq's console (zero retention is a switch a person
+  flips and records in the registry), sign a contract, or decide what the law means. Names are not removed from
+  prompts — the document planner routes work by name. Voice notes go to Groq as audio.
 - **The tunnel passes through Cloudflare**, a US company. For a demo with test data that is fine; for
   real employee data it is a cross-border transfer. Production needs a domain on a UAE host (see the
   CEO decks), after which the tunnel is not used at all.
@@ -529,5 +628,9 @@ docker compose stop        # keeps all data
   and the notification display was tested in Chrome; the first real phone is this demo.
 - **New staff still join through Telegram** (invite code → bot). An app-only sign-up is not built yet.
 - **Files attached to an assignment** are still delivered in Telegram only.
+- **Antivirus catches known malware, not everything.** A brand-new sample has no signature yet — that is why the
+  other layers stay. Photos are not virus-scanned: Telegram re-encodes them into a new image before we see them.
+- **The PDF sandbox is a separate process, not a separate machine.** It has no keys and a memory cap, but it runs as
+  the same user; production can move it into its own container.
 - **iPhone needs iOS 16.4+** and the Home Screen step; the EU restriction on iPhone web apps does not
   apply in the UAE.
