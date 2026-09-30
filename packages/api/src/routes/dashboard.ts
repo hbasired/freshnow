@@ -297,7 +297,8 @@ export function registerDashboardRoutes(app: FastifyInstance): void {
   app.get("/dashboard/open-tasks", async (req) => {
     const rows = await withContext(await resolveViewer(req), (sql) =>
       sql`select t.id, t.title, t.status, t.created_at, t.is_synthetic,
-                 t.employee_id, t.progress_pct, t.progress_source, t.priority, t.due_at, t.started_at,
+                 t.employee_id, t.progress_pct, t.progress_source, t.progress_band_low, t.progress_band_high,
+                 t.priority, t.due_at, t.started_at,
                  case when t.started_at is not null and t.due_at is not null and t.due_at > t.started_at
                       then greatest(0, least(100, round(100 * extract(epoch from (now() - t.started_at))
                                                           / extract(epoch from (t.due_at - t.started_at)))))::int

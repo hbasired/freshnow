@@ -21,8 +21,11 @@ export {
   closeTask,
   INVERSE,
   MAX_RELATIONS_PER_TASK,
+  PROGRESS_BANDS,
+  PROGRESS_BAND_WIDTH,
+  bandMidpoint,
 } from "./progress.js";
-export type { ProgressSource, RelationKind, TaskStep } from "./progress.js";
+export type { ProgressBand, ProgressSource, RelationKind, TaskStep } from "./progress.js";
 export type { ViewerOrg } from "./org.js";
 
 export { logAudit } from "./audit.js";

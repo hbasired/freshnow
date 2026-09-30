@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
-import { api, companyDate, companyDateToIso, dmon, hhmm, type OpenTask, type Priority, type RelationKind, type TaskDetail as Detail, type Watcher } from "../lib/api";
+import { api, companyDate, companyDateToIso, companyToday, dmon, hhmm, progressLabel, type OpenTask, type Priority, type RelationKind, type TaskDetail as Detail, type Watcher } from "../lib/api";
 import { Card, Demo, Pill, Severity, Spinner, Words } from "./ui";
 import { Button, Select, TextArea, TextField, Toast, useAction } from "./form";
+import { Chips, dueShortcuts, ProgressReport, StatusReport } from "./quick";
+import { Icon } from "./icons";
 
 /**
  * One task, in depth: steps, progress and its evidence, schedule, relations, problems,
@@ -27,10 +29,18 @@ const RELATION_LABEL: Record<RelationKind, string> = {
   duplicates: "duplicates",
 };
 
+const PRIORITIES: Priority[] = ["low", "normal", "high", "urgent"];
+const CLOSE_REASONS = [
+  { key: "wont_do", label: "Won't do" },
+  { key: "duplicate", label: "Duplicate" },
+  { key: "cancelled", label: "Cancelled" },
+] as const;
+
 export function TaskDetailPanel({
   taskId,
   viewer,
   canManage,
+  mine = false,
   candidates,
   onClose,
   onChanged,
@@ -39,6 +49,8 @@ export function TaskDetailPanel({
   viewer: string;
   /** Whether the viewer may change the task — the API refuses regardless. */
   canManage: boolean;
+  /** The viewer's own task: status can be reported from here (the API allows only the owner). */
+  mine?: boolean;
   /** Other tasks the viewer can see, for linking. */
   candidates: OpenTask[];
   onClose: () => void;
@@ -49,8 +61,6 @@ export function TaskDetailPanel({
   const [err, setErr] = useState<string | null>(null);
   const act = useAction();
   const [step, setStep] = useState("");
-  const [pct, setPct] = useState("");
-  const [note, setNote] = useState("");
   const [priority, setPriority] = useState<Priority>("normal");
   const [due, setDue] = useState("");
   const [linkTo, setLinkTo] = useState("");
@@ -119,11 +129,12 @@ export function TaskDetailPanel({
 
         {/* ── Progress, with its evidence ── */}
         <section>
-          <div className="mb-1 flex items-baseline justify-between">
-            <span className="text-2xl font-bold">{t.progress_pct}%</span>
-            <span className="text-xs text-mut">
+          <div className="mb-1 flex items-baseline justify-between gap-2">
+            <span className="shrink-0 whitespace-nowrap text-2xl font-bold">{progressLabel(t)}</span>
+            <span className="text-right text-xs text-mut">
               {SOURCE_LABEL[t.progress_source]}
               {t.progress_source === "counted" ? ` — ${doneSteps} of ${d.steps.length}` : ""}
+              {t.progress_band_low != null ? ` · a range, counted as ${t.progress_pct}% in totals` : ""}
               {t.progress_updated_at ? ` · ${dmon(t.progress_updated_at)} ${hhmm(t.progress_updated_at)}` : ""}
             </span>
           </div>
@@ -141,10 +152,18 @@ export function TaskDetailPanel({
           ) : null}
           {t.behind ? (
             <p className="mt-1 text-xs text-crit">
-              ⚠ Behind: {t.elapsed_pct}% of the time has passed and {t.progress_pct}% of the work is reported (flagged past {t.behind_threshold} points apart).
+              ⚠ Behind: {t.elapsed_pct}% of the time has passed and {progressLabel(t)} of the work is reported (flagged past {t.behind_threshold} points apart).
             </p>
           ) : null}
         </section>
+
+        {/* ── Report status — the owner's three buttons, same as My work and the bot ── */}
+        {mine && open ? (
+          <section>
+            <h4 className="mb-1 font-semibold">How is it going?</h4>
+            <StatusReport viewer={viewer} task={{ id: t.id, title: t.title }} onChanged={() => { void load(); onChanged(); }} />
+          </section>
+        ) : null}
 
         {/* ── Steps ── */}
         <section>
@@ -176,39 +195,32 @@ export function TaskDetailPanel({
           ) : null}
         </section>
 
-        {/* ── Self-reported progress ── */}
+        {/* ── Self-reported progress: a range from a list, with a note ── */}
         {canManage && open ? (
           <section>
-            <h4 className="mb-1 font-semibold">Report progress yourself</h4>
-            <p className="mb-2 text-xs text-mut">A number you type is an estimate, shown as self-reported, and needs a note. Steps are stronger evidence.</p>
-            <form
-              className="grid gap-2 sm:grid-cols-[6rem_1fr_auto]"
-              onSubmit={(e) => {
-                e.preventDefault();
-                const n = Number(pct);
-                void change(async () => { await api.reportProgress(viewer, taskId, n, note.trim()); setPct(""); setNote(""); return `Recorded ${n}% (self-reported).`; });
-              }}
-            >
-              <TextField label="%" value={pct} onChange={setPct} placeholder="0–100" maxLength={3} />
-              <TextField label="What was done" value={note} onChange={setNote} placeholder="required" maxLength={500} />
-              <div className="self-end"><Button type="submit" busy={act.busy} disabled={!/^\d{1,3}$/.test(pct) || Number(pct) > 100 || note.trim().length < 3}>Record</Button></div>
-            </form>
+            <h4 className="mb-1 font-semibold">Report progress</h4>
+            <p className="mb-2 text-xs text-mut">Pick a range — it is shown as self-reported and needs a note. Ticking steps above is stronger evidence and replaces it.</p>
+            <ProgressReport viewer={viewer} task={t} onSaved={() => { void load(); onChanged(); }} />
           </section>
         ) : null}
 
-        {/* ── Schedule and priority ── */}
+        {/* ── Schedule and priority: taps first, the date picker for anything else ── */}
         {canManage && open ? (
-          <section>
-            <h4 className="mb-1 font-semibold">Priority and due date</h4>
-            <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
-              <Select label="Priority" value={priority} onChange={(v) => setPriority(v as Priority)} options={["low", "normal", "high", "urgent"].map((p) => ({ value: p, label: p }))} />
-              <label className="block text-sm"><span className="text-mut">Due</span>
-                <input type="date" value={due} onChange={(e) => setDue(e.target.value)} className="mt-1 w-full rounded-lg border border-edge bg-sunken px-3 py-2 text-sm" />
+          <section className="space-y-3">
+            <h4 className="font-semibold">Priority and due date</h4>
+            <Chips label="Priority" options={PRIORITIES} selected={priority} onPick={(v) => setPriority(v as Priority)} />
+            <div>
+              <Chips
+                label="Due"
+                options={[...dueShortcuts(companyToday()).map((s) => s.label), "No due date"]}
+                selected={due === "" ? "No due date" : dueShortcuts(companyToday()).find((s) => s.date === due)?.label ?? null}
+                onPick={(label) => setDue(label === "No due date" ? "" : dueShortcuts(companyToday()).find((s) => s.label === label)?.date ?? due)}
+              />
+              <label className="mt-2 block text-sm"><span className="text-mut">…or pick a date</span>
+                <input type="date" value={due} onChange={(e) => setDue(e.target.value)} className="mt-1 w-full rounded-lg border border-edge bg-sunken px-3 py-2 text-sm sm:w-56" />
               </label>
-              <div className="self-end">
-                <Button busy={act.busy} onClick={() => void change(async () => { await api.updateTask(viewer, taskId, { priority, dueAt: companyDateToIso(due) }); return "Saved."; })}>Save</Button>
-              </div>
             </div>
+            <Button busy={act.busy} className="w-full sm:w-auto" onClick={() => void change(async () => { await api.updateTask(viewer, taskId, { priority, dueAt: companyDateToIso(due) }); return "Saved."; })}>Save priority and due date</Button>
           </section>
         ) : null}
 
@@ -291,7 +303,7 @@ export function TaskDetailPanel({
             <ul className="space-y-0.5 text-xs text-mut">
               {d.history.map((h, i) => (
                 <li key={i}>
-                  {dmon(h.created_at)} {hhmm(h.created_at)} · <b className="text-ink">{h.pct}%</b> {SOURCE_LABEL[h.source]}
+                  {dmon(h.created_at)} {hhmm(h.created_at)} · <b className="text-ink">{h.band_low != null && h.band_high != null ? `${h.band_low}–${h.band_high}%` : `${h.pct}%`}</b> {SOURCE_LABEL[h.source]}
                   {h.by_name ? ` · ${h.by_name}` : ""}{h.note ? ` — “${h.note}”` : ""}
                 </li>
               ))}
@@ -304,9 +316,16 @@ export function TaskDetailPanel({
           <section className="border-t border-edge pt-3">
             <h4 className="mb-1 font-semibold">Stop this task</h4>
             <p className="mb-2 text-xs text-mut">&ldquo;Done&rdquo; is reported on the board. This is for work that stops for another reason.</p>
-            <div className="flex flex-wrap items-end gap-2">
-              <Select label="Reason" value={closing} onChange={(v) => setClosing(v as typeof closing)} options={[{ value: "", label: "— choose —" }, { value: "wont_do", label: "Won't do" }, { value: "duplicate", label: "Duplicate" }, { value: "cancelled", label: "Cancelled" }]} />
-              <Button tone="danger" busy={act.busy} disabled={!closing} onClick={() => void change(async () => { await api.closeTask(viewer, taskId, closing as "wont_do"); setClosing(""); return "Task closed."; })}>Close task</Button>
+            <div className="space-y-2">
+              <Chips
+                label="Reason"
+                options={CLOSE_REASONS.map((r) => r.label)}
+                selected={CLOSE_REASONS.find((r) => r.key === closing)?.label ?? null}
+                onPick={(label) => setClosing(CLOSE_REASONS.find((r) => r.label === label)?.key ?? "")}
+              />
+              <Button tone="danger" busy={act.busy} disabled={!closing} className="w-full sm:w-auto" onClick={() => void change(async () => { await api.closeTask(viewer, taskId, closing as "wont_do"); setClosing(""); return "Task closed."; })}>
+                {closing ? `Close task — ${CLOSE_REASONS.find((r) => r.key === closing)?.label.toLowerCase()}` : "Choose a reason to close"}
+              </Button>
             </div>
           </section>
         ) : null}
@@ -315,7 +334,10 @@ export function TaskDetailPanel({
   );
 }
 
-/** A right-hand panel over the board. Simple on purpose: one Escape, one ✕. */
+/**
+ * A right-hand panel over the board; on a phone it is the whole screen — a page of its own,
+ * with a Back button where a thumb expects one. Simple on purpose: one Escape, one way out.
+ */
 function Drawer({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -323,13 +345,25 @@ function Drawer({ title, onClose, children }: { title: string; onClose: () => vo
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
   return (
-    <div className="fixed inset-0 z-30 flex justify-end bg-scrim" onClick={onClose}>
-      <aside className="h-full w-full max-w-xl overflow-y-auto border-l border-edge bg-canvas p-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-        <div className="mb-3 flex items-start gap-3">
-          <h3 className="flex-1 text-base font-semibold">{title}</h3>
-          <button onClick={onClose} aria-label="Close" className="rounded-lg border border-edge bg-sunken px-2 py-1 text-sm hover:border-crit">✕</button>
+    <div className="fixed inset-0 z-40 flex justify-end bg-scrim" onClick={onClose}>
+      <aside
+        role="dialog"
+        aria-label={title}
+        className="h-full w-full max-w-xl overflow-y-auto border-l border-edge bg-canvas shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-edge bg-canvas/95 px-3 py-2.5 pt-[max(0.625rem,env(safe-area-inset-top))] backdrop-blur sm:px-4">
+          <button
+            onClick={onClose}
+            aria-label="Back"
+            className="flex min-h-10 items-center gap-1 rounded-lg px-2 text-sm font-semibold text-link hover:bg-sunken sm:hidden"
+          >
+            <Icon.chevronLeft size={18} /> Back
+          </button>
+          <h3 className="min-w-0 flex-1 truncate text-base font-semibold">{title}</h3>
+          <button onClick={onClose} aria-label="Close" className="hidden rounded-lg border border-edge bg-sunken px-2 py-1 text-sm hover:border-crit sm:block">✕</button>
         </div>
-        {children}
+        <div className="p-4 pb-[max(1.5rem,env(safe-area-inset-bottom))]">{children}</div>
       </aside>
     </div>
   );

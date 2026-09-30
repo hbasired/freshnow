@@ -109,6 +109,15 @@ export const Icon = {
   x: (p: P) => (
     <svg {...base(p)}><path d="M18 6 6 18M6 6l12 12" /></svg>
   ),
+  home: (p: P) => (
+    <svg {...base(p)}><path d="M3 11 12 4l9 7M5 10v10h5v-6h4v6h5V10" /></svg>
+  ),
+  menu: (p: P) => (
+    <svg {...base(p)}><path d="M4 6h16M4 12h16M4 18h16" /></svg>
+  ),
+  chevronLeft: (p: P) => (
+    <svg {...base(p)}><path d="m15 6-6 6 6 6" /></svg>
+  ),
 };
 
 export type IconName = keyof typeof Icon;

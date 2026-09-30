@@ -164,3 +164,17 @@ names a contact; the notice line changes and everyone is asked again. Affects: n
 Messages to someone who has not agreed wait in the outbox indefinitely and are sent when they agree — possibly
 days later. Confirm/refute: the CEO. Alternative: expire held rows after N hours. Affects: `outbox-relay.ts`.
 
+
+## A-T49.1 — The starter phrases are the right words for FreshNow's work, and English is enough for now [assumed]
+Progress: Started the work · Materials ready · Some of it done · Most of it done · Final checks left · Paused for today.
+Problems: Machine not working · Out of oranges / stock · Waiting for parts · No power or water · Vehicle problem · Need
+help from someone. Confirm/refute: the CEO and two employees; a native speaker for Hindi, Malayalam, Urdu. Also measure
+how the blocker parser classifies each starter (needs a live model). Affects: `components/quick.tsx`.
+
+## A-T49.2 — The midpoint of a range is acceptable for the "behind" flag and project rollups [assumed]
+A conservative company might prefer the low end. Confirm/refute: the CEO. Affects: `bandMidpoint` in `core/progress.ts`
+(one function).
+
+## A-T49.3 — Home, My work, Assign/Projects, Alerts are the four places people go daily on a phone [assumed]
+Confirm/refute: which pages are opened most in the first weeks of real use (the audit log does not record page views;
+ask). Affects: `phoneTabs` in `App.tsx`.

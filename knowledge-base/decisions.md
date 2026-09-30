@@ -1205,6 +1205,36 @@ Registered in `main.tsx` before React renders (it was registered only on "Turn o
 Chrome's guidance is that Android treats a site as an installable app (WebAPK) rather than a shortcut only with
 a service worker that handles fetch [believed — developer.chrome.com, via search]. `lib/install.ts` keeps the
 browser's `beforeinstallprompt` and the dashboard shows **Install FreshNow** in Alerts → This device, plus a
-header button on small screens; iPhone and browsers without the event get instructions for their menu. The live
+header button on small screens; **(2026-09-30, TASK-049: the phone button moved from the header to the top of Home, and to More → This device — D148.)** iPhone and browsers without the event get instructions for their menu. The live
 status reads "refreshing every 20 s" instead of "polling", which looked like a fault through the quick tunnel.
 
+
+## D146 — Self-reported progress may be a range; the range is stored and shown, its midpoint is used for sums (TASK-049) [verified — tests]
+Employees pick 0–10%, 10–20% … 90–100% from a list. Migration 0018 stores the range (`task.progress_band_low/high`,
+`progress_event.band_low/high`); `progress_pct` holds the midpoint (0–10 → 5, 90–100 → 95) because project rollups and
+the behind flag are arithmetic over one number. Every screen shows the range ("20–30%"), the task page adds "counted as
+25% in totals". The midpoint is a judgement — unbiased when nothing says where in the range the work sits — not a
+standard. The list is enforced three times (API Zod, core `isAllowedBand`, CHECK constraints) and a test fails if the
+dashboard's copy drifts from core's `PROGRESS_BANDS`. No 100% range: finishing is ✅ Done. Recomputing from steps or
+status clears the range (D77 extended). "I know the exact number…" keeps the old exact input.
+
+## D147 — Starter phrases fill a text box; they never replace the person's words (TASK-049) [verified in Chromium]
+Progress notes and problems get tappable starters ("Materials ready", "Machine not working" …) that fill or append to an
+ordinary editable box. The words are still what the CEO reads and what the blocker parser classifies, so the starters
+are plain phrases, not category codes. Priority, due date (Today / Tomorrow / Friday · end of week / Next Monday — UAE
+week) and close reason became chips. English only for now (A-T49.1).
+
+## D148 — The phone gets its own layout, and only one layout is ever mounted (TASK-049) [verified in Chromium at 390 px; real phone unverified]
+Below 1024 px: a title bar, one page at a time, and a bottom tab bar — Home · My work · Assign (Projects for people who
+cannot give work) · Alerts · More. More holds every other page, search, theme, install, refresh, sign out. Counts only on
+Home. `useMedia` chooses the layout on first paint; CSS-hiding one copy would have mounted two inbox bells fetching the
+same notifications. The install button (D145) moved from the header to the top of Home and More → This device.
+
+## D149 — Below 640 px a table is a list of cards (TASK-049) [verified in Chromium]
+`DataTable` renders each row as a card: the first column as the heading, the rest as labelled lines, headless columns
+(action buttons) at the bottom. One change fixed every list on every page; nothing scrolls sideways at 390 px.
+
+## D150 — Each page is a history entry; an open task is one too; the URL is the truth on Back (TASK-049) [verified in Chromium]
+The hash was only ever replaced, so a phone's back gesture left the app. Page changes now push (the first sync
+replaces, so a shared link adds no entry); opening a task pushes `{task: true}`; closing it from the page calls
+`history.back()`; `popstate` closes any task and re-reads the hash. Back = close the task, then the previous page.

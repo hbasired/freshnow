@@ -67,6 +67,12 @@ tables:
         labelled, replaced by the next counted change). "Is this task really 90% done" is
         answered by this column, not by the number.
       progress_note: The reason a person gave for a self-reported figure.
+      progress_band_low: >
+        Lower end of the range a person PICKED (e.g. 10 for "10–20%"); NULL when they typed an
+        exact figure or the percentage is counted/status-derived. When set, progress_pct is the
+        band's midpoint — an estimate for arithmetic, never a measurement. Report the band, not
+        the midpoint, when describing one task.
+      progress_band_high: Upper end of that range (e.g. 20 for "10–20%"). Set together with progress_band_low.
       progress_updated_at: When the percentage last changed.
       started_at: First time work was reported on it. With due_at, gives the elapsed fraction that the "behind" warning compares against progress.
       priority: low | normal | high | urgent.
@@ -360,7 +366,9 @@ tables:
       id: Primary key.
       task_id: The task.
       employee_id: Who caused the change (NULL for a purely derived recompute, or if that person was later removed).
-      pct: The new percentage.
+      pct: The new percentage. For a picked range, the range's midpoint.
+      band_low: Lower end of the range the person picked, when they picked one (NULL otherwise).
+      band_high: Upper end of that range.
       source: counted | status | self_reported.
       note: The reason, for a self-reported figure.
       correlation_id: Ties the change to the request or message that caused it.

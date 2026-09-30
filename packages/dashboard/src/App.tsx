@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   api,
   companyToday,
   dmon,
   hhmm,
   onConsentRequired,
+  progressLabel,
   type ActivityRow,
   type Assignment,
   type Blocker,
@@ -17,7 +18,6 @@ import {
   type NeedsReview,
   type OpenTask,
   type QueryAnswer,
-  type ReportedStatus,
   type EraseReason,
   type WeekDay,
 } from "./lib/api";
@@ -32,8 +32,10 @@ import { Icon, type IconName } from "./components/icons";
 import { WeekChart } from "./components/week-chart";
 import { SearchBox, type SearchHit } from "./components/search";
 import { Hero } from "./components/hero";
+import { Chips, ProgressReport, StatusReport } from "./components/quick";
+import { useMedia, WIDE } from "./lib/media";
 
-type TabId = "today" | "mine" | "carry" | "assign" | "alerts" | "eod" | "people" | "activity" | "ask";
+type TabId = "today" | "mine" | "carry" | "assign" | "alerts" | "eod" | "people" | "activity" | "ask" | "more";
 
 /** Present only when sign-in is real; the viewer is then fixed by who you are. */
 export interface Identity {
@@ -52,7 +54,15 @@ const TABS: { id: TabId; icon: IconName; label: string; group: string; blurb: st
   { id: "people", icon: "users", label: "People", group: "Records", blurb: "everyone this viewer is allowed to see" },
   { id: "activity", icon: "scroll", label: "Activity", group: "Records", blurb: "the audit trail, newest first" },
   { id: "ask", icon: "search", label: "Ask", group: "Tools", blurb: "answered by SQL, with the SQL shown" },
+  // The phone's menu page. Not in the sidebar (the sidebar IS the menu on a wide screen).
+  { id: "more", icon: "menu", label: "More", group: "Phone", blurb: "every other page, search, and this device" },
 ];
+
+/** Company day `n` days from `day` (both `YYYY-MM-DD`). Dubai has no daylight saving. */
+function shiftDay(day: string, n: number): string {
+  const d = new Date(new Date(`${day}T12:00:00+04:00`).getTime() + n * 86_400_000);
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Dubai", year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
+}
 
 interface Data {
   day: DayUpdate[];
@@ -102,6 +112,9 @@ export default function App({
   onPortalChange?: (p: Portal) => void;
 }) {
   const [viewer, setViewer] = useState(identity && !identity.isCeo ? "me" : "ceo");
+  // Wide: sidebar + header, as before. Narrow: the phone app — a title bar, one page at a
+  // time, and a tab bar at the bottom. Only one of the two is ever mounted.
+  const wide = useMedia(WIDE);
   // The Ask box and report generation are the CEO's under real sign-in (the API refuses
   // them otherwise); hide them rather than show buttons that can only fail.
   const ceoTools = !identity || identity.isCeo;
@@ -210,11 +223,42 @@ export default function App({
   const visibleTab: TabId = tab === "ask" && !ceoTools ? "today" : tab;
   const setTab = setTabState;
 
+  // Keep the place in the URL so a refresh or a shared link lands where you were — and make each
+  // page a step in the browser's history, so a phone's back gesture goes back a page instead of
+  // closing the app. The first sync replaces rather than pushes: opening a link adds no entry.
+  const synced = useRef(false);
   useEffect(() => {
-    // Keep the place in the URL so a refresh or a shared link lands where you were.
     const want = portal === "projects" ? `#projects${projectId ? `/${projectId}` : ""}` : `#tasks/${visibleTab}`;
-    if (location.hash !== want) history.replaceState(null, "", want);
+    if (location.hash !== want) {
+      if (synced.current) history.pushState(null, "", want);
+      else history.replaceState(null, "", want);
+    }
+    synced.current = true;
   }, [portal, visibleTab, projectId]);
+
+  // An open task is a step in history too (the phone shows it as its own page): Back closes it.
+  const taskEntry = () => (history.state as { task?: boolean } | null)?.task === true;
+  useEffect(() => {
+    if (openTask && !taskEntry()) history.pushState({ task: true }, "", location.href);
+  }, [openTask]);
+  const closeTask = useCallback(() => {
+    // Closed from the page itself: consume its history entry, and let popstate do the closing.
+    if (taskEntry()) history.back();
+    else setOpenTask(null);
+  }, []);
+
+  // Back and forward: the URL is the truth. An open task closes; the page follows the hash.
+  useEffect(() => {
+    const onPop = () => {
+      setOpenTask(null);
+      const h = readHash();
+      setPortal(h.portal);
+      setTabState(h.tab);
+      setProjectId(h.projectId);
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, [setPortal]);
 
   const derived = useMemo(() => {
     if (!data) return null;
@@ -241,6 +285,28 @@ export default function App({
     people: data?.people.length ?? null,
     activity: data?.activity.length ?? null,
     ask: null,
+    more: null,
+  };
+
+  // The phone's tab bar: the four places a person goes every day, and More for the rest.
+  // Whoever can give work out gets Assign in the middle; everyone else gets Projects there.
+  const thirdTab: TabId | "projects" = canGiveWork ? "assign" : "projects";
+  const phoneTabs: { id: TabId | "projects"; icon: IconName; label: string; badge?: number; urgent?: boolean }[] = [
+    { id: "today", icon: "home", label: "Home" },
+    { id: "mine", icon: "clipboardCheck", label: "My work", badge: derived?.mine.length ?? 0 },
+    thirdTab === "assign" ? { id: "assign", icon: "pin", label: "Assign" } : { id: "projects", icon: "folder", label: "Projects" },
+    { id: "alerts", icon: "bell", label: "Alerts", badge: derived?.urgent.length ?? 0, urgent: true },
+    { id: "more", icon: "menu", label: "More" },
+  ];
+  const onPhoneTab = portal === "tasks" && phoneTabs.some((p) => p.id === visibleTab);
+  // A page reached from More gets a Back arrow to More; a project gets one to the list.
+  const phoneBack: (() => void) | null =
+    portal === "projects" ? (projectId ? () => setProjectId(null) : null) : onPhoneTab ? null : () => setTab("more");
+  const phoneTitle = portal === "projects" ? "Projects" : visibleTab === "today" ? "FreshNow" : (TABS.find((t) => t.id === visibleTab)?.label ?? "");
+  const goPhoneTab = (id: TabId | "projects") => {
+    if (id === "projects") setPortal("projects");
+    else { setPortal("tasks"); setTab(id); }
+    window.scrollTo({ top: 0 });
   };
 
   const active = TABS.find((t) => t.id === visibleTab)!;
@@ -299,8 +365,9 @@ export default function App({
 
   return (
     <div className="min-h-full lg:grid lg:grid-cols-[248px_1fr]">
-      {/* ── Sidebar ──────────────────────────────────────────────────────────── */}
-      <aside className="hidden border-r border-edge bg-panel lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col">
+      {/* ── Sidebar (wide screens only) ──────────────────────────────────────── */}
+      {wide ? (
+      <aside className="sticky top-0 flex h-screen flex-col border-r border-edge bg-panel">
         <div className="flex items-center gap-3 px-5 pb-4 pt-5">
           <span className="grid h-10 w-10 place-items-center rounded-xl text-on-brand shadow" style={{ background: "linear-gradient(135deg, var(--color-brand), var(--color-brand-b))" }}>
             <Icon.sparkle size={20} />
@@ -360,16 +427,58 @@ export default function App({
           ) : null}
         </div>
       </aside>
+      ) : null}
 
       <div className="min-w-0">
-        {/* ── Header ───────────────────────────────────────────────────────── */}
+        {/* ── Header: the full toolbar on a wide screen, a title bar on a phone ── */}
+        {!wide ? (
+          <header className="sticky top-0 z-20 border-b border-edge bg-canvas/95 backdrop-blur">
+            <div className="flex min-h-14 items-center gap-2 px-3 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))]">
+              {phoneBack ? (
+                <button onClick={phoneBack} aria-label="Back" className="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-link hover:bg-sunken">
+                  <Icon.chevronLeft size={22} />
+                </button>
+              ) : (
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-on-brand" style={{ background: "linear-gradient(135deg, var(--color-brand), var(--color-brand-b))" }}>
+                  <Icon.sparkle size={18} />
+                </span>
+              )}
+              <div className="min-w-0 flex-1 leading-tight">
+                <div className="flex items-center gap-1.5">
+                  <h1 className="truncate text-lg font-bold">{phoneTitle}</h1>
+                  {isDemo ? <span className="rounded bg-warn px-1.5 py-0.5 text-[10px] font-bold text-on-accent">DEMO</span> : null}
+                </div>
+                {err ? (
+                  <div className="truncate text-[11px] text-crit">● {err}</div>
+                ) : (
+                  <div className="truncate text-[11px] text-mut">
+                    <span className={live === "live" ? "text-ok" : "text-warn"}>● {live === "live" ? "live" : "refreshing every 20 s"}</span>
+                    {" "}· updated {loadedAt ? hhmm(loadedAt.toISOString()) : "…"}
+                  </div>
+                )}
+              </div>
+              {attention ? (
+                <button
+                  onClick={() => goPhoneTab("today")}
+                  aria-label={`${attention} need a human`}
+                  className="relative grid h-10 w-10 place-items-center rounded-xl border border-crit/50 bg-crit/10 text-crit"
+                >
+                  <Icon.alert size={18} />
+                  <span className="absolute -right-1 -top-1 rounded-full bg-crit px-1.5 text-[10px] font-bold text-on-accent">{attention}</span>
+                </button>
+              ) : null}
+              <InboxBell
+                viewer={viewer}
+                tick={tickOf(loadedAt)}
+                onOpenTask={(id) =>
+                  setOpenTask({ id, ownerId: data?.open.find((t) => t.id === id)?.employee_id ?? data?.me?.employeeId ?? "" })
+                }
+              />
+            </div>
+          </header>
+        ) : (
         <header className="sticky top-0 z-20 border-b border-edge bg-canvas/95 px-4 py-3 backdrop-blur">
           <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-2">
-            <span className="flex items-center gap-2 lg:hidden">
-              <span className="grid h-8 w-8 place-items-center rounded-lg text-on-brand" style={{ background: "linear-gradient(135deg, var(--color-brand), var(--color-brand-b))" }}><Icon.sparkle size={16} /></span>
-              <b>FreshNow</b>
-              {isDemo ? <span className="rounded bg-warn px-1.5 py-0.5 text-[10px] font-bold text-on-accent">DEMO</span> : null}
-            </span>
             <SearchBox
               people={data?.people ?? []}
               tasks={data?.open ?? []}
@@ -405,7 +514,6 @@ export default function App({
                 </select>
               ) : null}
               <ThemeToggle compact />
-              <InstallApp compact />
               <button
                 onClick={() => { setPortal("tasks"); setTab("today"); }}
                 title={attention ? `${attention} thing${attention === 1 ? "" : "s"} need a human: urgent problems and updates nobody could read` : "Nothing needs a human right now"}
@@ -433,11 +541,6 @@ export default function App({
               >
                 <Icon.refresh size={18} />
               </button>
-              {identity ? (
-                <span className="grid h-9 w-9 place-items-center rounded-full bg-ok/15 text-sm font-bold text-ok lg:hidden" title={identity.name}>
-                  {identity.name.trim().charAt(0).toUpperCase()}
-                </span>
-              ) : null}
             </div>
           </div>
           <div className="mx-auto max-w-7xl pt-1.5 text-xs">
@@ -457,30 +560,10 @@ export default function App({
             )}
           </div>
         </header>
+        )}
 
-        <main className="mx-auto max-w-7xl px-4 pb-20 pt-4">
-          {/* Small screens: the navigation as a grid of icon buttons. */}
-          <nav className="mb-4 grid grid-cols-4 gap-1.5 lg:hidden" aria-label="Sections">
-            {TABS.filter((t) => ceoTools || t.id !== "ask").map((t) => {
-              const I = Icon[t.icon];
-              const on = visibleTab === t.id && portal === "tasks";
-              return (
-                <button
-                  key={t.id}
-                  onClick={() => { setPortal("tasks"); setTab(t.id); }}
-                  aria-current={on ? "page" : undefined}
-                  className={`flex flex-col items-center gap-0.5 rounded-lg border px-2 py-2 text-[11px] ${on ? "border-ok bg-ok/10 font-semibold text-ok" : "border-edge bg-panel text-ink"}`}
-                >
-                  <I size={16} />
-                  {t.label}
-                </button>
-              );
-            })}
-            <button onClick={() => setPortal("projects")} aria-current={portal === "projects" ? "page" : undefined} className={`flex flex-col items-center gap-0.5 rounded-lg border px-2 py-2 text-[11px] ${portal === "projects" ? "border-ok bg-ok/10 font-semibold text-ok" : "border-edge bg-panel text-ink"}`}>
-              <Icon.folder size={16} />Projects
-            </button>
-          </nav>
-
+        {/* On a phone the bottom padding clears the tab bar and the home indicator. */}
+        <main className={`mx-auto max-w-7xl px-4 pt-4 ${wide ? "pb-20" : "pb-[calc(6rem+env(safe-area-inset-bottom))]"}`}>
           {portal === "projects" ? (
             <ProjectsPortal
               viewer={viewer}
@@ -491,6 +574,10 @@ export default function App({
             />
           ) : (
             <>
+              {/* The header's date picker, for a phone: the day, a step either way, and a way back to today. */}
+              {!wide && (visibleTab === "today" || visibleTab === "eod") ? <DaySwitcher date={date} onDate={setDate} /> : null}
+              {/* The install offer (TASK-048) — it renders only while the browser is offering it. */}
+              {!wide && visibleTab === "today" ? <div className="mb-3 flex justify-end empty:hidden"><InstallApp compact /></div> : null}
               {visibleTab === "today" ? (
                 <Hero
                   greeting={greeting}
@@ -508,14 +595,21 @@ export default function App({
                 />
               ) : null}
 
-              <Kpis d={derived} review={data?.review.length ?? 0} onJump={setTab} />
+              {/* On a phone the counts live on Home only: every page repeating them is what made
+                  the app read as a squeezed dashboard. */}
+              {wide || visibleTab === "today" ? <Kpis d={derived} review={data?.review.length ?? 0} onJump={setTab} /> : null}
 
-              <div className="mt-5">
+              <div className={wide || visibleTab === "today" ? "mt-5" : ""}>
                 {visibleTab !== "today" ? (
-                  <div className="mb-3 flex items-baseline gap-2">
-                    <h2 className="text-lg font-semibold">{active.label}</h2>
-                    <span className="text-xs text-mut">{active.blurb}</span>
-                  </div>
+                  wide ? (
+                    <div className="mb-3 flex items-baseline gap-2">
+                      <h2 className="text-lg font-semibold">{active.label}</h2>
+                      <span className="text-xs text-mut">{active.blurb}</span>
+                    </div>
+                  ) : (
+                    // The title is in the bar above; here only what the page is for.
+                    <p className="mb-3 text-xs text-mut">{active.blurb}</p>
+                  )
                 ) : null}
 
                 {!data ? (
@@ -540,6 +634,43 @@ export default function App({
                     )}
                     {visibleTab === "mine" && (
                       <MyWorkTab tasks={derived!.mine} viewer={viewer} me={data.me} onChanged={() => void load()} onOpen={(t) => setOpenTask({ id: t.id, ownerId: t.employee_id })} />
+                    )}
+                    {visibleTab === "more" && (
+                      <MorePage
+                        tabs={TABS.filter((t) => t.id !== "more" && (ceoTools || t.id !== "ask") && !phoneTabs.some((p) => p.id === t.id))}
+                        counts={counts}
+                        showProjects={thirdTab !== "projects"}
+                        onGo={(id) => goPhoneTab(id)}
+                        name={displayName}
+                        role={roleLabel}
+                        onSignOut={identity?.onSignOut}
+                        search={
+                          <SearchBox
+                            people={data.people}
+                            tasks={data.open}
+                            blockers={data.blockers}
+                            assignments={data.assignments}
+                            onPick={onSearchPick}
+                          />
+                        }
+                        viewerPicker={
+                          !identity ? (
+                            <select
+                              value={viewer}
+                              onChange={(e) => setViewer(e.target.value)}
+                              aria-label="See the data as"
+                              className="w-full rounded-xl border border-edge bg-sunken px-3 py-2.5 text-sm"
+                            >
+                              <option value="ceo">CEO (sees everything)</option>
+                              {data.people.map((p) => (
+                                <option key={p.id} value={p.id}>{p.display_name}</option>
+                              ))}
+                            </select>
+                          ) : null
+                        }
+                        onRefresh={() => void load()}
+                        busy={busy}
+                      />
                     )}
                     {visibleTab === "carry" && <CarryTab open={data.open} onOpen={(t) => setOpenTask({ id: t.id, ownerId: t.employee_id })} />}
                     {visibleTab === "assign" && (
@@ -567,13 +698,46 @@ export default function App({
           )}
         </main>
       </div>
+      {/* ── Phone tab bar ─────────────────────────────────────────────────── */}
+      {!wide ? (
+        <nav
+          aria-label="Main"
+          className="fixed inset-x-0 bottom-0 z-30 border-t border-edge bg-panel/95 pb-[env(safe-area-inset-bottom)] backdrop-blur"
+        >
+          <div className="mx-auto grid max-w-xl grid-cols-5">
+            {phoneTabs.map((p) => {
+              const I = Icon[p.icon];
+              const on = p.id === "projects" ? portal === "projects" : portal === "tasks" && visibleTab === p.id;
+              return (
+                <button
+                  key={p.id}
+                  onClick={() => goPhoneTab(p.id)}
+                  aria-current={on ? "page" : undefined}
+                  className={`relative flex min-h-16 flex-col items-center justify-center gap-0.5 text-[11px] ${on ? "font-semibold text-ok" : "text-mut"}`}
+                >
+                  <span className={`grid h-8 w-14 place-items-center rounded-full transition-colors ${on ? "bg-ok/15" : ""}`}>
+                    <I size={22} />
+                  </span>
+                  {p.label}
+                  {p.badge ? (
+                    <span className={`absolute right-[calc(50%-1.75rem)] top-1.5 min-w-5 rounded-full px-1 text-center text-[10px] font-bold leading-5 ${p.urgent ? "bg-crit text-on-accent" : "bg-sunken text-ink ring-1 ring-edge"}`}>
+                      {p.badge}
+                    </span>
+                  ) : null}
+                </button>
+              );
+            })}
+          </div>
+        </nav>
+      ) : null}
       {openTask && data ? (
         <TaskDetailPanel
           taskId={openTask.id}
           viewer={viewer}
+          mine={openTask.ownerId === data.me?.employeeId}
           canManage={canGiveWork || openTask.ownerId === data.me?.employeeId}
           candidates={data.open}
-          onClose={() => setOpenTask(null)}
+          onClose={closeTask}
           onChanged={() => void load()}
         />
       ) : null}
@@ -628,7 +792,8 @@ function HomeOverview({
         </div>
         {week.length ? <WeekChart days={week} onDay={onDay} /> : <p className="text-sm text-mut">No week data.</p>}
       </section>
-      <section className="rounded-2xl border border-edge bg-panel p-4">
+      {/* First on a phone: what needs a person comes before the week's shape. */}
+      <section className="order-first rounded-2xl border border-edge bg-panel p-4 lg:order-none">
         <div className="mb-2 flex items-center gap-2">
           <span className={`grid h-8 w-8 place-items-center rounded-lg ${items.length ? "bg-crit-bg text-crit-fg" : "bg-ok/15 text-ok"}`}>
             {items.length ? <Icon.alert size={16} /> : <Icon.checkCircle size={16} />}
@@ -668,15 +833,28 @@ function HomeOverview({
   );
 }
 
-/** A percentage with its evidence, never alone: green when counted, amber when self-reported. */
+/**
+ * A percentage with its evidence, never alone: green when counted, amber when self-reported.
+ * A picked range is drawn as a range — solid up to its low end, a lighter band to its high
+ * end — and labelled "10–20%", so an estimate never looks like a measurement.
+ */
 function Progress({ t }: { t: OpenTask }) {
   const label = t.progress_source === "counted" ? "counted" : t.progress_source === "status" ? "by status" : "self-reported";
+  const band = t.progress_band_low != null && t.progress_band_high != null ? { low: t.progress_band_low, high: t.progress_band_high } : null;
+  const fill = t.progress_source === "self_reported" ? "bg-warn" : "bg-ok";
   return (
-    <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-xs" title={`${t.progress_pct}% — ${label}${t.elapsed_pct != null ? ` · ${t.elapsed_pct}% of the time used` : ""}`}>
+    <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-xs" title={`${progressLabel(t)} — ${label}${t.elapsed_pct != null ? ` · ${t.elapsed_pct}% of the time used` : ""}`}>
       <span className="relative inline-block h-1.5 w-14 overflow-hidden rounded bg-sunken align-middle">
-        <span className={`absolute left-0 top-0 h-full ${t.progress_source === "self_reported" ? "bg-warn" : "bg-ok"}`} style={{ width: `${t.progress_pct}%` }} />
+        {band ? (
+          <>
+            <span className={`absolute left-0 top-0 h-full ${fill}`} style={{ width: `${band.low}%` }} />
+            <span className={`absolute top-0 h-full ${fill} opacity-40`} style={{ left: `${band.low}%`, width: `${band.high - band.low}%` }} />
+          </>
+        ) : (
+          <span className={`absolute left-0 top-0 h-full ${fill}`} style={{ width: `${t.progress_pct}%` }} />
+        )}
       </span>
-      <b>{t.progress_pct}%</b>
+      <b>{progressLabel(t)}</b>
       {t.behind ? <Pill tone="crit">behind</Pill> : null}
       {t.priority === "urgent" || t.priority === "high" ? <Pill tone={t.priority === "urgent" ? "crit" : "warn"}>{t.priority}</Pill> : null}
     </span>
@@ -714,7 +892,8 @@ function Kpis({ d, review, onJump }: { d: Derived | null; review: number; onJump
     info: { border: "border-l-link", badge: "bg-med-bg text-med-fg", n: "text-ink" },
   } as const;
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+    // Three across on a phone, so all six fit in two short rows above the fold.
+    <div className="grid grid-cols-3 gap-2 sm:gap-3 xl:grid-cols-6">
       {tiles.map((t) => {
         const I = Icon[t.icon];
         const c = tone[t.tone];
@@ -723,14 +902,14 @@ function Kpis({ d, review, onJump }: { d: Derived | null; review: number; onJump
             key={t.label}
             onClick={() => onJump(t.tab)}
             title={t.hint}
-            className={`group rounded-2xl border border-edge border-l-4 bg-panel p-3.5 text-left transition-[border-color,transform] hover:-translate-y-0.5 hover:border-link ${c.border}`}
+            className={`group rounded-2xl border border-edge border-l-4 bg-panel p-2.5 text-left transition-[border-color,transform] hover:-translate-y-0.5 hover:border-link sm:p-3.5 ${c.border}`}
           >
             <div className="flex items-start justify-between gap-2">
-              <span className="text-xs font-medium text-mut">{t.label}</span>
-              <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-full ${c.badge}`}><I size={16} /></span>
+              <span className="text-[11px] font-medium leading-tight text-mut sm:text-xs">{t.label}</span>
+              <span className={`hidden h-8 w-8 shrink-0 place-items-center rounded-full sm:grid ${c.badge}`}><I size={16} /></span>
             </div>
-            <div className={`mt-1 text-3xl font-bold leading-none ${c.n}`}>{t.n}</div>
-            <div className="mt-2 flex items-end justify-between gap-2 text-[11px] leading-snug text-mut">
+            <div className={`mt-1 text-2xl font-bold leading-none sm:text-3xl ${c.n}`}>{t.n}</div>
+            <div className="mt-2 hidden items-end justify-between gap-2 text-[11px] leading-snug text-mut sm:flex">
               <span>{t.hint}</span>
               <span className="inline-flex shrink-0 items-center gap-0.5 text-link opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">View <Icon.arrowRight size={12} /></span>
             </div>
@@ -941,7 +1120,14 @@ function CarryTab({ open, onOpen }: { open: OpenTask[]; onOpen: (t: OpenTask) =>
  * The browser half of the bot's status board. Same three buttons, same rule: a tap is the
  * record, and a blocker asks for the person's own words before anything is sent — exactly
  * as the bot does with its force-reply — because those words are what the CEO reads.
+ *
+ * Each task is one card: tap the title for everything about it, tap a button to report,
+ * open "Update progress" to pick a range. Only one progress form is open at a time, so a
+ * phone never shows a wall of forms.
  */
+const MINE_FILTERS = ["All", "Behind", "High priority", "Not started"] as const;
+type MineFilter = (typeof MINE_FILTERS)[number];
+
 function MyWorkTab({
   tasks,
   viewer,
@@ -957,36 +1143,84 @@ function MyWorkTab({
 }) {
   const act = useAction();
   const [title, setTitle] = useState("");
-  const [blocking, setBlocking] = useState<string | null>(null); // task id awaiting a note
-  const [note, setNote] = useState("");
+  const [progressFor, setProgressFor] = useState<string | null>(null); // task id with the progress form open
+  const [filter, setFilter] = useState<MineFilter>("All");
 
   if (!me) return <Empty>Could not work out who you are — refresh, or sign in again.</Empty>;
 
-  async function report(t: OpenTask, status: ReportedStatus, withNote?: string): Promise<void> {
-    const ok = await act.run(async () => {
-      const r = await api.reportUpdate(viewer, {
-        taskId: t.id,
-        status,
-        ...(withNote ? { note: withNote } : {}),
-      });
-      onChanged();
-      if (r.needsReview) return "Saved. Your note could not be read automatically, so a person will look at it.";
-      if (r.blockerId) {
-        return `Saved as a blocker (${r.severity ?? "severity pending"}) — ${
-          r.alerted ? "the CEO has been alerted." : "queued for the CEO."
-        }`;
-      }
-      return `Saved: "${t.title}" → ${status.replace("_", " ")}.`;
-    });
-    if (ok) {
-      setBlocking(null);
-      setNote("");
-    }
-  }
+  const shown = tasks.filter((t) =>
+    filter === "Behind" ? t.behind
+      : filter === "High priority" ? t.priority === "high" || t.priority === "urgent"
+        : filter === "Not started" ? t.status === "open"
+          : true,
+  );
+  const n: Record<MineFilter, number> = {
+    All: tasks.length,
+    Behind: tasks.filter((t) => t.behind).length,
+    "High priority": tasks.filter((t) => t.priority === "high" || t.priority === "urgent").length,
+    "Not started": tasks.filter((t) => t.status === "open").length,
+  };
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       <Toast message={act.message} tone={act.tone} onDone={act.clear} />
+
+      {tasks.length > 0 ? (
+        <Chips
+          options={MINE_FILTERS.map((f) => `${f} · ${n[f]}`)}
+          selected={`${filter} · ${n[filter]}`}
+          onPick={(v) => setFilter((MINE_FILTERS.find((f) => v.startsWith(`${f} ·`)) ?? "All"))}
+        />
+      ) : null}
+
+      {tasks.length === 0 ? (
+        <Empty>Nothing open on your list. 🎉</Empty>
+      ) : shown.length === 0 ? (
+        <Empty>Nothing matches “{filter}”.</Empty>
+      ) : (
+        <ul className="space-y-3">
+          {shown.map((t) => (
+            <li key={t.id}>
+              <Card className="space-y-3">
+                {/* The whole heading opens the task — steps, history, problems, due date. */}
+                <button onClick={() => onOpen(t)} className="group flex w-full items-start gap-2 text-left" title="Steps, progress, problems, related tasks">
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-semibold text-ink group-hover:text-link">
+                      {t.title}
+                      <Demo on={t.is_synthetic} />
+                    </span>
+                    <span className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-mut">
+                      <Progress t={t} />
+                      <Pill>{t.status.replace("_", " ")}</Pill>
+                      <span>open <Age days={t.age_days} /></span>
+                      {t.due_at ? <span>due {dmon(t.due_at)}</span> : null}
+                    </span>
+                  </span>
+                  <span className="mt-0.5 flex shrink-0 items-center gap-0.5 text-xs text-link">
+                    Open <Icon.chevronRight size={16} />
+                  </span>
+                </button>
+                {t.last_note ? <Words text={t.last_note} /> : null}
+                <StatusReport viewer={viewer} task={t} onChanged={onChanged} />
+                <button
+                  onClick={() => setProgressFor(progressFor === t.id ? null : t.id)}
+                  aria-expanded={progressFor === t.id}
+                  className="flex w-full items-center justify-between rounded-lg border border-dashed border-edge px-3 py-2.5 text-left text-sm font-semibold text-link hover:border-link"
+                >
+                  <span>
+                    <span className="block">📊 Update progress</span>
+                    <span className="block text-xs font-normal text-mut">pick a range: 0–10%, 10–20% …</span>
+                  </span>
+                  <span aria-hidden="true">{progressFor === t.id ? "▴" : "▾"}</span>
+                </button>
+                {progressFor === t.id ? (
+                  <ProgressReport viewer={viewer} task={t} onSaved={() => { setProgressFor(null); onChanged(); }} />
+                ) : null}
+              </Card>
+            </li>
+          ))}
+        </ul>
+      )}
 
       <Card>
         <form
@@ -1002,59 +1236,139 @@ function MyWorkTab({
             });
           }}
         >
-          <div className="min-w-64 flex-1">
-            <TextField label="Add a task" value={title} onChange={setTitle} placeholder="e.g. Clean the chiller in van 2" maxLength={200} />
+          <div className="min-w-0 flex-1 basis-56">
+            <TextField label="Something not on the list? Add it" value={title} onChange={setTitle} placeholder="e.g. Clean the chiller in van 2" maxLength={200} />
           </div>
-          <Button type="submit" tone="primary" busy={act.busy} disabled={title.trim().length < 3}>
+          <Button type="submit" tone="primary" busy={act.busy} disabled={title.trim().length < 3} className="min-h-10">
             ➕ Add
           </Button>
         </form>
       </Card>
+    </div>
+  );
+}
 
-      {tasks.length === 0 ? (
-        <Empty>Nothing open on your list. 🎉</Empty>
-      ) : (
-        <div className="space-y-2">
-          {tasks.map((t) => (
-            <Card key={t.id} className="space-y-2">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="flex-1 text-sm">
-                  {t.title}
-                  <Demo on={t.is_synthetic} />
-                </span>
-                <Progress t={t} />
-                <Pill>{t.status}</Pill>
-                <Age days={t.age_days} />
-                <Button onClick={() => onOpen(t)} title="Steps, progress, problems, related tasks">Details</Button>
-              </div>
-              {t.last_note ? <Words text={t.last_note} /> : null}
-              {blocking === t.id ? (
-                <div className="space-y-2">
-                  <TextArea
-                    label="What is blocking it? Your own words, any language."
-                    value={note}
-                    onChange={setNote}
-                    placeholder="e.g. van 2 ka chiller kaam nahi kar raha"
-                    maxLength={2000}
-                  />
-                  <div className="flex gap-2">
-                    <Button tone="danger" busy={act.busy} disabled={note.trim().length < 3} onClick={() => void report(t, "blocker", note.trim())}>
-                      🚫 Send blocker
-                    </Button>
-                    <Button onClick={() => { setBlocking(null); setNote(""); }}>Cancel</Button>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  <Button tone="primary" busy={act.busy} onClick={() => void report(t, "done")}>✅ Done</Button>
-                  <Button busy={act.busy} onClick={() => void report(t, "pending")}>⏳ Pending</Button>
-                  <Button tone="danger" busy={act.busy} onClick={() => { setBlocking(t.id); setNote(""); }}>🚫 Blocker</Button>
-                </div>
-              )}
-            </Card>
-          ))}
+/** The day being looked at, on a phone: a step back, the date, a step forward, and Today. */
+function DaySwitcher({ date, onDate }: { date: string; onDate: (d: string) => void }) {
+  const today = companyToday();
+  const label = new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: "Asia/Dubai" }).format(
+    new Date(`${date}T12:00:00+04:00`),
+  );
+  const btn = "grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-edge bg-panel text-ink disabled:opacity-40";
+  return (
+    <div className="mb-3 flex items-center gap-2">
+      <button onClick={() => onDate(shiftDay(date, -1))} aria-label="Previous day" className={btn}><Icon.chevronLeft size={18} /></button>
+      <label className="relative flex min-h-10 flex-1 items-center justify-center rounded-xl border border-edge bg-panel px-3 text-sm font-semibold">
+        {date === today ? `Today · ${label}` : label}
+        {/* The native picker, invisible over the label: a tap opens the phone's own calendar. */}
+        <input type="date" value={date} max={today} onChange={(e) => e.target.value && onDate(e.target.value)} aria-label="Day shown" className="absolute inset-0 opacity-0" />
+      </label>
+      <button onClick={() => onDate(shiftDay(date, 1))} disabled={date >= today} aria-label="Next day" className={btn}><Icon.chevronRight size={18} /></button>
+      {date !== today ? (
+        <button onClick={() => onDate(today)} className="min-h-10 rounded-xl border border-ok bg-ok/10 px-3 text-sm font-semibold text-ok">Today</button>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * The phone's menu: who you are, a search over everything on the board, every page that is
+ * not in the tab bar (as big rows with what each is for), and this device's settings. On a
+ * wide screen the sidebar and header already are all of this.
+ */
+function MorePage({
+  tabs,
+  counts,
+  showProjects,
+  onGo,
+  name,
+  role,
+  onSignOut,
+  search,
+  viewerPicker,
+  onRefresh,
+  busy,
+}: {
+  tabs: (typeof TABS)[number][];
+  counts: Record<TabId, number | null>;
+  showProjects: boolean;
+  onGo: (id: TabId | "projects") => void;
+  name: string;
+  role: string;
+  onSignOut: (() => void) | undefined;
+  search: React.ReactNode;
+  viewerPicker: React.ReactNode;
+  onRefresh: () => void;
+  busy: boolean;
+}) {
+  const row = (id: TabId | "projects", icon: IconName, label: string, blurb: string, count: number | null) => {
+    const I = Icon[icon];
+    return (
+      <li key={id}>
+        <button onClick={() => onGo(id)} className="flex min-h-14 w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-sunken">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-sunken text-ink"><I size={18} /></span>
+          <span className="min-w-0 flex-1">
+            <span className="block font-semibold">{label}</span>
+            <span className="block truncate text-xs text-mut">{blurb}</span>
+          </span>
+          {count !== null ? <span className="rounded-full bg-sunken px-2 py-0.5 text-[11px] tabular-nums text-mut">{count}</span> : null}
+          <span className="text-mut"><Icon.chevronRight size={18} /></span>
+        </button>
+      </li>
+    );
+  };
+  const groups = ["Today", "Work", "Records", "Tools"]
+    .map((g) => ({ g, items: tabs.filter((t) => t.group === g) }))
+    .filter((x) => x.items.length > 0 || (x.g === "Work" && showProjects));
+
+  return (
+    <div className="space-y-4">
+      <Card className="flex items-center gap-3">
+        <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-ok/15 text-lg font-bold text-ok">{name.trim().charAt(0).toUpperCase() || "?"}</span>
+        <span className="min-w-0 flex-1 leading-tight">
+          <span className="block truncate font-semibold">{name}</span>
+          <span className="block text-xs text-mut">{role}</span>
+        </span>
+        {onSignOut ? (
+          <button onClick={onSignOut} className="flex items-center gap-1.5 rounded-xl border border-crit/40 bg-crit/10 px-3 py-2 text-sm font-semibold text-crit">
+            <Icon.logout size={16} /> Sign out
+          </button>
+        ) : null}
+      </Card>
+
+      <div>
+        <h3 className="mb-1.5 px-1 text-[11px] font-bold uppercase tracking-widest text-mut">Find anything</h3>
+        {search}
+      </div>
+
+      {groups.map(({ g, items }) => (
+        <div key={g}>
+          <h3 className="mb-1.5 px-1 text-[11px] font-bold uppercase tracking-widest text-mut">{g}</h3>
+          <ul className="divide-y divide-edge overflow-hidden rounded-2xl border border-edge bg-panel">
+            {items.map((t) => row(t.id, t.icon, t.label, t.blurb, counts[t.id]))}
+            {g === "Work" && showProjects ? row("projects", "folder", "Projects", "work with a plan and an end — milestones, risks, progress", null) : null}
+          </ul>
         </div>
-      )}
+      ))}
+
+      <div>
+        <h3 className="mb-1.5 px-1 text-[11px] font-bold uppercase tracking-widest text-mut">This device</h3>
+        <Card className="space-y-3">
+          {viewerPicker ? (
+            <label className="block text-sm">
+              <span className="mb-1 block text-mut">Demo: see the board as</span>
+              {viewerPicker}
+            </label>
+          ) : null}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-sm text-mut">Theme</span>
+            <ThemeToggle />
+          </div>
+          <InstallApp />
+          <Button onClick={onRefresh} busy={busy} className="w-full">↻ Refresh now</Button>
+          <p className="text-xs text-mut">Everything here shows exactly what this account may see.</p>
+        </Card>
+      </div>
     </div>
   );
 }

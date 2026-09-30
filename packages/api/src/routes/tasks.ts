@@ -5,6 +5,7 @@ import {
   canAssignTo,
   closeTask,
   linkTasks,
+  PROGRESS_BANDS,
   reportProgress,
   resolveBlocker,
   setStepDone,
@@ -34,7 +35,19 @@ export const BEHIND_THRESHOLD_POINTS = 30;
 const IdParams = z.object({ id: z.string().uuid() });
 const StepBody = z.object({ title: z.string().min(2).max(200) });
 const StepPatch = z.object({ done: z.boolean() });
-const ProgressBody = z.object({ pct: z.number().int().min(0).max(100), note: z.string().min(3).max(500) });
+// An exact figure OR a range from the picker — exactly one, and the range one of core's own
+// ten steps (checked here too, so a bad range is a 400 and not a 500). Core turns the range
+// into the number totals use.
+const ProgressBody = z
+  .object({
+    pct: z.number().int().min(0).max(100).optional(),
+    band: z
+      .object({ low: z.number().int(), high: z.number().int() })
+      .refine((b) => PROGRESS_BANDS.some((x) => x.low === b.low && x.high === b.high), { message: "Not one of the listed ranges" })
+      .optional(),
+    note: z.string().min(3).max(500),
+  })
+  .refine((b) => (b.pct === undefined) !== (b.band === undefined), { message: "Give either pct or band, not both" });
 const FieldsBody = z.object({
   priority: z.enum(["low", "normal", "high", "urgent"]).optional(),
   dueAt: z.string().datetime().nullable().optional(),
@@ -68,6 +81,7 @@ export function registerTaskRoutes(app: FastifyInstance): void {
       const [task] = await sql<Record<string, unknown>[]>`
         select t.id, t.title, t.details, t.status, s.category as status_category, t.resolution, t.resolved_at,
                t.progress_pct, t.progress_source, t.progress_note, t.progress_updated_at,
+               t.progress_band_low, t.progress_band_high,
                t.started_at, t.due_at, t.priority, t.estimate_minutes, t.parent_task_id, t.task_type,
                t.created_at, t.is_synthetic, t.employee_id,
                employee_display_name(t.employee_id) as employee_name,
@@ -84,7 +98,7 @@ export function registerTaskRoutes(app: FastifyInstance): void {
                                          employee_display_name(o.employee_id) as other_owner
                                   from task_relation r join task o on o.id = r.to_task_id
                                   where r.from_task_id = ${id} order by r.created_at`;
-      const history = await sql`select pct, source, note, created_at, employee_display_name(employee_id) as by_name
+      const history = await sql`select pct, band_low, band_high, source, note, created_at, employee_display_name(employee_id) as by_name
                                 from progress_event where task_id = ${id} order by created_at desc limit 20`;
       const blockers = await sql`select b.id, b.severity, b.category, b.status, b.raised_at, b.resolved_at, b.resolution_note,
                                         employee_display_name(b.resolved_by) as resolved_by_name, u.note_raw
@@ -131,8 +145,14 @@ export function registerTaskRoutes(app: FastifyInstance): void {
     const viewer = await resolveViewer(req);
     const t = await visibleTask(viewer, id);
     if (!t || !(await mayManage(viewer, t.employee_id))) return forbid(req, reply, "That task is not yours to change");
-    await reportProgress({ taskId: id, employeeId: viewer.employeeId, pct: body.pct, note: body.note, correlationId: req.correlationId });
-    return reply.send({ taskId: id, pct: body.pct, source: "self_reported" });
+    const r = await reportProgress({
+      taskId: id,
+      employeeId: viewer.employeeId,
+      ...(body.band ? { band: body.band } : { pct: body.pct! }),
+      note: body.note,
+      correlationId: req.correlationId,
+    });
+    return reply.send({ taskId: id, pct: r.pct, band: r.band, source: "self_reported" });
   });
 
   app.patch("/dashboard/tasks/:id", async (req, reply) => {

@@ -283,6 +283,20 @@ Settings → Apps → Chrome → Battery → *Unrestricted*.
 The phone does **not** need to be on the laptop's Wi-Fi — mobile data works, because the tunnel is
 on the internet.
 
+**Finding your way on the phone (since 30 Sep).** The phone no longer shows a squeezed copy of the laptop
+screen. It is one page at a time:
+- **The bar at the bottom** — **Home · My work · Assign · Alerts · More**. People who cannot give work
+  out see **Projects** in the middle instead of **Assign**. A red number on **Alerts** is urgent problems;
+  the number on **My work** is your open tasks.
+- **More** — everything else (Carry-over, End of day, People, Activity, Ask, Projects), a search box over
+  everything on the board, and **This device**: theme, install, refresh, sign out. A page opened from More
+  has a **‹** back arrow at the top left.
+- **Home** — the day with **‹ ›** to step a day back or forward (tap the date for a calendar), then the
+  counts, what needs a human, the week, and the day's reports as cards.
+- **My work** — one card per task: tap its title to open it, **✅ Done / ⏳ Pending / 🚫 Problem** to report,
+  **📊 Update progress** to pick a range (0–10%, 10–20% …). A task opens as its own page with **‹ Back**.
+- Tables on the laptop are cards on the phone — nothing scrolls sideways.
+
 **If the phone will not cooperate:**
 
 | On the phone | Cause | Do |
@@ -333,14 +347,22 @@ Keep all three screens visible: CEO in Chrome, Hemanth in Edge, the phone in you
 2. The phone buzzes: **New task for you**. Tap it → the app opens on that task.
 
 ### Act 4 — A problem reported from the phone reaches the CEO at once (phone → CEO, 3 min)
-1. Phone → **My work** → the chiller task → **🚫 Blocker** → type in any language, e.g.
-   `van 2 chiller not cooling, juice getting warm` → **🚫 Send blocker**.
-2. Toast: *"Saved as a blocker (high) — the CEO has been alerted."*
+1. Phone → **My work** → the chiller task → **🚫 Problem** → tap **Machine not working** (it fills the
+   box; tap more to add them) and/or type in any language, e.g.
+   `van 2 chiller not cooling, juice getting warm` → **🚫 Send problem**.
+2. Toast: *"Saved as a problem (high) — the CEO has been alerted."*
 3. The CEO's laptop shows **Problem for you to resolve**, and it **stays on screen until dismissed**
    — a blocker should not be glanced at and lost. The CEO's Telegram gets it too.
    - If the AI key is not working, the CEO instead gets **An update needs a human reader** with
      the employee's exact words. Nothing is lost either way.
 4. **Overview** now shows the problem under *Urgent open*.
+
+### Act 4b — Progress as a range, not a guess at a number (phone → CEO, 1 min)
+1. Phone → **My work** → any task → **📊 Update progress** → *How far along is it?* **20–30% · about a
+   quarter** → tap **Materials ready** → **Save progress**.
+2. The card now reads **20–30%** — never "25%". The CEO's **Carry-over** shows the same range.
+3. CEO opens the task: **20–30%** · *self-reported · a range, counted as 25% in totals*. The midpoint is
+   used only for sums and the "behind" flag; the person's range is what is shown. Ticking steps replaces it.
 
 ### Act 5 — Acknowledge stops the escalation (CEO, 1 min)
 **CEO → Alerts → Open problems → ✅ Acknowledge.** The row turns *on it · DEMO CEO*. Every report
@@ -393,7 +415,7 @@ update sla_policy set minutes = case severity when 'critical' then 15 when 'high
 - **Ask** — `how many blockers are open right now?` → the answer **with the SQL that produced it**.
 - **End of day → Generate end-of-day reports** — one report per person, counts computed in SQL.
 - **People** — access roles; the database decides who sees what.
-- **Projects** (top switcher) — purpose, requirements, milestones, progress.
+- **Projects** (top switcher on the laptop; **More → Projects** on the CEO's phone) — purpose, requirements, milestones, progress.
 - **Activity** — the audit trail of everything above.
 
 ### Act 12 — Back to the default (CEO, 30 s)
