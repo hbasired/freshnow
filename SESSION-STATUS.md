@@ -9,7 +9,7 @@
 - **CEO deck (Hostinger/Groq/OpenRouter) updated, 17 slides:** Hostinger needs no extra contract, but file its DPA and
   get four things in writing (slide 8); Groq is usable for employee words with six conditions (slide 9); OpenRouter is
   not, on a normal account — its DPA is enterprise-only. Every finding is from search results; the pages were blocked.
-- **After pulling:** `pnpm install`, `pnpm migrate` (0018), `pnpm build:web`, restart the api.
+- **After pulling** (COMMANDS.md §0): `pnpm install`, `pnpm migrate` (adds 0018 — skipping it makes the task lists fail with a 500), `pnpm build:web`, then restart the api, worker and bot.
 - Tests: 493 pass, 9 need a live model provider. Browser: 37/37 at phone and desktop sizes (Chromium, not a real phone).
 
 ---

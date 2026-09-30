@@ -90,6 +90,7 @@ git status                      # anything listed as modified is yours: git stas
 git checkout main
 git pull
 pnpm install
+pnpm migrate                    # database changes (Supabase must be running) — "skip" for ones already applied
 pnpm build:web                  # rebuild the dashboard — every pull, not optional
 </code></pre>
 <ul>
@@ -97,7 +98,9 @@ pnpm build:web                  # rebuild the dashboard — every pull, not opti
   which is build output and not in git — after a pull the laptop keeps serving the <em>old</em> dashboard
   (no consent notice, no delivery-mode switch, sign-in aimed at port 54321, so the phone cannot sign
   in through the tunnel) until you rebuild. Build before starting the API (§3).</li>
-<li>Nothing new to migrate: the database schema did not change.</li>
+<li><strong><code>pnpm migrate</code> is not optional either</strong> when a pull adds a migration (TASK-049 added
+  <code>0018_progress_band.sql</code>). Skipped, the task lists fail with <em>Request failed (500)</em> and the api window logs
+  <code>column … does not exist</code>. It needs Supabase running; run it before starting the api.</li>
 </ul>
 <h3>1.1 · Already running when you pulled? What to restart</h3>
 <p>Nothing reloads by itself — <code>pnpm start:*</code> runs the code as it was when it started.</p>
@@ -142,7 +145,7 @@ pnpm build:web                  # rebuild the dashboard — every pull, not opti
 </tr>
 </tbody>
 </table>
-<p>Order: <code>git pull</code> → <code>pnpm install</code> → <code>pnpm build:web</code> → restart <strong>api</strong>, <strong>worker</strong>, <strong>bot</strong> → reload the
+<p>Order: <code>git pull</code> → <code>pnpm install</code> → <code>pnpm migrate</code> → <code>pnpm build:web</code> → restart <strong>api</strong>, <strong>worker</strong>, <strong>bot</strong> → reload the
 browsers. (<code>pnpm dev:api</code> instead of <code>start:api</code> reloads server code on every change, but the dashboard
 still needs <code>pnpm build:web</code>.)</p>
 <ul>

@@ -9,23 +9,53 @@ cd C:\Users\acer\Downloads\freshnow
 
 ---
 
-## 1 · Start, in this order
+## 0 · Get the latest code (`git pull`)
 
-After every `git pull`, first:
+New work arrives as a pull request on GitHub. Once it is **merged**, it is on `main`:
+
+```powershell
+cd C:\Users\acer\Downloads\freshnow
+git status                                 # anything listed as modified is yours: git stash (or commit it) first
+git checkout main
+git pull origin main
+```
+
+To try work **before** its pull request is merged, pull its branch instead (the name is on the pull
+request page), then go back to `main` afterwards:
+
+```powershell
+git fetch origin
+git checkout claude/elegant-curie-bgpzqh   # the branch name from the pull request
+git pull origin claude/elegant-curie-bgpzqh
+git checkout main                          # later, to go back
+```
+
+Then, **after every pull** — with Docker and Supabase running (§1):
 
 ```bash
-pnpm install
+pnpm install                               # new or updated packages
+pnpm migrate                               # new database changes — safe every time: already-applied ones print "skip"
 pnpm build:web                             # the dashboard at /app/ — build output, not in git
 ```
 
-Already running? Restart the **api**, **worker** and **bot** windows (`Ctrl+C`, start again) — they run
-the code as it was when they started. Leave the **tunnel**, Docker and Supabase running; reload the
-browsers. Details: `DEMO-GUIDE-APP.md` §1.1.
+and restart the **api**, **worker** and **bot** windows (`Ctrl+C`, start again) — they run the code as
+it was when they started. Leave the **tunnel**, Docker and Supabase running; reload the browsers (on a
+phone: close and reopen the app). Details: `DEMO-GUIDE-APP.md` §1.1.
+
+> **Skipping `pnpm migrate` breaks the dashboard** whenever a pull adds a migration: the task lists
+> fail with *Request failed (500)* and the api window logs `column … does not exist`. Run it, restart
+> the api. (TASK-049 added `0018_progress_band.sql`.)
+
+---
+
+## 1 · Start, in this order
 
 ```bash
 docker compose up -d                       # Redis + the old Postgres (rollback copy) + Adminer
 
 npx supabase start -x realtime,storage-api,imgproxy,edge-runtime,logflare,vector,supavisor,mailpit,postgrest
+
+pnpm migrate                               # only needed after a pull (§0); harmless otherwise
 
 pnpm start:api                             # terminal 1 — leave it running
 pnpm start:worker                          # terminal 2 — leave it running
@@ -158,19 +188,21 @@ Record any new password in `CREDENTIALS.local.md`.
 ## 7 · Checks, tests and reports
 
 ```bash
-pnpm verify            # typecheck + the full test suite (412 tests, ~2–3 minutes, makes real model calls)
+pnpm verify            # typecheck + the full test suite (~500 tests, ~2–3 minutes, makes real model calls)
 pnpm e2e               # 19 end-to-end checks against the real database and model — sends real Telegram messages
 python scripts/render-guides.py   # re-render docs/guides/*.html from the .md guides (DB-WALKTHROUGH, BACKEND-OPERATIONS, FRESH-RUN, CHANNELS-GUIDE)
 pnpm test              # tests only
 pnpm typecheck
-pnpm migrate           # apply any new migrations to the live database (17 so far)
+pnpm migrate           # apply any new migrations to the live database (18 so far)
 pnpm bench             # benchmark models (costs a few cents)
 pnpm bench:report      # rebuild docs/reports/model-benchmark.html
 ```
 
-Four tests make real model calls and **fail with a 30 s timeout whenever Groq is slow**
-(it was timing out at 25 s per call on 19 Sep 2026); the other 412 do not depend on a
-provider. `curl localhost:3001/health` shows `load.llm` if you want to know before running.
+Nine tests need a live model provider: eight call the model for real (and **fail with a 30 s
+timeout whenever Groq is slow** — it was timing out at 25 s per call on 19 Sep 2026), and one
+checks the fall-back to a second provider, so it needs two provider keys in `.env`. The other 493
+do not depend on a provider (counted 30 Sep 2026). `curl localhost:3001/health` shows `load.llm`
+if you want to know before running.
 
 ---
 
@@ -207,6 +239,8 @@ Details and what to click: `CHANNELS-GUIDE.md` (rendered at `docs/guides/channel
 | Phone cannot open the dashboard | The Wi-Fi address changed (`pnpm urls`), the phone is on another network, or the firewall rule in §3 is missing. |
 | Dashboard loads, sign-in spins or says "Sign-in service is not reachable" | Supabase is not running (`npx supabase start …`, §1). Sign-in goes through port 3001, so no firewall rule for 54321 is needed. |
 | `/app/` is a 404, or the dashboard looks like it did before a pull | Not rebuilt: `pnpm build:web`, then restart the api. |
+| After a pull, the task lists say **Request failed (500)**; the api window logs `column … does not exist` | A migration was not applied: `pnpm migrate`, then restart the api. |
+| `git pull` refuses: *"Your local changes … would be overwritten"* | You changed a tracked file. `git stash`, pull, then `git stash pop` (or `git stash drop` if you do not need the change). |
 | Nothing arrives in Telegram | The worker is not running; it is what delivers messages. |
 | "429" or slow replies | The provider rate-limited us; the wrapper backs off and falls through the provider order (`LLM_PROVIDER_ORDER`). `curl localhost:3001/health` shows `load.llm`. |
 | `supabase start` fails, "network … not found" | Leftover containers from an interrupted start: `npx supabase stop`, then start again. Only if that fails: `npx supabase stop --no-backup` (this wipes Supabase data). |
@@ -231,7 +265,7 @@ docker exec supabase_db_freshnow psql -U postgres -d postgres -c "select display
 | Dashboard logins | `CREDENTIALS.local.md` (git-ignored) |
 | Demo runbook | `DEMO-GUIDE.md` |
 | What state the system is in | `SESSION-STATUS.md` |
-| Reports | `docs/reports/` · task write-ups `docs/tasks/` · CEO deck `docs/reports/ceo-deck-data-residency.html` |
+| Reports | `docs/reports/` · task write-ups `docs/tasks/` · CEO decks `docs/reports/ceo-deck-hostinger-final-verdict.html` (Hostinger, Groq, OpenRouter — latest), `ceo-deck-azure-aws-uae.html`, `ceo-deck-data-residency.html` |
 | Guides for people | `docs/guides/index.html` (rendered from the `.md` files at the root) |
 | Channel keys (VAPID, SMTP, chat) | `.env` — templates and comments in `.env.example` |
 | Optional chat server | `docker-compose.mattermost.yml` (separate file; never starts by itself) |
