@@ -60,6 +60,8 @@ pull request page); after it is merged, `git checkout main` and `git pull origin
   (500)* and the api window logs `column … does not exist`. It needs Supabase running; run it before starting the api.
 - **Nobody is asked to agree again.** The 30 Sep updates do not change the privacy notice's words, so everyone's
   consent still counts.
+- **`pnpm install` matters this time**: the security update (TASK-051) upgrades the email library and the test
+  runner to versions without known vulnerabilities. It adds no migration.
 
 ### 1.1 · Already running when you pulled? What to restart
 
@@ -460,6 +462,24 @@ update sla_policy set minutes = case severity when 'critical' then 15 when 'high
 > evidence is counted in the database. What code cannot do — sign a contract, decide what the law means — is
 > listed on the page, not hidden."
 
+### Act 11c — Security in depth (CEO, 3 min, optional)
+1. **Records → Compliance → Security** (phone: More → Compliance, scroll down): the virus scanner (*off* unless you
+   started ClamAV — COMMANDS.md §7d), files refused as malware, the last backup and whether its restore test passed,
+   and phones paused after 10 wrong passwords.
+2. In a spare terminal: `pnpm security:scan` — secret files in git, dependency advisories, and (with ClamAV on) the
+   scanner refusing the industry's EICAR test file, sent from memory so Windows Defender does not grab it first.
+3. `pnpm backup` then `pnpm backup:restore-test` — *"a backup that has never been restored is a hope"*; the Security
+   card updates.
+4. Say what it does to files: every document is checked when it **arrives** — true type, dangerous names, virus
+   scan, and PDFs with active content are read but never passed on to another phone. PDFs are opened in a
+   separate, sealed process with a memory and time limit, so a booby-trapped file cannot take the server down.
+
+> "Defence in depth: no single layer is trusted. The scanner can miss something new, so the structure checks and
+> the sealed reader are still there; a stolen password is slowed down per phone; and if the worst happens, a tested
+> backup sits unplugged in a drawer."
+
+Do **not** demonstrate the sign-in pause on the demo phone — it locks that phone out for 15 minutes.
+
 ### Act 12 — Back to the default (CEO, 30 s)
 **Alerts → How people hear from us → Telegram.** Recorded in Activity like every other switch.
 
@@ -494,6 +514,9 @@ update sla_policy set minutes = case severity when 'critical' then 15 when 'high
 | The phone stopped buzzing after a break | Was **cloudflared** restarted? New address = set the phone up again (§5.3). |
 | Two people in one browser get each other's banners | Use Chrome for one and Edge for the other (§0). |
 | Nothing arrives in **Telegram** any more | You are in **App only** — switch back to *Telegram* or *Telegram + App*. |
+| A file is refused: **"The virus scanner could not check this file"** | `CLAMAV_HOST` is in `.env` but ClamAV is not running or still loading. Start it (`docker compose --profile security up -d clamav`) or remove the line and restart **api** and **bot**. |
+| The bot says **"I could not download that file from Telegram to check it"** | Documents are now checked on arrival; Telegram's download failed. Send the file again. |
+| **"Too many wrong passwords from this device"** | Ten wrong passwords in 15 minutes from that phone. Wait, or restart the **api**. |
 | The problem arrives as **"needs a human reader"** | The AI key is not working. Check `GROQ_API_KEY` / `OPENROUTER_API_KEY`; the demo still works. |
 
 Useful looks inside (Studio → SQL Editor):
@@ -572,6 +595,24 @@ docker compose stop        # keeps all data
   numbers, emails, Emirates IDs, IBANs and card numbers are removed from AI prompts (R7); the Compliance page and
   a daily audit snapshot are the evidence (R8); **Download my data** for everyone, **Export** for the CEO.
 
+**Added on 30 Sept (TASK-051 — security in depth)**
+- Documents are checked **when they arrive** (Telegram, dashboard) — size, dangerous names, true type, optional
+  **ClamAV** virus scan, PDF active content — and a file that must not be passed on is never attached to anything.
+- PDFs are read in a **sealed child process** (256 MB, 20 s, no keys in its environment).
+- **Browser rules** (Content-Security-Policy and friends) on every page; notification taps open only this app.
+- **Sign-in brake**: 10 wrong passwords per phone → 15-minute pause.
+- **Backups** with checksum, optional encryption (age), restore test, offline copy; **`pnpm security:scan`**.
+- Production now also requires a virus scanner (rule R6).
+
+**Added on 30 Sept (TASK-052 — audit: who gets the work)**
+- **A chat assignment is made only when the name fits exactly one person.** "Ask Ahmed to count stock" with two Ahmeds now
+  answers *"Ahmed" could be Ahmed Khan or Ahmed Ali* with just those two buttons; a nickname or a name in another script
+  gets *"did you mean …?"*. Before, the AI's pick was assigned straight away. Documents show a shared name the same way and
+  mark the AI's guesses *"my guess — check"* before the CEO taps Create.
+- Phone numbers and emails in a document still never reach the AI, but now **come back in the task** the person receives
+  (before, they read "[phone]").
+- The retention sweep and "erase this person" now also clear the copies of people's words kept for replay.
+
 **Limits — say them if asked**
 - **Policy as code checks what it can see.** It cannot see Groq's console (zero retention is a switch a person
   flips and records in the registry), sign a contract, or decide what the law means. Names are not removed from
@@ -587,5 +628,9 @@ docker compose stop        # keeps all data
   and the notification display was tested in Chrome; the first real phone is this demo.
 - **New staff still join through Telegram** (invite code → bot). An app-only sign-up is not built yet.
 - **Files attached to an assignment** are still delivered in Telegram only.
+- **Antivirus catches known malware, not everything.** A brand-new sample has no signature yet — that is why the
+  other layers stay. Photos are not virus-scanned: Telegram re-encodes them into a new image before we see them.
+- **The PDF sandbox is a separate process, not a separate machine.** It has no keys and a memory cap, but it runs as
+  the same user; production can move it into its own container.
 - **iPhone needs iOS 16.4+** and the Home Screen step; the EU restriction on iPhone web apps does not
   apply in the UAE.

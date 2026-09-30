@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { join } from "node:path";
 import Fastify, { type FastifyInstance } from "fastify";
 import multipart from "@fastify/multipart";
 import { MAX_FILE_BYTES } from "@freshnow/core";
@@ -13,7 +14,9 @@ import { registerAlertRoutes } from "./routes/alerts.js";
 import { registerProjectRoutes } from "./routes/projects.js";
 import { registerEventRoutes } from "./routes/events.js";
 import { registerInboundRoutes } from "./routes/inbound.js";
-import { registerAuthProxyRoutes } from "./routes/auth-proxy.js";
+import { isLocalSupabase, registerAuthProxyRoutes } from "./routes/auth-proxy.js";
+import { dashboardDist } from "./routes/app-shell.js";
+import { registerSecurityHeaders } from "./security-headers.js";
 import { registerComplianceRoutes } from "./routes/compliance.js";
 
 declare module "fastify" {
@@ -44,6 +47,20 @@ export function buildServer(logger = true): FastifyInstance {
       typeof incoming === "string" && incoming.length > 0 ? incoming : randomUUID();
     reply.header("x-correlation-id", req.correlationId);
   });
+
+  // Security headers and Content-Security-Policy on every response — see security-headers.ts.
+  // The Supabase origin is allowed for sign-in only when the browser talks to it directly
+  // (a hosted project); a local one is reached through this server's own /auth/v1 proxy.
+  const supabaseUrl = process.env.SUPABASE_URL;
+  let supabaseOrigin: string | null = null;
+  if (supabaseUrl && !isLocalSupabase(supabaseUrl)) {
+    try {
+      supabaseOrigin = new URL(supabaseUrl).origin;
+    } catch {
+      /* config validation reports a bad URL; no extra origin is allowed */
+    }
+  }
+  registerSecurityHeaders(app, { appIndexHtml: join(dashboardDist(), "index.html"), supabaseOrigin });
 
   // One consistent error shape. Zod validation failures become 400s.
   app.setErrorHandler((err, req, reply) => {

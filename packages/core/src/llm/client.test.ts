@@ -238,10 +238,35 @@ describe("what leaves the building (rules R7 and R4)", () => {
       });
     });
     expect(bodies[0]).not.toContain("050 123 4567");
-    expect(bodies[0]).toContain("call Ramesh on [phone]"); // the name stays: routing needs it
+    expect(bodies[0]).toContain("call Ramesh on [phone-1]"); // the name stays: routing needs it
     const rows = await getServiceSql()<{ redacted: number }[]>`
       select redacted from llm_call where correlation_id = ${CORR} and success = true`;
     expect(rows[0]?.redacted).toBe(1);
+  });
+
+  it("the provider sees placeholders; the caller gets the real values back in the answer", async () => {
+    const bodies: string[] = [];
+    // The model writes its answer in terms of the placeholders it was shown.
+    // Like a real model, it reads which placeholder stands for which number from the prompt.
+    vi.stubGlobal("fetch", vi.fn(async (_url: string | URL, init?: RequestInit) => {
+      const body = String(init?.body);
+      bodies.push(body);
+      const dead = /old number (\[phone-\d+\])/.exec(body)?.[1];
+      const live = /supplier now on (\[phone-\d+\])/.exec(body)?.[1];
+      return fakeResponse(completion(JSON.stringify({ status: "blocker", category: `call ${live} not ${dead}`, severity: "high" })));
+    }));
+    let got: z.infer<typeof Schema> | undefined;
+    await withEnv({ GROQ_API_KEY: process.env.GROQ_API_KEY ?? "test-key", LLM_PROVIDER_ORDER: "groq" }, async () => {
+      got = await llmComplete({
+        messages: [{ role: "user", content: "old number 050 111 2222 is dead, supplier now on +971 55 333 4444" }],
+        schema: Schema,
+        correlationId: CORR,
+      });
+    });
+    expect(bodies[0]).not.toContain("050 111 2222");
+    expect(bodies[0]).not.toContain("333 4444");
+    // Two numbers stayed two numbers, and each came back where the model put it.
+    expect(got?.category).toBe("call +971 55 333 4444 not 050 111 2222");
   });
 
   it("OpenRouter is asked for zero-retention endpoints only once the registry confirms it", async () => {

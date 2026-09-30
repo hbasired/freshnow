@@ -35,7 +35,7 @@ export interface RateLimit {
  */
 export const LIMITS: Record<string, RateLimit> = {
   document: {
-    actions: ["document.planned", "document.blocked", "document.flagged"],
+    actions: ["document.planned", "document.blocked", "document.flagged", "security.malware_blocked", "security.scan_failed"],
     max: 20,
     windowMinutes: 60,
     label: "documents",

@@ -16,6 +16,8 @@
     "scripts/e2e-demo.ts",
     "scripts/employee-sim.ts",
     "scripts/reset-employee.ts",
-    "scripts/compliance.ts"
+    "scripts/compliance.ts",
+    "scripts/backup.ts",
+    "scripts/security-scan.ts"
   ]
 }

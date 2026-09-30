@@ -32,7 +32,11 @@
     "build:web": "pnpm --filter @freshnow/dashboard build",
     "bench": "tsx scripts/bench-models.ts",
     "bench:report": "node scripts/bench-report.mjs",
-    "compliance": "tsx scripts/compliance.ts"
+    "compliance": "tsx scripts/compliance.ts",
+    "backup": "tsx scripts/backup.ts",
+    "backup:verify": "tsx scripts/backup.ts verify",
+    "backup:restore-test": "tsx scripts/backup.ts restore-test",
+    "security:scan": "tsx scripts/security-scan.ts"
   },
   "devDependencies": {
     "@types/node": "^22.20.1",
@@ -40,7 +44,7 @@
     "postgres": "^3.4.9",
     "tsx": "^4.23.13",
     "typescript": "^5.9.3",
-    "vitest": "~2.1.9"
+    "vitest": "~4.1.11"
   },
   "dependencies": {
     "@grammyjs/runner": "^2.0.3",

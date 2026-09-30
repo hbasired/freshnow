@@ -702,7 +702,15 @@ export interface DocumentPlan {
   injection: { suspicious: boolean; labels: string[] };
   summary: string;
   needsOwner: boolean;
-  tasks: { title: string; detail: string | null; assigneeId: string | null; assigneeName: string | null; namedAs: string | null }[];
+  tasks: {
+    title: string;
+    detail: string | null;
+    assigneeId: string | null;
+    assigneeName: string | null;
+    namedAs: string | null;
+    matchedBy: "name" | "ai" | null;
+    candidates: { id: string; name: string }[];
+  }[];
   /** Always false from the browser today: attachments are Telegram file ids, and an upload has none. */
   fileForwarded: boolean;
 }
@@ -828,4 +836,12 @@ export interface ComplianceEvidence {
   retention: { days: number | null; lastAgedAt: string | null; notesAged: number };
   rights: { erasures: number; withdrawals: number; exports: number };
   lastSnapshotAt: string | null;
+  security: {
+    antivirus: { configured: boolean; reachable: boolean };
+    lastBackup: { at: string; encrypted: boolean } | null;
+    lastRestoreTest: { at: string; ok: boolean } | null;
+    malwareBlocked: number;
+    scanFailures: number;
+    signInThrottled: number;
+  };
 }

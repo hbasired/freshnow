@@ -241,19 +241,22 @@ export type { Transcription } from "./voice.js";
 export { classifyIntent, intentSchema, isObviousQuestion, summariseOwnWork, formatOwnWork } from "./intent.js";
 export type { Intent, OwnWorkSummary } from "./intent.js";
 
-export { loadMessageContext, resolveMessage } from "./context.js";
+export { loadMessageContext, resolveMessage, groundResolution } from "./context.js";
+export { checkNamedPerson, matchPeopleByName, nameWords } from "./people-match.js";
+export type { NamedPerson, PersonCheck } from "./people-match.js";
 export type { MessageContext, ResolvedMessage, ResolvedItem, ContextTask, ContextPerson } from "./context.js";
 
 export { generateEodReport, generateAllEodReports, formatEodReport } from "./eod.js";
 export type { EodReport, EodTaskLine, EodBlockerLine } from "./eod.js";
 
-export { saveAttachments, listAttachmentsForAssignment, describeAttachment, MAX_ATTACHMENTS } from "./attachments.js";
-export type { IncomingFile, StoredAttachment } from "./attachments.js";
+export { saveAttachments, gateIncomingDocument, listAttachmentsForAssignment, describeAttachment, MAX_ATTACHMENTS } from "./attachments.js";
+export type { GateResult, IncomingFile, StoredAttachment } from "./attachments.js";
 
 export {
   extractPdfText,
   decodeTextFile,
   planDocumentTasks,
+  groundDocumentTasks,
   formatDocumentPlan,
   MAX_DOC_CHARS,
   MAX_DOC_TASKS,
@@ -270,6 +273,9 @@ export {
   MAX_TEXT_CHARS,
 } from "./document-security.js";
 export type { SafetyReport, Verdict } from "./document-security.js";
+export { antivirusConfig, antivirusStatus, scanBytes } from "./antivirus.js";
+export type { AntivirusConfig, ScanResult } from "./antivirus.js";
+export { extractPdfTextSandboxed, PdfSandboxError, PDF_SANDBOX } from "./pdf-sandbox.js";
 
 export {
   scanForInjection,

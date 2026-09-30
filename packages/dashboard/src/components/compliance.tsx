@@ -146,6 +146,55 @@ export function ComplianceTab({ viewer, tick }: { viewer: string; tick: number }
         </Card>
       </div>
 
+      <section>
+        <h3 className="mb-2 text-sm font-semibold">Security · {e.days} days</h3>
+        <div className="grid gap-4 lg:grid-cols-3">
+          <Card>
+            <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-mut">Virus scanner</h4>
+            <div className="flex items-center gap-2">
+              <Pill tone={!e.security.antivirus.configured ? "warn" : e.security.antivirus.reachable ? "ok" : "crit"}>
+                {!e.security.antivirus.configured ? "off" : e.security.antivirus.reachable ? "on" : "down"}
+              </Pill>
+              <span className="text-sm">{e.security.malwareBlocked} file(s) refused as malware</span>
+            </div>
+            <p className="mt-2 text-xs text-mut">
+              {!e.security.antivirus.configured
+                ? "Attachments are checked for type and structure but not scanned for viruses. Production requires ClamAV (rule R6)."
+                : e.security.antivirus.reachable
+                  ? "Every attachment is scanned by ClamAV before anything opens it."
+                  : "The scanner is not answering, so attachments are being refused until it is back."}
+              {e.security.scanFailures ? ` ${e.security.scanFailures} upload(s) refused because the scanner was down.` : ""}
+            </p>
+          </Card>
+          <Card>
+            <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-mut">Backups</h4>
+            {e.security.lastBackup ? (
+              <div className="text-sm">
+                Last: <b>{dmon(e.security.lastBackup.at)} {hhmm(e.security.lastBackup.at)}</b> · {e.security.lastBackup.encrypted ? "encrypted" : <span className="text-crit">not encrypted</span>}
+              </div>
+            ) : (
+              <div className="text-sm text-crit">No backup recorded</div>
+            )}
+            <div className="mt-1 text-sm">
+              Restore test:{" "}
+              {e.security.lastRestoreTest ? (
+                <b className={e.security.lastRestoreTest.ok ? "" : "text-crit"}>
+                  {e.security.lastRestoreTest.ok ? "passed" : "FAILED"} {dmon(e.security.lastRestoreTest.at)}
+                </b>
+              ) : (
+                <span className="text-crit">never</span>
+              )}
+            </div>
+            <p className="mt-2 text-xs text-mut">A backup never restored is a hope. Keep one copy offline (unplugged) — ransomware cannot encrypt what it cannot reach.</p>
+          </Card>
+          <Card>
+            <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-mut">Sign-in</h4>
+            <div className="text-sm">{e.security.signInThrottled} device(s) paused after 10 wrong passwords</div>
+            <p className="mt-2 text-xs text-mut">Counted per phone, so one person guessing cannot lock everyone else out.</p>
+          </Card>
+        </div>
+      </section>
+
       <p className="text-xs text-mut">
         What code cannot do: sign a contract, decide what the law means, or see a setting inside another company's console. The registry records what a
         person confirmed and when; the system refuses production until they have. <code>pnpm compliance --production</code> shows the same checks in a terminal.

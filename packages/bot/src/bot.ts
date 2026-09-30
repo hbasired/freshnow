@@ -57,6 +57,7 @@ import {
   resolveRole,
   resolveMessage,
   saveAttachments,
+  gateIncomingDocument,
   saveVoiceAsset,
   safeFileName,
   summariseOwnWork,
@@ -64,11 +65,14 @@ import {
   updateProfileField,
   validateInvite,
   withdrawConsent,
+  escapeMarkdown,
+  matchPeopleByName,
   type DocumentPlan,
   type ExtractedDocument,
   type SafetyReport,
   type IncomingFile,
   type ResolvedMessage,
+  type ResolvedItem,
   type ProfileStep,
   type Role,
   type ViewerOrg,
@@ -751,6 +755,12 @@ export function createBot(deps: BotDeps): Bot<FreshCtx> {
     await showDirectory(ctx);
   });
 
+  // "Someone else" under a which-one question: the full list of people this person may assign to.
+  bot.callbackQuery("assignwho:all", async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await showDirectory(ctx);
+  });
+
   bot.callbackQuery(/^assignto:([0-9a-f-]{36})$/, async (ctx) => {
     const toId = ctx.match![1]!;
     // Callback data is guessable (an employee id), so the directory having listed this
@@ -1066,7 +1076,35 @@ export function createBot(deps: BotDeps): Bot<FreshCtx> {
       await ctx.reply(`📎 I already have ${describeAttachment(file)} — not adding it twice.`);
       return;
     }
-    held.push(file);
+
+    // Documents are checked when they ARRIVE, not only when someone asks to read them: a held
+    // file can be passed on to another person by its Telegram id, and nothing is passed on
+    // unchecked (TASK-051). Size, dangerous names, true type, virus scan, structure.
+    let toHold = file;
+    if (file.kind === "document") {
+      const employeeId = ctx.employee.id;
+      const rl = await checkRateLimit({ key: "document", employeeId });
+      if (!rl.allowed) return void (await ctx.reply(rl.message));
+      const gate = await documentSemaphore.run(() =>
+        gateIncomingDocument({ file, uploadedBy: employeeId, download: () => downloadTelegramFile(ctx, file.fileId) }),
+      );
+      if (!gate.hold) {
+        if (gate.reason === "refused" && gate.report) {
+          await ctx.reply(explainVerdict(gate.report, file.fileName ?? "that file"), { parse_mode: "Markdown" });
+        } else if (gate.reason === "too_large") {
+          await ctx.reply(`📎 ${describeAttachment(file)} is over 15 MB, so I cannot check it for viruses — and I do not keep or pass on a file I have not checked. Please share a link to it instead.`);
+        } else {
+          await ctx.reply("I could not download that file from Telegram to check it — the connection failed. Please send it again in a moment.");
+        }
+        return;
+      }
+      toHold = gate.file;
+      if (gate.report.verdict === "suspicious") {
+        // Held so it can still be read; never attached or forwarded (saveAttachments drops it).
+        await ctx.reply(explainVerdict(gate.report, file.fileName ?? "that file"), { parse_mode: "Markdown" });
+      }
+    }
+    held.push(toHold);
     ctx.session.pendingFiles = held;
 
     const caption = ctx.message.caption?.trim();
@@ -1232,27 +1270,24 @@ export async function handleText(ctx: FreshCtx, text: string): Promise<void> {
       // THIS person may assign to, so a manager typing a stranger's name gets "I don't
       // recognise that name" and the directory, never a task on a stranger's list.
       const people = ctx.viewer ? await listAssignable(ctx.viewer) : [];
-      const needle = text.trim().toLowerCase();
 
       // Assigning work to the WRONG person is worse than asking again, so a name must be
-      // unambiguous before it is acted on. First-substring-match would send the job to
-      // whoever sorted first: with a "Sara" and a "Sarah" on the books, or a two-letter
-      // typo matching three people, the CEO would never learn it went astray.
-      const matches =
-        needle.length >= 2
-          ? people.filter((p) => p.display_name.toLowerCase().includes(needle))
-          : [];
-      const exact = matches.find((p) => p.display_name.toLowerCase() === needle);
-      const match = exact ?? (matches.length === 1 ? matches[0] : undefined);
+      // unambiguous before it is acted on — the same whole-word rule as every other path
+      // (people-match.ts). Substring matching sent "Ali" to Khalid; with a "Sara" and a
+      // "Sarah" on the books, or a typo matching three people, the CEO would never learn it
+      // went astray.
+      const matches = matchPeopleByName(text, people);
+      const match = matches.length === 1 ? matches[0] : undefined;
 
       if (!match) {
-        await ctx.reply(
-          matches.length > 1
-            ? `"${text.trim()}" matches ${matches.length} people — ${matches
-                .map((p) => p.display_name)
-                .join(", ")}. Tap the one you mean:`
-            : "I don't recognise that name. Tap one of these instead:",
-        );
+        if (matches.length > 1) {
+          const kb = new InlineKeyboard();
+          for (const p of matches) kb.text(p.display_name, `assignto:${p.id}`).row();
+          kb.text("👥 Someone else", "assignwho:all");
+          await ctx.reply(`"${text.trim()}" could be ${matches.map((p) => p.display_name).join(" or ")}. Tap the one you mean:`, { reply_markup: kb });
+          return;
+        }
+        await ctx.reply("I don't recognise that name. Tap one of these instead:");
         await showDirectory(ctx);
         return;
       }
@@ -1605,6 +1640,53 @@ async function downloadTelegramFile(ctx: FreshCtx, fileId: string): Promise<Uint
 }
 
 /**
+ * Assign each item whose person is CONFIRMED by name, and return the summary line per item.
+ * Files are taken once: passing them inside the loop attached and delivered the same photo on
+ * every item, so "tell Rashid X and Priya Y" sent the picture twice.
+ */
+async function assignConfirmed(ctx: FreshCtx, assignedBy: string, items: readonly ResolvedItem[], text: string): Promise<string> {
+  const lines: string[] = [];
+  const files = ctx.session.pendingFiles;
+  ctx.session.pendingFiles = undefined;
+  for (const item of items) {
+    const title = (item.newTaskTitle ?? text).slice(0, 160);
+    const res = await assignTask({
+      assignedBy,
+      assignedTo: item.assignee!.id,
+      title,
+      attachments: lines.length === 0 ? files : undefined,
+    });
+    lines.push(`📌 ${escapeMarkdown(item.assignee!.display_name)}: "${escapeMarkdown(title)}"` + (res.delivered ? "" : " _(queued — not on Telegram yet)_"));
+  }
+  return lines.join("\n");
+}
+
+/**
+ * The name did not settle who: it fits several people, or only the model could place it. Ask,
+ * offering just the people it could mean (and "someone else"), and hold the work until a tap.
+ * Nothing is assigned on a guess.
+ */
+async function askWhoFor(ctx: FreshCtx, item: ResolvedItem, text: string): Promise<void> {
+  const title = (item.newTaskTitle ?? text).slice(0, 160);
+  ctx.session.step = { kind: "assign_pending", title };
+  const options = item.candidates.length > 0 ? item.candidates : item.suggestedAssignee ? [item.suggestedAssignee] : [];
+  const mine: typeof options = [];
+  for (const p of options) if (ctx.viewer && (await canAssignTo(ctx.viewer, p.id))) mine.push(p);
+  const question =
+    item.candidates.length > 1
+      ? `"${item.namedAs ?? ""}" could be ${item.candidates.map((c) => c.display_name).join(" or ")}. Who should do "${title}"?`
+      : item.suggestedAssignee
+        ? item.namedAs
+          ? `By "${item.namedAs}" did you mean ${item.suggestedAssignee.display_name}? Tap to assign "${title}".`
+          : `Who should do "${title}"? My guess is ${item.suggestedAssignee.display_name}.`
+        : `Who should do "${title}"?`;
+  const kb = new InlineKeyboard();
+  for (const p of mine) kb.text(p.display_name, `assignto:${p.id}`).row();
+  kb.text("👥 Someone else", "assignwho:all");
+  await ctx.reply(question, { reply_markup: kb });
+}
+
+/**
  * Move any files the person sent just before this message onto the record it produced,
  * and clear the hold. A photo of a leaking chiller is evidence on that report — held
  * only until we know what it belongs to, never left dangling on the session.
@@ -1711,7 +1793,11 @@ async function routeFreeText(ctx: FreshCtx, text: string): Promise<void> {
       // named person is checked against the write rule; the ones outside their team are
       // reported back by name, not silently dropped and not silently assigned.
       if (ctx.role !== "employee" && ctx.viewer) {
+        // `assignee` is set only when the name as written fits exactly one person (checked in
+        // code — people-match.ts). Two Ahmeds, or a name only the model could place, are NOT
+        // assigned: that work is asked about below, with just the people it could mean.
         const named = r.items.filter((i) => i.assignee);
+        const unsure = r.items.filter((i) => !i.assignee && (i.candidates.length > 0 || i.suggestedAssignee));
         const refused: string[] = [];
         const allowed: typeof named = [];
         for (const item of named) {
@@ -1721,27 +1807,22 @@ async function routeFreeText(ctx: FreshCtx, text: string): Promise<void> {
         if (refused.length > 0) {
           await ctx.reply(`${refused.join(", ")} ${refused.length === 1 ? "does" : "do"} not report to you, so I did not assign anything to them.`);
         }
-        if (allowed.length > 0) {
-          const lines: string[] = [];
-          // Take the files ONCE. Passing them inside the loop attached and delivered the
-          // same photo on every item, so "tell Rashid X and Priya Y" sent the picture
-          // twice — the docplan path already guards against exactly this.
-          const files = ctx.session.pendingFiles;
-          ctx.session.pendingFiles = undefined;
-          for (const item of allowed) {
-            const title = (item.newTaskTitle ?? text).slice(0, 160);
-            const res = await assignTask({
-              assignedBy: employee.id,
-              assignedTo: item.assignee!.id,
-              title,
-              attachments: lines.length === 0 ? files : undefined,
-            });
-            lines.push(
-              `📌 ${item.assignee!.display_name}: "${title}"` +
-                (res.delivered ? "" : " _(queued — not on Telegram yet)_"),
+        if (unsure.length > 0) {
+          if (allowed.length > 0) await ctx.reply(await assignConfirmed(ctx, employee.id, allowed, text), { parse_mode: "Markdown" });
+          await askWhoFor(ctx, unsure[0]!, text);
+          if (unsure.length > 1) {
+            await ctx.reply(
+              "Also not assigned yet — send them again once this one is done:\n" +
+                unsure
+                  .slice(1)
+                  .map((i) => `• "${(i.newTaskTitle ?? text).slice(0, 80)}"${i.namedAs ? ` (for "${i.namedAs}")` : ""}`)
+                  .join("\n"),
             );
           }
-          await ctx.reply(lines.join("\n"), { parse_mode: "Markdown" });
+          return;
+        }
+        if (allowed.length > 0) {
+          await ctx.reply(await assignConfirmed(ctx, employee.id, allowed, text), { parse_mode: "Markdown" });
           return;
         }
         // Nobody named: keep the extracted task and ASK who, instead of losing it.

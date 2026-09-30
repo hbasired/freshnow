@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { checkNamedPerson } from "./people-match.js";
 import { getServiceSql } from "./db.js";
 import { llmComplete } from "./llm/client.js";
 import { localDateTime } from "./time.js";
@@ -121,6 +122,8 @@ const itemSchema = z.object({
   task_index: indexField(MAX_TASKS),
   new_task_title: z.string().max(200).nullish(),
   assignee_index: indexField(MAX_COLLEAGUES),
+  /** The colleague's name exactly as written — checked against the list in code (people-match.ts). */
+  named_as: z.string().max(80).nullish(),
 });
 
 // Deliberately liberal in what it accepts: models legitimately omit fields that do
@@ -137,6 +140,7 @@ const resolutionSchema = z.object({
   new_task_title: z.string().max(200).nullish(),
   /** Index into the supplied colleague list (1-based); 0 or absent = nobody named. */
   assignee_index: indexField(MAX_COLLEAGUES),
+  named_as: z.string().max(80).nullish(),
   /** Every distinct work item in the message. Absent = the single item above. */
   items: z.array(itemSchema).max(MAX_ITEMS).nullish(),
   reason: z.string().max(400).nullish(),
@@ -148,8 +152,17 @@ export interface ResolvedItem {
   task: ContextTask | null;
   /** A title to create a new task with, when this item describes new work. */
   newTaskTitle: string | null;
-  /** A REAL colleague this item should be assigned to, already validated. */
+  /**
+   * A REAL colleague this item should be assigned to — set ONLY when the name as written fits
+   * exactly this one person (people-match.ts). A model's pick alone is never enough to act on.
+   */
   assignee: ContextPerson | null;
+  /** The name as the message wrote it, when one was written. */
+  namedAs: string | null;
+  /** The written name fits several people: these, for the sender to choose from. */
+  candidates: ContextPerson[];
+  /** The model's pick when the written name matched nobody by spelling — to confirm, not to act on. */
+  suggestedAssignee: ContextPerson | null;
 }
 
 export interface ResolvedMessage {
@@ -228,19 +241,22 @@ Fields:
                   NEVER echo the sentence back as the title.
   assignee_index  Which COLLEAGUE the work is for, when intent is assignment. 0 if nobody named.
                   Match on first name, nickname or partial name.
+  named_as      The colleague's name EXACTLY as the message writes it ("Rashid", "ahmed bhai",
+                "राशिद"). Null if nobody is named. It is checked against the list, so copy it,
+                do not correct it.
   items         ONE MESSAGE CAN CONTAIN SEVERAL SEPARATE WORK ITEMS. Return an array with
                 one entry per distinct item, each with its own task_index,
-                new_task_title and assignee_index. Split on "and", "also", commas,
+                new_task_title, assignee_index and named_as. Split on "and", "also", commas,
                 bullet points and new lines — but only when they are genuinely
                 DIFFERENT pieces of work, never to chop one sentence in half.
                   "tell Rashid to fix van 2 and ask Priya to restock the Marina machine"
-                    -> [{new_task_title:"Fix van 2", assignee_index:<Rashid>},
-                        {new_task_title:"Restock the Marina machine", assignee_index:<Priya>}]
+                    -> [{new_task_title:"Fix van 2", assignee_index:<Rashid>, named_as:"Rashid"},
+                        {new_task_title:"Restock the Marina machine", assignee_index:<Priya>, named_as:"Priya"}]
                   "chiller is fixed and I finished the delivery"
                     -> [{task_index:<chiller>}, {task_index:<delivery>}]
                 For a single-item message return one entry. Maximum ${MAX_ITEMS}.
-                Also fill the top-level task_index/new_task_title/assignee_index with
-                the FIRST item, for compatibility.
+                Also fill the top-level task_index/new_task_title/assignee_index/named_as
+                with the FIRST item, for compatibility.
   reason        One short English clause saying why — this is shown to auditors.
 
 Never invent a task or a person. If nothing in the lists fits, use 0.`;
@@ -265,31 +281,55 @@ export async function resolveMessage(
     // Reasoning models spend tokens before answering; budget for that (gotcha G21).
     maxTokens: 1400,
   });
+  return groundResolution(out, ctx);
+}
 
+/** What the model returned, before anything in it is trusted. */
+export type ModelResolution = z.infer<typeof resolutionSchema>;
+
+/**
+ * Turn the model's answer into validated references. Pure and exported so the rules — which
+ * task, and above all WHO — are tested without a model and replay identically.
+ */
+export function groundResolution(out: ModelResolution, ctx: Pick<MessageContext, "tasks" | "colleagues">): ResolvedMessage {
   // Grounding: an index is only honoured if it actually points into the list we gave
   // it, so an out-of-range or invented reference resolves to null rather than to some
   // other person's task.
-  const resolveOne = (it: z.infer<typeof itemSchema>): ResolvedItem => ({
-    task:
-      it.task_index >= 1 && it.task_index <= ctx.tasks.length
-        ? ctx.tasks[it.task_index - 1]!
-        : null,
-    newTaskTitle: it.new_task_title?.trim() ? it.new_task_title.trim() : null,
-    assignee:
+  //
+  // Then WHO is decided in code, not by the model: the name as written must fit exactly one
+  // colleague. Two Ahmeds, or a name only the model could place, leaves `assignee` empty and
+  // says why — the caller asks rather than guesses (people-match.ts).
+  const resolveOne = (it: z.infer<typeof itemSchema>): ResolvedItem => {
+    const modelPick =
       it.assignee_index >= 1 && it.assignee_index <= ctx.colleagues.length
         ? ctx.colleagues[it.assignee_index - 1]!
-        : null,
-  });
+        : null;
+    const check = checkNamedPerson({ namedAs: it.named_as, modelPick, people: ctx.colleagues });
+    return {
+      task:
+        it.task_index >= 1 && it.task_index <= ctx.tasks.length
+          ? ctx.tasks[it.task_index - 1]!
+          : null,
+      newTaskTitle: it.new_task_title?.trim() ? it.new_task_title.trim() : null,
+      assignee: check.status === "confirmed" ? check.person : null,
+      namedAs: it.named_as?.trim() || null,
+      candidates: check.status === "ambiguous" ? check.candidates : [],
+      suggestedAssignee: check.status === "unverified" ? check.suggested : null,
+    };
+  };
 
   const flat = resolveOne({
     task_index: out.task_index,
     new_task_title: out.new_task_title,
     assignee_index: out.assignee_index,
+    named_as: out.named_as,
   });
 
   // Prefer the array when the model split the message; drop entries that resolved to
   // nothing at all, since acting on them would create an empty task.
-  const listed = (out.items ?? []).map(resolveOne).filter((i) => i.task ?? i.newTaskTitle ?? i.assignee);
+  const listed = (out.items ?? [])
+    .map(resolveOne)
+    .filter((i) => i.task ?? i.newTaskTitle ?? i.assignee ?? i.suggestedAssignee ?? i.candidates[0]);
   const items = listed.length > 0 ? listed : [flat];
 
   return {

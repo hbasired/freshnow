@@ -1,5 +1,6 @@
-import type { FastifyInstance } from "fastify";
-import { loadConfig } from "@freshnow/core";
+import { createHash } from "node:crypto";
+import type { FastifyInstance, FastifyRequest } from "fastify";
+import { loadConfig, logAudit } from "@freshnow/core";
 
 /**
  * Same-origin sign-in for a LOCAL Supabase.
@@ -40,6 +41,52 @@ const FORWARD_HEADERS = ["apikey", "authorization", "content-type", "x-client-in
 
 const UPSTREAM_TIMEOUT_MS = 10_000;
 
+/**
+ * Password guessing. Supabase Auth has its own per-address limit, but behind the Cloudflare
+ * tunnel every phone arrives from 127.0.0.1 (cloudflared runs on this machine), so it would
+ * see ONE address: one attacker could lock every employee out, and no single guesser would be
+ * singled out. So this server counts failed password sign-ins per real client address — the
+ * CF-Connecting-IP header, trusted only when the request came from this machine (i.e. from
+ * cloudflared; anyone on the Wi-Fi could otherwise write the header themselves) — and passes
+ * that address on, so Supabase's own limit works per phone too.
+ *
+ * Counts failures only: a person who types their password right is never slowed down. In
+ * memory, so a restart forgets it; that is acceptable for a guessing brake (an attacker gains
+ * one window per restart) and avoids storing addresses. Bounded in size.
+ */
+export const SIGNIN_LIMIT = { maxFailures: 10, windowMs: 15 * 60_000, maxTracked: 10_000 } as const;
+const failures = new Map<string, number[]>();
+
+export function resetSignInThrottle(): void {
+  failures.clear();
+}
+
+function isLoopback(addr: string | undefined): boolean {
+  return addr === "127.0.0.1" || addr === "::1" || addr === "::ffff:127.0.0.1";
+}
+
+/** The address of the phone or browser, not of the tunnel in front of us. */
+export function clientAddress(req: FastifyRequest): string {
+  const cf = req.headers["cf-connecting-ip"];
+  if (typeof cf === "string" && cf.length > 0 && cf.length < 64 && isLoopback(req.socket.remoteAddress)) return cf;
+  return req.ip;
+}
+
+function recentFailures(key: string, now: number): number[] {
+  const list = (failures.get(key) ?? []).filter((t) => now - t < SIGNIN_LIMIT.windowMs);
+  if (list.length) failures.set(key, list);
+  else failures.delete(key);
+  return list;
+}
+
+function recordFailure(key: string, now: number): void {
+  if (!failures.has(key) && failures.size >= SIGNIN_LIMIT.maxTracked) {
+    const oldest = failures.keys().next().value;
+    if (oldest !== undefined) failures.delete(oldest);
+  }
+  failures.set(key, [...recentFailures(key, now), now]);
+}
+
 export function isLocalSupabase(url: string | undefined): boolean {
   if (!url) return false;
   try {
@@ -72,6 +119,36 @@ export function registerAuthProxyRoutes(app: FastifyInstance): void {
         if (!isLocalSupabase(base) || !grants) return refused();
         if (op === "token" && !grants.includes(query.grant_type ?? "")) return refused();
 
+        const client = clientAddress(req);
+        const guessing = op === "token" && query.grant_type === "password";
+        if (guessing) {
+          const now = Date.now();
+          const recent = recentFailures(client, now);
+          if (recent.length >= SIGNIN_LIMIT.maxFailures) {
+            const retryAfter = Math.max(1, Math.ceil((recent[0]! + SIGNIN_LIMIT.windowMs - now) / 1000));
+            try {
+              await logAudit({
+                actor: "system",
+                action: "security.signin_throttled",
+                entity: "auth",
+                // A hash, not the address: enough to see one source repeating, nothing more stored.
+                detail: { client: createHash("sha256").update(client).digest("hex").slice(0, 16), failures: recent.length },
+                correlationId: req.correlationId,
+              });
+            } catch (err) {
+              req.log.warn({ err }, "auth proxy: could not audit a throttled sign-in");
+            }
+            reply.header("retry-after", String(retryAfter));
+            return reply.code(429).send({
+              error: {
+                code: "too_many_attempts",
+                message: `Too many wrong passwords from this device. Try again in about ${Math.ceil(retryAfter / 60)} minute(s).`,
+                correlationId: req.correlationId,
+              },
+            });
+          }
+        }
+
         const target = new URL(`${base!.replace(/\/$/, "")}/auth/v1/${op}`);
         for (const [k, v] of Object.entries(query)) if (typeof v === "string") target.searchParams.set(k, v);
 
@@ -81,8 +158,8 @@ export function registerAuthProxyRoutes(app: FastifyInstance): void {
           if (typeof v === "string") headers[h] = v;
         }
         // GoTrue rate-limits sign-in per client address; without this every attempt would
-        // look like it came from the API itself.
-        headers["x-forwarded-for"] = req.ip;
+        // look like it came from the API itself (or, through the tunnel, from cloudflared).
+        headers["x-forwarded-for"] = client;
 
         let res: Response;
         try {
@@ -98,6 +175,10 @@ export function registerAuthProxyRoutes(app: FastifyInstance): void {
             error: { code: "bad_gateway", message: "Sign-in service is not reachable — is Supabase running?", correlationId: req.correlationId },
           });
         }
+
+        // Wrong email or password comes back as 400 (GoTrue "invalid_grant"); 401/422 likewise.
+        if (guessing && [400, 401, 422].includes(res.status)) recordFailure(client, Date.now());
+        if (guessing && res.ok) failures.delete(client);
 
         reply.code(res.status);
         const type = res.headers.get("content-type");

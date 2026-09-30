@@ -1,3 +1,18 @@
+# Session status — 2026-09-30 (cloud session, TASK-051 + TASK-052)
+
+- **Security in depth.** Every document is checked when it arrives (type, dangerous names, PDF active content and — when
+  ClamAV runs — a virus scan); PDFs open in a sealed child process; the pages carry browser rules against injected scripts;
+  10 wrong passwords pause that phone for 15 minutes; `pnpm backup` + `backup:restore-test`; `pnpm security:scan`.
+  COMMANDS.md §7d–7e. **The demo needs none of it switched on** — ClamAV is optional (`CLAMAV_HOST` unset = as before).
+- **Who gets the work (audit).** A chat assignment is made only when the name fits exactly one person; two Ahmeds → the
+  CEO is asked with just those two. Documents flag shared names and AI guesses. Phone numbers come back in task text.
+  Retention and erasure now also clear the replay trace.
+- **After pulling:** `pnpm install` (nodemailer 10, vitest 4), `pnpm build:web`, restart api, worker, bot. No migration.
+- Tests: 591 pass, 9 need a live model provider — run `pnpm test` on the laptop with a Groq key to see routing with the
+  live model. Browser: 37/37 + 13/13.
+
+---
+
 # Session status — 2026-09-30 (cloud session, TASK-050)
 
 - **Policy as code is in the system.** `compliance/processors.json` says where personal data may go; the api, worker and bot

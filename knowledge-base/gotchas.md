@@ -953,3 +953,27 @@ The shell running `pkill -f "packages/api/src/index.ts"; …` matches its own co
 ## G127 — A quick tunnel is not private: Cloudflare terminates TLS [believed 2026-09-30]
 Fine for synthetic data and test accounts; never for real employees. The Compliance page flags a visit through it (Host or
 cf-ray), and R6 refuses a production PUBLIC_URL on trycloudflare.com.
+
+## G128 — worker_threads `resourceLimits` did not stop a runaway worker (Node 22.22) [verified 2026-09-30]
+A worker with `maxOldGenerationSizeMb: 16` allocated 18 million objects and a 2 MB limit still parsed a PDF; `node
+--max-old-space-size=32` in a child process aborted in 187 ms (exit 134). Use a child process for anything that must be capped.
+
+## G129 — Playwright's `page.evaluate` is not subject to the page's CSP for `eval` [verified 2026-09-30]
+`eval` "worked" when called through evaluate; from a same-origin page script it was refused. Test CSP from a page script.
+
+## G130 — pnpm 11 quarantines versions younger than a day, and `pnpm add` silently adds an exclusion [verified 2026-09-30]
+`pnpm add nodemailer@^10.0.13` wrote `minimumReleaseAgeExclude: nodemailer@10.0.13` to pnpm-workspace.yaml. Revert it and
+pick the previous version; never keep an exclusion — the quarantine is the protection against a hijacked fresh release.
+
+## G131 — Killing "the API" by command-line pattern killed the shell again (see G126) [verified 2026-09-30]
+Match `/proc/<pid>/exe` = node first, then the command line.
+
+## G132 — Substring name matching assigns "Ali" to Khalid [verified 2026-09-30]
+`"khalid".includes("ali")`. Match whole words (people-match.ts).
+
+## G133 — Placeholder numbers follow the pattern order, not reading order [verified 2026-09-30]
+International numbers are matched before local ones, so the first number in a sentence may be `[phone-2]`. Harmless (the
+restore maps each placeholder to its own value) — but never assume the order in a test.
+
+## G134 — Windows Defender removes an EICAR file the moment it is saved [believed]
+Test ClamAV from memory (`pnpm security:scan`), not with a file on the laptop's disk.

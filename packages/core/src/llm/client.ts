@@ -274,7 +274,9 @@ async function llmCompleteInner<T>(opts: LlmCompleteOpts<T>): Promise<T> {
       let raw: RawCompletion | undefined;
       try {
         raw = await callProvider(p, outbound.messages, maxTokens, timeoutMs);
-        const parsed = opts.schema.parse(extractJson(raw.content));
+        // Validated as the model wrote it, then the real values are put back on OUR side, so
+        // "call [phone-1]" reaches the assignee as the number the CEO wrote (redact.ts).
+        const parsed = outbound.names.restoreDeep(opts.schema.parse(extractJson(raw.content)));
         await logLlmCall(p, raw, Date.now() - started, true, opts.correlationId, {
           operation,
           attempt: attempt + 1,

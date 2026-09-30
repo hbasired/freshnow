@@ -63,6 +63,20 @@ const TABS: { id: TabId; icon: IconName; label: string; group: string; blurb: st
   { id: "more", icon: "menu", label: "More", group: "Phone", blurb: "every other page, search, and this device" },
 ];
 
+/**
+ * What the owner field says about how the owner was found — so a guess never looks like a fact.
+ * "name": the written name fits exactly this person. "ai": the model's reading only (a nickname,
+ * another script) — check it. Candidates: the name fits several people — choose.
+ */
+function ownerLabel(t: DocumentPlan["tasks"][number]): string {
+  if (t.assigneeId && t.matchedBy === "ai") {
+    return t.namedAs && t.namedAs !== t.assigneeName ? `Owner — my guess for "${t.namedAs}"; check it` : "Owner — my guess, no name was written; check it";
+  }
+  if (t.assigneeId) return "Owner (named in the document)";
+  if (t.candidates.length > 1) return `Owner — "${t.namedAs ?? ""}" could be ${t.candidates.map((c) => c.name).join(" or ")}; choose`;
+  return t.namedAs ? `Owner — the document said "${t.namedAs}", who is not on the list` : "Owner — the document named nobody";
+}
+
 /** Company day `n` days from `day` (both `YYYY-MM-DD`). Dubai has no daylight saving. */
 function shiftDay(day: string, n: number): string {
   const d = new Date(new Date(`${day}T12:00:00+04:00`).getTime() + n * 86_400_000);
@@ -1593,7 +1607,7 @@ function DocumentCard({
                 {t.detail ? <div className="mt-0.5 text-xs text-mut">{t.detail}</div> : null}
                 <div className="mt-2 max-w-sm">
                   <PersonPicker
-                    label={t.assigneeId ? "Owner (recognised in the document)" : t.namedAs ? `Owner — the document said "${t.namedAs}", who is not on the list` : "Owner — the document named nobody"}
+                    label={ownerLabel(t)}
                     value={owners[i] ?? ""}
                     onChange={(v) => setOwners((prev) => prev.map((o, j) => (j === i ? v : o)))}
                     people={people.filter((p) => p.status === "active")}

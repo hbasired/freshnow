@@ -82,8 +82,8 @@ assigning, and also report back about his previous tasks.
   it("shows unowned tasks as needing a decision when formatted", () => {
     const plan: DocumentPlan = {
       tasks: [
-        { title: "Fix the chiller", detail: null, assignee: people[1]!, namedAs: "Rashid" },
-        { title: "Recalibrate line 3", detail: null, assignee: null, namedAs: null },
+        { title: "Fix the chiller", detail: null, assignee: people[1]!, namedAs: "Rashid", matchedBy: "name", candidates: [] },
+        { title: "Recalibrate line 3", detail: null, assignee: null, namedAs: null, matchedBy: null, candidates: [] },
       ],
       summary: "Weekly jobs",
       needsOwner: true,
@@ -94,5 +94,21 @@ assigning, and also report back about his previous tasks.
     expect(out).toContain("Rashid");
     // The gap is visible to the CEO rather than quietly assigned to somebody.
     expect(out).toContain("tap to say who");
+  });
+
+  it("names every candidate when the written name fits several people, and flags the model's guesses", () => {
+    const [a, b] = [{ ...people[0]!, display_name: "Ahmed Khan" }, { ...people[1]!, display_name: "Ahmed Ali" }];
+    const plan: DocumentPlan = {
+      tasks: [
+        { title: "Count stock", detail: null, assignee: null, namedAs: "Ahmed", matchedBy: null, candidates: [a, b] },
+        { title: "Clean van 2", detail: null, assignee: people[1]!, namedAs: "Rasheed", matchedBy: "ai", candidates: [] },
+      ],
+      summary: "",
+      needsOwner: true,
+      injection: { suspicious: false, labels: [], cleaned: "", removedInvisible: 0 },
+    };
+    const out = formatDocumentPlan(plan, "week.pdf");
+    expect(out).toContain('"Ahmed" could be Ahmed Khan or Ahmed Ali');
+    expect(out).toContain('my guess for "Rasheed"');
   });
 });

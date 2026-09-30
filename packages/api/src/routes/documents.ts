@@ -113,6 +113,10 @@ export function registerDocumentRoutes(app: FastifyInstance): void {
         assigneeId: t.assignee?.id ?? null,
         assigneeName: t.assignee?.display_name ?? null,
         namedAs: t.namedAs,
+        // "name" = the written name fits exactly this person; "ai" = only the model's reading.
+        matchedBy: t.matchedBy,
+        // The written name fits several people: the CEO chooses (people-match.ts).
+        candidates: t.candidates.map((c) => ({ id: c.id, name: c.display_name })),
       })),
       // Stated up front rather than discovered.
       fileForwarded: false,

@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { createConnection } from "node:net";
-import { concurrencyStats, getServiceSql, traceStats, tracingStats } from "@freshnow/core";
+import { antivirusStatus, concurrencyStats, getServiceSql, traceStats, tracingStats } from "@freshnow/core";
 
 /**
  * Can we open a TCP connection to Redis? A full client would mean a dependency here just
@@ -58,6 +58,11 @@ export function registerHealthRoute(app: FastifyInstance): void {
     // delayed-timer path is never armed; the SLA sweep is what actually escalates).
     const redis = await pingRedis();
 
+    // With a scanner configured, attachments are refused while it is down (fail closed), so
+    // "down" here means uploads are failing right now — worth a line of its own.
+    const av = await antivirusStatus();
+    const antivirus = !av.configured ? "not_configured" : av.reachable ? "ok" : "down";
+
     return {
       status: db === "ok" ? (saturated ? "busy" : "ok") : "degraded",
       db,
@@ -65,6 +70,7 @@ export function registerHealthRoute(app: FastifyInstance): void {
       // stop escalation, so calling the whole system degraded would overstate it. Saying
       // nothing understated it.
       redis,
+      antivirus,
       load,
       tracing,
       trace,

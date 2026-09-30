@@ -1,3 +1,4 @@
+import { scanBytes } from "./antivirus.js";
 import { logAudit } from "./audit.js";
 
 /**
@@ -23,11 +24,12 @@ import { logAudit } from "./audit.js";
  *   C. RESOURCE EXHAUSTION. A crafted PDF can expand enormously, or carry tens of
  *      thousands of pages, and starve Postgres on a shared box.
  *
- * What this module does NOT do: it is not antivirus. It has no malware signatures and
- * cannot tell a weaponised exploit from a legitimate interactive form. It reports
- * structural indicators — the things known to appear in malicious PDFs — and refuses to
- * FORWARD anything carrying them. Production behind a real gateway should add ClamAV or
- * an equivalent scanner; that is recorded as unbuilt, not implied as present.
+ * Antivirus: since TASK-051 every file is also scanned by ClamAV (antivirus.ts) when
+ * CLAMAV_HOST is set — a signature match is refused, and a scanner that cannot be reached
+ * refuses the file rather than letting it through. Signatures catch KNOWN malware only, so
+ * the structural indicators below still decide what may be forwarded, and PDF text is
+ * extracted in a sandboxed worker (pdf-sandbox.ts). Unset (the demo default), files are not
+ * virus-scanned; production refuses to start that way (compliance rule R6).
  */
 
 /** Hard caps. Every one is a bound on work this box will do for one message (rule 4). */
@@ -183,19 +185,44 @@ export async function inspectFile(p: {
     );
   }
 
+  // ── Antivirus (ClamAV), before anything parses the file ─────────────────────
+  const scan = await scanBytes(p.bytes);
+  if (scan.status === "infected") {
+    return report(
+      "blocked",
+      ["The virus scanner found malware in this file, so it was refused."],
+      [`malware:${scan.signature ?? "unknown"}`],
+      detected,
+      p,
+      "security.malware_blocked",
+    );
+  }
+  if (scan.status === "error") {
+    // Fail closed: a scanner was configured, so an unscanned file is not "probably fine".
+    return report(
+      "blocked",
+      ["The virus scanner could not check this file right now, so it was not accepted. Try again in a minute."],
+      ["antivirus-unavailable"],
+      detected,
+      p,
+      "security.scan_failed",
+    );
+  }
+  if (scan.status === "clean") indicators.push("virus-scanned");
+
   // ── Structure, for PDFs ─────────────────────────────────────────────────────
   if (detected === "application/pdf") {
     // Only the head and tail are scanned: indicators live in the catalog and the
     // trailer, and scanning 15 MB as a string for every upload is wasted work.
     const head = latin1(p.bytes.subarray(0, Math.min(p.bytes.length, 200_000)));
     const tail = latin1(p.bytes.subarray(Math.max(0, p.bytes.length - 100_000)));
-    const scan = head + tail;
+    const text = head + tail;
 
     let blocking = false;
     for (const ind of PDF_INDICATORS) {
       // Word-boundary-ish match so /JS does not fire on /JSName.
       const re = new RegExp(ind.token.replace("/", "\\/") + "(?![A-Za-z])");
-      if (re.test(scan)) {
+      if (re.test(text)) {
         indicators.push(ind.token);
         if (ind.blocking) {
           blocking = true;
@@ -250,6 +277,8 @@ async function report(
   indicators: string[],
   detectedType: string | null,
   p: { uploadedBy?: string; declaredName?: string | null; correlationId?: string },
+  /** A security event gets its own action, so it can be counted apart from ordinary refusals. */
+  action?: "security.malware_blocked" | "security.scan_failed",
 ): Promise<SafetyReport> {
   const out: SafetyReport = {
     verdict,
@@ -265,7 +294,7 @@ async function report(
     await logAudit({
       correlationId: p.correlationId,
       actor: p.uploadedBy ? `employee:${p.uploadedBy}` : "system",
-      action: verdict === "blocked" ? "document.blocked" : "document.flagged",
+      action: action ?? (verdict === "blocked" ? "document.blocked" : "document.flagged"),
       entity: "attachment",
       // The filename is attacker-controlled, so it is truncated and never interpolated
       // into anything that executes.

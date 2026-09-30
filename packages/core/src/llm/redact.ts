@@ -18,6 +18,13 @@ import type { LlmMessage } from "./client.js";
  * from the long batch and order numbers this business writes. Voice notes go to Groq as audio and
  * cannot be redacted; their transcript is, when it is parsed.
  *
+ * Placeholders are NUMBERED per call — "[phone-1]", "[phone-2]" — and the same number always gets
+ * the same placeholder, so the model can still tell two numbers (or two people's emails) apart and
+ * keep each with the right job. The model's ANSWER is then restored on our side
+ * (`restore`): "Call the supplier on [phone-1]" reaches the assignee with the real number, which
+ * the provider never saw. Restoration only puts back values that were in our own prompt; a
+ * placeholder the model invents stays as it is.
+ *
  * Every pattern has word boundaries on both sides, so nothing is cut out of the middle of a
  * longer token — including the random fence that spotlights untrusted text (injection.ts).
  * Only `user` messages are touched: system prompts are ours and carry no one's identifiers.
@@ -73,14 +80,50 @@ function digitCount(s: string): number {
   return s.replace(/\D/g, "").length;
 }
 
-export function redactIdentifiers(input: string): Redacted {
+/**
+ * One model call's placeholders: value → "[kind-n]" and back. The same value (ignoring spaces,
+ * dashes and case) always gets the same placeholder within the call.
+ */
+export class Pseudonyms {
+  private readonly byValue = new Map<string, string>();
+  private readonly byToken = new Map<string, string>();
+  private readonly next: Record<IdentifierKind, number> = { email: 0, emirates_id: 0, iban: 0, card: 0, phone: 0 };
+
+  token(kind: IdentifierKind, value: string): string {
+    const key = `${kind}:${kind === "email" ? value.toLowerCase() : value.replace(/[^A-Za-z0-9]/g, "").toUpperCase()}`;
+    let t = this.byValue.get(key);
+    if (!t) {
+      t = `[${kind.replace("_", "-")}-${++this.next[kind]}]`;
+      this.byValue.set(key, t);
+      this.byToken.set(t, value);
+    }
+    return t;
+  }
+
+  /** Put the real values back into text the model wrote. Unknown placeholders stay as they are. */
+  restore(text: string): string {
+    return text.replace(/\[(?:email|emirates-id|iban|card|phone)-\d{1,4}\]/g, (t) => this.byToken.get(t) ?? t);
+  }
+
+  /** The same, through every string of a parsed JSON answer. */
+  restoreDeep<T>(value: T): T {
+    if (typeof value === "string") return this.restore(value) as T;
+    if (Array.isArray(value)) return value.map((v) => this.restoreDeep(v)) as T;
+    if (value && typeof value === "object" && Object.getPrototypeOf(value) === Object.prototype) {
+      return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, this.restoreDeep(v)])) as T;
+    }
+    return value;
+  }
+}
+
+export function redactIdentifiers(input: string, names: Pseudonyms = new Pseudonyms()): Redacted {
   const counts: Record<IdentifierKind, number> = { email: 0, emirates_id: 0, iban: 0, card: 0, phone: 0 };
   let text = input;
   const swap = (re: RegExp, kind: IdentifierKind, keep: (m: string) => boolean = () => true) => {
     text = text.replace(re, (m) => {
       if (!keep(m)) return m;
       counts[kind]++;
-      return `[${kind.replace("_", "-")}]`;
+      return names.token(kind, m);
     });
   };
   // Order matters: the more specific shapes first, so an Emirates ID is not called a card.
@@ -97,14 +140,18 @@ export function redactIdentifiers(input: string): Redacted {
   return { text, counts, total };
 }
 
-/** The messages as they will leave, and how many identifiers were taken out of them. */
-export function redactMessages(messages: readonly LlmMessage[]): { messages: LlmMessage[]; total: number } {
+/**
+ * The messages as they will leave, how many identifiers were taken out of them, and the
+ * placeholders — shared across the call's messages — to restore the model's answer with.
+ */
+export function redactMessages(messages: readonly LlmMessage[]): { messages: LlmMessage[]; total: number; names: Pseudonyms } {
   let total = 0;
+  const names = new Pseudonyms();
   const out = messages.map((m) => {
     if (m.role !== "user") return m;
-    const r = redactIdentifiers(m.content);
+    const r = redactIdentifiers(m.content, names);
     total += r.total;
     return r.total ? { ...m, content: r.text } : m;
   });
-  return { messages: out, total };
+  return { messages: out, total, names };
 }

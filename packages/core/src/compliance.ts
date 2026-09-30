@@ -20,7 +20,8 @@ type Env = NodeJS.ProcessEnv;
  *   R3  the host is named and in an allowed country; a laptop is not a production host
  *   R4  every AI provider that reads employee words has zero data retention on
  *   R5  the consent notice names every service that receives personal data (and a host abroad)
- *   R6  production essentials: a retention period, sign-in on, no quick tunnel, no prompt copies
+ *   R6  production essentials: a retention period, sign-in on, no quick tunnel, no prompt copies,
+ *       and a virus scanner for attached files (TASK-051)
  *
  * Demo mode (IS_DEMO not "false") only REPORTS: the local demo runs on synthetic data and must
  * start whatever the registry says. Production (IS_DEMO=false) ENFORCES: the api, worker and bot
@@ -188,6 +189,12 @@ export function evaluatePolicy(p: {
   }
   if (!env.SUPABASE_URL) {
     findings.push({ rule: "R6", level: "block", message: "Sign-in is off (no SUPABASE_URL): anyone who reaches the dashboard sees every employee's data.", fix: "Configure Supabase Auth." });
+  }
+  if (!env.CLAMAV_HOST) {
+    // PDPL Art. 20 asks for technical measures that fit the risk. Here the risk is concrete:
+    // employees' phones and the CEO's inbox are where malicious files come from, and every
+    // attachment is opened by this server next to all of their data.
+    findings.push({ rule: "R6", level: "block", message: "No virus scanner (CLAMAV_HOST): files people attach are opened without a malware scan.", fix: "Start ClamAV (docker compose --profile security up -d clamav) and set CLAMAV_HOST — COMMANDS.md §7d." });
   }
   if (isQuickTunnel(hostOf(env.PUBLIC_URL))) {
     findings.push({ rule: "R6", level: "block", message: "PUBLIC_URL is a Cloudflare quick tunnel: Cloudflare decrypts that traffic.", fix: "Use the company's own domain and certificate." });

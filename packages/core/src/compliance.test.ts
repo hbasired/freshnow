@@ -32,6 +32,7 @@ const base = (): Registry => ({
 /** A production configuration that satisfies every rule. */
 const goodEnv = (): NodeJS.ProcessEnv => ({
   IS_DEMO: "false", BOT_TOKEN: "1:x", GROQ_API_KEY: "g", RETENTION_DAYS: "365", SUPABASE_URL: "https://auth.example.ae",
+  CLAMAV_HOST: "clamav",
 });
 
 const rules = (reg: Registry | { error: string }, env: NodeJS.ProcessEnv, extra: { requestHost?: string; viaCloudflare?: boolean } = {}) =>
@@ -117,16 +118,19 @@ describe("rules", () => {
     expect(rules(eu, goodEnv()).findings).toContainEqual(expect.objectContaining({ rule: "R5", level: "block" }));
   });
 
-  it("R6 — production essentials: retention, sign-in, no quick tunnel, no prompt copies", () => {
+  it("R6 — production essentials: retention, sign-in, virus scanner, no quick tunnel, no prompt copies", () => {
     const env = { ...goodEnv() };
     delete env.RETENTION_DAYS;
     delete env.SUPABASE_URL;
+    delete env.CLAMAV_HOST;
     const report = rules(base(), { ...env, PUBLIC_URL: "https://funny-words.trycloudflare.com" });
     expect(report.findings.filter((f) => f.rule === "R6").map((f) => f.message)).toEqual([
       expect.stringMatching(/retention/i),
       expect.stringMatching(/Sign-in is off/),
+      expect.stringMatching(/virus scanner/),
       expect.stringMatching(/quick tunnel/),
     ]);
+    expect(report.refuse).toBe(true);
     expect(rules(base(), { ...goodEnv(), RETENTION_DAYS: "90" }).findings).toContainEqual(expect.objectContaining({ rule: "R6", level: "warn" }));
   });
 

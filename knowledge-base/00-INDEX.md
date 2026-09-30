@@ -373,6 +373,20 @@ Routing goes to the **CEO only** for now (company routing data not yet supplied)
   530 tests, 12/12 + 37/37 browser checks (VF43). Guides and deck slides 10–12 updated.
   -> `docs/tasks/TASK-050-policy-as-code.html`
 
+- **T51 Security in depth** (2026-09-30): ClamAV virus scan of every attachment, fail closed once configured, required in
+  production by R6 (D154); PDFs parsed in a capped child process with no secrets (D155; worker limits not enforced, G128);
+  documents checked on arrival in Telegram and never stored as attachments when not forwardable (D156); CSP and security
+  headers (D157; G129); per-device sign-in brake (D158); backups with checksum, age encryption and restore tests (D159);
+  `pnpm security:scan` with pinned scanners after the Trivy compromise, dependency advisories fixed (D160, VF45, G130).
+  -> `docs/tasks/TASK-051-security-in-depth.html` · COMMANDS.md §7d–7e
+
+- **T52 System audit — who gets the work** (2026-09-30): chat assignment used to act on the model's pick; now every "who"
+  goes through one deterministic whole-word name check — one match assigns, several ask, a guess is only suggested (D161,
+  G132, A-T52.1); identifier placeholders are numbered and restored so tasks keep their phone numbers (D162, G133);
+  retention and erasure now reach the replay trace (D163). Hard rules re-audited; the legal ground per processor goes to a
+  lawyer. 591 tests (VF46), 37/37 + 13/13 browser checks (VF44).
+  -> `docs/tasks/TASK-052-system-audit-routing.html`
+
 ## Blocked on the user
 - ~~`CEO_TELEGRAM_USER_ID` is empty.~~ **Resolved 2026-09-04:** CEO = 6051615734,
   employee = 8903000291. Both have run `/start`; the CEO is linked to the CEO employee row.

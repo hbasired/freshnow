@@ -15,9 +15,13 @@ import type { FastifyInstance } from "fastify";
  * changing one line, and reverse just as fast, rather than a switch that has to be right
  * first time.
  */
+/** Where `pnpm build:web` puts the React app. */
+export function dashboardDist(): string {
+  return join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "dashboard", "dist");
+}
+
 export async function registerAppShell(app: FastifyInstance): Promise<void> {
-  const here = dirname(fileURLToPath(import.meta.url));
-  const dist = join(here, "..", "..", "..", "dashboard", "dist");
+  const dist = dashboardDist();
 
   if (!existsSync(join(dist, "index.html"))) {
     app.log.warn(

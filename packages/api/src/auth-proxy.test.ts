@@ -2,6 +2,7 @@ import { createServer, type IncomingMessage, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { closeDb } from "@freshnow/core";
+import { resetSignInThrottle, SIGNIN_LIMIT } from "./routes/auth-proxy.js";
 import { buildServer } from "./server.js";
 
 /**
@@ -34,7 +35,11 @@ beforeAll(async () => {
     req.on("data", (c: Buffer) => chunks.push(c));
     req.on("end", () => {
       seen.push({ method: req.method ?? "", url: req.url ?? "", headers: req.headers, body: Buffer.concat(chunks).toString("utf8") });
-      if (req.url?.startsWith("/auth/v1/token")) {
+      if (req.url?.startsWith("/auth/v1/token") && Buffer.concat(chunks).toString("utf8").includes('"wrong"')) {
+        // What GoTrue answers for a wrong email or password.
+        res.writeHead(400, { "content-type": "application/json" });
+        res.end(JSON.stringify({ error: "invalid_grant", error_description: "Invalid login credentials" }));
+      } else if (req.url?.startsWith("/auth/v1/token")) {
         res.writeHead(200, { "content-type": "application/json" });
         res.end(JSON.stringify({ access_token: "tok", refresh_token: "ref", token_type: "bearer" }));
       } else if (req.url?.startsWith("/auth/v1/logout")) {
@@ -52,6 +57,7 @@ beforeAll(async () => {
 
 afterEach(() => {
   seen.length = 0;
+  resetSignInThrottle();
   if (saved.url === undefined) delete process.env.SUPABASE_URL;
   else process.env.SUPABASE_URL = saved.url;
   if (saved.key === undefined) delete process.env.SUPABASE_ANON_KEY;
@@ -163,5 +169,62 @@ describe("/app-config tells the browser which address to sign in on", () => {
     process.env.SUPABASE_ANON_KEY = ANON;
     const r = await app.inject({ method: "GET", url: "/app-config" });
     expect(r.json()).toMatchObject({ supabaseSameOrigin: false, supabaseUrl: "https://abcdefgh.supabase.co" });
+  });
+});
+
+describe("password guessing is braked per device (TASK-051)", () => {
+  const signIn = (password: string, headers: Record<string, string> = {}, remoteAddress?: string) =>
+    app.inject({
+      method: "POST",
+      url: "/auth/v1/token?grant_type=password",
+      headers: { apikey: ANON, "content-type": "application/json", ...headers },
+      payload: JSON.stringify({ email: "ceo@freshnow.local", password }),
+      ...(remoteAddress ? { remoteAddress } : {}),
+    });
+
+  it(`after ${SIGNIN_LIMIT.maxFailures} wrong passwords the next attempt is refused here, without reaching Supabase`, async () => {
+    local();
+    for (let i = 0; i < SIGNIN_LIMIT.maxFailures; i++) expect((await signIn("wrong")).statusCode).toBe(400);
+    const before = seen.length;
+    const r = await signIn("pw"); // even the right password waits — otherwise guessing just continues
+    expect(r.statusCode).toBe(429);
+    expect(Number(r.headers["retry-after"])).toBeGreaterThan(0);
+    expect(seen.length).toBe(before);
+  });
+
+  it("a person who types it right is never slowed down, and a success clears earlier slips", async () => {
+    local();
+    for (let i = 0; i < SIGNIN_LIMIT.maxFailures - 1; i++) await signIn("wrong");
+    expect((await signIn("pw")).statusCode).toBe(200);
+    for (let i = 0; i < SIGNIN_LIMIT.maxFailures - 1; i++) await signIn("wrong");
+    expect((await signIn("pw")).statusCode).toBe(200);
+  });
+
+  it("through the tunnel, each phone is counted separately — one guesser does not lock out everyone", async () => {
+    local();
+    for (let i = 0; i < SIGNIN_LIMIT.maxFailures; i++) await signIn("wrong", { "cf-connecting-ip": "203.0.113.7" });
+    expect((await signIn("pw", { "cf-connecting-ip": "203.0.113.7" })).statusCode).toBe(429);
+    const other = await signIn("pw", { "cf-connecting-ip": "198.51.100.20" });
+    expect(other.statusCode).toBe(200);
+    // Supabase's own limit sees the phone, not the tunnel.
+    expect(seen.at(-1)!.headers["x-forwarded-for"]).toBe("198.51.100.20");
+  });
+
+  it("the tunnel header is believed only from this machine — a device on the Wi-Fi cannot pick its own identity", async () => {
+    local();
+    await signIn("pw", { "cf-connecting-ip": "203.0.113.99" }, "192.168.1.50");
+    expect(seen.at(-1)!.headers["x-forwarded-for"]).toBe("192.168.1.50");
+  });
+
+  it("other grants (refresh) are not counted as guesses", async () => {
+    local();
+    for (let i = 0; i < SIGNIN_LIMIT.maxFailures; i++) await signIn("wrong");
+    const r = await app.inject({
+      method: "POST",
+      url: "/auth/v1/token?grant_type=refresh_token",
+      headers: { apikey: ANON, "content-type": "application/json" },
+      payload: JSON.stringify({ refresh_token: "ref" }),
+    });
+    expect(r.statusCode).toBe(200);
   });
 });

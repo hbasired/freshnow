@@ -57,6 +57,29 @@ describe("the compliance record", () => {
   });
 });
 
+describe("security evidence (TASK-051)", () => {
+  it("shows the newest backup and restore test, and counts refused files — from the audit log", async () => {
+    const sql = getServiceSql();
+    const tag = `CMP-${randomUUID()}`;
+    // Far in the future, so these are the newest rows whatever else the test database holds.
+    await sql`insert into audit_log (actor, action, entity, detail, created_at) values
+      ('system', 'security.backup', 'backup', ${sql.json({ file: tag, encrypted: true })}, now() + interval '1 day'),
+      ('system', 'security.restore_test', 'backup', ${sql.json({ file: tag, ok: false })}, now() + interval '1 day'),
+      ('system', 'security.malware_blocked', 'document', ${sql.json({ fileName: tag })}, now())`;
+    try {
+      const body = (await get("/dashboard/compliance?viewer=ceo")).json() as {
+        security: { lastBackup: { encrypted: boolean } | null; lastRestoreTest: { ok: boolean } | null; malwareBlocked: number; antivirus: { configured: boolean } };
+      };
+      expect(body.security.lastBackup).toMatchObject({ encrypted: true });
+      expect(body.security.lastRestoreTest).toMatchObject({ ok: false }); // a failed test is shown as failed
+      expect(body.security.malwareBlocked).toBeGreaterThanOrEqual(1);
+      expect(body.security.antivirus.configured).toBe(Boolean(process.env.CLAMAV_HOST));
+    } finally {
+      await sql`delete from audit_log where detail->>'file' = ${tag} or detail->>'fileName' = ${tag}`;
+    }
+  });
+});
+
 describe("a copy of your own data", () => {
   it("contains your records and not another person's, arrives as a file, and is audited", async () => {
     const r = await get(`/dashboard/me/export?viewer=${ME}`);

@@ -1,3 +1,4 @@
+import { antivirusStatus } from "./antivirus.js";
 import { logAudit } from "./audit.js";
 import { evaluatePolicy, registry, type PolicyReport, type Registry } from "./compliance.js";
 import { CONSENT_POLICY_VERSION, currentNoticeHashes } from "./consent.js";
@@ -29,6 +30,15 @@ export interface ComplianceEvidence {
   retention: { days: number | null; lastAgedAt: string | null; notesAged: number };
   rights: { erasures: number; withdrawals: number; exports: number };
   lastSnapshotAt: string | null;
+  /** TASK-051: the defences an auditor (or the CEO) would ask about, from the same records. */
+  security: {
+    antivirus: { configured: boolean; reachable: boolean };
+    lastBackup: { at: string; encrypted: boolean } | null;
+    lastRestoreTest: { at: string; ok: boolean } | null;
+    malwareBlocked: number;
+    scanFailures: number;
+    signInThrottled: number;
+  };
 }
 
 export async function complianceEvidence(opts: { days?: number; requestHost?: string | null; viaCloudflare?: boolean } = {}): Promise<ComplianceEvidence> {
@@ -75,6 +85,17 @@ export async function complianceEvidence(opts: { days?: number; requestHost?: st
     from audit_log
     where action in ('retention.notes_aged', 'employee.erased', 'consent.withdrawn', 'data.exported', 'compliance.snapshot')`;
 
+  const [sec] = await sql<{ backup_at: Date | null; backup_encrypted: boolean | null; test_at: Date | null; test_ok: boolean | null; malware: number; scan_failed: number; throttled: number }[]>`
+    select b.created_at as backup_at, (b.detail->>'encrypted')::boolean as backup_encrypted,
+           t.created_at as test_at, (t.detail->>'ok')::boolean as test_ok,
+           (select count(*)::int from audit_log where action = 'security.malware_blocked' and created_at >= now() - make_interval(days => ${days})) as malware,
+           (select count(*)::int from audit_log where action = 'security.scan_failed' and created_at >= now() - make_interval(days => ${days})) as scan_failed,
+           (select count(*)::int from audit_log where action = 'security.signin_throttled' and created_at >= now() - make_interval(days => ${days})) as throttled
+    from (select 1) one
+    left join lateral (select created_at, detail from audit_log where action = 'security.backup' order by created_at desc limit 1) b on true
+    left join lateral (select created_at, detail from audit_log where action = 'security.restore_test' order by created_at desc limit 1) t on true`;
+  const av = await antivirusStatus();
+
   const c = consent ?? { people: 0, current: 0, older: 0 };
   return {
     generatedAt: new Date().toISOString(),
@@ -87,6 +108,14 @@ export async function complianceEvidence(opts: { days?: number; requestHost?: st
     retention: { days: retentionDays(), lastAgedAt: audit?.last_aged?.toISOString() ?? null, notesAged: audit?.aged ?? 0 },
     rights: { erasures: audit?.erasures ?? 0, withdrawals: audit?.withdrawals ?? 0, exports: audit?.exports ?? 0 },
     lastSnapshotAt: audit?.last_snapshot?.toISOString() ?? null,
+    security: {
+      antivirus: { configured: av.configured, reachable: av.reachable },
+      lastBackup: sec?.backup_at ? { at: sec.backup_at.toISOString(), encrypted: sec.backup_encrypted === true } : null,
+      lastRestoreTest: sec?.test_at ? { at: sec.test_at.toISOString(), ok: sec.test_ok === true } : null,
+      malwareBlocked: sec?.malware ?? 0,
+      scanFailures: sec?.scan_failed ?? 0,
+      signInThrottled: sec?.throttled ?? 0,
+    },
   };
 }
 
@@ -120,6 +149,7 @@ export async function recordComplianceSnapshot(correlationId?: string): Promise<
       ai: e.ai,
       channels: e.channels,
       retentionDays: e.retention.days,
+      security: e.security,
     },
   });
   return { recorded: true };
