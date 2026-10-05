@@ -11,6 +11,7 @@ import {
   listEmployees,
   MAX_DOC_TASKS,
   planDocumentTasks,
+  planningDirectory,
   safeFileName,
 } from "@freshnow/core";
 import { forbid, resolveViewer } from "../viewer.js";
@@ -90,10 +91,10 @@ export function registerDocumentRoutes(app: FastifyInstance): void {
       return refuse(422, "no_text", "No text could be found in that file — it may be a scan or an image.");
     }
 
-    const colleagues = (await listEmployees()).filter((p) => p.id !== actor);
+    // The whole (bounded) directory; the planner offers the model only the relevant people.
     const plan = await planDocumentTasks({
       text: doc.text,
-      colleagues: colleagues.map((c) => ({ id: c.id, display_name: c.display_name, department: c.department })),
+      colleagues: await planningDirectory(actor),
       instruction,
       uploadedBy: actor,
       correlationId: corr,

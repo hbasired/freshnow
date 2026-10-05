@@ -1,3 +1,4 @@
+import { inboxConfig } from "./email-config.js";
 import { channelAvailability } from "./channels.js";
 import { consentNotice } from "./consent.js";
 import { retentionDays } from "./retention.js";
@@ -68,7 +69,15 @@ export const DETECTORS: readonly Detector[] = [
   { id: "openrouter", setting: "OPENROUTER_API_KEY", reachable: (e) => !!e.OPENROUTER_API_KEY, personal: () => true, noticeMentions: () => "OpenRouter", ai: true },
   { id: "nvidia", setting: "NVIDIA_API_KEY", reachable: (e) => !!e.NVIDIA_API_KEY, personal: () => true, noticeMentions: () => "NVIDIA", ai: true },
   { id: "webpush", setting: "VAPID_* keys", reachable: (e) => channelAvailability("webpush", e).available, personal: () => true, noticeMentions: () => "Google, Apple or Microsoft" },
-  { id: "email", setting: "SMTP_HOST", reachable: (e) => channelAvailability("email", e).available, personal: () => true, noticeMentions: (e) => e.SMTP_HOST ?? "SMTP" },
+  // Sending (SMTP) and, since TASK-053, reading the inbox (IMAP) — either one moves personal data
+  // through the email provider.
+  {
+    id: "email",
+    setting: "SMTP_HOST / EMAIL_IMAP_HOST",
+    reachable: (e) => channelAvailability("email", e).available || inboxConfig(e) !== null,
+    personal: () => true,
+    noticeMentions: (e) => e.SMTP_HOST ?? e.EMAIL_IMAP_HOST ?? "SMTP",
+  },
   { id: "chat", setting: "CHAT_WEBHOOK_URL", reachable: (e) => channelAvailability("chat", e).available, personal: () => true, noticeMentions: (e) => hostOf(e.CHAT_WEBHOOK_URL) ?? "chat" },
   {
     id: "langfuse",

@@ -295,7 +295,7 @@ export type RelationKind = "blocks" | "blocked_by" | "precedes" | "follows" | "r
 
 export interface TaskDetail {
   task: {
-    id: string; title: string; details: string | null; status: string; status_category: string;
+    id: string; task_number: string | null; title: string; details: string | null; status: string; status_category: string;
     resolution: string | null; resolved_at: string | null;
     progress_pct: number; progress_source: ProgressSource; progress_note: string | null; progress_updated_at: string | null;
     progress_band_low: number | null; progress_band_high: number | null;
@@ -524,6 +524,13 @@ export const api = {
   ladder: (viewer: string) => get<LadderLevel[]>("/dashboard/escalation-policy", { viewer }),
   sla: (viewer: string) => get<SlaRow[]>("/dashboard/sla-policy", { viewer }),
   prefs: (viewer: string) => get<{ events: AlertEventType[]; prefs: Pref[] }>("/dashboard/me/notification-prefs", { viewer }),
+  // Email (TASK-053)
+  emailOverview: (viewer: string) => get<EmailOverview>("/dashboard/email", { viewer }),
+  setEmployeeEmail: (viewer: string, id: string, email: string | null) => post<{ email: string | null }>(`/dashboard/employees/${id}/email`, { email }, { viewer }, "PUT"),
+  emailProposals: (viewer: string) => get<{ proposals: EmailProposal[] }>("/dashboard/email/proposals", { viewer }),
+  applyEmailProposal: (viewer: string, id: string, tasks: { title: string; detail?: string | null; assignedTo: string }[]) =>
+    post<{ assigned: { taskId: string; assignedTo: string; queued: boolean }[] }>(`/dashboard/email/proposals/${id}/apply`, { tasks }, { viewer }),
+  dismissEmailProposal: (viewer: string, id: string) => post<{ dismissed: boolean }>(`/dashboard/email/proposals/${id}/dismiss`, {}, { viewer }),
   setPref: (viewer: string, body: Pref) => post<{ ok: boolean }>("/dashboard/me/notification-prefs", body, { viewer }, "PUT"),
   watchers: (viewer: string, taskId: string) => get<Watcher[]>(`/dashboard/tasks/${taskId}/watchers`, { viewer }),
   watch: (viewer: string, taskId: string) => post<{ added: boolean }>(`/dashboard/tasks/${taskId}/watch`, undefined, { viewer }),
@@ -632,7 +639,7 @@ export interface FlowMetrics {
   finished_total: number;
 }
 
-export type AlertEventType = "blocker.raised" | "blocker.escalated" | "blocker.resolved" | "task.assigned" | "task.done";
+export type AlertEventType = "blocker.raised" | "blocker.escalated" | "blocker.resolved" | "task.assigned" | "task.done" | "project.news";
 
 export interface Notification {
   id: string;
@@ -844,4 +851,34 @@ export interface ComplianceEvidence {
     scanFailures: number;
     signInThrottled: number;
   };
+}
+
+// ── Email (TASK-053) ─────────────────────────────────────────────────────────
+
+export interface EmailOverview {
+  sending: boolean;
+  receiving: boolean;
+  inboxAddress: string | null;
+  allowlist: string[] | null;
+  lastPoll: { at: string; ok: boolean; detail: Record<string, unknown> | null } | null;
+  people: { id: string; name: string; email: string | null }[];
+  recent: { id: string; direction: "in" | "out"; at: string; counterpart: string; subject: string | null; status: string; reason: string | null; taskKey: string | null }[];
+}
+
+export interface EmailProposal {
+  id: string;
+  createdAt: string;
+  from: string;
+  fromName: string;
+  subject: string | null;
+  summary: string | null;
+  tasks: {
+    title: string;
+    detail: string | null;
+    assigneeId: string | null;
+    assigneeName: string | null;
+    namedAs: string | null;
+    matchedBy: "name" | "ai" | null;
+    candidates: { id: string; name: string }[];
+  }[];
 }

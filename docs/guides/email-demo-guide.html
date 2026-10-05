@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FreshNow — Email demo guide (two Gmail accounts)</title>
+<style>
+  :root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#3fb950;--warn:#d29922;--crit:#f85149;
+        --card:#161b22;--bd:#30363d;--blue:#88c0f0}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+       font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+       max-width:940px;padding:40px 22px 80px;margin-inline:auto}
+  h1{font-size:1.9rem;margin:0 0 6px}
+  h2{margin-top:2.6rem;color:var(--acc);font-size:1.3rem;border-bottom:1px solid var(--bd);padding-bottom:6px}
+  h3{margin-top:1.7rem;font-size:1.04rem}
+  p.lead{color:var(--mut);font-size:.92rem}
+  blockquote{margin:12px 0;padding:10px 14px;border-left:3px solid var(--warn);background:var(--card);border-radius:0 8px 8px 0}
+  blockquote p{margin:4px 0}
+  code{background:#1f2630;padding:2px 6px;border-radius:4px;font-size:.9em}
+  pre{background:#010409;border:1px solid var(--bd);border-radius:8px;padding:14px;
+      overflow-x:auto;font-size:.83rem;line-height:1.5}
+  pre code{background:none;padding:0}
+  table{border-collapse:collapse;width:100%;margin:14px 0}
+  th,td{border:1px solid var(--bd);padding:8px 10px;text-align:left;font-size:.88rem;vertical-align:top}
+  th{background:#1f2630}
+  hr{border:0;border-top:1px solid var(--bd);margin:2rem 0}
+  a{color:var(--blue)}
+  .back{color:var(--mut);font-size:.88rem;margin-bottom:1.2rem;display:block}
+</style></head><body>
+<a class="back" href="index.html">← All guides</a>
+<h1>Email demo guide — two Gmail accounts, the CEO and Hemanth</h1>
+<p>FreshNow can now <strong>send</strong> work and alerts by email and <strong>read the replies</strong>. This guide sets it up with two
+personal Gmail accounts and walks through the demo. Nothing else changes: Telegram, the app and the
+dashboard work exactly as before, and email is one more way to be told and to answer.</p>
+<p>The two addresses are written below as <strong><code>&lt;CEO Gmail&gt;</code></strong> and <strong><code>&lt;Hemanth Gmail&gt;</code></strong> on purpose — this file is
+in a public repository, so your real addresses go only into <code>.env</code> (which git never uploads).</p>
+<hr />
+<h2>0 · What happens, in one picture</h2>
+<pre><code>CEO assigns &quot;Fix the van 2 chiller&quot; to Hemanth
+        │  (dashboard or Telegram — as today)
+        ▼
+FreshNow sends from &lt;CEO Gmail&gt; to &lt;Hemanth Gmail&gt;:
+   Subject: [FN-42] New task for you: Fix the van 2 chiller
+   Reply-To: &lt;CEO Gmail with +freshnow&gt;          ◄── the system's inbox
+        │
+Hemanth presses Reply in Gmail and writes &quot;40% done&quot;   or  &quot;Done&quot;  or  &quot;Blocked - no gas&quot;
+        │
+The worker reads ONLY mail sent to the +freshnow address (every 60 s), checks it really came from
+Hemanth (Google's SPF/DKIM/DMARC verdicts + the allow-list), finds FN-42 (the key in the subject, or
+the email thread), files it as Hemanth's update, and replies &quot;Saved your update on FN-42&quot;.
+        │
+&quot;Done&quot; closes FN-42 · &quot;40%&quot; sets progress · &quot;Blocked…&quot; raises a problem the CEO is alerted to
+</code></pre>
+<p>And the other way: the CEO emails work to the <code>+freshnow</code> address ("Hemanth: restock the Marina
+machine") → it appears in <strong>Assign → From email</strong> as a proposal → the CEO taps <strong>Assign &amp; notify</strong>.
+<strong>Nothing an email says is assigned until a person taps.</strong></p>
+<hr />
+<h2>1 · One-time Gmail setup (5 minutes, on the CEO's account only)</h2>
+<p>The system signs in to the CEO's Gmail to send and to read the inbox alias. Gmail requires an <strong>App
+Password</strong> for that — your normal password will not work.</p>
+<ol>
+<li>On a computer, sign in to <strong><code>&lt;CEO Gmail&gt;</code></strong> and open <strong>https://myaccount.google.com/security</strong>.</li>
+<li>Under <em>How you sign in to Google</em>, turn on <strong>2-Step Verification</strong> (if it is not already on).</li>
+<li>Open <strong>https://myaccount.google.com/apppasswords</strong>, type a name such as <code>FreshNow</code>, press <strong>Create</strong>.</li>
+<li>Google shows a <strong>16-letter password</strong> once. Copy it <strong>without the spaces</strong>. This is the only password
+   FreshNow needs; you can delete it on the same page at any time to cut FreshNow off.</li>
+</ol>
+<p>Nothing to do on Hemanth's account — he only receives and replies, like any email.
+IMAP is always on for personal Gmail since January 2025; there is no setting to enable.</p>
+<blockquote>
+<p><strong>What this App Password can do:</strong> read and send all of the CEO's Gmail. FreshNow's code only ever
+<em>searches for</em> mail sent to the <code>+freshnow</code> alias, never changes the mailbox (nothing marked read,
+moved or deleted), and keeps only what it processes. For real employees use a separate company
+mailbox (e.g. <code>ops@</code> on the company domain) — see <em>Limits</em> at the end.</p>
+</blockquote>
+<hr />
+<h2>2 · Put the settings in <code>.env</code> (on the laptop)</h2>
+<p>Open <code>.env</code> in the project folder and add these lines, with your real addresses and the App Password:</p>
+<pre><code>SMTP_HOST=smtp.gmail.com
+SMTP_PORT=465
+SMTP_USER=&lt;CEO Gmail&gt;
+SMTP_PASS=&lt;the 16 letters&gt;
+EMAIL_FROM=&quot;FreshNow Ops &lt;CEO Gmail&gt;&quot;
+
+EMAIL_IMAP_HOST=imap.gmail.com
+EMAIL_IMAP_PORT=993
+EMAIL_IMAP_USER=&lt;CEO Gmail&gt;
+EMAIL_IMAP_PASS=&lt;the same 16 letters&gt;
+EMAIL_INBOX_ADDRESS=&lt;CEO Gmail with +freshnow before the @&gt;
+
+EMAIL_ALLOWLIST=&lt;CEO Gmail&gt;,&lt;Hemanth Gmail&gt;
+EMAIL_CEO_ADDRESS=&lt;CEO Gmail&gt;
+EMAIL_EMPLOYEE_ADDRESS=&lt;Hemanth Gmail&gt;
+EMAIL_EMPLOYEE_NAME=Hemanth
+</code></pre>
+<p><code>EMAIL_ALLOWLIST</code> is the safety catch: FreshNow will never send email to, or accept email from, any
+address that is not on it — so during the demo no one else can be emailed by mistake.</p>
+<hr />
+<h2>3 · Get the code and start everything</h2>
+<p>PowerShell, in the project folder (<code>cd C:\Users\acer\Downloads\freshnow</code>):</p>
+<pre><code class="language-powershell">git status                                   # anything modified is yours: git stash first
+git fetch origin
+git checkout claude/elegant-curie-bgpzqh     # this update's branch (or main, once its pull request is merged)
+git pull origin claude/elegant-curie-bgpzqh
+
+docker compose up -d                         # Redis (the worker's email jobs need it) + Adminer
+npx supabase start -x realtime,storage-api,imgproxy,edge-runtime,logflare,vector,supavisor,mailpit,postgrest
+
+pnpm install                                 # adds the two email libraries (imapflow, mailparser)
+pnpm migrate                                 # adds 0020_email.sql and 0021_task_number.sql
+pnpm build:web                               # the dashboard, with the new Email page
+
+pnpm email:check                             # logs in to Gmail (send + read), sends nothing — must show two ✓
+pnpm email:check --send                      # optional: one test email to each allowed address
+pnpm email:setup                             # stores both addresses on the right people, switches email on
+</code></pre>
+<p>Then start the services, <strong>one terminal each</strong> (leave them running):</p>
+<pre><code class="language-powershell">$env:HOST = &quot;127.0.0.1&quot;; pnpm start:api      # terminal 1
+pnpm start:worker                            # terminal 2 — sends email AND reads the inbox
+pnpm start:bot                               # terminal 3
+cloudflared tunnel --url http://localhost:3001   # terminal 4 — only for the phone/app demo
+</code></pre>
+<p>The worker prints, among its ready lines:</p>
+<pre><code>[worker] email sender ready
+[worker] email inbox &lt;CEO Gmail with +freshnow&gt;: checked every 60s (BullMQ job scheduler)
+</code></pre>
+<p><strong>One more step, once:</strong> adding email changed the privacy notice (it now names Gmail), so the CEO
+and Hemanth are each asked to agree again — tap <strong>✅ I agree</strong> in Telegram or in the app. Until they
+do, nothing of theirs is emailed and their emailed replies are recorded but not read.</p>
+<p>Check: <code>curl http://localhost:3001/health</code> → <code>"email":{"sending":true,"receiving":true,"lastPollAt":"…","lastPollOk":true}</code>.</p>
+<hr />
+<h2>4 · The demo, act by act (≈ 10 minutes)</h2>
+<p>Three windows: the <strong>dashboard as the CEO</strong> (Chrome), <strong>the CEO's Gmail</strong>, and <strong>Hemanth's Gmail</strong> (his
+phone is best — it shows email arriving like the real thing).</p>
+<h3>Act E1 — Work arrives by email (CEO → Hemanth, 1 min)</h3>
+<p>Dashboard → <strong>Assign</strong> → <em>Who:</em> Hemanth, <em>What:</em> <code>Fix the van 2 chiller</code> → <strong>Assign &amp; notify</strong>.
+Within a few seconds Hemanth's Gmail shows <strong><code>[FN-42] New task for you: Fix the van 2 chiller</code></strong> (the
+number will differ). Open the task in the dashboard: its title bar shows the same <strong>FN-42</strong>.</p>
+<blockquote>
+<p>"Every task has a short key, like Jira's — it is how a reply finds its task."</p>
+</blockquote>
+<h3>Act E2 — Progress by replying (Hemanth, 1 min)</h3>
+<p>In Hemanth's Gmail press <strong>Reply</strong> and write <code>40% done, compressor arrived</code>. Send.
+Within a minute: Hemanth gets <strong>"Saved your update on FN-42 … Status: in progress (40%)"</strong> in the
+same thread, and the dashboard shows the task at 40%.</p>
+<h3>Act E3 — A problem by replying (Hemanth → CEO, 2 min)</h3>
+<p>Reply again: <code>Blocked - no gas for the chiller</code>. The system files it, reads it as a problem, and the
+CEO is alerted — in Telegram as always, and <strong>by email</strong> (the setup opted the CEO in). Hemanth's reply
+says <em>"Logged a high supply problem — the CEO has been alerted."</em></p>
+<h3>Act E4 — Done by replying (Hemanth → CEO, 1 min)</h3>
+<p>Reply <code>Done, fixed and tested</code>. FN-42 closes; the CEO gets <strong>"Task finished"</strong> by email.</p>
+<h3>Act E5 — The CEO gives work by email (CEO, 2 min)</h3>
+<p>From the CEO's Gmail, write a <strong>new email</strong> to the <code>+freshnow</code> address:</p>
+<pre><code>Subject: This week
+Hemanth: restock the Marina vending machine
+Hemanth: check the van 3 tyres
+</code></pre>
+<p>Within a minute the CEO gets <strong>"2 task(s) to confirm"</strong>, and the dashboard → <strong>Assign</strong> shows a
+<strong>✉️ From email</strong> card with both tasks, owner already filled in ("named in the email"). Tap <strong>Assign &amp;
+notify</strong> — only now is Hemanth told.</p>
+<blockquote>
+<p>"An email never assigns work by itself. A name that fits two people is shown as 'could be X or Y —
+choose'; a name the system could only guess is marked 'my guess — check'."</p>
+</blockquote>
+<h3>Act E6 — The record (CEO, 1 min)</h3>
+<p>Dashboard → <strong>Records → Email</strong> (phone: More → Email): sending on, inbox read and when it was last
+checked, the two allowed addresses, who has which address, and every email in and out with what it
+became — <em>processed</em>, <em>ignored</em> (an out-of-office) or <em>refused</em> (and why).</p>
+<hr />
+<h2>5 · If something goes wrong</h2>
+<table>
+<thead>
+<tr>
+<th>What you see</th>
+<th>What to do</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>pnpm email:check</code> → <code>✗ sending: Invalid login</code> / <code>535</code></td>
+<td>Not an App Password, or 2-Step Verification is off (§1). Paste the 16 letters with no spaces.</td>
+</tr>
+<tr>
+<td><code>✗ reading: Authentication failed</code> / <code>Invalid credentials</code></td>
+<td>Same App Password in <code>EMAIL_IMAP_PASS</code>; <code>EMAIL_IMAP_USER</code> is the full address.</td>
+</tr>
+<tr>
+<td><code>ENOTFOUND</code> / <code>ETIMEDOUT</code></td>
+<td>No internet, or a firewall blocks ports 465 and 993.</td>
+</tr>
+<tr>
+<td>Hemanth gets no email</td>
+<td>Has he agreed to the new notice (§3)? Is email on (Alerts → Channels)? Is he opted in (Alerts → How you are told → Email)? Run <code>pnpm email:setup</code> again — it is safe.</td>
+</tr>
+<tr>
+<td>A reply does nothing</td>
+<td>Check <strong>Records → Email</strong>: <em>refused — not on EMAIL_ALLOWLIST</em> (wrong address), <em>ignored — has not agreed to the notice</em>, or <em>ignored — nothing written above the quote</em>. Not listed at all → is the worker running, and Redis (<code>docker compose up -d</code>)?</td>
+</tr>
+<tr>
+<td>The worker says <code>background jobs could not start (is Redis running?)</code></td>
+<td><code>docker compose up -d</code>, then restart the worker. Messages still go out meanwhile; only reading the inbox waits.</td>
+</tr>
+<tr>
+<td>The CEO's own email is not picked up</td>
+<td>It must go <strong>to the <code>+freshnow</code> address</strong>. Look in Records → Email for it; <em>refused — sender not authenticated</em> means Gmail did not mark it as sent by the account — reply to any FreshNow email instead.</td>
+</tr>
+<tr>
+<td>"Saved" replies arrive in Gmail's Spam</td>
+<td>Mark one <em>Not spam</em>; Gmail learns.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>6 · Limits — say them if asked</h2>
+<ul>
+<li><strong>A personal Gmail account is fine for this demo, not for employees' real data.</strong> Google's data
+  processing terms cover Google Workspace, not personal Gmail [believed], and the App Password can read
+  the whole mailbox. Production: a company domain, a dedicated <code>ops@</code> mailbox (Workspace or another
+  provider), its contract filed in <code>compliance/processors.json</code>. The compliance rules (R2) already
+  block production until that is done.</li>
+<li><strong>Replies are read about once a minute</strong>, not instantly (IMAP polling; Gmail push would need a Google
+  Cloud project).</li>
+<li><strong>Text only.</strong> Attachments in an emailed reply are not read; send photos through Telegram or the app.</li>
+<li><strong>Quoted text is stripped for Gmail, Outlook and phone formats in English.</strong> A mail app writing its
+  "On … wrote:" line in another language may leave the quote in the update — the words are still kept.</li>
+<li><strong>Not tested against Gmail itself from the build machine</strong> (it cannot reach Gmail). It was tested
+  end to end against real local mail servers (Dovecot IMAP, an SMTP server) — the first real run is
+  <code>pnpm email:check</code> on the laptop.</li>
+</ul>
+</body></html>

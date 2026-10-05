@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { createConnection } from "node:net";
-import { antivirusStatus, concurrencyStats, getServiceSql, traceStats, tracingStats } from "@freshnow/core";
+import { antivirusStatus, concurrencyStats, emailHealth, getServiceSql, traceStats, tracingStats } from "@freshnow/core";
 
 /**
  * Can we open a TCP connection to Redis? A full client would mean a dependency here just
@@ -62,6 +62,8 @@ export function registerHealthRoute(app: FastifyInstance): void {
     // "down" here means uploads are failing right now — worth a line of its own.
     const av = await antivirusStatus();
     const antivirus = !av.configured ? "not_configured" : av.reachable ? "ok" : "down";
+    // Email: whether it can send, whether the inbox is read, and when it last was (job_run).
+    const email = await emailHealth();
 
     return {
       status: db === "ok" ? (saturated ? "busy" : "ok") : "degraded",
@@ -71,6 +73,7 @@ export function registerHealthRoute(app: FastifyInstance): void {
       // nothing understated it.
       redis,
       antivirus,
+      email,
       load,
       tracing,
       trace,

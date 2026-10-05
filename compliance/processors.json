@@ -78,14 +78,14 @@
     },
     {
       "id": "email",
-      "name": "The SMTP provider in SMTP_HOST",
+      "name": "The email provider in SMTP_HOST / EMAIL_IMAP_HOST (Gmail for the demo)",
       "role": "processor",
-      "country": "depends on the provider",
-      "personal_data": ["email address", "message text"],
+      "country": "depends on the provider (Gmail: Google LLC, United States)",
+      "personal_data": ["email address", "message text", "replies people send to the FreshNow inbox"],
       "ground": ["consent", "contract"],
-      "dpa": { "status": "not_filed", "accepted_on": null, "note": "Fill in when a provider is chosen (Brevo was the candidate)." },
+      "dpa": { "status": "not_filed", "accepted_on": null, "note": "Demo: two personal Gmail accounts (TASK-053). Google's data processing terms cover Google Workspace, not a personal Gmail account [believed] — acceptable for two test accounts, not for employees' real data. Production: a company domain with Workspace (or another provider) and its DPA filed here." },
       "controls": {},
-      "how_to_confirm": "File the provider's DPA and its data location.",
+      "how_to_confirm": "File the provider's DPA and its data location; for Gmail, move to Google Workspace on the company domain first.",
       "sources": []
     },
     {

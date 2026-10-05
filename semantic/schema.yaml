@@ -52,6 +52,7 @@ tables:
       percentage here is always one of three things, named in progress_source, and never a
       number a model produced.
     columns:
+      task_number: The task's short public number (migration 0021). Shown and typed as "FN-<number>" — e.g. FN-42 — in emails, the dashboard and chat. Unique, never reused. Use it to answer "what is FN-42?" (WHERE task_number = 42).
       id: Primary key.
       employee_id: The employee responsible for the task.
       title: Short description of the work.
@@ -884,6 +885,79 @@ tables:
       uploaded_by:
         references: employee.id
         purpose: "Who sent the file. Join to employee for their name."
+
+  email_message:
+    notes: >
+      Every email the system sent or received, one row each (migration 0020). Outbound rows are
+      the notifications the worker delivered by email; inbound rows are what arrived in the
+      system's mailbox — a reply to a task email, or the CEO sending work. Unique on
+      (direction, message_id), so the same email can never be processed twice. Only two kinds of
+      inbound row do anything: a reply from an employee becomes a task_update; an email from
+      someone who may give work becomes an email_proposal. Everything else is refused or ignored
+      with the reason recorded.
+    columns:
+      id: Primary key.
+      direction: in | out.
+      message_id: The email's Message-ID header (without angle brackets) — the email's own identity.
+      in_reply_to: The Message-ID this email answered, when it was a reply. Matching it to an outbound row is how a reply finds its task.
+      thread_refs: The References header — earlier Message-IDs in the conversation.
+      from_address: Sender address, lower-cased.
+      to_address: Recipient address, lower-cased.
+      subject: Subject line. Our outbound subjects carry a task token like [FN-1a2b3c4d].
+      body_text: INBOUND ONLY — what the person wrote, quoted history removed. Free text written by a person; aged by the retention sweep, cleared by erasure. Outbound bodies live in notification_outbox.payload.
+      employee_id: The person on our side — the sender of an inbound email, the recipient of an outbound one. NULL for a refused stranger.
+      task_id: The task the email was about, when known.
+      assignment_id: The assignment an outbound email delivered, when it did.
+      task_update_id: The status report an inbound reply became.
+      outbox_id: The notification_outbox row an outbound email delivered. Join to notification_outbox.id for its attempts and status. Deliberately NOT a foreign key (the outbox relay locks that row while sending; an FK check would wait on it).
+      status: sent | failed (outbound); received | processed | refused | ignored (inbound).
+      reason: Why it was refused or ignored, or what it became — plain words for the audit.
+      attempts: Inbound only — how many times reading it was tried. An email left 'received' by a model outage is retried a bounded number of times.
+      auth: The receiving server's verdicts as read — spf, dkim, dmarc, and how the sender was proven.
+      correlation_id: Ties the email to the run it started (audit_log, run_trace).
+      sent_at: The email's own Date header.
+      created_at: When the system recorded it.
+      is_synthetic: TRUE for demo/test rows.
+    foreign_keys:
+      employee_id:
+        references: employee.id
+        purpose: "Whose email this was. Join to employee for the name — 'which emails did Hemanth send this week?'"
+      task_id:
+        references: task.id
+        purpose: "Which job an email was about. Join to task for the title."
+      assignment_id:
+        references: assignment.id
+        purpose: "Which instruction an outbound email carried — 'was Rashid emailed about this assignment?'"
+      task_update_id:
+        references: task_update.id
+        purpose: "The status report an emailed reply became. Join to task_update for the parsed result."
+
+  email_proposal:
+    notes: >
+      Tasks read out of an email sent by someone who may give work (the CEO, a manager or lead),
+      waiting for a person to apply or dismiss them in the dashboard. A proposal never assigns
+      anything by itself. Owners are already checked against the directory by name.
+    columns:
+      id: Primary key.
+      email_message_id: The inbound email the proposal was read from.
+      proposed_by: Who sent the email.
+      summary: One clause on what the email was.
+      tasks: The proposed tasks as JSON — title, detail, owner (when the written name fits exactly one person), the name as written, how the owner was found, and the candidates when a name fits several people.
+      status: pending | applied | dismissed.
+      decided_by: Who applied or dismissed it.
+      decided_at: When it was decided. NULL while pending.
+      created_at: When it was proposed.
+      is_synthetic: TRUE for demo/test rows.
+    foreign_keys:
+      email_message_id:
+        references: email_message.id
+        purpose: "The email behind a proposal — its sender, subject and words."
+      proposed_by:
+        references: employee.id
+        purpose: "Who sent the work by email."
+      decided_by:
+        references: employee.id
+        purpose: "Who applied or dismissed the proposal."
 
   bot_session:
     notes: Which question the Telegram bot is mid-way through for one chat. Not employee data — only a conversation pointer — and safe to delete to unstick someone. Every actual answer is written to its own table as it arrives.

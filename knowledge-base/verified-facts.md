@@ -695,3 +695,18 @@ GHSA-69fq-xp46-6x23 / CVE-2026-33634: Trivy 0.69.4 (and Docker images 0.69.5, 0.
 ## VF46 (2026-09-30) — Test counts after TASK-051/052
 591 tests pass; 9 need a live model provider (8 call the model, 1 needs two provider keys); 1 skipped. 1 of the 591 needs a
 real ClamAV (`CLAMAV_TEST_HOST`).
+
+## VF47 (2026-10-05) — Test counts after TASK-053
+667 tests: 657 pass, 9 need a live model provider (here every one failed with `403 Host not in allowlist: api.groq.com`; 8 call
+the model, 1 needs two provider keys), 1 skipped. Of the 657, the ClamAV file needs `CLAMAV_TEST_HOST` with clamd running, and
+4 inbox tests need `EMAIL_TEST_IMAP_HOST` (a local Dovecot here). Typecheck clean, root and dashboard.
+
+## VF48 (2026-10-05) — The email round trip works against real mail servers [verified — Dovecot IMAP + a local SMTP server]
+With the real worker, relay and BullMQ: the task email carried `[FN-n]`, a `fn.<outboxId>@…` Message-ID and Reply-To the
+inbox. A reply with only In-Reply-To (subject key removed) found the task and closed it. A CEO email became an `email_proposal`.
+Acknowledgements threaded under the original. No message was flagged \Seen. A second poll fetched nothing. `job_run` rows were
+written. NOT Gmail (unreachable from the build machine): see A-T53.1–4.
+
+## VF49 (2026-10-05) — Gmail access for programs [believed — Google Help + third-party guides, through search]
+App Passwords still work with 2-Step Verification on; "Less secure apps" is gone (2022). SMTP smtp.gmail.com 465/587, IMAP
+imap.gmail.com 993. IMAP has been always on for personal Gmail since January 2025 (the setting was removed).

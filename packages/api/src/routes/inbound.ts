@@ -3,7 +3,9 @@ import { z } from "zod";
 import {
   listEmployees,
   planDocumentTasks,
+  planningDirectory,
   recordInboundEmail,
+  recordWebhookProposal,
   screenInboundEmail,
   secretMatches,
 } from "@freshnow/core";
@@ -76,21 +78,30 @@ export function registerInboundRoutes(app: FastifyInstance): void {
       correlationId: req.correlationId,
     });
 
-    const colleagues = (await listEmployees()).filter((p) => p.id !== verdict.senderEmployeeId);
     const plan = await planDocumentTasks({
       text: body.text,
-      colleagues,
+      colleagues: await planningDirectory(verdict.senderEmployeeId),
       instruction: body.subject ?? null,
       uploadedBy: verdict.senderEmployeeId,
       correlationId: req.correlationId,
     });
 
-    // A proposal, not a write. The CEO confirms it on the Assignments tab exactly as they
-    // confirm a plan read out of a PDF.
+    // A proposal, not a write — now STORED (email_proposal), so the CEO can confirm it in the
+    // dashboard (Assign → From email). Until TASK-053 it was only returned to the mail edge.
+    const { proposalId } = await recordWebhookProposal({
+      from: body.from,
+      to: body.to ?? null,
+      subject: body.subject ?? null,
+      text: body.text,
+      senderEmployeeId: verdict.senderEmployeeId,
+      plan,
+      correlationId: req.correlationId,
+    });
     return reply.code(202).send({
       accepted: true,
       from: verdict.senderName,
       proposed: plan.tasks.length,
+      proposalId,
       plan,
     });
   });

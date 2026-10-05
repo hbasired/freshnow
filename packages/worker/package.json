@@ -10,11 +10,14 @@
     "@freshnow/core": "workspace:*",
     "bullmq": "^6.3.4",
     "dotenv": "^17.4.2",
+    "imapflow": "^2.2.4",
     "ioredis": "^6.0.0",
+    "mailparser": "^3.9.34",
     "nodemailer": "^10.0.12",
     "web-push": "^3.6.7"
   },
   "devDependencies": {
+    "@types/mailparser": "^3.9.0",
     "@types/web-push": "^3.6.4"
   }
 }

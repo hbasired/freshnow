@@ -79,7 +79,7 @@ export function registerTaskRoutes(app: FastifyInstance): void {
     const viewer = await resolveViewer(req);
     const detail = await withContext(viewer, async (sql) => {
       const [task] = await sql<Record<string, unknown>[]>`
-        select t.id, t.title, t.details, t.status, s.category as status_category, t.resolution, t.resolved_at,
+        select t.id, t.task_number::text as task_number, t.title, t.details, t.status, s.category as status_category, t.resolution, t.resolved_at,
                t.progress_pct, t.progress_source, t.progress_note, t.progress_updated_at,
                t.progress_band_low, t.progress_band_high,
                t.started_at, t.due_at, t.priority, t.estimate_minutes, t.parent_task_id, t.task_type,

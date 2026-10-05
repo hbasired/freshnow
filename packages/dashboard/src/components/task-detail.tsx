@@ -115,7 +115,7 @@ export function TaskDetailPanel({
   const doneSteps = d.steps.filter((s) => s.done).length;
 
   return (
-    <Drawer onClose={onClose} title={t.title}>
+    <Drawer onClose={onClose} title={t.task_number ? `FN-${t.task_number} · ${t.title}` : t.title}>
       <div className="space-y-5 text-sm">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-mut">{t.employee_name}</span>

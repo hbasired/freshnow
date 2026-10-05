@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import {
-  ALERT_EVENT_TYPES,
+  PREF_EVENT_TYPES,
   CHANNELS,
   ConsentNoticeChangedError,
   DELIVERY_MODES,
@@ -29,6 +29,7 @@ import {
   setNotificationPref,
   withContext,
   type AlertEventType,
+  type PrefEventType,
   type Channel,
   type DeliveryMode,
 } from "@freshnow/core";
@@ -44,7 +45,7 @@ import { forbid, resolveViewer } from "../viewer.js";
 const IdParams = z.object({ id: z.string().uuid() });
 const ReadBody = z.object({ ids: z.array(z.string().uuid()).max(200).optional() });
 const PrefBody = z.object({
-  eventType: z.enum(ALERT_EVENT_TYPES as [AlertEventType, ...AlertEventType[]]),
+  eventType: z.enum(PREF_EVENT_TYPES as unknown as [PrefEventType, ...PrefEventType[]]),
   channel: z.enum(["telegram", "email", "webpush", "chat"]),
   mode: z.enum(PREF_MODES),
   delayMinutes: z.number().int().min(0).max(1440).optional(),
@@ -169,7 +170,7 @@ export function registerAlertRoutes(app: FastifyInstance): void {
     const rows = await withContext(viewer, (sql) => sql<{ event_type: string; channel: string; mode: string; delay_minutes: number }[]>`
       select event_type, channel, mode, delay_minutes from notification_pref
       where employee_id = ${viewer.employeeId} order by event_type, channel`);
-    return { events: ALERT_EVENT_TYPES, prefs: rows.map((r) => ({ eventType: r.event_type, channel: r.channel, mode: r.mode, delayMinutes: r.delay_minutes })) };
+    return { events: PREF_EVENT_TYPES, prefs: rows.map((r) => ({ eventType: r.event_type, channel: r.channel, mode: r.mode, delayMinutes: r.delay_minutes })) };
   });
 
   /** Set one of the viewer's own rules. Nobody sets anyone else's. */

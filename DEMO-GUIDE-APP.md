@@ -613,7 +613,21 @@ docker compose stop        # keeps all data
   (before, they read "[phone]").
 - The retention sweep and "erase this person" now also clear the copies of people's words kept for replay.
 
+**Added on 5 Oct (TASK-053 — email, background jobs, context scoped to the request)**
+- **Email is a channel both ways.** A task goes out as `[FN-42] New task for you: …`; the person **replies** "40% done",
+  "Blocked – no gas" or "Done" and it is filed as their update, exactly as if typed in Telegram. Email from the CEO to the
+  inbox becomes a proposal under **Assign → From email**, assigned only when someone taps. Only addresses on
+  `EMAIL_ALLOWLIST` are ever written to or read. Set-up and the six email acts: **`EMAIL-DEMO-GUIDE.md`**.
+- **Every task has a short key** (`FN-42`), shown on the task's title bar — the same key a reply uses to find it.
+- **Records → Email** (CEO): sending on/off, when the inbox was last read, who has which address, every email in and out
+  and what it became.
+- **The worker reads the inbox through BullMQ** (Redis, already running for the demo); Telegram delivery is unchanged.
+- **Only what a request needs reaches the AI**: a chat message carries the colleagues it names (not all staff), a document
+  plan the people in the document, a question only the tables it needs.
+
 **Limits — say them if asked**
+- **Email was tested against real local mail servers, not against Gmail** (the build machine cannot reach it). The first
+  real Gmail run is `pnpm email:check` on the laptop. A personal Gmail account is for the demo, not employees' real data.
 - **Policy as code checks what it can see.** It cannot see Groq's console (zero retention is a switch a person
   flips and records in the registry), sign a contract, or decide what the law means. Names are not removed from
   prompts — the document planner routes work by name. Voice notes go to Groq as audio.

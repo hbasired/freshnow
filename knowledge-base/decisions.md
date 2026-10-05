@@ -1323,3 +1323,57 @@ real number the provider never saw. Unknown placeholders are left as they are. T
 `run_trace` kept each parse's `noteRaw` and extraction for ever. The sweep now ages parse traces older than the window (by the
 trace's own age, so older rows are caught), and erasure clears that person's traces. An aged trace can no longer be replayed:
 the retention window outranks replayability.
+
+## D164 — Email both ways on the CEO's Gmail, no domain: SMTP out, IMAP in, App Password (TASK-053) [verified locally — not against Gmail]
+The only receive path without a domain is reading a mailbox. The CEO's Gmail sends (smtp.gmail.com:465) and its
+`+freshnow` alias is the inbox (imap.gmail.com:993), with an App Password, which needs 2-Step Verification. `EMAIL_ALLOWLIST`
+limits both directions. The worker searches only mail TO the alias, opens the mailbox read-only and fetches with PEEK, so
+nothing is marked read, moved or deleted. This is for the demo only. Production needs a company domain and a dedicated
+mailbox with its DPA filed, and policy R2 already blocks a production start without that.
+
+## D165 — A reply finds its task by key, then by thread; the sender must be authenticated and be the owner (TASK-053) [verified — tests + local round trip]
+The Jira order: the key `FN-<task_number>` in the subject first, then In-Reply-To/References against the Message-IDs we
+recorded when sending (`fn.<outboxId>@domain`, stable across retries). Proof of sender: Gmail's `\Sent` label (only the
+account owner sends), or the FIRST `Authentication-Results` from `EMAIL_TRUSTED_AUTHSERV` (default mx.google.com) with SPF,
+DKIM and DMARC all = pass. A later header could be forged by the sender, so only the first trusted one counts. No per-task
+HMAC address (Discourse's pattern): the HMAC stops a guessed id being written to, and here a guessed key only lets the owner
+update their own task. Screening order: to the inbox → not automatic → allow-listed → authenticated → active employee →
+current consent → something above the quote.
+
+## D166 — Email from a manager or the CEO becomes a proposal; an email never assigns by itself (TASK-053) [verified — tests + browser]
+`email_proposal` holds the tasks the model read out of the email, with owners grounded by the TASK-052 name rule. A person
+taps Assign & notify (proposer or CEO; `canAssignTo` checked for every owner; decided first, so a double tap gets 409). The
+webhook path (`/inbound/email`) records its plan the same way. An employee writing about no task of theirs is filed as a
+general update, never against someone else's task.
+
+## D167 — BullMQ job schedulers for slow, outside-world jobs; the outbox and sweeps stay in the loop (TASK-053) [verified — Redis + Dovecot test]
+BullMQ was already in the stack (SLA timers). The inbox poll (every `EMAIL_POLL_SECONDS`, 30–600) and the unread-email retry
+(5 min) run as `upsertJobScheduler` jobs, concurrency 1, 3 attempts with exponential backoff, bounded history. Reason: an
+IMAP server can take a minute or never answer, and in the worker's loop one slow poll would hold up every Telegram message.
+Started without being awaited, so Redis down never stops delivery. Postgres stays the record (`email_message`, `job_run`).
+Not moved to BullMQ: the outbox relay and sweeps (fast DB work, already exactly-once through the outbox), and a parse retry
+for task updates (the needs-review path already hands those to a person).
+
+## D168 — Jev (TypeSafe AI) not adopted (TASK-053) [believed — sources through search]
+A typed-decision model, launched 15 Sep 2026. It would be a new processor for employees' words, its zero data retention is
+enterprise-only (contract), it is English-first ("other languages handled but not equally well") while this workforce writes
+Hindi and Malayalam, and the decisions it is built for (routing, classification) are ones CLAUDE.md keeps deterministic. Look
+again if extraction quality becomes the bottleneck and ZDR is offered on a standard account.
+
+## D169 — Project-management tools: patterns adopted, no replacement (TASK-053) [believed — sources through search]
+Plane, OpenProject, Taiga, Vikunja and Huly are desk tools for planners; none has Telegram capture, deterministic blocker
+routing or SLA escalation, and each is several more services on a shared box. Adopted their proven patterns instead:
+human-readable task keys (`task.task_number`, shown as FN-n), reply-by-email updates (Jira), and a proposal confirmed by a
+person before anything is assigned.
+
+## D170 — Context is retrieved for the request, never the whole database (TASK-053) [verified — tests]
+`CONTEXT_LIMITS` (25 colleagues, 30 open tasks, 8 recent updates, 10 open blockers, 20 000 document characters).
+`relevantPeople` puts people named in the text first, then fills to the cap. `loadMessageContext(employeeId, text)`,
+`planDocumentTasks` and the email planner pass only those people; `planningDirectory` reads only id, name and department
+(bounded at 5 000). The question box prunes the schema per question with join closure (`schema-prune.ts`), and the
+selection is recorded. End-of-day lists stay uncapped because their lengths are reported as counts, not read by a model.
+
+## D171 — `email_message.outbox_id` has no foreign key (TASK-053) [verified — deadlock reproduced and fixed]
+The sender inserts the 'out' row while the relay holds the outbox row `FOR UPDATE`; an FK check takes a share lock on that
+row from another connection and waits on its own transaction. The link is kept as a plain uuid, documented in the semantic
+layer, with a regression test through the real relay.

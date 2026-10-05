@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { logAudit } from "./audit.js";
+import { inboxConfig } from "./email-config.js";
 import { channelAvailability, liveChannels } from "./channels.js";
 import { getServiceSql } from "./db.js";
 import { enqueueNotification } from "./outbox.js";
@@ -90,6 +91,13 @@ export function dataRecipientLines(env: Env = process.env): string[] {
   }
   if (channelAvailability("email", env).available) {
     lines.push(`Email, if the company emails you, is sent through ${env.SMTP_HOST}.`);
+  }
+  const inbox = inboxConfig(env);
+  if (inbox) {
+    lines.push(
+      `Emails you send to ${inbox.inboxAddress} are read by the system from that mailbox (through ${inbox.host}) to file your updates. ` +
+        "Only email to that address is read.",
+    );
   }
   const chat = hostOf(env.CHAT_WEBHOOK_URL);
   if (chat) lines.push(`Messages about work are also posted to the company chat at ${chat}.`);

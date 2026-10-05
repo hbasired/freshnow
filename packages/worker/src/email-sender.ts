@@ -1,5 +1,13 @@
 import { createTransport, type Transporter } from "nodemailer";
-import { getServiceSql, setNotificationPref } from "@freshnow/core";
+import {
+  composeOutboundEmail,
+  emailAddressAllowed,
+  getServiceSql,
+  logAudit,
+  recordOutboundEmail,
+  setNotificationPref,
+  type EmailPayload,
+} from "@freshnow/core";
 import { RateLimitError, type Deliverer } from "./outbox-relay.js";
 
 /**
@@ -22,12 +30,6 @@ import { RateLimitError, type Deliverer } from "./outbox-relay.js";
  */
 
 const SEND_TIMEOUT_MS = 20_000;
-
-interface EmailPayload {
-  title?: string;
-  text?: string;
-  url?: string;
-}
 
 /** 5xx SMTP codes are permanent: the address is wrong, not the moment. */
 function isHardBounce(err: unknown): boolean {
@@ -55,28 +57,53 @@ export function makeEmailSender(transport?: Transporter): Deliverer {
       socketTimeout: SEND_TIMEOUT_MS,
     });
 
-  return async ({ payload, recipientEmployeeId }) => {
+  return async ({ payload, recipientEmployeeId, outboxId, correlationId }) => {
     if (!recipientEmployeeId) throw new Error("email needs a recipient_employee_id");
     const sql = getServiceSql();
     const rows = await sql<{ email: string | null; display_name: string }[]>`
       select email, display_name from employee where id = ${recipientEmployeeId}`;
     const to = rows[0]?.email;
     if (!to) return; // No address on file. Not a failure of this message.
+    // The allow-list (EMAIL_ALLOWLIST) is the last word on who may be emailed: an address not on
+    // it is never sent to, whatever the database says. Recorded, not retried — retrying cannot
+    // make the address allowed.
+    if (!emailAddressAllowed(to)) {
+      await logAudit({
+        correlationId: correlationId ?? undefined,
+        actor: "system",
+        action: "email.not_allowed",
+        entity: "employee",
+        entityId: recipientEmployeeId,
+        detail: { reason: "recipient address is not on EMAIL_ALLOWLIST" },
+      });
+      return;
+    }
 
-    const p = (payload ?? {}) as EmailPayload;
-    const subject = p.title ?? "FreshNow";
-    const body = p.text ?? "";
-    const link = p.url ? `\n\n${new URL(p.url, process.env.PUBLIC_URL ?? "http://localhost:3001").toString()}` : "";
+    // Subject with the task key, our own Message-ID, Reply-To the inbox — so a reply finds
+    // its task (core/email-outbound.ts).
+    const email = await composeOutboundEmail({
+      payload: (payload ?? {}) as EmailPayload,
+      recipientEmployeeId,
+      to,
+      fromAddress: from,
+      ...(outboxId ? { outboxId } : {}),
+    });
 
     try {
       await mailer.sendMail({
         from,
-        to,
-        subject,
+        to: email.to,
+        subject: email.subject,
         // Plain text only. An operations alert is three lines; an HTML template would add a
         // rendering surface, a spam signal and nothing a person reading it would value.
-        text: `${body}${link}\n\n— FreshNow Operations`,
+        text: email.text,
+        messageId: `<${email.messageId}>`,
+        ...(email.inReplyTo ? { inReplyTo: `<${email.inReplyTo}>`, references: email.references.map((r) => `<${r}>`) } : {}),
+        ...(email.replyTo ? { replyTo: email.replyTo } : {}),
       });
+      // The row a reply is matched against. After the send: a row for an email that never
+      // left would route a reply to nothing.
+      await recordOutboundEmail({ email, fromAddress: from, recipientEmployeeId, ...(outboxId ? { outboxId } : {}), correlationId: correlationId ?? null });
     } catch (err) {
       if (isHardBounce(err)) {
         // Stop sending to this address, and leave a record of why rather than going quiet.

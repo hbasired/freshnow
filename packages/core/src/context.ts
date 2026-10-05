@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { checkNamedPerson } from "./people-match.js";
+import { CONTEXT_LIMITS, relevantPeople } from "./context-scope.js";
 import { getServiceSql } from "./db.js";
 import { llmComplete } from "./llm/client.js";
 import { localDateTime } from "./time.js";
@@ -24,9 +25,10 @@ import { localDateTime } from "./time.js";
  * Bounded by design (CLAUDE.md rule 4): 15 tasks, 8 recent updates, 25 colleagues.
  */
 
+// The limits live in context-scope.ts with every other "how much does the model see" number.
 const MAX_TASKS = 15;
-const MAX_UPDATES = 8;
-const MAX_COLLEAGUES = 25;
+const MAX_UPDATES = CONTEXT_LIMITS.recentUpdates;
+const MAX_COLLEAGUES = CONTEXT_LIMITS.colleagues;
 
 export interface ContextTask {
   id: string;
@@ -56,8 +58,12 @@ export interface MessageContext {
   colleagues: ContextPerson[];
 }
 
-/** Retrieve the bounded slice of this person's world that a message might refer to. */
-export async function loadMessageContext(employeeId: string): Promise<MessageContext> {
+/**
+ * Retrieve the bounded slice of this person's world that a message might refer to — chosen FOR
+ * the message when its text is given: the colleagues it could name come first (context-scope.ts),
+ * instead of whoever happened to sort first alphabetically.
+ */
+export async function loadMessageContext(employeeId: string, text?: string): Promise<MessageContext> {
   const sql = getServiceSql();
 
   const me = await sql<{ display_name: string }[]>`
@@ -80,11 +86,15 @@ export async function loadMessageContext(employeeId: string): Promise<MessageCon
       from blocker where raised_by = ${employeeId} and status = 'open'
       order by raised_at desc limit 10`;
 
-  // Colleagues are needed so "ask Rashid to look at it" can resolve to a real person.
-  const colleagues = await sql<ContextPerson[]>`
+  // Colleagues are needed so "ask Rashid to look at it" can resolve to a real person. Only names
+  // and departments are read — never whole employee rows — and only MAX_COLLEAGUES of them reach
+  // the model: the ones the message names first. Until TASK-053 this was simply the first 25 by
+  // name, so in a bigger company the person a message named could be missing from the list.
+  const directory = await sql<ContextPerson[]>`
     select id, display_name, department from employee
     where status = 'active' and id <> ${employeeId}
-    order by is_synthetic, display_name limit ${MAX_COLLEAGUES}`;
+    order by is_synthetic, display_name limit ${text ? 5000 : MAX_COLLEAGUES}`;
+  const colleagues = text ? relevantPeople(text, directory, MAX_COLLEAGUES).people : directory;
 
   return {
     employeeId,

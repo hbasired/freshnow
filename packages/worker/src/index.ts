@@ -1,6 +1,7 @@
 import "dotenv/config";
 import {
   CONSENT_POLICY_VERSION,
+  inboxConfig,
   loadConfig,
   noticeTag,
   projectSweep,
@@ -12,6 +13,7 @@ import {
   sweepUnroutedBlockers,
 } from "@freshnow/core";
 import { startEscalationWorker } from "./escalation.js";
+import { startBackgroundJobs } from "./jobs.js";
 import { deliverOutboxBatch, inAppSender , type Senders } from "./outbox-relay.js";
 import { makeTelegramSender } from "./telegram-sender.js";
 import { makeWebPushSender } from "./webpush-sender.js";
@@ -69,6 +71,13 @@ async function main(): Promise<void> {
     console.log("[worker] chat sender ready");
   }
   startEscalationWorker();
+  // Slow, outside-world work (reading the email inbox) runs as BullMQ scheduled jobs beside this
+  // loop — never inside it, so a hung mail server cannot stop delivery (jobs.ts). Not awaited:
+  // with Redis down the jobs wait for it and this loop carries on.
+  const inbox = inboxConfig();
+  void startBackgroundJobs()
+    .then(() => console.log(inbox ? `[worker] email inbox ${inbox.inboxAddress}: checked every ${inbox.pollSeconds}s (BullMQ job scheduler)` : "[worker] email inbox: not configured (EMAIL_IMAP_*) — replies by email are not read"))
+    .catch((err) => console.error("[worker] background jobs could not start (is Redis running?)", err instanceof Error ? err.message : err));
 
   const intervalMs = Number(process.env.OUTBOX_POLL_MS ?? 3000);
   const sweepEveryMs = Number(process.env.SLA_SWEEP_MS ?? 60_000); // 1 min

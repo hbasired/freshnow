@@ -131,6 +131,26 @@ In dependency order. Each is small because the groundwork is done.
 
 Only build this if somebody actually asks. It is the part with real traps.
 
+> **Built in TASK-053 (5 Oct 2026), for Gmail with no domain.** What was chosen, against the list below:
+> - **Identification: the subject key (`[FN-42]`) first, then `In-Reply-To` / `References`** against the
+>   `Message-ID`s FreshNow recorded when it sent (`fn.<outbox id>@…`, stable across retries) — Jira's
+>   pattern. No per-task plus address with an HMAC: the HMAC exists to stop a guessed task id being
+>   written to, and here a reply is accepted only when the sender is authenticated **and** owns the
+>   task, so a guessed key lets nobody update anything that is not already theirs. One inbox address
+>   (`<CEO Gmail>+freshnow`) and one IMAP search keep the rest of the mailbox unread.
+> - **Spoofing:** Google's own `Authentication-Results` (the first one, from `mx.google.com`) must show
+>   SPF, DKIM **and** DMARC = pass, or the message must carry Gmail's `\Sent` label (only the account
+>   owner can send it). Plus `EMAIL_ALLOWLIST` both ways.
+> - **Quotes:** Gmail, Outlook and phone formats are stripped, **in English only**; the full body is
+>   stored before anything interprets it (retention-swept like a Telegram note).
+> - **Auto-replies:** dropped on the `Auto-Submitted` and `Precedence` headers (Gmail's vacation reply sets `Auto-Submitted`) [believed].
+> - **Attachments are not read** (text only — photos go through Telegram or the app).
+> - **Bounces are not handled yet:** Gmail returns them to the account's own inbox, not to the
+>   `+freshnow` address, so they are not read. With two allow-listed addresses this is acceptable;
+>   with real staff it is the next thing to build.
+>
+> Set-up and demo: `EMAIL-DEMO-GUIDE.md`.
+
 **How the reply is identified** — three mechanisms, in order of reliability:
 
 1. **A plus-addressed reply key** — `ops+t_<taskid>_<hmac>@ops.dailyvending.ae`, as Discourse does.
