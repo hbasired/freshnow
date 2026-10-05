@@ -18,6 +18,7 @@
     "scripts/reset-employee.ts",
     "scripts/compliance.ts",
     "scripts/backup.ts",
-    "scripts/security-scan.ts"
+    "scripts/security-scan.ts",
+    "scripts/email-setup.ts"
   ]
 }

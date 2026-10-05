@@ -977,3 +977,29 @@ restore maps each placeholder to its own value) — but never assume the order i
 
 ## G134 — Windows Defender removes an EICAR file the moment it is saved [believed]
 Test ClamAV from memory (`pnpm security:scan`), not with a file on the laptop's disk.
+
+## G135 — An FK to a row your own transaction holds FOR UPDATE, written from another connection, waits for ever [verified 2026-10-05]
+The email sender recorded the outbound row through the service pool while the relay's transaction held the outbox row; the FK
+check blocked on it and the end-to-end run hung. Do not add FKs from rows written during delivery to the row being delivered
+(D171).
+
+## G136 — "40% done" contains "done" [verified 2026-10-05]
+A word rule read it as finished. A percentage below 100 now means in progress, checked before the done words.
+
+## G137 — Dovecot in a container: socket path length, root, and /tmp permissions [verified 2026-10-05]
+A long `base_dir` exceeds the Unix socket path limit; `imap-login` refuses to run as root; the auth process cannot traverse a
+0700 scratch directory. Use short paths under /run, Dovecot's default service users, and a users file under /srv.
+
+## G138 — A script at the repo root cannot import a package only a workspace depends on [verified 2026-10-05]
+pnpm's strict layout: `imapflow` resolves from packages/worker, not from the root. Put such scripts in that package
+(`email:check` lives in packages/worker/src) or run them from there.
+
+## G139 — imapflow says only "Command failed" [verified 2026-10-05]
+The server's reason ("[AUTHENTICATIONFAILED] Invalid credentials") is on `err.responseText`. Show that; and `close()` the
+client on failure or the process does not exit.
+
+## G140 — A browser check waiting for text matched the page subtitle [verified 2026-10-05]
+"Email" appears in the subtitle before the tab has rendered. Wait for an element only the loaded tab has.
+
+## G141 — A JSON rewrite of a hand-formatted registry produced a 193-line diff [verified 2026-10-05]
+`compliance/processors.json` is reviewed by people; edit it as text, minimally.

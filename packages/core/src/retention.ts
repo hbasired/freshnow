@@ -77,14 +77,23 @@ export async function retentionSweep(correlationId?: string): Promise<RetentionR
        and input ? 'noteRaw'
        and input->>'noteRaw' is distinct from ${REDACTED}`;
 
-  if (aged.length > 0 || tracesAged.count > 0) {
+  // An emailed reply is the same kind of words as a typed one (migration 0020).
+  const emailsAged = await sql`
+    update email_message
+       set body_text = ${REDACTED}
+     where direction = 'in'
+       and created_at < now() - make_interval(days => ${days})
+       and body_text is not null
+       and body_text <> ${REDACTED}`;
+
+  if (aged.length > 0 || tracesAged.count > 0 || emailsAged.count > 0) {
     await logAudit({
       correlationId,
       actor: "system",
       action: "retention.notes_aged",
       entity: "task_update",
       entityId: "sweep",
-      detail: { days, count: aged.length, traces: tracesAged.count },
+      detail: { days, count: aged.length, traces: tracesAged.count, emails: emailsAged.count },
     });
   }
   return { enabled: true, days, notesAged: aged.length };
@@ -132,6 +141,15 @@ export async function eraseEmployee(p: {
        and input->>'taskUpdateId' in (select id::text from task_update where employee_id = ${p.employeeId})
        and input->>'noteRaw' is distinct from '[erased]'`;
 
+  // Their emails: the words, and the address that identifies them (migration 0020).
+  await sql`
+    update email_message
+       set body_text = case when body_text is null then null else '[erased]' end,
+           subject = case when direction = 'in' then '[erased]' else subject end,
+           from_address = case when direction = 'in' then '[erased]' else from_address end,
+           to_address = case when direction = 'out' then '[erased]' else to_address end
+     where employee_id = ${p.employeeId}`;
+
   const assignmentNotes = await sql<{ id: string }[]>`
     update assignment set note = '[erased]'
      where (assigned_to = ${p.employeeId} or assigned_by = ${p.employeeId})
@@ -145,6 +163,7 @@ export async function eraseEmployee(p: {
        set display_name = ${ANON_NAME},
            telegram_user_id = null,
            auth_user_id = null,
+           email = null,
            status = 'disabled'
      where id = ${p.employeeId}`;
 

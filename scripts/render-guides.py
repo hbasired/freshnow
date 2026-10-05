@@ -23,6 +23,7 @@ GUIDES = [
     ("FRESH-RUN.md", "fresh-run.html", "FreshNow — Fresh Run (test guide)"),
     ("CHANNELS-GUIDE.md", "channels-guide.html", "FreshNow — Channels (how people are reached)"),
     ("DEMO-GUIDE-APP.md", "demo-guide-app.html", "FreshNow — Demo guide: the app and notifications"),
+    ("EMAIL-DEMO-GUIDE.md", "email-demo-guide.html", "FreshNow — Email demo guide (two Gmail accounts)"),
 ]
 
 STYLE = """

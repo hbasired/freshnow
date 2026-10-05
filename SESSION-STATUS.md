@@ -1,3 +1,22 @@
+# Session status — 2026-10-05 (cloud session, TASK-053)
+
+- **Email both ways.** A task is emailed as `[FN-42] …` from the CEO's Gmail. The person replies "40% done",
+  "Blocked – no gas" or "Done", and it is filed as their update. Email from the CEO to the `+freshnow` address becomes a
+  proposal under **Assign → From email**, assigned only on a tap. Only `EMAIL_ALLOWLIST` addresses are ever written to
+  or read. **Records → Email** shows everything. Set-up and demo: `EMAIL-DEMO-GUIDE.md`; commands: COMMANDS.md §7f.
+- **Every task has a key** (FN-n), on the task's title bar.
+- **The worker reads the inbox as a BullMQ job** (Redis must be running: `docker compose up -d`). Telegram delivery is unchanged.
+- **Prompts carry only what the request needs**: the colleagues a message names (max 25), the people in a document, and
+  the tables a question needs.
+- **After pulling:** `pnpm install` (imapflow, mailparser, fastify 5.12.5), `pnpm migrate` (adds 0020, 0021),
+  `pnpm build:web`, then the email lines in `.env`, `pnpm email:check`, `pnpm email:setup`, and restart api, worker, bot.
+  The privacy notice changes (it names email), so each person taps I agree once more.
+- **Not tested against Gmail** (unreachable from the build machine). Tested end to end against real local mail servers.
+  The first Gmail run is `pnpm email:check` on the laptop.
+- Tests: 657 pass, 9 need a live model provider, 1 skipped. Browser: 14/14 email + 37/37 + 13/13.
+
+---
+
 # Session status — 2026-09-30 (cloud session, TASK-051 + TASK-052)
 
 - **Security in depth.** Every document is checked when it arrives (type, dangerous names, PDF active content and — when

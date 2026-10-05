@@ -44,6 +44,22 @@ export const ALERT_EVENT_TYPES: readonly AlertEventType[] = [
   "task.done",
 ];
 
+/**
+ * Everything a person can hold a preference for: the five alert events, plus project news
+ * (milestones, issues, updates in a project they belong to — TASK-053). Project news is not an
+ * alert event (no escalation, no resolver); it is listed so a person can choose to get it by
+ * email, and can silence it on Telegram or the app.
+ */
+export type PrefEventType = AlertEventType | "project.news";
+export const PREF_EVENT_TYPES: readonly [PrefEventType, ...PrefEventType[]] = [
+  "blocker.raised",
+  "blocker.escalated",
+  "blocker.resolved",
+  "task.assigned",
+  "task.done",
+  "project.news",
+];
+
 export interface AlertRecipient {
   employeeId: string;
   channel: OutboxChannel;
@@ -447,6 +463,12 @@ export async function notifyPeople(p: {
   payload?: Record<string, unknown>;
   isSynthetic?: boolean;
   correlationId?: string;
+  /**
+   * The preference these messages answer to, when there is one (project news). A person who
+   * opted in to email for it gets an email; a person who switched Telegram or the app off for it
+   * does not get those. Without it, the defaults below apply and email is never used.
+   */
+  prefEvent?: PrefEventType;
 }): Promise<{ enqueued: number }> {
   const byPerson = new Map<string, string>();
   for (const r of p.recipients) if (!byPerson.has(r.employeeId)) byPerson.set(r.employeeId, r.reason);
@@ -454,10 +476,15 @@ export async function notifyPeople(p: {
   const ids = [...byPerson.keys()];
 
   const sql = getServiceSql();
-  const people = await sql<{ id: string; status: string; telegram_user_id: string | null }[]>`
-    select id, status, telegram_user_id from employee where id = any(${ids})`;
+  const people = await sql<{ id: string; status: string; telegram_user_id: string | null; email: string | null }[]>`
+    select id, status, telegram_user_id, email from employee where id = any(${ids})`;
   const channels = await liveChannels();
   const withDevice = channels.includes("webpush") ? await hasPushDevice(ids) : new Set<string>();
+  const prefs = p.prefEvent
+    ? await sql<{ employee_id: string; channel: string; mode: string }[]>`
+        select employee_id, channel, mode from notification_pref where employee_id = any(${ids}) and event_type = ${p.prefEvent}`
+    : [];
+  const prefOf = (id: string, channel: string) => prefs.find((r) => r.employee_id === id && r.channel === channel)?.mode;
 
   let enqueued = 0;
   for (const person of people) {
@@ -466,7 +493,10 @@ export async function notifyPeople(p: {
     for (const channel of channels) {
       if (channel === "telegram" && person.telegram_user_id == null) continue;
       if (channel === "webpush" && !withDevice.has(person.id)) continue;
-      if (channel === "email" || channel === "chat") continue;
+      if ((channel === "telegram" || channel === "webpush") && prefOf(person.id, channel) && prefOf(person.id, channel) !== "immediate") continue;
+      // Email only for someone who opted in to this kind of message and has an address.
+      if (channel === "email" && !(p.prefEvent && person.email && prefOf(person.id, "email") === "immediate")) continue;
+      if (channel === "chat") continue;
       const res = await enqueueNotification({
         idempotencyKey: p.keyFor(person.id, channel),
         chatId: channel === "telegram" ? Number(person.telegram_user_id) : null,
@@ -619,7 +649,7 @@ export type PrefMode = (typeof PREF_MODES)[number];
 /** A person's own rule for one event on one channel. Upsert; the row is theirs alone. */
 export async function setNotificationPref(p: {
   employeeId: string;
-  eventType: AlertEventType;
+  eventType: PrefEventType;
   /** Every channel a person can hold a preference for — not `inapp`, which is not optional. */
   channel: Exclude<Channel, "inapp">;
   mode: PrefMode;

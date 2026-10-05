@@ -34,12 +34,13 @@ import { SearchBox, type SearchHit } from "./components/search";
 import { Hero } from "./components/hero";
 import { Chips, ProgressReport, StatusReport } from "./components/quick";
 import { ComplianceTab } from "./components/compliance";
+import { EmailProposalsCard, EmailTab } from "./components/email";
 import { useMedia, WIDE } from "./lib/media";
 
-type TabId = "today" | "mine" | "carry" | "assign" | "alerts" | "eod" | "people" | "activity" | "compliance" | "ask" | "more";
+type TabId = "today" | "mine" | "carry" | "assign" | "alerts" | "eod" | "people" | "activity" | "compliance" | "email" | "ask" | "more";
 
 /** Pages that only the CEO can open — the API refuses them to anyone else anyway. */
-const CEO_ONLY = new Set<TabId>(["ask", "compliance"]);
+const CEO_ONLY = new Set<TabId>(["ask", "compliance", "email"]);
 
 /** Present only when sign-in is real; the viewer is then fixed by who you are. */
 export interface Identity {
@@ -58,6 +59,7 @@ const TABS: { id: TabId; icon: IconName; label: string; group: string; blurb: st
   { id: "people", icon: "users", label: "People", group: "Records", blurb: "everyone this viewer is allowed to see" },
   { id: "activity", icon: "scroll", label: "Activity", group: "Records", blurb: "the audit trail, newest first" },
   { id: "compliance", icon: "shield", label: "Compliance", group: "Records", blurb: "where personal data goes and on what ground — checked by the system itself" },
+  { id: "email", icon: "mail", label: "Email", group: "Records", blurb: "what was emailed, what came back, and who has which address" },
   { id: "ask", icon: "search", label: "Ask", group: "Tools", blurb: "answered by SQL, with the SQL shown" },
   // The phone's menu page. Not in the sidebar (the sidebar IS the menu on a wide screen).
   { id: "more", icon: "menu", label: "More", group: "Phone", blurb: "every other page, search, and this device" },
@@ -304,6 +306,7 @@ export default function App({
     people: data?.people.length ?? null,
     activity: data?.activity.length ?? null,
     compliance: null,
+    email: null,
     ask: null,
     more: null,
   };
@@ -711,6 +714,7 @@ export default function App({
                     )}
                     {visibleTab === "activity" && <ActivityTab rows={data.activity} />}
                     {visibleTab === "compliance" && ceoTools && <ComplianceTab viewer={viewer} tick={tickOf(loadedAt)} />}
+                    {visibleTab === "email" && ceoTools && <EmailTab viewer={viewer} tick={tickOf(loadedAt)} />}
                     {visibleTab === "ask" && ceoTools && <AskTab />}
                   </>
                 )}
@@ -1495,6 +1499,7 @@ function AssignTab({
         </div>
       ) : null}
 
+      {canAssign ? <EmailProposalsCard viewer={viewer} people={people} onChanged={onChanged} /> : null}
       {canAssign ? <DocumentCard people={people} viewer={viewer} onChanged={onChanged} /> : null}
 
       <DataTable

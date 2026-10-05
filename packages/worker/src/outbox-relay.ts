@@ -23,6 +23,9 @@ export type Deliverer = (msg: {
   chatId: string | number | null;
   payload: unknown;
   recipientEmployeeId?: string | null;
+  /** The outbox row being delivered — email uses it for a stable Message-ID across retries. */
+  outboxId?: string;
+  correlationId?: string | null;
 }) => Promise<void>;
 
 /**
@@ -131,7 +134,7 @@ export async function deliverOutboxBatch(
       const attempts = row.attempts + 1;
       try {
         const send = senders[row.channel as keyof Senders]!;
-        await send({ chatId: row.chat_id, payload: row.payload, recipientEmployeeId: row.recipient_employee_id });
+        await send({ chatId: row.chat_id, payload: row.payload, recipientEmployeeId: row.recipient_employee_id, outboxId: row.id, correlationId: row.correlation_id });
         await tx`update notification_outbox
                  set status = 'sent', sent_at = now(), attempts = ${attempts}
                  where id = ${row.id}`;

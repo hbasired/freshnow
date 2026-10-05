@@ -498,6 +498,7 @@ async function alertProjectMembers(
     text: m.text,
     kind: "project",
     presentation: { title: "Project update", url: `/app/#projects/${projectId}`, tag: `project-${projectId}`, urgent: false },
+    prefEvent: "project.news",
     ...(m.correlationId ? { correlationId: m.correlationId } : {}),
   });
   const told = recipients.length;

@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TASK-053 — Email both ways, BullMQ jobs, context scoped to the request</title>
+<style>
+  :root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#3fb950;--warn:#d29922;--bad:#f85149;--card:#161b22;--bd:#30363d}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;max-width:980px;padding:48px 24px;margin-inline:auto}
+  h1{font-size:1.9rem;margin:0 0 4px} h2{margin-top:2.5rem;color:var(--acc);font-size:1.25rem} h3{font-size:1.05rem;margin-top:1.6rem}
+  .meta{color:var(--mut);font-size:.9rem;margin-bottom:2rem}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:18px;margin:14px 0}
+  .unverified{border-left:3px solid var(--warn)} .ok{border-left:3px solid var(--acc)}
+  code{background:#1f2630;padding:2px 6px;border-radius:4px;font-size:.9em}
+  pre{background:#1f2630;padding:12px;border-radius:8px;overflow-x:auto;font-size:.85rem;line-height:1.45}
+  .tw{overflow-x:auto} table{border-collapse:collapse;width:100%;margin:14px 0}
+  th,td{border:1px solid var(--bd);padding:7px 9px;text-align:left;font-size:.88rem;vertical-align:top} th{background:#1f2630}
+  .bad{color:var(--bad);font-weight:600}.good{color:var(--acc);font-weight:600}.warn{color:var(--warn);font-weight:600}
+  ul{padding-left:1.1rem} li{margin:3px 0} a{color:#88c0f0}
+  @media (max-width:600px){body{padding:28px 16px}}
+</style></head><body>
+<h1>TASK-053 — Email both ways, BullMQ jobs, context scoped to the request</h1>
+<p class="meta">2026-10-05 · migrations <code>0020_email.sql</code>, <code>0021_task_number.sql</code> · new: <code>core/email-{reply,config,outbound,inbound,people}.ts</code>,
+<code>core/context-scope.ts</code>, <code>core/query/schema-prune.ts</code>, <code>worker/{email-inbox,jobs,email-check}.ts</code>, <code>api/routes/email.ts</code>,
+<code>dashboard/components/email.tsx</code>, <code>scripts/email-setup.ts</code>, <code>EMAIL-DEMO-GUIDE.md</code> · dependencies: <code>imapflow</code>, <code>mailparser</code>
+(worker) · <b>657 tests passing</b>, 9 needing a live model provider (no route to Groq from here), 1 skipped</p>
+
+<div class="card ok"><strong>One-sentence summary:</strong> FreshNow can now email a task as <code>[FN-42] …</code> from the CEO's Gmail and read the reply.
+"40% done", "Blocked – no gas" or "Done" is filed as that person's update, exactly as if typed in Telegram. The rules: only allow-listed addresses, only
+mail to the <code>+freshnow</code> alias, only a sender Google authenticated who owns the task. Email from the CEO becomes a proposal a person confirms.
+The inbox is read by a BullMQ job beside the delivery loop, and every model prompt now carries only the people and tables that request needs.</div>
+
+<h2>What was asked</h2>
+<ol>
+  <li>Email in the project-management portal with two addresses — one the CEO, one the employee Hemanth — the whole pipeline, wired, with a demo
+      guide and the commands to pull and start everything. The database solid and every layer around it.</li>
+  <li>Context retrieval per request; never the whole database in a prompt.</li>
+  <li>Research BullMQ and Jev; adopt them only if useful, and record the search.</li>
+  <li>If email cannot be done, say what is needed. Research existing project-management tools and adopt what fits.</li>
+  <li>Explain how an earlier test run sent Telegram messages from "the CEO" to Hemanth automatically.</li>
+</ol>
+<p>The two real addresses are in <code>.env</code> on the laptop and in the chat reply only — never in this repository, which is public. Here they are
+<code>&lt;CEO Gmail&gt;</code> and <code>&lt;Hemanth Gmail&gt;</code>.</p>
+
+<h2>Research (web search, 5 Oct 2026)</h2>
+<div class="tw"><table>
+<tr><th>Question</th><th>What was found</th><th>Sources</th><th>Effect</th></tr>
+<tr><td>Can a program still send and read personal Gmail?</td><td>Yes: an <b>App Password</b> (16 characters, needs 2-Step Verification); "Less secure apps" ended in 2022.
+SMTP smtp.gmail.com 465/587, IMAP imap.gmail.com 993. IMAP is always on for personal Gmail since January 2025 — no setting.</td>
+<td><a href="https://support.google.com/mail/answer/7126229?hl=en">Gmail Help — add Gmail to another client</a> ·
+<a href="https://smtpedia.com/gmail-email-settings-pop3-imap-smtp/">smtpedia</a> · <a href="https://www.mailjerry.com/how-to-enable-imap-in-gmail/">mailjerry</a> ·
+<a href="https://ladedu.com/how-to-enable-gmail-imap-access/">La De Du</a></td><td>Email is implementable with no domain [believed until the first <code>pnpm email:check</code>]</td></tr>
+<tr><td>How do PM tools turn a reply into an update?</td><td>Jira looks for the issue key in the subject, then the <code>In-Reply-To</code> header; the sender needs permission.
+Asana only threads replies to its own notifications.</td>
+<td><a href="https://support.atlassian.com/jira/kb/how-jira-updates-issues-from-email/">How Jira updates issues from email</a> ·
+<a href="https://confluence.atlassian.com/adminjiraserver/creating-issues-and-comments-from-email-938847641.html">Creating issues and comments from email</a></td>
+<td>Key first, then thread (D165)</td></tr>
+<tr><td>BullMQ</td><td>Job Schedulers (5.16+) are the recommended way to run recurring work; <code>upsertJobScheduler</code> with the same id updates in place
+instead of stacking duplicates; jobs take attempts + exponential backoff. The repo already had BullMQ 6 for SLA timers.</td>
+<td><a href="https://docs.bullmq.io/guide/job-schedulers/">BullMQ — Job Schedulers</a> · <a href="https://docs.bullmq.io/guide/job-schedulers/repeat-strategies">Repeat strategies</a> ·
+<a href="https://docs.bullmq.io/guide/migrations/migrate-from-v5-to-v6">Migrate v5→v6</a></td><td><span class="good">Adopted</span> for the inbox poll and retry (D167)</td></tr>
+<tr><td>Jev</td><td>A typed-decision AI model from TypeSafe AI, launched 15 Sep 2026; priced per input token. Zero data retention for <b>enterprise</b> customers
+under a signed DPA; retention otherwise "as long as necessary". English is primary; other languages "handled but not equally well".</td>
+<td><a href="https://www.langchain.com/blog/building-a-harness-with-jev">LangChain — What is Jev?</a> · <a href="https://docs.typesafe.ai/models">TypeSafe — Models</a> ·
+<a href="https://opper.ai/provider/typesafe">Opper — TypeSafe ZDR/DPA</a> · <a href="https://jevwiki.ai/wiki/reference/legal-and-data.md">jevwiki — legal and data</a> ·
+<a href="https://innfactory.ai/en/ai-models/typesafe-jev/">innFactory — Jev</a></td><td><span class="bad">Not adopted</span> (D168)</td></tr>
+<tr><td>Open-source PM tools</td><td>OpenProject (Gantt, budgets; hard to self-host), Plane (Jira/Linear-style), Taiga (Scrum), Vikunja (to-do lists, one container),
+Huly (all-in-one with chat and video). Several services each, except Vikunja.</td>
+<td><a href="https://www.openproject.org/blog/top-5-open-source-project-management-software-2026/">OpenProject — top 5 (2026)</a> ·
+<a href="https://www.pistack.xyz/posts/plane-vs-huly-vs-taiga-self-hosted-project-management-guide-2026/">Plane vs Huly vs Taiga</a> ·
+<a href="https://thedigitalprojectmanager.com/tools/best-open-source-project-management-software/">The Digital Project Manager</a></td>
+<td>Patterns adopted, no replacement (D169)</td></tr>
+</table></div>
+<p>Search results can be wrong. Where a fact matters at run time, it is an assumption with a check (A-T53.1–5), not a verified fact. Several of the Jev pages
+are third-party guides, not TypeSafe itself.</p>
+
+<h2>Why not Jev, and why not replace the portal with a PM tool</h2>
+<ul>
+  <li><b>Jev</b> would be another company receiving employees' words. Zero retention is a sales contract, not a setting. It is English-first while the
+      workforce writes Hindi and Malayalam. And what it is built for — choosing a route, classifying — are the decisions CLAUDE.md keeps in rules. The
+      model already used (through the one wrapper) extracts status and blockers; nothing here is limited by that.</li>
+  <li><b>Plane, OpenProject, Taiga, Vikunja, Huly</b> are planners' desk tools. None captures a daily status from Telegram, routes a blocker by
+      <code>(category, site, shift)</code> or escalates on an SLA, and each is more containers on a box Postgres already shares. What they get right
+      was taken instead: <b>short task keys</b> (FN-42), <b>reply-by-email updates</b> (Jira), and <b>confirm before assign</b>.</li>
+</ul>
+
+<h2>How email works</h2>
+<pre>
+ OUT  assignTask / alert ──► notification_outbox (idempotency key) ──► worker relay ──► email sender
+        allow-list check ─► compose: "[FN-42] New task for you: …", Message-ID fn.&lt;outboxId&gt;@domain,
+        Reply-To &lt;CEO Gmail+freshnow&gt; ─► SMTP (Gmail) ─► email_message (direction 'out')
+
+ IN   BullMQ "email-poll" every 60 s ─► IMAP (read-only, PEEK) SEARCH since 7 days TO &lt;+freshnow&gt;, ≤ 50
+        ─► already have this Message-ID? skip ─► email_message (direction 'in', raw body FIRST)
+        ─► screen: to the inbox · not automatic · allow-listed · SPF+DKIM+DMARC pass (or \Sent) ·
+                   active employee · current consent · text above the quote
+        ─► which task: [FN-n] in the subject, else In-Reply-To/References ─► our 'out' rows
+        ─► owner of that task ........ task_update (channel 'email') ─► parse ─► blocker? ─► rules escalate
+           CEO / manager ............. email_proposal ─► person taps Assign &amp; notify
+           employee, no task of theirs  general update (never on someone else's task)
+        ─► acknowledgement through the outbox, in the same thread ("Saved your update on FN-42")
+</pre>
+<p>The same architectural rules apply as for Telegram. The worker is a thin adapter and every decision is in <code>packages/core</code>. The employee's
+words are written before the model is called. Who and whether are decided by rules (owner check, role, the TASK-052 name rule). Every outbound message
+goes through the outbox. Each step is audited under one <code>correlation_id</code>.</p>
+
+<h3>The database</h3>
+<div class="tw"><table>
+<tr><th>Table / column</th><th>Holds</th><th>Guards</th></tr>
+<tr><td><code>email_message</code></td><td>Every email in and out: Message-ID, In-Reply-To, references, addresses, subject, inbound body, what it became
+(<code>task_update_id</code>, <code>task_id</code>, <code>assignment_id</code>), status + reason, attempts, Google's verdicts, correlation id</td>
+<td>unique <code>(direction, message_id)</code> = dedupe; status and direction checks; attempts 0–20; RLS: CEO, or whoever may see that employee</td></tr>
+<tr><td><code>email_proposal</code></td><td>Tasks read out of a CEO/manager email, waiting for a person</td><td>one per email; <code>pending ⇔ decided_at is null</code>;
+RLS: CEO or the proposer</td></tr>
+<tr><td><code>task.task_number</code></td><td>The FN-n key (identity, unique)</td><td>existing tasks numbered by the migration</td></tr>
+<tr><td><code>email_message.outbox_id</code></td><td>Which outbox row sent it</td><td>no foreign key, on purpose — D171 / G135</td></tr>
+</table></div>
+<p>Retention ages inbound bodies like Telegram notes. Erasure clears body, subject and addresses, and sets <code>employee.email</code> to null. The application
+role can only <code>select</code>. The semantic layer documents both tables and the new column.</p>
+
+<h3>The portal</h3>
+<ul>
+  <li><b>Records → Email</b> (CEO): sending/reading on, last inbox check, allowed-address count, each person's address (editable, allow-list enforced),
+      the last 30 emails and what each became.</li>
+  <li><b>Assign → From email</b>: proposals with a person picker per task. <i>Assign &amp; notify</i> stays disabled until every task has an owner.</li>
+  <li>Task drawer title <b>FN-n · title</b>; <b>Alerts → How you are told</b> gains an email choice per event, including project news.</li>
+  <li><code>/health</code> reports <code>email.sending / receiving / lastPollAt / lastPollOk</code> — counts and times, never addresses.</li>
+  <li><code>pnpm email:check [--send]</code> and <code>pnpm email:setup</code> (addresses from <code>.env</code>, the employee found by the whole-word name
+      rule — exactly one match or it stops).</li>
+</ul>
+
+<h2>Context scoped to the request</h2>
+<div class="tw"><table>
+<tr><th>Path</th><th>Before</th><th>Now</th></tr>
+<tr><td>Telegram message → assignment</td><td>Every active colleague in the prompt</td><td>People named in the text first, up to 25 (<code>relevantPeople</code>)</td></tr>
+<tr><td>Document → tasks (bot, dashboard, webhook, email)</td><td>The whole staff list</td><td>The people in the document, up to 25; the audit records how many were offered of how many</td></tr>
+<tr><td>Directory read for planning</td><td>Full employee rows</td><td><code>planningDirectory</code>: id, name, department; bounded at 5 000</td></tr>
+<tr><td>Ask a question (NL → SQL)</td><td>The whole schema text</td><td>Only the tables the question signals plus their join path (<code>pruneSchema</code>); same question, same prompt</td></tr>
+<tr><td>Open tasks / updates / blockers</td><td>Fixed caps in code</td><td>One table of limits (<code>CONTEXT_LIMITS</code>)</td></tr>
+</table></div>
+<p>Not capped: the end-of-day lists, because the model receives their lengths as counts and never adds them up itself (rule 2).</p>
+
+<h2>Phases</h2>
+<ol>
+  <li><b>P1 Database</b> — the two tables, the key column, RLS, grants, indexes, semantic layer; the column-accurate semantic test passes.</li>
+  <li><b>P2 Core</b> — reply extraction (Gmail, Outlook, phone footers, quotes), status words (a percentage below 100 is in progress), Google's verdicts,
+      screening, routing, outbound composition and threading.</li>
+  <li><b>P3 Worker</b> — the IMAP adapter and two BullMQ job schedulers. The relay passes the outbox id and correlation id to senders.</li>
+  <li><b>P4 API and dashboard</b> — five routes; the Email tab and the proposals card; consent notice and processor registry name Gmail.</li>
+  <li><b>P5 Context</b> — the scoping above.</li>
+  <li><b>P6</b> — setup and check scripts, guides, verification, this page.</li>
+</ol>
+
+<h2>Concepts and techniques</h2>
+<ul>
+  <li><b>Message-ID threading</b>: the ID we set is the anchor every reply quotes back. Deriving it from the outbox id keeps it the same across retries.</li>
+  <li><b>Authentication-Results</b> (RFC 8601): the receiving server's verdict on SPF, DKIM and DMARC. Only the first header from the trusted server counts,
+      because anything below it was written by the sender.</li>
+  <li><b>Plus addressing</b>: one mailbox, a second address. The IMAP search reads only that address, so the rest of the mailbox is never opened.</li>
+  <li><b>Job schedulers</b>: a schedule stored by id in Redis, upserted at every start. Concurrency 1 means a slow poll is never overlapped.</li>
+  <li><b>Lock-order deadlock</b>: a foreign-key check takes a share lock on the parent row. If your own transaction holds that row <code>FOR UPDATE</code>
+      on another connection, the check waits on itself.</li>
+  <li><b>Schema pruning with join closure</b>: pick tables by signal words, then add the tables they join through, so a correct query can still be written.</li>
+</ul>
+
+<h2>Verification</h2>
+<div class="card ok"><ul>
+  <li>Typecheck clean (root and dashboard). <b>657 tests passing</b>, 9 needing a live model provider (no route to Groq from here), 1 skipped. New suites: reply parsing (24), inbound screening and routing including RLS (16), outbound
+      and retention (6), context scope, schema pruning, the API routes (6), and the inbox against a real Dovecot (4). Plus a regression test through the
+      real relay for the deadlock.</li>
+  <li><b>Full round trip on real local servers</b> (Dovecot IMAP + an SMTP server), with the real worker:
+    <ul>
+      <li>the task email carries the key, Message-ID and Reply-To;</li>
+      <li>a reply with only the thread headers found the task and closed it;</li>
+      <li>an email from the CEO became a proposal;</li>
+      <li>acknowledgements threaded under the original;</li>
+      <li>nothing in the mailbox was marked read;</li>
+      <li>a second poll downloaded nothing new;</li>
+      <li>the BullMQ scheduler wrote <code>job_run</code> rows.</li>
+    </ul></li>
+  <li><code>pnpm email:setup</code>: success, plus both refusals (address not allow-listed; a name fitting no one). <code>pnpm email:check</code> against
+      the local servers, including a wrong password (shows the server's reason and exits).</li>
+  <li>Browser (Chromium): email checks 14/14, existing UI 37/37, compliance 13/13.</li>
+  <li><code>pnpm audit</code> clean after upgrading fastify to 5.12.5.</li>
+</ul></div>
+
+<h2>How the earlier test sent Telegram messages "from the CEO to Hemanth"</h2>
+<p>Nobody's Telegram account was used. <code>scripts/e2e-demo.ts</code> (<code>pnpm e2e</code>) runs against the live database. It calls the same core
+functions the dashboard calls — <code>assignTask</code>, for example — with the CEO's employee id as the actor. Those write rows to
+<code>notification_outbox</code>. The running worker then delivers them through the Telegram Bot API with <code>BOT_TOKEN</code>. So every message comes
+<b>from the bot</b>, @freshnow1bot, into the chat each person opened with it. The chat ids exist because each of them pressed /start; the script reads them
+from <code>CEO_TELEGRAM_USER_ID</code> and <code>E2E_EMPLOYEE_TELEGRAM_ID</code> in <code>.env</code>. Claude Code could do this because it ran on a
+machine whose <code>.env</code> held the bot token and those ids. Unit tests use a fake token and a stubbed network, and send nothing.</p>
+
+<h2>What we have not verified</h2>
+<div class="card unverified"><ul>
+  <li><b>Gmail itself.</b> This build machine cannot reach smtp.gmail.com or imap.gmail.com. The App Password login, plus-alias delivery, SEARCH TO on the
+      alias, the <code>\Sent</code> label on self-sent mail, Gmail keeping our Message-ID, and the exact Authentication-Results header are all assumptions
+      (A-T53.1–4). The first real run is <code>pnpm email:check</code> on the laptop.</li>
+  <li><b>Spam placement</b> of FreshNow's emails in the recipient's Gmail.</li>
+  <li><b>Gmail's vacation reply</b> being screened as automatic (A-T53.5).</li>
+  <li><b>Quote stripping in other languages</b>: only English "On … wrote:" forms are recognised. A Hindi or Malayalam mail client may leave quoted history in
+      the update. The words are kept either way.</li>
+  <li><b>Bounces</b> are not handled. They return to the account's own inbox, not the alias.</li>
+  <li><b>A live model</b> reading a CEO email into tasks was not run here (no route to Groq). The proposal path was tested with a stubbed model and the
+      grounding rules; the nine model-dependent tests still need a working key.</li>
+  <li><b>The Docker/Supabase start on the laptop</b> with migrations 0020/0021 was not run here; they were applied to the local test Postgres.</li>
+  <li><b>Real phones</b> opening the Email tab — tested in Chromium at desktop and phone widths only.</li>
+  <li><b>PDPL fit of personal Gmail</b>: [believed] Google's data processing terms cover Workspace, not personal Gmail. Fine for a two-person demo with test
+      data; not for employees' real data.</li>
+</ul></div>
+
+<h2>Gotchas found</h2>
+<ul>
+  <li>G135 — the FK / <code>FOR UPDATE</code> deadlock that hung the first end-to-end run.</li>
+  <li>G136 — "40% done" read as done.</li>
+  <li>G137 — Dovecot in a container: socket path length, root, directory permissions.</li>
+  <li>G138 — pnpm's strict layout: a root script cannot import a worker-only package.</li>
+  <li>G139 — imapflow's "Command failed"; the reason is in <code>responseText</code>.</li>
+  <li>G140 — a browser wait matched the subtitle.</li>
+  <li>G141 — a JSON rewrite reformatted the registry.</li>
+</ul>
+
+<p class="meta">Knowledge base: D164–D171, G135–G141, VF47–VF49, A-T53.1–5. Guides: <code>EMAIL-DEMO-GUIDE.md</code> (rendered in <code>docs/guides/</code>),
+<code>COMMANDS.md</code> §7f, <code>DEMO-GUIDE-APP.md</code> §10, <code>docs/EMAIL-SETUP-GUIDE.md</code> Step 6.</p>
+</body></html>

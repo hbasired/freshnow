@@ -387,6 +387,15 @@ Routing goes to the **CEO only** for now (company routing data not yet supplied)
   lawyer. 591 tests (VF46), 37/37 + 13/13 browser checks (VF44).
   -> `docs/tasks/TASK-052-system-audit-routing.html`
 
+- **T53 Email both ways, BullMQ jobs, context scoped to the request** (2026-10-05): the CEO's Gmail sends and its `+freshnow`
+  alias is read over IMAP with an App Password, allow-listed both ways (D164). A reply finds its task by `[FN-n]` then by
+  thread, from an authenticated sender who owns it (D165). CEO/manager email becomes a proposal a person confirms (D166).
+  The inbox poll and retry run as BullMQ job schedulers beside the delivery loop (D167). Jev not adopted (D168). PM tools:
+  their patterns adopted, no replacement (D169). Prompts carry only the people and tables a request needs (D170). No FK
+  from `email_message` to the outbox: deadlock (D171, G135). Other gotchas G136–G141; Gmail facts are assumptions until
+  the laptop run (A-T53.1–5, VF49). 657 tests (VF47); local round trip (VF48).
+  -> `docs/tasks/TASK-053-email-bullmq-context.html` · `EMAIL-DEMO-GUIDE.md` · COMMANDS.md §7f
+
 ## Blocked on the user
 - ~~`CEO_TELEGRAM_USER_ID` is empty.~~ **Resolved 2026-09-04:** CEO = 6051615734,
   employee = 8903000291. Both have run `/start`; the CEO is linked to the CEO employee row.

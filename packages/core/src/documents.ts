@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { extractPdfTextSandboxed } from "./pdf-sandbox.js";
 import { checkNamedPerson } from "./people-match.js";
+import { relevantPeople } from "./context-scope.js";
+import { getServiceSql } from "./db.js";
 import { logAudit } from "./audit.js";
 import { llmComplete } from "./llm/client.js";
 import type { ContextPerson } from "./context.js";
@@ -166,7 +168,11 @@ export async function planDocumentTasks(p: {
   uploadedBy?: string;
   correlationId?: string;
 }): Promise<DocumentPlan> {
-  const list = p.colleagues
+  // Only the people this document could be about are offered — the ones it names first, at most
+  // CONTEXT_LIMITS.colleagues (context-scope.ts). Callers may pass the whole directory.
+  const scoped = relevantPeople(`${p.instruction ?? ""}\n${p.text}`, p.colleagues);
+  const colleagues = scoped.people;
+  const list = colleagues
     .map((c, i) => `  ${i + 1}. ${c.display_name}${c.department ? ` (${c.department})` : ""}`)
     .join("\n");
 
@@ -201,7 +207,7 @@ export async function planDocumentTasks(p: {
     maxTokens: 2500,
   });
 
-  const { tasks, overridden } = groundDocumentTasks(out.tasks, p.colleagues);
+  const { tasks, overridden } = groundDocumentTasks(out.tasks, colleagues);
 
   await logAudit({
     correlationId: p.correlationId,
@@ -219,6 +225,9 @@ export async function planDocumentTasks(p: {
       aiGuesses: tasks.filter((t) => t.matchedBy === "ai").length,
       ambiguous: tasks.filter((t) => t.candidates.length > 0).length,
       modelOverridden: overridden,
+      // What the model was shown, so "why was X not considered?" has an answer.
+      peopleOffered: colleagues.length,
+      peopleInDirectory: scoped.total,
       chars: p.text.length,
     },
   });
@@ -311,4 +320,17 @@ export function formatDocumentPlan(plan: DocumentPlan, fileName: string): string
   });
 
   return lines.join("\n");
+}
+
+/**
+ * Everyone who could be given work, as the planner needs them: id, name, department — nothing
+ * else about them is read. Bounded; the planner then offers the model only the relevant few.
+ */
+export async function planningDirectory(excludeId?: string): Promise<ContextPerson[]> {
+  const sql = getServiceSql();
+  return sql<ContextPerson[]>`
+    select id, display_name, department from employee
+     where status = 'active' and (${excludeId ?? null}::uuid is null or id <> ${excludeId ?? null})
+     order by is_synthetic, display_name
+     limit 5000`;
 }

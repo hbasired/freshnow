@@ -4,23 +4,14 @@ import { DEMO_CEO_ID } from "../meta.js";
 import { llmComplete } from "../llm/client.js";
 import { groundingGate, numericSanityGate } from "./gates.js";
 import { validateReadOnlySql } from "./guard.js";
+import { pruneSchema } from "./schema-prune.js";
 
 export const MAX_ROWS = 50;
 
-// Compact, curated schema for NL→SQL. Derived by hand from semantic/schema.yaml
-// (the demo does not parse the YAML at runtime; production would prune it per
-// question). Only queryable tables/columns are exposed.
-const SCHEMA_CONTEXT = `Tables (Postgres):
-employee(id uuid, display_name text, department text, role_title text, site text, shift text, language text, status text, manager_employee_id uuid->employee.id)
-task(id uuid, employee_id uuid->employee.id, title text, status text)
-task_update(id uuid, task_id uuid->task.id, employee_id uuid->employee.id, status text[done|pending|blocker|in_progress], note_raw text "EXACTLY what the employee typed or said, in their own words — THIS is what someone said about their work", note_parsed jsonb "extraction; note_parsed->>'summary' is a one-line English summary", submitted_at timestamptz)
-blocker(id uuid, task_update_id uuid->task_update.id, raised_by uuid->employee.id, assigned_resolver uuid->employee.id, category text[equipment|supply|staffing|quality|logistics|safety|other], severity text[low|medium|high|critical], status text[open|acknowledged|resolved|cancelled], affected_asset text "the specific asset e.g. 'van 2 chiller' — NOT the category", risk text, raised_at timestamptz)
-assignment(id uuid, task_id uuid->task.id, assigned_by uuid->employee.id, assigned_to uuid->employee.id, note text "what the CEO asked for", status text, created_at timestamptz)
-voice_asset(id uuid, employee_id uuid->employee.id, transcript_raw text "what a voice note said", created_at timestamptz)
-escalation(id uuid, blocker_id uuid->blocker.id, level int, reason text, created_at timestamptz)
-routing_rule(id uuid, category text, resolver_employee_id uuid->employee.id)
-
-RULES THAT MATTER:
+// Curated schema for NL→SQL, derived by hand from semantic/schema.yaml — and PRUNED per question
+// (schema-prune.ts): the model sees only the tables the question needs, plus the tables they join
+// through. Only queryable tables and columns are listed at all.
+const QUERY_RULES = `RULES THAT MATTER:
 - Person names: ALWAYS match case-insensitively and partially — use
   display_name ILIKE '%hemanth%'. NEVER use display_name = 'hemanth' (it is
   case-sensitive and will silently return zero rows).
@@ -95,6 +86,9 @@ export async function answerQuestion(
     answer, sql, rowCount, truncated: false, gate: { numericSanity, grounding: true }, abstained: true, correlationId,
   });
 
+  // The tables this question needs — not the whole schema (schema-prune.ts).
+  const schema = pruneSchema(question);
+
   // 1) NL → SQL (bounded attempts), validated read-only.
   let sqlText: string | null = null;
   for (let attempt = 0; attempt < 2 && sqlText === null; attempt++) {
@@ -106,7 +100,7 @@ export async function answerQuestion(
             content:
               `You translate a question into ONE read-only Postgres SELECT over the tables below. ` +
               `Return JSON {"sql":"..."}. SELECT only. Always include LIMIT ${MAX_ROWS}. ` +
-              `Aggregate in SQL (COUNT/SUM/GROUP BY) — never select raw rows to count.\n${SCHEMA_CONTEXT}`,
+              `Aggregate in SQL (COUNT/SUM/GROUP BY) — never select raw rows to count.\n${schema.text}\n\n${QUERY_RULES}`,
           },
           { role: "user", content: question },
         ],

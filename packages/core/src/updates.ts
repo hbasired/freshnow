@@ -18,7 +18,7 @@ export type ReportedStatus = "done" | "pending" | "blocker" | "in_progress";
  * constraint, so this union is the only thing keeping the column honest — widen it here
  * (and in semantic/schema.yaml) when a new channel is added, never at a call site.
  */
-export type UpdateChannel = "telegram" | "web";
+export type UpdateChannel = "telegram" | "web" | "email";
 
 export interface OpenTask {
   id: string;

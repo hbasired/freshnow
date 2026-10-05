@@ -49,6 +49,7 @@ import {
   markVoiceTranscribed,
   noticeTag,
   planDocumentTasks,
+  planningDirectory,
   PROFILE_STEPS,
   profilePrompt,
   recordConsent,
@@ -1541,16 +1542,14 @@ async function planFromDocument(ctx: FreshCtx, instruction: string): Promise<voi
     return;
   }
 
-  const colleagues = (await listEmployees()).filter((p) => p.id !== employee.id);
+  // The whole (bounded) directory; the planner offers the model only the people the document
+  // could be about (core/context-scope.ts).
+  const colleagues = await planningDirectory(employee.id);
   let plan: DocumentPlan;
   try {
     plan = await planDocumentTasks({
       text: doc.text,
-      colleagues: colleagues.map((c) => ({
-        id: c.id,
-        display_name: c.display_name,
-        department: c.department,
-      })),
+      colleagues,
       instruction,
       // Required for the rate limit to count this read against the person who made it.
       uploadedBy: employee.id,
@@ -1747,7 +1746,7 @@ async function routeFreeText(ctx: FreshCtx, text: string): Promise<void> {
 
   let r: ResolvedMessage | null = null;
   try {
-    const mctx = await loadMessageContext(employee.id);
+    const mctx = await loadMessageContext(employee.id, text);
     r = await resolveMessage(text, mctx);
   } catch {
     r = null; // provider unavailable — fall through to the safe default

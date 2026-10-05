@@ -195,3 +195,23 @@ Confirm/refute: `curl -sI https://<tunnel>/app/` shows `strict-transport-securit
 mr, mrs, ms, miss, dr, sir, madam, ji, bhai, sahab, saheb, chetta, chechi, anna are dropped from written names. A missing one
 only sends a name to "ask", never to the wrong person. Confirm/refute: real messages in the first weeks. Affects:
 `people-match.ts`.
+
+## A-T53.1 — Gmail delivers `<address>+freshnow@gmail.com` to the inbox and IMAP SEARCH TO matches it [believed]
+Plus addressing is documented Gmail behaviour; that `SEARCH TO` matches the alias was tested on Dovecot only. Confirm/refute:
+Act E2 in EMAIL-DEMO-GUIDE.md (a reply appears in Records → Email). Affects: `pollInbox`.
+
+## A-T53.2 — Mail the CEO sends to their own alias carries the `\Sent` label over IMAP [believed]
+Gmail exposes labels through `X-GM-LABELS`; a self-sent message is in Sent and Inbox. If not, the message still passes on
+Authentication-Results (Google signs its own mail) [believed]. Confirm/refute: Act E5. Affects: sender proof in
+`email-inbound.ts`.
+
+## A-T53.3 — Gmail keeps the Message-ID we set [believed]
+Gmail is documented to keep a client-supplied Message-ID on SMTP submission. If it replaced it, thread matching would fall back
+to the subject key (which is always present). Confirm/refute: look at "Show original" on a FreshNow email. Affects: `findTask`.
+
+## A-T53.4 — Gmail's first Authentication-Results header is from mx.google.com with spf/dkim/dmarc [believed]
+Confirm/refute: "Show original" on a reply from Hemanth's account. If the authserv-id differs, set `EMAIL_TRUSTED_AUTHSERV`.
+Affects: `readAuthResults`, `authPasses`.
+
+## A-T53.5 — Gmail's vacation reply sets Auto-Submitted [believed]
+Confirm/refute: turn on Hemanth's vacation reply and reply to a task. Affects: the automatic-message screen.

@@ -139,6 +139,7 @@ export type {
 
 export {
   ALERT_EVENT_TYPES,
+  PREF_EVENT_TYPES,
   PREF_MODES,
   availableChannels,
   resolveAlertRecipients,
@@ -154,7 +155,7 @@ export {
   setNotificationPref,
   markNotificationsRead,
 } from "./alerts.js";
-export type { AlertEvent, AlertEventType, AlertRecipient, NotifyResult, EscalationLevelRow, PrefMode, Presentation } from "./alerts.js";
+export type { AlertEvent, AlertEventType, PrefEventType, AlertRecipient, NotifyResult, EscalationLevelRow, PrefMode, Presentation } from "./alerts.js";
 
 export { replayRun } from "./replay.js";
 export type { ReplayReport, ReplayCheck } from "./replay.js";
@@ -257,6 +258,7 @@ export {
   decodeTextFile,
   planDocumentTasks,
   groundDocumentTasks,
+  planningDirectory,
   formatDocumentPlan,
   MAX_DOC_CHARS,
   MAX_DOC_TASKS,
@@ -296,3 +298,37 @@ export { localTime, localDateTime, localDate, companyToday, COMPANY_TZ } from ".
 export { Semaphore, QueueFullError, llmSemaphore, documentSemaphore, concurrencyStats } from "./concurrency.js";
 export type { SemaphoreStats } from "./concurrency.js";
 export { escapeMarkdown } from "./document-security.js";
+
+// Email in and out (TASK-053).
+export { emailAllowlist, emailAddressAllowed, emailStatus, inboxConfig, replyToAddress } from "./email-config.js";
+export type { InboxConfig } from "./email-config.js";
+export {
+  authPasses,
+  emailAddressOf,
+  extractReply,
+  formatTaskKey,
+  normaliseMessageId,
+  parseEmailStatus,
+  parseReferences,
+  readAuthResults,
+  taskNumberFromSubject,
+  TASK_KEY_PREFIX,
+} from "./email-reply.js";
+export { composeOutboundEmail, recordOutboundEmail } from "./email-outbound.js";
+export type { EmailPayload, OutboundEmail } from "./email-outbound.js";
+export {
+  processInboundEmail,
+  screenAndRoute,
+  listPendingEmailProposals,
+  pendingEmailProposal,
+  recordWebhookProposal,
+  decideEmailProposal,
+  unreadInboundEmails,
+  storedInboundMessage,
+  MAX_EMAIL_ATTEMPTS,
+} from "./email-inbound.js";
+export type { InboundEmailMessage, InboundEmailOutcome, EmailProposalRow } from "./email-inbound.js";
+export { relevantPeople, CONTEXT_LIMITS } from "./context-scope.js";
+export type { ScopedPeople } from "./context-scope.js";
+export { setEmployeeEmail, emailOverview, emailHealth, EmailAddressError } from "./email-people.js";
+export type { EmailOverview } from "./email-people.js";

@@ -44,7 +44,7 @@ phone: close and reopen the app). Details: `DEMO-GUIDE-APP.md` §1.1.
 
 > **Skipping `pnpm migrate` breaks the dashboard** whenever a pull adds a migration: the task lists
 > fail with *Request failed (500)* and the api window logs `column … does not exist`. Run it, restart
-> the api. (TASK-049 added `0018_progress_band.sql`.)
+> the api. (TASK-049 added `0018_progress_band.sql`; TASK-053 adds `0020_email.sql` and `0021_task_number.sql`.)
 
 ---
 
@@ -89,7 +89,7 @@ Wait until each terminal prints its ready line:
 | Service | Ready line |
 |---|---|
 | api | `API listening on http://127.0.0.1:3001 — React dashboard at .../app/` |
-| worker | `[worker] outbox relay every 3000ms; sla_sweep every 60000ms` (and one line per channel sender it found keys for — `web push sender ready`, `email sender ready`, `chat sender ready`) |
+| worker | `[worker] outbox relay every 3000ms; sla_sweep every 60000ms` (and one line per channel sender it found keys for — `web push sender ready`, `email sender ready`, `chat sender ready`; with the inbox set up, `email inbox <address>: checked every 60s (BullMQ job scheduler)` — §7f) |
 | bot | `[bot] @freshnow1bot polling concurrently …` |
 | tunnel | an `https://<words>.trycloudflare.com` address (the exact lines vary by `cloudflared` version) — `pnpm urls` then shows `Phone … HTTP 200` |
 
@@ -203,12 +203,14 @@ Record any new password in `CREDENTIALS.local.md`.
 ## 7 · Checks, tests and reports
 
 ```bash
-pnpm verify            # typecheck + the full test suite (~600 tests, ~2–3 minutes, makes real model calls)
+pnpm verify            # typecheck + the full test suite (~670 tests, ~3 minutes, makes real model calls)
 pnpm e2e               # 19 end-to-end checks against the real database and model — sends real Telegram messages
 python scripts/render-guides.py   # re-render docs/guides/*.html from the .md guides (DB-WALKTHROUGH, BACKEND-OPERATIONS, FRESH-RUN, CHANNELS-GUIDE)
 pnpm test              # tests only
 pnpm typecheck
-pnpm migrate           # apply any new migrations to the live database (19 so far)
+pnpm migrate           # apply any new migrations to the live database (21 so far)
+pnpm email:check       # can this machine log in to the mail server (send + read)? sends nothing (§7f)
+pnpm email:setup       # store the demo's two email addresses on the right people (§7f)
 pnpm compliance        # the policy checks, the record of processing and the evidence (§7c)
 pnpm security:scan     # secrets in git, dependency advisories, virus-scanner self-test; with Docker also gitleaks/OSV/Trivy (§7d)
 pnpm backup            # database backup + checksum; then backup:verify, backup:restore-test (§7e)
@@ -218,9 +220,10 @@ pnpm bench:report      # rebuild docs/reports/model-benchmark.html
 
 Nine tests need a live model provider: eight call the model for real (and **fail with a 30 s
 timeout whenever Groq is slow** — it was timing out at 25 s per call on 19 Sep 2026), and one
-checks the fall-back to a second provider, so it needs two provider keys in `.env`. The other 591
-do not depend on a provider (counted 30 Sep 2026, TASK-052) — one of those talks to a real ClamAV and is
-skipped unless `CLAMAV_TEST_HOST=127.0.0.1` is set with ClamAV running. The eight real-model tests are the ones
+checks the fall-back to a second provider, so it needs two provider keys in `.env`. The other 657
+do not depend on a provider (counted 5 Oct 2026, TASK-053) — the ClamAV file needs ClamAV running (or is
+skipped unless `CLAMAV_TEST_HOST=127.0.0.1` is set), and four inbox tests are skipped unless
+`EMAIL_TEST_IMAP_HOST` points at a test mail server. The eight real-model tests are the ones
 that read documents and messages into assignments: **run `pnpm test` with a working Groq key after this update**
 to see routing with the live model. `curl localhost:3001/health` shows `load.llm`
 if you want to know before running.
@@ -237,8 +240,9 @@ something when the server also has the keys for that channel in `.env`:
 | Telegram | `BOT_TOKEN` | nothing — live today |
 | Dashboard inbox | — | nothing — always on |
 | Web push (phone/desktop notifications) | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | an **https** address (localhost works for testing) |
-| Email out | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `EMAIL_FROM` | a domain + a free SMTP account (Brevo 300/day) |
-| Email in (assign by email) | `INBOUND_EMAIL_SECRET` (≥ 16 chars) | Cloudflare Email Routing → `POST /inbound/email` |
+| Email out | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `EMAIL_FROM` (+ `EMAIL_ALLOWLIST`) | Gmail + an App Password (demo, §7f) — or a domain + an SMTP account |
+| Email in — replies and work by email | `EMAIL_IMAP_HOST`, `EMAIL_IMAP_USER`, `EMAIL_IMAP_PASS`, `EMAIL_INBOX_ADDRESS` | the same Gmail account (§7f); Redis running (the worker reads it through BullMQ) |
+| Email in — webhook (domain only) | `INBOUND_EMAIL_SECRET` (≥ 16 chars) | Cloudflare Email Routing → `POST /inbound/email` |
 | Company chat | `CHAT_WEBHOOK_URL` | a Mattermost (or any) incoming webhook |
 
 ```bash
@@ -382,6 +386,55 @@ A restore test once a month is the minimum; after any change to the database ver
 
 ---
 
+## 7f · Email — tasks out, replies in (TASK-053)
+
+Work and alerts go out by email; replies come back and are filed as updates. The demo uses two personal
+Gmail accounts — the CEO's sends and reads, Hemanth's only receives and replies. Full walk-through and demo
+acts: **`EMAIL-DEMO-GUIDE.md`** (rendered at `docs/guides/email-demo-guide.html`).
+
+Once, on the CEO's Google account: turn on 2-Step Verification, then create an **App Password** at
+https://myaccount.google.com/apppasswords. Then in `.env` (real addresses only here — never in a file git
+uploads):
+
+```
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=465
+SMTP_USER=<CEO Gmail>
+SMTP_PASS=<App Password, no spaces>
+EMAIL_FROM="FreshNow Ops <CEO Gmail>"
+EMAIL_IMAP_HOST=imap.gmail.com
+EMAIL_IMAP_USER=<CEO Gmail>
+EMAIL_IMAP_PASS=<the same App Password>
+EMAIL_INBOX_ADDRESS=<CEO Gmail with +freshnow before the @>
+EMAIL_ALLOWLIST=<CEO Gmail>,<Hemanth Gmail>
+EMAIL_CEO_ADDRESS=<CEO Gmail>
+EMAIL_EMPLOYEE_ADDRESS=<Hemanth Gmail>
+EMAIL_EMPLOYEE_NAME=Hemanth
+```
+
+```powershell
+docker compose up -d          # Redis — the worker's inbox checks run as BullMQ jobs
+pnpm migrate                  # 0020_email.sql, 0021_task_number.sql
+pnpm email:check              # ✓ sending … ✓ reading … — logs in, sends nothing
+pnpm email:check --send       # optional: one test email to each address on EMAIL_ALLOWLIST
+pnpm email:setup              # addresses onto the CEO and Hemanth, email channel on, sensible opt-ins; safe to re-run
+```
+
+Restart the **api**, **worker** and **bot**. The worker then prints `email sender ready` and `email inbox …:
+checked every 60s`. `curl http://localhost:3001/health` shows `"email":{"sending":true,"receiving":true,…}`.
+The privacy notice now names email, so each person taps **I agree** once more.
+
+| Rule | Why |
+|---|---|
+| Nothing is sent to, or accepted from, an address not on `EMAIL_ALLOWLIST` | no one else can be emailed by mistake during the demo |
+| Only mail **to the `+freshnow` address** is read; nothing is marked read, moved or deleted | the CEO's own mail is never touched |
+| A reply finds its task by the key in the subject (`[FN-42]`), else by the email thread | the Jira pattern — survives a changed subject |
+| The sender must pass Google's SPF/DKIM/DMARC checks (or be the account's own Sent mail) and be the task's owner | a forged From: cannot file an update |
+| Email from the CEO or a manager becomes a **proposal** (Assign → From email); nothing is assigned until someone taps | the LLM never decides who |
+| A model outage leaves an email unread; it is retried every 5 minutes, at most 4 times | bounded retries |
+
+---
+
 ## 8 · When something is wrong
 
 | Symptom | Cause and fix |
@@ -406,6 +459,10 @@ A restore test once a month is the minimum; after any change to the database ver
 | `pnpm backup` fails with *"server version mismatch"* | The local `pg_dump` is older than the database. Start Supabase (the backup then runs inside its container) or set `BACKUP_PG_CONTAINER=supabase_db_freshnow`. |
 | `pnpm security:scan` fails on `pnpm audit` | A new advisory. Update the package (`pnpm update <name>`) or add an override in `pnpm-workspace.yaml`, then run it again. |
 | `pnpm install` says a version is *"within the minimumReleaseAge cutoff"* | pnpm's quarantine: it will not install a version published in the last 24 h. Wait a day, or pick the previous version — do not add an exclusion. |
+| `pnpm email:check` → `✗ sending: Invalid login` / `535`, or `✗ reading: Invalid credentials` | Not an App Password, or 2-Step Verification is off. Paste the 16 letters without spaces; `EMAIL_IMAP_USER` is the full address (§7f). |
+| The worker says `background jobs could not start (is Redis running?)` | `docker compose up -d`, then restart the worker. Telegram and email still go out meanwhile; only reading the inbox waits. |
+| An emailed reply did nothing | Dashboard → Records → Email lists every email and what became of it: *refused — not on EMAIL_ALLOWLIST*, *ignored — has not agreed to the notice*, *ignored — nothing written above the quote*. Not listed at all → the worker or Redis is not running. |
+| `pnpm email:setup` says a name *fits 2 people* or *nobody is called* | Set `EMAIL_EMPLOYEE_NAME` in `.env` to the name exactly as FreshNow shows it. |
 | `pnpm start:api` prints "AUTHENTICATION IS OFF … This is demo mode" | `SUPABASE_URL` is missing from `.env` (or misspelt) **and** the API is on the network (`0.0.0.0`). Fix `.env`; the warning is silenced only by a real `SUPABASE_URL` or by binding `HOST=127.0.0.1` (§1). |
 
 Quick database look:
@@ -429,7 +486,9 @@ docker exec supabase_db_freshnow psql -U postgres -d postgres -c "select display
 | What state the system is in | `SESSION-STATUS.md` |
 | Reports | `docs/reports/` · task write-ups `docs/tasks/` · CEO decks `docs/reports/ceo-deck-hostinger-final-verdict.html` (Hostinger, Groq, OpenRouter — latest), `ceo-deck-azure-aws-uae.html`, `ceo-deck-data-residency.html` |
 | Guides for people | `docs/guides/index.html` (rendered from the `.md` files at the root) |
-| Channel keys (VAPID, SMTP, chat) | `.env` — templates and comments in `.env.example` |
+| Channel keys (VAPID, SMTP, IMAP, chat) | `.env` — templates and comments in `.env.example` |
+| Email (TASK-053) | `packages/core/src/email-{reply,config,outbound,inbound,people}.ts` · `packages/worker/src/{email-inbox,email-sender,jobs}.ts` · `scripts/email-setup.ts` · tables `email_message`, `email_proposal` |
+| Context scoping (only what a request needs reaches a prompt) | `packages/core/src/context-scope.ts` · `query/schema-prune.ts` |
 | Optional chat server | `docker-compose.mattermost.yml` (separate file; never starts by itself) |
 | Live database | Supabase Postgres on `127.0.0.1:54322` · Studio `:54323` |
 | Old database (rollback copy) | `localhost:5433` · Adminer `http://localhost:8080` |

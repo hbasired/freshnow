@@ -1,10 +1,10 @@
 import { createServer, type Server } from "node:http";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { closeDb, getServiceSql } from "@freshnow/core";
+import { closeDb, currentNoticeHash, getServiceSql, recordConsent } from "@freshnow/core";
 import { makeChatSender } from "./chat-sender.js";
 import { makeEmailSender } from "./email-sender.js";
-import { RateLimitError } from "./outbox-relay.js";
+import { deliverOutboxBatch, RateLimitError } from "./outbox-relay.js";
 
 /**
  * The two simplest senders. The chat one runs against a REAL local HTTP server, because it
@@ -59,6 +59,9 @@ afterAll(async () => {
   }
   await new Promise<void>((resolve) => server.close(() => resolve()));
   const sql = getServiceSql();
+  await sql`delete from email_message where employee_id in (${EMP_WITH}, ${EMP_WITHOUT})`;
+  await sql`delete from notification_outbox where recipient_employee_id in (${EMP_WITH}, ${EMP_WITHOUT})`;
+  await sql`delete from consent_record where employee_id in (${EMP_WITH}, ${EMP_WITHOUT})`;
   await sql`delete from notification_pref where employee_id in (${EMP_WITH}, ${EMP_WITHOUT})`;
   await sql`delete from employee where id in (${EMP_WITH}, ${EMP_WITHOUT})`;
   await closeDb();
@@ -129,6 +132,30 @@ describe("the email sender", () => {
     });
     await expect(makeEmailSender(transport)(msg(EMP_WITH))).rejects.toBeInstanceOf(RateLimitError);
   });
+});
+
+describe("the email sender inside the real relay (TASK-053)", () => {
+  // Found by the end-to-end run: recording the sent email with a foreign key to the outbox row
+  // the relay holds FOR UPDATE made the send wait on its own lock, for ever. Calling the sender
+  // directly (as the tests above do) cannot see that; only the relay's transaction can.
+  it("delivers without waiting on its own lock, and records the email against its outbox row", async () => {
+    const sql = getServiceSql();
+    await recordConsent({ employeeId: EMP_WITH, noticeHash: currentNoticeHash(), via: "telegram" });
+    const key = `sendtest-relay-${randomUUID()}`;
+    const [row] = await sql<{ id: string }[]>`
+      insert into notification_outbox (idempotency_key, payload, channel, recipient_employee_id, is_synthetic)
+      values (${key}, ${sql.json({ title: "Blocker raised", text: "van 2 chiller is not cooling" } as never)}, 'email', ${EMP_WITH}, true)
+      returning id`;
+    const { transport, sent } = fakeTransport(() => {});
+    const result = await Promise.race([
+      deliverOutboxBatch({ email: makeEmailSender(transport) }),
+      new Promise<"hung">((r) => setTimeout(() => r("hung"), 10_000)),
+    ]);
+    expect(result).not.toBe("hung");
+    expect(sent.length).toBeGreaterThanOrEqual(1);
+    expect((await sql<{ status: string }[]>`select status from notification_outbox where id = ${row!.id}`)[0]!.status).toBe("sent");
+    expect((await sql`select 1 from email_message where outbox_id = ${row!.id} and direction = 'out'`).length).toBe(1);
+  }, 20_000);
 });
 
 describe("the chat sender", () => {

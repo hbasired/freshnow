@@ -35,6 +35,7 @@ const EVENT_LABEL: Record<AlertEventType, string> = {
   "blocker.resolved": "A problem I raised is resolved",
   "task.assigned": "Work is assigned to me",
   "task.done": "Work I gave out is finished",
+  "project.news": "Project news — milestones, issues and updates in my projects",
 };
 
 const TARGET_LABEL: Record<string, string> = {
