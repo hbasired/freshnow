@@ -85,6 +85,7 @@ export function registerEmailRoutes(app: FastifyInstance): void {
         title: t.title,
         note: t.detail ? `${t.detail}\n\n${provenance}` : provenance,
         correlationId: req.correlationId,
+        origin: "email",
       });
       assigned.push({ taskId: res.taskId, assignmentId: res.assignmentId, assignedTo: t.assignedTo, queued: res.delivered });
     }

@@ -1,3 +1,21 @@
+# Session status — 2026-10-07 (cloud session, TASK-054)
+
+- **Assign & notify: choose Telegram · App · Email.** A choice that cannot reach the person is greyed out with the reason
+  (not linked / no address / switched off); if none can, nothing is created. The result line says exactly where it went.
+- **Add people from the dashboard** (CEO): Assignments or People → **Add a person** — name, email, department, manager. They
+  get the privacy notice by email and agree by replying **I AGREE**; a Telegram invite bound to them is shown too.
+  With `EMAIL_ALLOWLIST` set, new addresses must be added there (or empty it).
+- **Email works like Telegram for the CEO:** write to the `+freshnow` address naming the person, or write **to the person and
+  Cc the `+freshnow` address** — assigned at once when the person is certain, otherwise it waits in Assign → From email.
+  The worker now reads Cc and the **Sent** mailbox (Gmail never puts mail to your own alias in the Inbox).
+- **The Overview's numbers each open their list:** Pending work (with each person's reported % — the 60% now shows and is no
+  longer wiped by a later status tap), Blocked, Urgent problems, Completed, From earlier days, Need a human.
+- **After pulling:** `pnpm install`, `pnpm migrate` (adds 0022), `pnpm build:web`, restart api, worker, bot.
+- Tests: 683 pass, 8 need a live model provider (blocked by this machine's network), 2 skipped. Browser: 34/34.
+- Not verified against Gmail itself (unreachable from here) — the Sent-mailbox path was tested on a local Dovecot.
+
+---
+
 # Session status — 2026-10-05 (cloud session, TASK-053)
 
 - **Email both ways.** A task is emailed as `[FN-42] …` from the CEO's Gmail. The person replies "40% done",

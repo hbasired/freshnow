@@ -12,17 +12,33 @@ export class EmailAddressError extends Error {}
 const ADDRESS = /^[^\s@<>"(),;:]+@[^\s@<>"(),;:]+\.[A-Za-z]{2,}$/;
 
 /**
+ * An address as it will be stored — trimmed, lower-cased — or null for "none". Throws the
+ * plain-English reason when it cannot be stored: malformed, or off EMAIL_ALLOWLIST (an address
+ * the system may never use is not worth storing). Uniqueness is the database's check.
+ */
+export function checkedEmployeeEmail(raw: string | null | undefined): string | null {
+  const email = raw?.trim().toLowerCase() || null;
+  if (email === null) return null;
+  if (email.length > 254 || !ADDRESS.test(email)) throw new EmailAddressError("That does not look like an email address.");
+  // FreshNow's own inbox is nobody's address: mail to it is read as work, so a person "at" it would
+  // turn every message to them into an email from the mailbox owner — a loop (TASK-054).
+  if (email === inboxConfig()?.inboxAddress) throw new EmailAddressError("That is FreshNow's own inbox address — it cannot be a person's address.");
+  if (!emailAddressAllowed(email)) {
+    throw new EmailAddressError(
+      "That address is not on EMAIL_ALLOWLIST, so the system may not use it. Add it to EMAIL_ALLOWLIST in .env and restart the api and worker — or empty the list to allow every employee's own address.",
+    );
+  }
+  return email;
+}
+
+/**
  * Set or clear a person's email address. The CEO's action (checked by the API). Refused when the
  * address is malformed, already someone else's (the unique index), or not on EMAIL_ALLOWLIST —
  * an address the system may never use is not worth storing. Audited without the address itself:
  * the row says that it changed and the domain, not the personal data.
  */
 export async function setEmployeeEmail(p: { employeeId: string; email: string | null; by: string; correlationId?: string }): Promise<{ email: string | null }> {
-  const email = p.email?.trim().toLowerCase() || null;
-  if (email !== null) {
-    if (email.length > 254 || !ADDRESS.test(email)) throw new EmailAddressError("That does not look like an email address.");
-    if (!emailAddressAllowed(email)) throw new EmailAddressError("That address is not on EMAIL_ALLOWLIST, so the system may not use it.");
-  }
+  const email = checkedEmployeeEmail(p.email);
   const sql = getServiceSql();
   try {
     const rows = await sql`update employee set email = ${email} where id = ${p.employeeId} returning id`;

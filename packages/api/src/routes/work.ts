@@ -8,6 +8,8 @@ import {
   canAssignTo,
   checkRateLimit,
   createTask,
+  NOTIFY_CHOICES,
+  NoReachableChannelError,
   eraseEmployee,
   mayAcknowledgeBlocker,
   recordTaskUpdate,
@@ -44,6 +46,11 @@ const AssignBody = z.object({
   assignedTo: z.string().uuid(),
   title: z.string().min(3).max(200),
   note: z.string().max(1000).optional(),
+  /**
+   * How to tell them — any of telegram, app, email (TASK-054). Omitted: their own notification
+   * rules, as before. Each choice must still be able to reach them; see `skipped` in the reply.
+   */
+  channels: z.array(z.enum(NOTIFY_CHOICES)).min(1).max(3).optional(),
 });
 
 const UpdateBody = z.object({
@@ -104,19 +111,35 @@ export function registerWorkRoutes(app: FastifyInstance): void {
       });
     }
 
-    const res = await assignTask({
-      assignedBy: viewer.employeeId,
-      assignedTo: body.assignedTo,
-      title: body.title,
-      note: body.note ?? null,
-      correlationId: req.correlationId,
-    });
+    let res;
+    try {
+      res = await assignTask({
+        assignedBy: viewer.employeeId,
+        assignedTo: body.assignedTo,
+        title: body.title,
+        note: body.note ?? null,
+        correlationId: req.correlationId,
+        origin: "dashboard",
+        ...(body.channels ? { channels: body.channels } : {}),
+      });
+    } catch (err) {
+      // Nothing was written: the choice could not reach them, and the person choosing is told
+      // which channel failed and why, so they can pick another.
+      if (err instanceof NoReachableChannelError) {
+        return reply.code(409).send({ error: { code: "no_channel", message: err.message, correlationId: req.correlationId } });
+      }
+      throw err;
+    }
     // `delivered` means the outbox row was queued, not that Telegram accepted it — the
     // worker owns that, and the UI says "queued" rather than "sent" for the same reason.
     return reply.code(201).send({
       taskId: res.taskId,
+      taskKey: res.taskKey,
       assignmentId: res.assignmentId,
       queued: res.delivered,
+      notified: res.notified,
+      skipped: res.skipped,
+      heldForConsent: res.heldForConsent,
     });
   });
 

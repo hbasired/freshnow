@@ -104,8 +104,10 @@ describe.skipIf(!HOST)("a real IMAP mailbox (EMAIL_TEST_IMAP_HOST)", () => {
     vi.unstubAllGlobals();
     const sql = getServiceSql();
     await sql`delete from notification_outbox where recipient_employee_id = ${worker}`;
+    await sql`update task set source_email_id = null where employee_id = ${worker}`;
     await sql`delete from email_message where employee_id = ${worker} or from_address like ${`imap-${run}-%`}`;
     await sql`delete from task_update where employee_id = ${worker}`;
+    await sql`delete from assignment where assigned_to = ${worker}`;
     await sql`delete from task where employee_id = ${worker}`;
     await sql`delete from consent_record where employee_id = ${worker}`;
     await sql`delete from employee where id = ${worker}`;
@@ -148,6 +150,49 @@ describe.skipIf(!HOST)("a real IMAP mailbox (EMAIL_TEST_IMAP_HOST)", () => {
     } finally {
       lock.release();
       await check.logout();
+    }
+  });
+
+  it("mail the account sent to its own alias — filed only in Sent, as Gmail does — is read from Cc, and the work is assigned (TASK-054)", async () => {
+    const sql = getServiceSql();
+    const boss = randomUUID();
+    // The mailbox's owner is a manager, and the worker reports to them.
+    await sql`insert into employee (id, display_name, email, access_role, status, is_synthetic) values (${boss}, ${`IMAP-${run} Boss`}, ${OWNER.toLowerCase()}, 'manager', 'active', true)`;
+    await recordConsent({ employeeId: boss, noticeHash: currentNoticeHash(), via: "telegram" });
+    await sql`update employee set manager_employee_id = ${boss} where id = ${worker}`;
+    // A stand-in model that reads one job and names nobody — the email's recipient is the owner.
+    vi.stubGlobal("fetch", vi.fn(async (_u: string | URL, init?: RequestInit) => {
+      const all = String(init?.body ?? "");
+      const content = all.includes("You read a work document")
+        ? JSON.stringify({ tasks: [{ title: "Clean the filler", detail: null, assignee_index: 0, named_as: null }], summary: "one job" })
+        : JSON.stringify({ is_blocker: false, category: "other", severity: "low", summary: "update" });
+      return { ok: true, status: 200, text: async () => "", json: async () => ({ choices: [{ message: { content } }], usage: { prompt_tokens: 1, completion_tokens: 1 } }) } as unknown as Response;
+    }));
+    const sentId = `s-${run}@mail.example.com`;
+    const privateId = `q-${run}@mail.example.com`;
+    const c = client();
+    await c.connect();
+    // Written TO the worker with the FreshNow alias only on Cc — and only in Sent, never INBOX.
+    await c.append("Sent", raw({ id: sentId, from: OWNER, to: WORKER, subject: "Filler", body: "Please clean the filler today.", extra: `Cc: ${INBOX}` }), ["\\Seen"]);
+    // The owner's own sent mail without the alias — never read.
+    await c.append("Sent", raw({ id: privateId, from: OWNER, to: "friend@example.org", subject: "Weekend", body: "See you" }), ["\\Seen"]);
+    await c.logout();
+    try {
+      const r = await pollInbox(cfg);
+      expect(r.outcomes).toMatchObject({ assigned: 1 });
+      expect((await sql`select 1 from email_message where message_id = ${privateId}`).length).toBe(0);
+      const a = await sql<{ origin: string; title: string }[]>`
+        select a.origin, t.title from assignment a join task t on t.id = a.task_id
+         where a.assigned_to = ${worker} and a.assigned_by = ${boss}`;
+      expect(a).toEqual([{ origin: "email", title: "Clean the filler" }]);
+    } finally {
+      await sql`delete from notification_outbox where recipient_employee_id = ${boss}`;
+      await sql`delete from assignment where assigned_by = ${boss}`;
+      await sql`update task set source_email_id = null where employee_id = ${worker}`;
+      await sql`delete from email_message where employee_id = ${boss}`;
+      await sql`update employee set manager_employee_id = null where id = ${worker}`;
+      await sql`delete from consent_record where employee_id = ${boss}`;
+      await sql`delete from employee where id = ${boss}`;
     }
   });
 

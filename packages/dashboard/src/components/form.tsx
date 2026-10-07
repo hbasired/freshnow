@@ -177,7 +177,9 @@ export function PersonPicker({
           value: p.id,
           // Not on Telegram is no longer "unreachable": the in-app inbox (and their devices, if
           // turned on) still reach them. The note says which, rather than implying nothing arrives.
-          label: p.linked === false ? `${p.display_name} (no Telegram — told in the app)` : p.display_name,
+          // Since TASK-054 the assign form shows every channel and why one cannot reach them, so
+          // the label only states the fact.
+          label: p.linked === false ? `${p.display_name} (not on Telegram)` : p.display_name,
         })),
       ]}
     />

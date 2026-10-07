@@ -1003,3 +1003,27 @@ client on failure or the process does not exit.
 
 ## G141 — A JSON rewrite of a hand-formatted registry produced a 193-line diff [verified 2026-10-05]
 `compliance/processors.json` is reviewed by people; edit it as text, minimally.
+
+## G142 — Every status tap wiped the person's reported percentage [verified 2026-10-07]
+`recordTaskUpdate` → `recomputeProgress` replaced a self-reported figure with the status default whenever a task had no steps,
+so "60%" picked in the app became 50% (in progress) at the next "still pending" tap — and a "60% done" typed in Telegram never
+became a percentage at all. The user saw the 60% "not there" on the Pending list. Fixed by D175.
+
+## G143 — `reset-employee` had not learned TASK-053's email tables [verified 2026-10-07]
+`email_message.task_id` (and employee/assignment/update ids) block `delete from task`, so resetting anyone with email history
+failed with `email_message_task_id_fkey` — reproduced with the TASK-053 script on a throwaway person. TASK-054's
+`task.source_email_id` adds the reverse direction. The script now releases both before deleting. Same class as G69: every new
+table with a foreign key to a person's rows must be added to that script in the same task.
+
+## G144 — `pkill -f <pattern>` killed its own shell [verified 2026-10-07]
+The pattern appeared in the bash command line itself, so pkill matched the shell running it (exit 144). Find the PID with
+`ps aux | grep … | grep -v grep` instead.
+
+## G145 — A test file whose cleanup fails poisons the NEXT file [verified 2026-10-07]
+The new FK made email-inbound.test's `afterAll` fail midway; its pending email outbox rows survived and filled the relay's batch
+of 5 in email-chat-sender.test, which then reported "sent 0" — a failure in an unrelated file. Read the first failing suite, not
+the loudest one.
+
+## G146 — Playwright `getByLabel("Email")` matched the sidebar's Email page link [verified 2026-10-07]
+A browser check tapped "Email" in the channel picker and navigated to Records → Email instead. Scope locators to the form
+(`main fieldset`) or use placeholders when a label is also a navigation word.

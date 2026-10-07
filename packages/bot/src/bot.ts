@@ -782,6 +782,7 @@ export function createBot(deps: BotDeps): Bot<FreshCtx> {
     if (step.kind === "assign_pending" && ctx.employee) {
       ctx.session.step = { kind: "idle" };
       const res = await assignTask({
+        origin: "telegram",
         assignedBy: ctx.employee.id,
         assignedTo: toId,
         title: step.title,
@@ -836,6 +837,7 @@ export function createBot(deps: BotDeps): Bot<FreshCtx> {
         continue;
       }
       const res = await assignTask({
+        origin: "document",
         assignedBy: ctx.employee.id,
         assignedTo: t.assigneeId,
         title: t.title,
@@ -1295,6 +1297,7 @@ export async function handleText(ctx: FreshCtx, text: string): Promise<void> {
       ctx.session.step = { kind: "idle" };
       if (!ctx.employee) return;
       const res = await assignTask({
+        origin: "telegram",
         assignedBy: ctx.employee.id,
         assignedTo: match.id,
         title: step.title,
@@ -1376,6 +1379,7 @@ export async function handleText(ctx: FreshCtx, text: string): Promise<void> {
         return;
       }
       const res = await assignTask({
+        origin: "telegram",
         assignedBy: ctx.employee.id,
         assignedTo: step.toEmployeeId,
         title: text,
@@ -1650,6 +1654,7 @@ async function assignConfirmed(ctx: FreshCtx, assignedBy: string, items: readonl
   for (const item of items) {
     const title = (item.newTaskTitle ?? text).slice(0, 160);
     const res = await assignTask({
+      origin: "telegram",
       assignedBy,
       assignedTo: item.assignee!.id,
       title,

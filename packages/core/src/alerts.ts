@@ -1,6 +1,8 @@
 import { logAudit } from "./audit.js";
 import { getServiceSql } from "./db.js";
-import { liveChannels, type Channel } from "./channels.js";
+import { channelStates, liveChannels, type Channel } from "./channels.js";
+import { CONSENT_POLICY_VERSION, currentNoticeHashes } from "./consent.js";
+import { emailAddressAllowed } from "./email-config.js";
 import { DEMO_CEO_ID } from "./meta.js";
 import { canAssignTo, loadViewer } from "./org.js";
 import { enqueueNotification, type OutboxChannel } from "./outbox.js";
@@ -264,6 +266,160 @@ interface PrefRow {
 }
 
 /**
+ * The three ways a person giving work can choose to tell someone, as the dashboard offers them
+ * (TASK-054). "app" is the in-app inbox plus a phone notification where the person has turned
+ * one on — to the person reading it, both are "the app".
+ */
+export const NOTIFY_CHOICES = ["telegram", "app", "email"] as const;
+export type NotifyChoice = (typeof NOTIFY_CHOICES)[number];
+
+/** The outbox channels one choice stands for. */
+export function channelsOfChoice(choice: NotifyChoice): readonly Channel[] {
+  return choice === "telegram" ? ["telegram"] : choice === "app" ? ["inapp", "webpush"] : ["email"];
+}
+
+/** The choice an outbox channel belongs to; null for the team chat, which is nobody's inbox. */
+export function choiceOfChannel(channel: Channel): NotifyChoice | null {
+  return channel === "telegram" ? "telegram" : channel === "inapp" || channel === "webpush" ? "app" : channel === "email" ? "email" : null;
+}
+
+interface PersonFacts {
+  id: string;
+  status: string;
+  telegram_user_id: string | null;
+  email: string | null;
+}
+
+/**
+ * Can this channel physically reach this person now? Null when it can; otherwise the reason in
+ * plain words — what the dashboard shows next to a greyed-out choice, and what a skipped channel
+ * is reported as. Facts only (a linked chat, an address, a device, the company switch); never a
+ * person's preference, which is a different question.
+ */
+function unreachableReason(channel: Channel, p: PersonFacts, live: ReadonlySet<Channel>, why: ReadonlyMap<Channel, string>, withDevice: ReadonlySet<string>): string | null {
+  if (!live.has(channel)) return why.get(channel) || "switched off";
+  switch (channel) {
+    case "telegram":
+      return p.telegram_user_id == null ? "not linked to the Telegram bot yet" : null;
+    case "webpush":
+      return withDevice.has(p.id) ? null : "no phone or browser turned on for notifications";
+    case "email":
+      if (!p.email) return "no email address on file";
+      return emailAddressAllowed(p.email) ? null : "address is not on EMAIL_ALLOWLIST";
+    default:
+      return null;
+  }
+}
+
+/**
+ * A person's own rules for one event, applied to the live channels: the in-app inbox always,
+ * Telegram if linked and not switched off, web push if they turned on a device (or a rule says
+ * so), email and chat only on an explicit "immediate" rule. One function, used both to send and
+ * to tell the dashboard what "their usual channels" means — so the two cannot disagree.
+ */
+function usualChannels(
+  p: PersonFacts,
+  mine: readonly PrefRow[],
+  channels: readonly Channel[],
+  withDevice: ReadonlySet<string>,
+): { channel: Channel; ruleId: string | null; delayMinutes: number }[] {
+  const out: { channel: Channel; ruleId: string | null; delayMinutes: number }[] = [];
+  for (const channel of channels) {
+    if (channel === "inapp") {
+      out.push({ channel, ruleId: null, delayMinutes: 0 });
+      continue;
+    }
+    const pref = mine.find((r) => r.channel === channel);
+    if (channel === "telegram") {
+      if (p.telegram_user_id == null) continue;
+      if (pref && pref.mode !== "immediate") continue;
+      out.push({ channel, ruleId: pref?.id ?? null, delayMinutes: pref?.delay_minutes ?? 0 });
+      continue;
+    }
+    if (channel === "webpush") {
+      // No rule: on if they have a device. A rule: it decides ("off" silences one event).
+      if (pref ? pref.mode !== "immediate" : !withDevice.has(p.id)) continue;
+      out.push({ channel, ruleId: pref?.id ?? null, delayMinutes: pref?.delay_minutes ?? 0 });
+      continue;
+    }
+    // Email (and chat) are opt-in: no rule, no row.
+    if (pref && pref.mode === "immediate") out.push({ channel, ruleId: pref.id, delayMinutes: pref.delay_minutes });
+  }
+  return out;
+}
+
+/** Whether each person can be reached by each choice, and what their own rules would pick. */
+export interface ChoiceReach {
+  ok: boolean;
+  /** Empty when ok; otherwise why not, in plain words. */
+  why: string;
+}
+
+export interface PersonReach {
+  employeeId: string;
+  telegram: ChoiceReach;
+  /** The inbox always works while the app channel is on; `push` says whether a phone also buzzes. */
+  app: ChoiceReach & { push: boolean };
+  email: ChoiceReach;
+  /** What a new task would use if nobody chose — the dashboard's default selection. */
+  usual: NotifyChoice[];
+  /**
+   * Agreed to the privacy notice as it reads today. Until then the outbox HOLDS everything for
+   * them except the in-app inbox and the consent request (worker/outbox-relay.ts) — so a choice
+   * can be "ok" and still wait. The dashboard says so rather than promising a delivery.
+   */
+  consented: boolean;
+}
+
+/**
+ * Reachability for a set of people, in three queries whatever the size of the set. Bounded by
+ * the caller (the dashboard asks for the people it may assign to, at most a few hundred).
+ */
+export async function reachOf(employeeIds: readonly string[]): Promise<Map<string, PersonReach>> {
+  const out = new Map<string, PersonReach>();
+  const ids = [...new Set(employeeIds)];
+  if (ids.length === 0) return out;
+  const sql = getServiceSql();
+  const people = await sql<(PersonFacts & { consented: boolean })[]>`
+    select e.id, e.status, e.telegram_user_id, e.email,
+           exists (select 1 from consent_record c
+                    where c.employee_id = e.id and c.policy_version = ${CONSENT_POLICY_VERSION}
+                      and c.notice_hash = any(${currentNoticeHashes()})) as consented
+      from employee e where e.id = any(${ids})`;
+  const prefs = await sql<PrefRow[]>`
+    select id, employee_id, channel, mode, delay_minutes from notification_pref
+    where employee_id = any(${ids}) and event_type = 'task.assigned'`;
+  const states = await channelStates();
+  const live = new Set(states.filter((s) => s.live).map((s) => s.channel));
+  const why = new Map(states.map((s) => [s.channel, s.why] as const));
+  const withDevice = live.has("webpush") ? await hasPushDevice(ids) : new Set<string>();
+  const liveList = [...live];
+  for (const p of people) {
+    const reach = (ch: Channel): ChoiceReach => {
+      const r = unreachableReason(ch, p, live, why, withDevice);
+      return { ok: r === null, why: r ?? "" };
+    };
+    const usual = [
+      ...new Set(
+        usualChannels(p, prefs.filter((r) => r.employee_id === p.id), liveList, withDevice)
+          .map((u) => choiceOfChannel(u.channel))
+          .filter((c): c is NotifyChoice => c !== null),
+      ),
+    ];
+    out.set(p.id, {
+      employeeId: p.id,
+      telegram: reach("telegram"),
+      app: { ...reach("inapp"), push: unreachableReason("webpush", p, live, why, withDevice) === null },
+      email: reach("email"),
+      // In the fixed order the dashboard shows the choices in.
+      usual: NOTIFY_CHOICES.filter((c) => usual.includes(c)),
+      consented: p.consented,
+    });
+  }
+  return out;
+}
+
+/**
  * Turn people into (person, channel) pairs. Defaults when a person has said nothing:
  * Telegram immediately (if they are linked), the in-app inbox always, and web push
  * immediately if they have turned it on for at least one device. A "digest" rule is
@@ -278,7 +434,17 @@ interface PrefRow {
  * offered Telegram). An email address, by contrast, can be stored by somebody else, so
  * email stays opt-in per event.
  */
-export async function resolveAlertRecipients(event: AlertEvent): Promise<AlertRecipient[]> {
+export async function resolveAlertRecipients(
+  event: AlertEvent,
+  opts: {
+    /**
+     * Channels the person giving the work chose for this one message (TASK-054). When given,
+     * each candidate is told on exactly these — wherever the channel can physically reach them —
+     * instead of by their own rules. A choice is per message; it changes nobody's settings.
+     */
+    chosen?: readonly NotifyChoice[];
+  } = {},
+): Promise<AlertRecipient[]> {
   const candidates = await candidatesFor(event);
   // One entry per person: the first rule that named them wins (level targets are ordered).
   const byPerson = new Map<string, Candidate>();
@@ -287,13 +453,14 @@ export async function resolveAlertRecipients(event: AlertEvent): Promise<AlertRe
 
   const ids = [...byPerson.keys()];
   const sql = getServiceSql();
-  const people = await sql<{ id: string; status: string; telegram_user_id: string | null }[]>`
-    select id, status, telegram_user_id from employee where id = any(${ids})`;
+  const people = await sql<PersonFacts[]>`
+    select id, status, telegram_user_id, email from employee where id = any(${ids})`;
   const prefs = await sql<PrefRow[]>`
     select id, employee_id, channel, mode, delay_minutes from notification_pref
     where employee_id = any(${ids}) and event_type = ${event.type}`;
   const channels = await liveChannels();
   const withDevice = channels.includes("webpush") ? await hasPushDevice(ids) : new Set<string>();
+  const live = new Set(channels);
 
   const personById = new Map(people.map((p) => [p.id, p]));
   const out: AlertRecipient[] = [];
@@ -303,29 +470,19 @@ export async function resolveAlertRecipients(event: AlertEvent): Promise<AlertRe
     const p = personById.get(id);
     if (!p || p.status === "disabled") continue;
     const c = byPerson.get(p.id)!;
-    const mine = prefs.filter((r) => r.employee_id === p.id);
-    for (const channel of channels) {
-      if (channel === "inapp") {
-        out.push({ employeeId: p.id, channel, reason: c.reason, ruleId: c.ruleId, delayMinutes: 0 });
-        continue;
+    if (opts.chosen) {
+      // The choice decides WHICH channels; the facts still decide whether each can carry it.
+      // An unreachable choice is skipped here and reported to whoever chose it (reachOf).
+      const wanted = new Set(opts.chosen.flatMap(channelsOfChoice));
+      for (const channel of channels) {
+        if (!wanted.has(channel)) continue;
+        if (unreachableReason(channel, p, live, new Map(), withDevice) !== null) continue;
+        out.push({ employeeId: p.id, channel, reason: `${c.reason} — channel chosen when the work was given`, ruleId: c.ruleId, delayMinutes: 0 });
       }
-      const pref = mine.find((r) => r.channel === channel);
-      if (channel === "telegram") {
-        if (p.telegram_user_id == null) continue;
-        if (pref && pref.mode !== "immediate") continue;
-        out.push({ employeeId: p.id, channel, reason: c.reason, ruleId: pref?.id ?? c.ruleId, delayMinutes: pref?.delay_minutes ?? 0 });
-        continue;
-      }
-      if (channel === "webpush") {
-        // No rule: on if they have a device. A rule: it decides ("off" silences one event).
-        if (pref ? pref.mode !== "immediate" : !withDevice.has(p.id)) continue;
-        out.push({ employeeId: p.id, channel, reason: c.reason, ruleId: pref?.id ?? c.ruleId, delayMinutes: pref?.delay_minutes ?? 0 });
-        continue;
-      }
-      // Email (and chat) are opt-in: no rule, no row.
-      if (pref && pref.mode === "immediate") {
-        out.push({ employeeId: p.id, channel, reason: c.reason, ruleId: pref.id, delayMinutes: pref.delay_minutes });
-      }
+      continue;
+    }
+    for (const u of usualChannels(p, prefs.filter((r) => r.employee_id === p.id), channels, withDevice)) {
+      out.push({ employeeId: p.id, channel: u.channel, reason: c.reason, ruleId: u.ruleId ?? c.ruleId, delayMinutes: u.delayMinutes });
     }
   }
   return out;
@@ -390,8 +547,9 @@ export async function notify(
     isSynthetic?: boolean;
     correlationId?: string;
   },
+  opts: { chosen?: readonly NotifyChoice[] } = {},
 ): Promise<NotifyResult> {
-  const recipients = await resolveAlertRecipients(event);
+  const recipients = await resolveAlertRecipients(event, opts);
   if (recipients.length === 0) {
     await logAudit({
       correlationId: message.correlationId,
@@ -437,6 +595,7 @@ export async function notify(
     detail: {
       event,
       enqueued,
+      ...(opts.chosen ? { chosen: opts.chosen } : {}),
       recipients: recipients.map((r) => ({ employeeId: r.employeeId, channel: r.channel, reason: r.reason, ruleId: r.ruleId, delayMinutes: r.delayMinutes })),
     },
   });

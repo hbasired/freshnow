@@ -126,6 +126,13 @@ export const Icon = {
   chevronLeft: (p: P) => (
     <svg {...base(p)}><path d="m15 6-6 6 6 6" /></svg>
   ),
+  // A paper plane — the generic "send a message" mark, used for Telegram without its logo.
+  send: (p: P) => (
+    <svg {...base(p)}><path d="M21 3 3 10.5l7 2.5 2.5 7L21 3Z" /><path d="m10 13 4.5-4.5" /></svg>
+  ),
+  userPlus: (p: P) => (
+    <svg {...base(p)}><circle cx="9" cy="8" r="4" /><path d="M2 21c0-3.9 3.1-7 7-7s7 3.1 7 7" /><path d="M19 8v6M16 11h6" /></svg>
+  ),
 };
 
 export type IconName = keyof typeof Icon;

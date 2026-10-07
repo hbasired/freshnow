@@ -177,22 +177,34 @@ export function registerDashboardRoutes(app: FastifyInstance): void {
     authEnabled() ? reply.redirect("/app/") : reply.type("text/html").send(DASHBOARD_HTML),
   );
 
-  app.get("/dashboard/employees", async (req) =>
-    withContext(await resolveViewer(req), (sql) =>
+  app.get("/dashboard/employees", async (req) => {
+    const viewer = await resolveViewer(req);
+    return withContext(viewer, (sql) =>
       // `linked` — whether the bot can reach them — without exposing the Telegram id itself.
+      // `has_email` likewise; the address itself only to the CEO, who manages addresses.
       sql`select id, display_name, department, role_title, site, shift, status, is_synthetic,
                  (telegram_user_id is not null) as linked,
+                 (email is not null) as has_email,
+                 case when ${viewer.isCeo} then email end as email,
                  access_role, manager_employee_id,
                  employee_display_name(manager_employee_id) as manager_name
           from employee order by display_name
-          limit ${LIST_LIMIT}`),
-  );
+          limit ${LIST_LIMIT}`);
+  });
 
+  // Every problem with what it is about: the raiser's own words, the task (and its FN key) and
+  // who must resolve it — so the Problems page answers "what, where, who" without a second click.
   app.get("/dashboard/blockers", async (req) =>
     withContext(await resolveViewer(req), (sql) =>
       sql`select b.id, b.category, b.severity, b.status, b.affected_asset, b.raised_at, b.is_synthetic,
-                 e.display_name as raised_by_name
+                 b.sla_due_at, b.raised_by,
+                 e.display_name as raised_by_name,
+                 employee_display_name(b.assigned_resolver) as resolver_name,
+                 u.note_raw, u.note_parsed->>'summary' as summary,
+                 t.id as task_id, t.title as task_title, t.task_number::text as task_number
           from blocker b join employee e on e.id = b.raised_by
+          left join task_update u on u.id = b.task_update_id
+          left join task t on t.id = u.task_id
           order by b.raised_at desc
           limit ${LIST_LIMIT}`),
   );
@@ -252,9 +264,11 @@ export function registerDashboardRoutes(app: FastifyInstance): void {
   app.get("/dashboard/day", async (req) =>
     withContext(await resolveViewer(req), (sql) =>
       sql`select u.id, u.status, u.note_raw, u.note_parsed->>'summary' as summary,
-                 u.submitted_at, u.is_synthetic,
+                 u.submitted_at, u.is_synthetic, u.channel, u.employee_id,
                  e.display_name as employee_name, e.department,
                  t.id as task_id, t.title as task_title, t.status as task_status,
+                 t.task_number::text as task_number,
+                 t.progress_pct, t.progress_source, t.progress_band_low, t.progress_band_high,
                  b.id as blocker_id, b.severity, b.category, b.status as blocker_status,
                  (select count(*)::int from attachment f where f.task_update_id = u.id) as files
           from task_update u
@@ -294,12 +308,75 @@ export function registerDashboardRoutes(app: FastifyInstance): void {
            order by d.day`),
   );
 
+  // The Overview's numbers, every one counted by Postgres under the viewer's row rules — so a
+  // tile can never disagree with the page it opens, and no count is added up in the browser
+  // (TASK-054). The definitions are the ones the pages use:
+  //   open_tasks      not done and not cancelled — the Pending page
+  //   in_progress     of those, reported pending or in progress at least once
+  //   not_started     of those, never reported on
+  //   blocked_tasks   of those, with a problem still open or acknowledged
+  //   behind          of those, more time used than progress made (the same rule as the board)
+  //   carried_over    of those, raised before the day shown
+  //   completed       "done" reports on the day shown — the Completed page
+  //   reports         every report on the day shown
+  //   open_blockers / urgent_blockers / acknowledged_blockers — the Problems page
+  //   needs_review    updates nobody could read, all time (the page lists the latest 25)
+  app.get("/dashboard/summary", async (req) => {
+    const day = dayOf(req);
+    const rows = await withContext(await resolveViewer(req), (sql) =>
+      sql<Record<string, number>[]>`
+        with open_t as (
+          select t.id, t.status, t.created_at, t.progress_pct,
+                 case when t.started_at is not null and t.due_at is not null and t.due_at > t.started_at
+                      then greatest(0, least(100, round(100 * extract(epoch from (now() - t.started_at))
+                                                          / extract(epoch from (t.due_at - t.started_at)))))::int
+                      else null end as elapsed_pct,
+                 exists (select 1 from blocker b join task_update u on u.id = b.task_update_id
+                          where u.task_id = t.id and b.status in ('open', 'acknowledged')) as blocked
+          from task t
+          where t.status not in ('done', 'cancelled')),
+        day_u as (
+          select u.status from task_update u
+          where u.submitted_at >= ${day}::date and u.submitted_at < (${day}::date + interval '1 day'))
+        select
+          (select count(*) from open_t)::int as open_tasks,
+          (select count(*) from open_t where status in ('pending', 'in_progress'))::int as in_progress,
+          (select count(*) from open_t where status = 'open')::int as not_started,
+          (select count(*) from open_t where blocked)::int as blocked_tasks,
+          (select count(*) from open_t where elapsed_pct is not null and elapsed_pct - progress_pct > ${BEHIND_THRESHOLD_POINTS})::int as behind,
+          (select count(*) from open_t where created_at < ${day}::date)::int as carried_over,
+          (select count(*) from day_u where status = 'done')::int as completed,
+          (select count(*) from day_u)::int as reports,
+          (select count(*) from blocker where status = 'open')::int as open_blockers,
+          (select count(*) from blocker where status = 'open' and severity in ('high', 'critical'))::int as urgent_blockers,
+          (select count(*) from blocker where status = 'acknowledged')::int as acknowledged_blockers,
+          (select count(*) from task_update where note_parsed->>'needs_review' = 'true')::int as needs_review`,
+    );
+    return { date: day, ...rows[0] };
+  });
+
   // Work still open, with its AGE — this is the carry-over view: what is outstanding
-  // from earlier days, who owns it, and the last thing they said about it.
+  // from earlier days, who owns it, and the last thing they said about it. Since TASK-054 also
+  // the Pending page's source: the FN key, the percentage with who reported it and their reason,
+  // the last status they reported, and whether a problem is holding it up.
   app.get("/dashboard/open-tasks", async (req) => {
     const rows = await withContext(await resolveViewer(req), (sql) =>
       sql`select t.id, t.title, t.status, t.created_at, t.is_synthetic,
+                 t.task_number::text as task_number,
                  t.employee_id, t.progress_pct, t.progress_source, t.progress_band_low, t.progress_band_high,
+                 t.progress_note, t.progress_updated_at,
+                 (select employee_display_name(pe.employee_id) from progress_event pe
+                   where pe.task_id = t.id order by pe.created_at desc limit 1) as progress_by,
+                 (select u.status from task_update u
+                   where u.task_id = t.id order by u.submitted_at desc limit 1) as last_status,
+                 (select count(*)::int from blocker b join task_update u on u.id = b.task_update_id
+                   where u.task_id = t.id and b.status in ('open', 'acknowledged')) as open_blockers,
+                 (select b.severity from blocker b join task_update u on u.id = b.task_update_id
+                   where u.task_id = t.id and b.status in ('open', 'acknowledged')
+                   order by case b.severity when 'critical' then 0 when 'high' then 1 when 'medium' then 2 else 3 end
+                   limit 1) as blocker_severity,
+                 (select employee_display_name(a.assigned_by) from assignment a
+                   where a.task_id = t.id order by a.created_at desc limit 1) as assigned_by_name,
                  t.priority, t.due_at, t.started_at,
                  case when t.started_at is not null and t.due_at is not null and t.due_at > t.started_at
                       then greatest(0, least(100, round(100 * extract(epoch from (now() - t.started_at))
@@ -332,6 +409,9 @@ export function registerDashboardRoutes(app: FastifyInstance): void {
   app.get("/dashboard/assignments", async (req) =>
     withContext(await resolveViewer(req), (sql) =>
       sql`select a.id, a.status, a.note, a.created_at, a.is_synthetic,
+                 a.task_id, a.notify_channels, a.origin, a.assigned_to as assigned_to_id,
+                 t.task_number::text as task_number,
+                 t.progress_pct, t.progress_source, t.progress_band_low, t.progress_band_high,
                  t.title as task_title, t.status as task_status,
                  employee_display_name(a.assigned_by) as assigned_by,
                  employee_display_name(a.assigned_to) as assigned_to,

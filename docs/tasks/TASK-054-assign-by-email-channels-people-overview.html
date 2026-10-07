@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TASK-054 — Assign by email, choose the channel, add people, an Overview that opens its lists</title>
+<style>
+  :root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#3fb950;--warn:#d29922;--bad:#f85149;--card:#161b22;--bd:#30363d}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;max-width:980px;padding:48px 24px;margin-inline:auto}
+  h1{font-size:1.9rem;margin:0 0 4px} h2{margin-top:2.5rem;color:var(--acc);font-size:1.25rem} h3{font-size:1.05rem;margin-top:1.6rem}
+  .meta{color:var(--mut);font-size:.9rem;margin-bottom:2rem}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:18px;margin:14px 0}
+  .unverified{border-left:3px solid var(--warn)} .ok{border-left:3px solid var(--acc)}
+  code{background:#1f2630;padding:2px 6px;border-radius:4px;font-size:.9em}
+  pre{background:#1f2630;padding:12px;border-radius:8px;overflow-x:auto;font-size:.85rem;line-height:1.45}
+  .tw{overflow-x:auto} table{border-collapse:collapse;width:100%;margin:14px 0}
+  th,td{border:1px solid var(--bd);padding:7px 9px;text-align:left;font-size:.88rem;vertical-align:top} th{background:#1f2630}
+  .bad{color:var(--bad);font-weight:600}.good{color:var(--acc);font-weight:600}.warn{color:var(--warn);font-weight:600}
+  ul{padding-left:1.1rem} li{margin:3px 0} a{color:#88c0f0}
+  @media (max-width:600px){body{padding:28px 16px}}
+</style></head><body>
+<h1>TASK-054 — Assign by email, choose the channel, add people, an Overview that opens its lists</h1>
+<p class="meta">2026-10-07 · Phase 2 (assignment, notifications) · migration <code>0022_assign_channels.sql</code> · new:
+<code>core/people.ts</code>, <code>api/routes/people.ts</code>, <code>dashboard/components/work-views.tsx</code> · changed: <code>core/{alerts,updates,progress,consent,email-inbound,email-outbound,email-people,invite}.ts</code>,
+<code>worker/email-inbox.ts</code>, <code>api/routes/{dashboard,work,documents,email}.ts</code>, <code>bot/bot.ts</code> (origin only), <code>dashboard/{App,components/hero,components/icons,lib/api}</code>,
+<code>scripts/reset-employee.ts</code>, <code>semantic/schema.yaml</code> · no new dependency · 683 tests pass, 8 need a live model provider (blocked by this machine's network), 2 skipped · 34/34 browser checks</p>
+
+<div class="card ok"><b>One-sentence summary:</b> the CEO can now pick <b>Telegram · App · Email</b> on every assignment (with the reason
+any choice cannot reach the person), add people with their email from the dashboard, and give work by email the way Telegram works —
+assigned at once when the person is certain — while every number on the Overview is counted in SQL and opens the exact list it counted,
+including each person's own reported percentage, which a later status tap no longer wipes.</div>
+
+<h2>What was asked</h2>
+<ul>
+  <li>Assign by email in the frontends, backend and database; the CEO adds people and their emails in the dashboard and app.</li>
+  <li>The Overview's clickables were not wired correctly; <b>Pending</b> should open the pending tasks with the percentage the employee
+      logged (the 60% was not visible, nor the right task). Clear numbers, progress, blocker/progress status, proper navigation.</li>
+  <li>If the CEO sends an assignment by email instead of the UI — as with Telegram — what must happen so the employee gets it, it
+      appears on the dashboard, and it is logged and recorded.</li>
+  <li>Assign &amp; notify should let the CEO choose Telegram, the app or email with simple clicks.</li>
+  <li>Check the system, push, and give the commands to pull and start everything. Security solid.</li>
+</ul>
+
+<h2>What was done</h2>
+<div class="tw"><table>
+<tr><th>Area</th><th>Change</th></tr>
+<tr><td>Database</td><td><code>0022</code>: <code>assignment.notify_channels text[]</code> (subset of telegram/app/email, NULL = nobody chose),
+  <code>assignment.origin</code> (dashboard/telegram/document/email, NULL before this task), <code>task.source_email_id → email_message</code>.
+  Semantic layer updated (the column-accurate test passes).</td></tr>
+<tr><td>Channel choice</td><td><code>assignTask({channels})</code>; <code>reachOf()</code> answers, per person, whether each choice can reach them and why
+  not, what their own rules would use, and whether they have agreed to the notice. Refuses before writing when nothing chosen can reach
+  them (409 <code>no_channel</code>). Returns <code>taskKey</code>, <code>notified</code>, <code>skipped</code>, <code>heldForConsent</code>.</td></tr>
+<tr><td>People</td><td><code>addPerson()</code> + <code>POST /dashboard/people</code> (CEO only): active employee, email checked (format, unique,
+  allow-list, never the inbox alias), manager default the CEO, a Telegram invite bound to the row, the notice emailed.
+  <code>GET /dashboard/people/reach</code> for the Assign form and People page. People shows reach and (CEO) an editable address.</td></tr>
+<tr><td>Consent by email</td><td>The notice is emailed (whole text + its hash in the payload); a reply <i>I AGREE</i>, matched by thread to our notice
+  to that person, records consent <code>via: "email"</code>.</td></tr>
+<tr><td>Email assigns</td><td>A CEO/manager email is assigned at once when every owner is certain (name fits one person / email address / the email
+  went TO one employee) and permitted; otherwise a proposal, as before. Reply-all to the original email finds the task through
+  <code>source_email_id</code>.</td></tr>
+<tr><td>Worker</td><td>IMAP search To <b>or</b> Cc; reads the <code>\Sent</code> special-use mailbox too. Loop guards.</td></tr>
+<tr><td>Progress</td><td>A self-reported figure survives status taps; <code>statedPercent()</code> turns "60% done" in any channel's note into the
+  person's self-reported progress before any model call.</td></tr>
+<tr><td>Overview</td><td><code>GET /dashboard/summary</code> (SQL, under RLS). New pages <b>Pending work</b>, <b>Completed</b>, <b>Problems</b>; filters in
+  the URL (<code>#tasks/pending/blocked</code>); six tiles and the hero sentence open their lists; the current tile is marked; FN keys and
+  progress with its source everywhere a task is listed.</td></tr>
+<tr><td>Fixed on the way</td><td><code>reset-employee</code> failed for anyone with email history (TASK-053's tables, G143).</td></tr>
+</table></div>
+
+<h2>Why it was done this way</h2>
+<h3>Why the 60% disappeared</h3>
+<p>Two causes, both in code that existed. The <b>Pending</b> tile counted <i>status reports</i> made today and jumped to the Overview it was
+already on, so it went nowhere; and the report rows carried no percentage. Underneath that, <code>recomputeProgress</code> replaced a
+person's own figure with the status default (10% / 50%) at the next status tap, and a "60% done" typed into Telegram was never read as a
+number at all (G142). The fix keeps the person's figure until there is better evidence (counted steps) or the task finishes, reads a
+stated percentage with a pattern — a number the person typed, never a figure a model produced (CLAUDE.md rule 2) — and gives Pending a
+page of its own that shows the figure with who reported it, when, and their words.</p>
+
+<h3>Why a choice per assignment, and why it can be refused</h3>
+<p>Options: (a) a global switch — already exists (Alerts → Channels) and cannot express "this one by email"; (b) change the person's
+preferences — wrong owner, and it would silently change every future message; (c) a choice for this message only — chosen. The choice
+decides <i>which</i> channels; facts still decide whether each can carry it, so Email is greyed out for someone with no address rather
+than accepted and dropped. Refusing when nothing can reach the person keeps an invariant: no task exists that its owner was never told
+about. The form sends a choice only when it differs from the person's usual, so the record (<code>notify_channels</code>) distinguishes
+"the CEO chose" from "nobody chose".</p>
+
+<h3>Why email now assigns directly (a change to D166)</h3>
+<p>TASK-053 made every work email a proposal. The user asked for email to behave like Telegram, where a message naming exactly one person
+assigns at once (D161). The same rule now applies, in code: the model reads the jobs; who each is for is decided by the name check, an
+email address, or the email's own recipient. Anything uncertain still waits for a person, and the whole email waits — never half of it.
+The sender must still be authenticated (SPF/DKIM/DMARC or the account's own Sent mail), allow-listed, active, consented, allowed to give
+that person work, and under the hourly limit.</p>
+
+<h3>Why read the Sent mailbox</h3>
+<p>The research for this task found that Gmail does not put mail you send to your own alias in the Inbox — only Sent and All Mail. The
+TASK-053 poller read only INBOX, so the CEO emailing the <code>+freshnow</code> alias from the same account was very likely never seen
+(A-T53.2, now corrected). This is flagged rather than silently followed: the fix (read <code>\Sent</code> too) was reproduced against a real
+IMAP server, and the Gmail half stays an assumption to confirm on the laptop.</p>
+
+<h3>Why consent by email, not by the CEO</h3>
+<p>A person added with only an email has no Telegram button and no app login, so before this they could never agree — and the outbox
+would hold their work for ever. The CEO cannot consent for them (PDPL: the data subject's own act). The notice goes to them by email with
+the hash of its exact words; an explicit "I AGREE" reply, from their authenticated address, in the thread of that notice, is recorded.
+A bare "yes" is not accepted. Whether this is sufficient is a lawyer's question (A-T54.2).</p>
+
+<h2>How it works</h2>
+<pre>
+ Assign &amp; notify (dashboard)
+   person ─► GET /dashboard/people/reach ─► reachOf(): telegram ✓/✗ why · app ✓ (+push?) · email ✓/✗ why · usual · consented
+   chips  ─► POST /dashboard/assignments {channels?} ─► assignTask
+              ├─ none reachable? ─► 409 no_channel (nothing written)
+              ├─ task + assignment (notify_channels, origin) ─► notify(event, {chosen})
+              │      resolveAlertRecipients: chosen ∩ reachable   |  no choice: the person's usual rules
+              └─ outbox rows ─► worker ─► Telegram / inbox+push / SMTP     ◄── consent hold for all but the inbox
+
+ CEO email
+   IMAP: INBOX + \Sent, To OR Cc the alias ─► processInboundEmail
+     record ─► screen (inbox · not ours · not automatic · allow-list · authenticated · active · [consent reply?] · consent)
+     ─► task by key / thread / source email ─► owner's update
+     ─► sender may give work ─► plan (model reads jobs) ─► certainOwners (code decides who) ─► canAssignTo + rate limit
+          all certain ─► assignTask(origin email, source_email_id, usual ∪ email) ─► reply "Assigned … → … (told by …)"
+          otherwise  ─► email_proposal ─► reply "nothing assigned yet (why) — confirm in Assign → From email"
+
+ Overview
+   GET /dashboard/summary (SQL, RLS) ─► tiles ─► #tasks/pending[/blocked|older|…] · #tasks/done · #tasks/problems[/urgent|unread]
+   GET /dashboard/open-tasks ─► Pending cards: FN key · owner · given by · % + source + who + when + words · problems · age</pre>
+
+<h2>Concepts and techniques used</h2>
+<ul>
+  <li><b>Intent vs record.</b> <code>assignment.notify_channels</code> is what was chosen; the outbox is what was sent. Keeping both lets a
+      skipped channel be explained later instead of guessed.</li>
+  <li><b>One function for "can it reach them".</b> The form's greyed-out chip and the sender use the same <code>unreachableReason</code> /
+      <code>usualChannels</code>, so they cannot disagree.</li>
+  <li><b>Deterministic ownership.</b> Name-unique match, explicit address, or sole recipient — decided in code, recorded per task in the audit
+      row (<code>ownerBy</code>), replayable without a model.</li>
+  <li><b>RFC 6154 special-use mailboxes.</b> Find Sent by its <code>\Sent</code> flag, never by a localised folder name.</li>
+  <li><b>IMAP OR search</b> — To or Cc in one server-side query (imapflow builds the binary OR tree).</li>
+  <li><b>Consent bound to text.</b> The notice hash travels with the email and is checked when the reply arrives, so agreement is to the
+      words that were shown.</li>
+  <li><b>A number counted once.</b> Tiles come from SQL; each page filters with the same definitions, so a tile and its list agree.</li>
+  <li><b>State in the URL.</b> A third hash segment carries the page's filter, so lists are bookmarkable and Back works on a phone.</li>
+</ul>
+
+<h2>Research findings (web search, 7 Oct 2026)</h2>
+<div class="tw"><table>
+<tr><th>Question</th><th>Found</th><th>Sources</th><th>Effect</th></tr>
+<tr><td>Does Gmail put mail you send to your own alias in the Inbox?</td><td>No — "Gmail doesn't deliver messages that you send to your own
+  alias … to your inbox. You can find the message in Sent Mail or All Mail."</td>
+  <td><a href="https://support.google.com/a/answer/1703601?hl=en">Google Workspace Admin Help</a> ·
+  <a href="https://www.getinboxzero.com/blog/post/email-aliases-not-working-gmail">Inbox Zero guide</a></td>
+  <td><span class="warn">Contradicts A-T53.2.</span> Flagged; poller reads Sent too (D177).</td></tr>
+<tr><td>How does Gmail mark its Sent folder over IMAP?</td><td><code>* LIST (\HasNoChildren \Sent) "/" "[Gmail]/Sent Mail"</code> — RFC 6154 special-use.</td>
+  <td><a href="https://developers.google.com/gmail/imap/imap-extensions">Gmail IMAP extensions</a> · <a href="https://datatracker.ietf.org/doc/rfc6154">RFC 6154</a></td>
+  <td>Found by flag, not name.</td></tr>
+<tr><td>Does IMAP SEARCH TO match Cc?</td><td>No — TO and CC are separate search keys.</td>
+  <td><a href="https://commons.apache.org/proper/commons-net/apidocs/org/apache/commons/net/imap/IMAPClient.SEARCH_CRITERIA.html">IMAP search criteria (Apache Commons Net)</a></td>
+  <td>Search To OR Cc; imapflow's support read in its source (VF53).</td></tr>
+<tr><td>What does PDPL ask of consent?</td><td>"specific, clear and unambiguous indication … by a statement or by a clear affirmative action", written or
+  electronic (secondary sources).</td>
+  <td><a href="https://www.simmons-simmons.com/en/publications/ckwugz8lu16rs0a44qvbqcbz9/uae-personal-data-protection-law-faqs">Simmons &amp; Simmons FAQ</a> ·
+  <a href="https://www.cookieyes.com/blog/uae-data-protection-law-pdpl/">CookieYes summary</a></td>
+  <td>Only "I agree"-type statements count; lawyer to confirm (A-T54.2).</td></tr>
+</table></div>
+<p>Search results can be wrong; the Gmail behaviour is recorded as <i>believed</i> (VF52) until the laptop run confirms it.</p>
+
+<h2>Verification</h2>
+<ul>
+  <li>Typecheck clean (root and dashboard); <code>pnpm build:web</code> clean.</li>
+  <li><b>683 tests pass</b>; 8 fail only with <code>403 Host not in allowlist: api.groq.com</code> (this machine's network) — the same 8 fail on
+      the untouched TASK-053 code here; 2 skipped. New: <code>api/people.test.ts</code> (11 — every refusal included),
+      <code>core/people.test.ts</code> (3), progress (3), inbound email (rewritten direct-assignment block 5, consent by email 3, loop guard 1),
+      IMAP Sent-mailbox test against a real Dovecot (reproduced failing on the old poller first).</li>
+  <li><b>Browser, Chromium, 34/34</b> at 1440×1000 and 390×844 (VF51). Screenshots looked at, not only asserted.</li>
+  <li>Live API in demo mode: FN-7 at <b>60%, reported by Hemanth Demo</b> after a "60% done" note — with the model call failing (no
+      provider) and the update sent to "needs review", the percentage still landed.</li>
+  <li><code>reset-employee</code>: the old script failed on <code>email_message_task_id_fkey</code>; the new one removed the person.</li>
+</ul>
+
+<h2 class="warn">What we have not verified</h2>
+<div class="card unverified"><ul>
+  <li><b>Gmail itself</b> — unreachable from the build machine. The Sent-mailbox and Cc paths ran against Dovecot only (A-T54.1, A-T53.2).
+      First real check: Act E5 in <code>EMAIL-DEMO-GUIDE.md</code> on the laptop.</li>
+  <li><b>That a Gmail "Reply all" keeps the alias in Cc and the original Message-ID in In-Reply-To</b> — believed standard, not observed.</li>
+  <li><b>Any real model</b> — every planner call in tests used a stand-in; the live model's reading of real CEO emails ("named_as" filled
+      reliably) is unmeasured. A model that fills <code>named_as</code> with a name for an email addressed to one person would make that email
+      a proposal instead of an assignment (safe, but less convenient).</li>
+  <li><b>PDPL sufficiency of consent by email reply</b> — a developer's reading (A-T54.2).</li>
+  <li><b>Telegram delivery of a chosen channel</b> — tests use the outbox; no real Telegram send was made in this task.</li>
+  <li><b>Web push as part of "App"</b> — covered by existing tests; not re-run on a phone in this task.</li>
+  <li><b>Non-English percentages</b> — <code>statedPercent</code> reads ASCII digits with %, percent, per cent. Devanagari or Malayalam digits,
+      or "sixty percent" in words, are not read (the words are still kept and shown).</li>
+  <li><b>Scale</b> — <code>/dashboard/people/reach</code> calls <code>canAssignTo</code> once per visible person for a manager (bounded at 500);
+      unmeasured with a large org. The open-tasks query gained correlated subqueries; unmeasured on large data.</li>
+  <li><b>Withdrawal by email</b> — an email-only person withdraws by asking the CEO (People → Has left… → Withdrew consent); there is no
+      "reply WITHDRAW" path.</li>
+  <li><b>Signed-in mode</b> (Supabase JWT) — the browser run used demo mode; the new routes use the same <code>resolveViewer</code> as the rest.</li>
+</ul></div>
+
+<h2>Open questions</h2>
+<ul>
+  <li>Should email-originated work also go to the person's usual channels (Telegram), or by email only? (A-T54.4)</li>
+  <li>Should a CEO-added person be "active" at once, or "invited" until they agree? (A-T54.3)</li>
+  <li>For production: replace <code>EMAIL_ALLOWLIST</code> (a demo safety net) with the company domain — and decide who may add addresses.</li>
+  <li>A lawyer's view on consent by email reply, and on whether Hindi/Malayalam notices are needed before email-only staff are added.</li>
+</ul>
+</body></html>

@@ -1340,7 +1340,7 @@ HMAC address (Discourse's pattern): the HMAC stops a guessed id being written to
 update their own task. Screening order: to the inbox → not automatic → allow-listed → authenticated → active employee →
 current consent → something above the quote.
 
-## D166 — Email from a manager or the CEO becomes a proposal; an email never assigns by itself (TASK-053) [verified — tests + browser]
+## D166 — Email from a manager or the CEO becomes a proposal; an email never assigns by itself (TASK-053) [verified — tests + browser] — SUPERSEDED IN PART by D173 (2026-10-07)
 `email_proposal` holds the tasks the model read out of the email, with owners grounded by the TASK-052 name rule. A person
 taps Assign & notify (proposer or CEO; `canAssignTo` checked for every owner; decided first, so a double tap gets 409). The
 webhook path (`/inbound/email`) records its plan the same way. An employee writing about no task of theirs is filed as a
@@ -1377,3 +1377,54 @@ selection is recorded. End-of-day lists stay uncapped because their lengths are 
 The sender inserts the 'out' row while the relay holds the outbox row `FOR UPDATE`; an FK check takes a share lock on that
 row from another connection and waits on its own transaction. The link is kept as a plain uuid, documented in the semantic
 layer, with a regression test through the real relay.
+
+## D172 — Whoever gives work chooses how the assignee is told: Telegram · App · Email (TASK-054) [verified — tests + browser]
+`assignTask({ channels })` tells the assignee on exactly the chosen channels, wherever each can physically reach them (a linked
+chat, an address on file and allowed, the company switch on; "App" = the in-app inbox plus web push when a device is on). It
+overrides the person's per-event rules for that one message only and changes no setting. A choice that cannot reach them is
+reported in `skipped` with the reason; if NONE can, the call is refused before anything is written (409 `no_channel`), so no task
+exists that its owner was never told about. `assignment.notify_channels` records the intent (NULL = nobody chose: their own
+rules); the outbox rows remain the record of what was sent. The dashboard pre-selects the person's usual channels and sends a
+choice only when it differs, so "did nothing" stays "their rules". Reachability comes from one function shared with sending
+(`reachOf` / `usualChannels` in alerts.ts), so the form and the sender cannot disagree.
+
+## D173 — Email assigns at once when every owner is certain; otherwise a proposal (TASK-054) [verified — tests + Dovecot]
+Requested by the user on 2026-10-07: "send assignment by email directly … similarly as Telegram". The model still only reads the
+jobs. WHO is decided in code, per job: (1) the written name fits exactly one person (D161), (2) the job names someone by email
+address, or (3) the email went TO exactly one employee and the job names nobody else. Every owner must also pass `canAssignTo`
+for the sender, and the assignment rate limit must allow it. Anything uncertain → the whole email becomes a proposal (never half
+assigned) and the reply says why and how to make it direct next time. Each task records `source_email_id` and origin "email";
+the assignee is told on their usual channels plus email (A-T54.4); the sender gets one threaded reply listing FN keys, owners
+and channels; `email.assigned` is audited with how each owner was decided.
+
+## D174 — The CEO adds people; consent stays the person's own act, and can be given by email (TASK-054) [verified — tests]
+`POST /dashboard/people` (CEO only) creates an active employee with email, department, role, manager (the CEO by default) and
+issues a Telegram invite BOUND to that row, so joining the bot later never makes a second person. The audit row keeps the role
+and the email domain, never the name or address (the append-only log could not be erased). The privacy notice is emailed with
+the hash of its exact words; a reply "I AGREE", matched by thread to OUR notice email to THAT person and authenticated like any
+reply, records consent `via: "email"` — refused if the notice changed since. Replies that do not agree record nothing; the
+answer to them goes out as part of the consent conversation (the one kind the relay sends before consent). A-T54.2.
+
+## D175 — A person's own percentage survives a status tap; "60%" in their words is their progress (TASK-054) [verified — tests + browser]
+`recomputeProgress` no longer replaces a self-reported figure with the status default (pending 10%, in progress 50%) — only
+counted steps or finishing (done/cancelled) replace it. `statedPercent` reads the ONE percentage written in a note (any
+channel: Telegram, app, email) by a pattern before any model is called; two different figures or 100+ return null. It becomes
+`reportProgress(..., source self_reported, note = their words)`. The email path's own first-line percentage call was removed so
+there is one rule. This is the "I do not see the 60%" defect (G142).
+
+## D176 — Every Overview number is counted by SQL and opens the list it counted (TASK-054) [verified — browser 34/34]
+`GET /dashboard/summary` (under RLS) returns open, in progress, not started, blocked, behind, from earlier days, completed,
+reports, open/urgent/acknowledged problems, needs-review. Tiles and the hero sentence link to new pages — Pending work,
+Completed, Problems — through a third hash segment for the filter (`#tasks/pending/blocked`), so lists are bookmarkable and the
+back gesture works; the current tile is marked. Page filters use the same definitions as the SQL, so a tile that says 7 opens a
+list of 7. Pending cards show the FN key, owner, who gave it, the percentage with its source ("reported by X · time", "counted
+from steps", "by status — no % reported yet"), the person's words, open problems and severity, behind/priority, age, last report.
+
+## D177 — The inbox poller reads To OR Cc, in the inbox AND the server's Sent mailbox (TASK-054) [verified — Dovecot]
+Because Gmail files self-sent alias mail under Sent only (A-T53.2 corrected), and because "copy FreshNow" is how the CEO logs an
+email to a person. The Sent mailbox is found by its RFC 6154 special-use flag, never a localised name; a message there counts as
+sent by the account owner (core still requires From = owner). Dedup by Message-ID covers a message in both.
+
+## D178 — Mail-loop guards (TASK-054) [verified — tests]
+Reading Sent means FreshNow's own outgoing mail is visible to the poller. Two guards: an inbound message whose Message-ID is one
+we sent is ignored ("a message FreshNow sent itself"), and the inbox alias can never be stored as a person's address.

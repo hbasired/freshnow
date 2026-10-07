@@ -19,6 +19,9 @@ import {
   type OpenTask,
   type QueryAnswer,
   type EraseReason,
+  type NotifyChoice,
+  type PersonReach,
+  type Summary,
   type WeekDay,
 } from "./lib/api";
 import { Age, Card, DataTable, Demo, Empty, Pill, Severity, Spinner, Words, type Column } from "./components/ui";
@@ -36,8 +39,22 @@ import { Chips, ProgressReport, StatusReport } from "./components/quick";
 import { ComplianceTab } from "./components/compliance";
 import { EmailProposalsCard, EmailTab } from "./components/email";
 import { useMedia, WIDE } from "./lib/media";
+import {
+  AddPersonCard,
+  ChannelPicker,
+  DonePage,
+  PENDING_FILTERS,
+  PendingPage,
+  PROBLEM_FILTERS,
+  ProblemsPage,
+  ProgressMeter,
+  StatusChip,
+  TaskKey,
+  type PendingFilter,
+  type ProblemFilter,
+} from "./components/work-views";
 
-type TabId = "today" | "mine" | "carry" | "assign" | "alerts" | "eod" | "people" | "activity" | "compliance" | "email" | "ask" | "more";
+type TabId = "today" | "pending" | "done" | "problems" | "mine" | "carry" | "assign" | "alerts" | "eod" | "people" | "activity" | "compliance" | "email" | "ask" | "more";
 
 /** Pages that only the CEO can open — the API refuses them to anyone else anyway. */
 const CEO_ONLY = new Set<TabId>(["ask", "compliance", "email"]);
@@ -51,6 +68,9 @@ export interface Identity {
 
 const TABS: { id: TabId; icon: IconName; label: string; group: string; blurb: string }[] = [
   { id: "today", icon: "grid", label: "Overview", group: "Today", blurb: "what everyone reported on this date" },
+  { id: "pending", icon: "hourglass", label: "Pending work", group: "Today", blurb: "every open task — how far along, in the person's own words, and what is holding it up" },
+  { id: "done", icon: "checkCircle", label: "Completed", group: "Today", blurb: "what was reported done on this date" },
+  { id: "problems", icon: "alertCircle", label: "Problems", group: "Today", blurb: "every problem raised — what, where, who must act — and updates nobody could read" },
   { id: "mine", icon: "user", label: "My work", group: "Today", blurb: "your open tasks — report on them here or in the bot" },
   { id: "carry", icon: "clock", label: "Carry-over", group: "Today", blurb: "still open, grouped by the day it was raised" },
   { id: "assign", icon: "pin", label: "Assignments", group: "Work", blurb: "who was given what, and whether it arrived" },
@@ -98,6 +118,8 @@ interface Data {
   week: WeekDay[];
   /** Who the API thinks is asking — the uuid the browser needs to tell "mine" from "theirs". */
   me: Me | null;
+  /** The Overview's numbers, counted by Postgres for the day shown (null if the call failed). */
+  summary: Summary | null;
 }
 
 /** The board's refresh, as a number children can depend on — no second timer. */
@@ -111,11 +133,14 @@ export type Portal = "tasks" | "projects";
  * One hash, two portals: `#tasks/<tab>` and `#projects[/<project id>]`. A bare `#<tab>` is
  * still understood, so links shared before the project portal existed keep working.
  */
-function readHash(): { portal: Portal; tab: TabId; projectId: string | null } {
-  const [head = "", rest = ""] = location.hash.slice(1).split("/", 2);
-  if (head === "projects") return { portal: "projects", tab: "today", projectId: rest || null };
+function readHash(): { portal: Portal; tab: TabId; projectId: string | null; sub: string | null } {
+  const [head = "", rest = "", more = ""] = location.hash.slice(1).split("/", 3);
+  if (head === "projects") return { portal: "projects", tab: "today", projectId: rest || null, sub: null };
   const tab = (head === "tasks" ? rest : head) as TabId;
-  return { portal: "tasks", tab: TABS.some((t) => t.id === tab) ? tab : "today", projectId: null };
+  // The third part is a page's own filter — `#tasks/pending/blocked` — so a tile on the Overview
+  // opens exactly the list it counted, and that list can be bookmarked, shared and gone Back to.
+  const sub = (head === "tasks" ? more : rest) || null;
+  return { portal: "tasks", tab: TABS.some((t) => t.id === tab) ? tab : "today", projectId: null, sub: sub && /^[a-z-]{1,20}$/.test(sub) ? sub : null };
 }
 
 export default function App({
@@ -155,6 +180,7 @@ export default function App({
   );
   const [tab, setTabState] = useState<TabId>(() => readHash().tab);
   const [projectId, setProjectId] = useState<string | null>(() => readHash().projectId);
+  const [sub, setSub] = useState<string | null>(() => readHash().sub);
   const [data, setData] = useState<Data | null>(null);
   const [health, setHealth] = useState<Health | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -191,7 +217,7 @@ export default function App({
     if (consented !== true) return;
     setBusy(true);
     try {
-      const [day, open, assignments, eod, people, activity, review, blockers, h, me, week] = await Promise.all([
+      const [day, open, assignments, eod, people, activity, review, blockers, h, me, week, summary] = await Promise.all([
         api.day(viewer, date),
         api.openTasks(viewer),
         api.assignments(viewer),
@@ -203,8 +229,9 @@ export default function App({
         api.health().catch(() => null),
         api.me(viewer).catch(() => null),
         api.week(viewer, date).catch(() => [] as WeekDay[]),
+        api.summary(viewer, date).catch(() => null),
       ]);
-      setData({ day, open, assignments, eod, people, activity, review, blockers, week, me });
+      setData({ day, open, assignments, eod, people, activity, review, blockers, week, me, summary });
       setHealth(h);
       setLoadedAt(new Date());
       setErr(null);
@@ -242,20 +269,33 @@ export default function App({
   // Resolve it once, here, to something the viewer can actually see — the nav highlight,
   // the rendered pane and the URL all follow this rather than the raw hash.
   const visibleTab: TabId = CEO_ONLY.has(tab) && !ceoTools ? "today" : tab;
-  const setTab = setTabState;
+  // Changing page clears the page's filter; `go` sets both, for links that open a filtered list.
+  const setTab = useCallback((t: TabId) => {
+    setTabState(t);
+    setSub(null);
+  }, []);
+  const go = useCallback(
+    (t: TabId, filter: string | null = null) => {
+      setPortal("tasks");
+      setTabState(t);
+      setSub(filter);
+      window.scrollTo({ top: 0 });
+    },
+    [setPortal],
+  );
 
   // Keep the place in the URL so a refresh or a shared link lands where you were — and make each
   // page a step in the browser's history, so a phone's back gesture goes back a page instead of
   // closing the app. The first sync replaces rather than pushes: opening a link adds no entry.
   const synced = useRef(false);
   useEffect(() => {
-    const want = portal === "projects" ? `#projects${projectId ? `/${projectId}` : ""}` : `#tasks/${visibleTab}`;
+    const want = portal === "projects" ? `#projects${projectId ? `/${projectId}` : ""}` : `#tasks/${visibleTab}${sub ? `/${sub}` : ""}`;
     if (location.hash !== want) {
       if (synced.current) history.pushState(null, "", want);
       else history.replaceState(null, "", want);
     }
     synced.current = true;
-  }, [portal, visibleTab, projectId]);
+  }, [portal, visibleTab, projectId, sub]);
 
   // An open task is a step in history too (the phone shows it as its own page): Back closes it.
   const taskEntry = () => (history.state as { task?: boolean } | null)?.task === true;
@@ -276,6 +316,7 @@ export default function App({
       setPortal(h.portal);
       setTabState(h.tab);
       setProjectId(h.projectId);
+      setSub(h.sub);
     };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
@@ -296,8 +337,12 @@ export default function App({
   // A manager or lead gets the assign tools; the API refuses everyone else anyway.
   const canGiveWork = data?.me ? data.me.accessRole !== "employee" : ceoTools;
 
+  const sum = data?.summary ?? null;
   const counts: Record<TabId, number | null> = {
     today: data?.day.length ?? null,
+    pending: sum?.open_tasks ?? null,
+    done: sum?.completed ?? null,
+    problems: sum?.open_blockers ?? null,
     mine: derived?.mine.length ?? null,
     carry: derived?.overdue.length ?? null,
     assign: data?.assignments.length ?? null,
@@ -482,7 +527,7 @@ export default function App({
               </div>
               {attention ? (
                 <button
-                  onClick={() => goPhoneTab("today")}
+                  onClick={() => go("problems", derived?.urgent.length ? "urgent" : "unread")}
                   aria-label={`${attention} need a human`}
                   className="relative grid h-10 w-10 place-items-center rounded-xl border border-crit/50 bg-crit/10 text-crit"
                 >
@@ -538,7 +583,7 @@ export default function App({
               ) : null}
               <ThemeToggle compact />
               <button
-                onClick={() => { setPortal("tasks"); setTab("today"); }}
+                onClick={() => go("problems", derived?.urgent.length ? "urgent" : "unread")}
                 title={attention ? `${attention} thing${attention === 1 ? "" : "s"} need a human: urgent problems and updates nobody could read` : "Nothing needs a human right now"}
                 aria-label="Needs attention"
                 className={`relative grid h-9 w-9 place-items-center rounded-xl border ${attention ? "border-crit/50 bg-crit/10 text-crit" : "border-edge bg-sunken text-mut"} hover:border-link`}
@@ -598,7 +643,7 @@ export default function App({
           ) : (
             <>
               {/* The header's date picker, for a phone: the day, a step either way, and a way back to today. */}
-              {!wide && (visibleTab === "today" || visibleTab === "eod") ? <DaySwitcher date={date} onDate={setDate} /> : null}
+              {!wide && (visibleTab === "today" || visibleTab === "eod" || visibleTab === "done") ? <DaySwitcher date={date} onDate={setDate} /> : null}
               {/* The install offer (TASK-048) — it renders only while the browser is offering it. */}
               {!wide && visibleTab === "today" ? <div className="mb-3 flex justify-end empty:hidden"><InstallApp compact /></div> : null}
               {visibleTab === "today" ? (
@@ -606,21 +651,27 @@ export default function App({
                   greeting={greeting}
                   name={displayName.split(" ")[0]!}
                   dateLabel={dateLabel}
-                  done={derived?.done.length ?? 0}
-                  pending={derived?.pending.length ?? 0}
-                  problems={derived?.openBlockers.length ?? 0}
+                  done={sum?.completed ?? derived?.done.length ?? 0}
+                  pending={sum?.open_tasks ?? data?.open.length ?? 0}
+                  problems={sum?.open_blockers ?? derived?.openBlockers.length ?? 0}
                   isToday={date === companyToday()}
+                  onDone={() => go("done")}
+                  onPending={() => go("pending")}
+                  onProblems={() => go("problems")}
                   actions={[
-                    ...(canGiveWork ? [{ label: "Assign work", icon: "pin" as const, onClick: () => setTab("assign"), primary: true }] : []),
-                    ...(ceoTools ? [{ label: "Ask the data", icon: "search" as const, onClick: () => setTab("ask") }] : []),
-                    { label: "My work", icon: "user" as const, onClick: () => setTab("mine") },
+                    ...(canGiveWork ? [{ label: "Assign work", icon: "pin" as const, onClick: () => go("assign"), primary: true }] : []),
+                    { label: "Pending work", icon: "hourglass" as const, onClick: () => go("pending") },
+                    { label: "My work", icon: "user" as const, onClick: () => go("mine") },
+                    ...(ceoTools ? [{ label: "Ask the data", icon: "search" as const, onClick: () => go("ask") }] : []),
                   ]}
                 />
               ) : null}
 
               {/* On a phone the counts live on Home only: every page repeating them is what made
                   the app read as a squeezed dashboard. */}
-              {wide || visibleTab === "today" ? <Kpis d={derived} review={data?.review.length ?? 0} onJump={setTab} /> : null}
+              {wide || visibleTab === "today" ? (
+                <Kpis s={sum} isToday={date === companyToday()} at={{ tab: visibleTab, sub }} onGo={go} />
+              ) : null}
 
               <div className={wide || visibleTab === "today" ? "mt-5" : ""}>
                 {visibleTab !== "today" ? (
@@ -646,14 +697,51 @@ export default function App({
                           d={derived!}
                           review={data.review}
                           onDay={(day) => setDate(day)}
-                          onJump={setTab}
+                          onGo={go}
+                          onOpenTask={(id) => setOpenTask({ id, ownerId: data.open.find((t) => t.id === id)?.employee_id ?? "" })}
                         />
                         <div className="mb-3 mt-6 flex items-baseline gap-2">
                           <h2 className="text-lg font-semibold">Reported {date === companyToday() ? "today" : `on ${date}`}</h2>
                           <span className="text-xs text-mut">{active.blurb}</span>
                         </div>
-                        <TodayTab d={derived!} review={data.review} viewer={viewer} canAck={ceoTools} onChanged={() => void load()} />
+                        <TodayTab
+                          d={derived!}
+                          review={data.review}
+                          viewer={viewer}
+                          canAck={canGiveWork}
+                          onChanged={() => void load()}
+                          onOpen={(id, owner) => setOpenTask({ id, ownerId: owner })}
+                        />
                       </>
+                    )}
+                    {visibleTab === "pending" && (
+                      <PendingPage
+                        tasks={data.open}
+                        date={date}
+                        filter={(PENDING_FILTERS.some((f) => f.id === sub) ? sub : "all") as PendingFilter}
+                        onFilter={(f) => setSub(f === "all" ? null : f)}
+                        onOpen={(t) => setOpenTask({ id: t.id, ownerId: t.employee_id })}
+                      />
+                    )}
+                    {visibleTab === "done" && (
+                      <DonePage
+                        rows={data.day}
+                        date={date}
+                        onOpen={(id, owner) => setOpenTask({ id, ownerId: owner || (data.open.find((t) => t.id === id)?.employee_id ?? "") })}
+                      />
+                    )}
+                    {visibleTab === "problems" && (
+                      <ProblemsPage
+                        blockers={data.blockers}
+                        review={data.review}
+                        reviewTotal={sum?.needs_review ?? data.review.length}
+                        filter={(PROBLEM_FILTERS.some((f) => f.id === sub) ? sub : "open") as ProblemFilter}
+                        onFilter={(f) => setSub(f === "open" ? null : f)}
+                        viewer={viewer}
+                        canAck={canGiveWork}
+                        onChanged={() => void load()}
+                        onOpen={(id) => setOpenTask({ id, ownerId: data.open.find((t) => t.id === id)?.employee_id ?? "" })}
+                      />
                     )}
                     {visibleTab === "mine" && (
                       <MyWorkTab tasks={derived!.mine} viewer={viewer} me={data.me} onChanged={() => void load()} onOpen={(t) => setOpenTask({ id: t.id, ownerId: t.employee_id })} />
@@ -702,7 +790,10 @@ export default function App({
                         people={data.people}
                         viewer={viewer}
                         canAssign={canGiveWork}
+                        canAddPeople={!!data.me?.isCeo}
+                        tick={tickOf(loadedAt)}
                         onChanged={() => void load()}
+                        onOpenTask={(id, owner) => setOpenTask({ id, ownerId: owner })}
                       />
                     )}
                     {visibleTab === "alerts" && (
@@ -710,7 +801,7 @@ export default function App({
                     )}
                     {visibleTab === "eod" && <EodTab canGenerate={ceoTools} rows={data.eod} onGenerated={() => void load()} busy={busy} />}
                     {visibleTab === "people" && (
-                      <PeopleTab rows={data.people} viewer={viewer} canEditOrg={!!data.me?.isCeo} onChanged={() => void load()} />
+                      <PeopleTab rows={data.people} viewer={viewer} canEditOrg={!!data.me?.isCeo} tick={tickOf(loadedAt)} onChanged={() => void load()} />
                     )}
                     {visibleTab === "activity" && <ActivityTab rows={data.activity} />}
                     {visibleTab === "compliance" && ceoTools && <ComplianceTab viewer={viewer} tick={tickOf(loadedAt)} />}
@@ -779,22 +870,27 @@ function HomeOverview({
   d,
   review,
   onDay,
-  onJump,
+  onGo,
+  onOpenTask,
 }: {
   week: WeekDay[];
   d: Derived;
   review: NeedsReview[];
   onDay: (day: string) => void;
-  onJump: (t: TabId) => void;
+  onGo: (t: TabId, filter?: string | null) => void;
+  onOpenTask: (taskId: string) => void;
 }) {
-  const items: { key: string; tone: "crit" | "warn"; icon: IconName; title: string; detail: string; tab: TabId }[] = [
+  // Each item goes where it can be acted on: a problem on a task opens that task (resolve or
+  // acknowledge it there), a problem on no task opens the urgent list, an unread update opens
+  // the list of updates a person must read.
+  const items: { key: string; tone: "crit" | "warn"; icon: IconName; title: string; detail: string; go: () => void }[] = [
     ...d.urgent.map((b) => ({
       key: `b:${b.id}`,
       tone: (b.severity === "critical" ? "crit" : "warn") as "crit" | "warn",
       icon: "alertCircle" as IconName,
       title: `${b.severity} ${b.category ?? "problem"}${b.affected_asset ? ` — ${b.affected_asset}` : ""}`,
-      detail: `raised by ${b.raised_by_name}${b.raised_at ? ` · ${hhmm(b.raised_at)}` : ""}`,
-      tab: "alerts" as TabId,
+      detail: `${b.task_number ? `FN-${b.task_number} · ` : ""}raised by ${b.raised_by_name}${b.raised_at ? ` · ${hhmm(b.raised_at)}` : ""}`,
+      go: () => (b.task_id ? onOpenTask(b.task_id) : onGo("problems", "urgent")),
     })),
     ...review.map((r) => ({
       key: `r:${r.id}`,
@@ -802,7 +898,7 @@ function HomeOverview({
       icon: "hand" as IconName,
       title: `Could not read: “${(r.note_raw ?? "").slice(0, 60)}${(r.note_raw ?? "").length > 60 ? "…" : ""}”`,
       detail: `${r.employee_name} · needs a human`,
-      tab: "today" as TabId,
+      go: () => onGo("problems", "unread"),
     })),
   ];
   return (
@@ -823,10 +919,11 @@ function HomeOverview({
           <span className={`grid h-8 w-8 place-items-center rounded-lg ${items.length ? "bg-crit-bg text-crit-fg" : "bg-ok/15 text-ok"}`}>
             {items.length ? <Icon.alert size={16} /> : <Icon.checkCircle size={16} />}
           </span>
-          <div className="leading-tight">
+          <div className="min-w-0 flex-1 leading-tight">
             <h3 className="font-semibold">Needs a human</h3>
             <p className="text-xs text-mut">{items.length ? `${items.length} item${items.length === 1 ? "" : "s"} — urgent problems and unread updates` : "Nothing is waiting on a person right now"}</p>
           </div>
+          <button onClick={() => onGo("problems")} className="shrink-0 text-xs font-semibold text-link hover:underline">All problems ›</button>
         </div>
         {items.length ? (
           <ul className="divide-y divide-edge">
@@ -834,10 +931,7 @@ function HomeOverview({
               const I = Icon[it.icon];
               return (
                 <li key={it.key}>
-                  <button
-                    onClick={() => onJump(it.tab)}
-                    className="group flex w-full items-center gap-3 py-2 text-left hover:bg-sunken/60"
-                  >
+                  <button onClick={it.go} className="group flex w-full items-center gap-3 rounded-lg px-1 py-2 text-left hover:bg-sunken/60">
                     <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-lg ${it.tone === "crit" ? "bg-crit-bg text-crit-fg" : "bg-high-bg text-high-fg"}`}><I size={15} /></span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm text-ink">{it.title}</span>
@@ -848,7 +942,11 @@ function HomeOverview({
                 </li>
               );
             })}
-            {items.length > 6 ? <li className="pt-2 text-xs text-mut">and {items.length - 6} more — see Alerts</li> : null}
+            {items.length > 6 ? (
+              <li className="pt-2">
+                <button onClick={() => onGo("problems")} className="text-xs font-semibold text-link hover:underline">and {items.length - 6} more — open Problems ›</button>
+              </li>
+            ) : null}
           </ul>
         ) : (
           <p className="text-sm text-mut">Every open problem is either acknowledged or below urgent, and every update was understood.</p>
@@ -898,17 +996,32 @@ interface Derived {
   mine: OpenTask[];
 }
 
-function Kpis({ d, review, onJump }: { d: Derived | null; review: number; onJump: (t: TabId) => void }) {
-  if (!d) return null;
-  // Decision-critical first: what changes what the CEO does today. Colour is a status,
-  // never decoration: red = act now, amber = watch, green = done, blue = information.
-  const tiles: { n: number; label: string; hint: string; tone: "crit" | "warn" | "ok" | "info"; icon: IconName; tab: TabId }[] = [
-    { n: d.urgent.length, label: "Urgent open", hint: "critical or high problems nobody has resolved", tone: d.urgent.length ? "crit" : "info", icon: "alertCircle", tab: "alerts" },
-    { n: d.openBlockers.length, label: "Open problems", hint: "blockers still open, any severity", tone: d.openBlockers.length ? "warn" : "info", icon: "ban", tab: "alerts" },
-    { n: d.overdue.length, label: "Carried over", hint: "open tasks from earlier days", tone: d.overdue.length ? "warn" : "info", icon: "clock", tab: "carry" },
-    { n: d.pending.length, label: "Pending today", hint: "reported as pending or in progress", tone: "info", icon: "hourglass", tab: "today" },
-    { n: d.done.length, label: "Completed today", hint: "reported as done", tone: "ok", icon: "checkCircle", tab: "today" },
-    { n: review, label: "Need a human", hint: "updates the system could not read", tone: review ? "crit" : "info", icon: "hand", tab: "today" },
+/**
+ * The six numbers on the Overview. Every one is counted by Postgres (`/dashboard/summary`) and
+ * every one OPENS the list it counted — Pending opens Pending work, Blocked opens Pending work
+ * filtered to blocked, and so on — so a number is never a dead end and never disagrees with the
+ * page behind it. The tile for the page you are on is marked.
+ */
+function Kpis({
+  s,
+  isToday,
+  at,
+  onGo,
+}: {
+  s: Summary | null;
+  isToday: boolean;
+  at: { tab: TabId; sub: string | null };
+  onGo: (t: TabId, filter?: string | null) => void;
+}) {
+  if (!s) return null;
+  // Colour is a status, never decoration: red = act now, amber = watch, green = done, blue = information.
+  const tiles: { n: number; label: string; hint: string; tone: "crit" | "warn" | "ok" | "info"; icon: IconName; tab: TabId; sub: string | null }[] = [
+    { n: s.urgent_blockers, label: "Urgent problems", hint: `critical or high, still open · ${s.open_blockers} open in all`, tone: s.urgent_blockers ? "crit" : "info", icon: "alertCircle", tab: "problems", sub: "urgent" },
+    { n: s.open_tasks, label: "Pending", hint: `open tasks · ${s.in_progress} in progress, ${s.not_started} not started`, tone: "info", icon: "hourglass", tab: "pending", sub: null },
+    { n: s.blocked_tasks, label: "Blocked", hint: `open tasks with a problem not yet resolved${s.behind ? ` · ${s.behind} behind schedule` : ""}`, tone: s.blocked_tasks ? "warn" : "info", icon: "ban", tab: "pending", sub: "blocked" },
+    { n: s.completed, label: isToday ? "Completed today" : "Completed", hint: `reported done on this date · ${s.reports} report${s.reports === 1 ? "" : "s"} in all`, tone: "ok", icon: "checkCircle", tab: "done", sub: null },
+    { n: s.carried_over, label: "From earlier days", hint: "open tasks raised before this date", tone: s.carried_over ? "warn" : "info", icon: "clock", tab: "pending", sub: "older" },
+    { n: s.needs_review, label: "Need a human", hint: "updates the system could not read", tone: s.needs_review ? "crit" : "info", icon: "hand", tab: "problems", sub: "unread" },
   ];
   const tone = {
     crit: { border: "border-l-crit", badge: "bg-crit-bg text-crit-fg", n: "text-crit" },
@@ -922,21 +1035,25 @@ function Kpis({ d, review, onJump }: { d: Derived | null; review: number; onJump
       {tiles.map((t) => {
         const I = Icon[t.icon];
         const c = tone[t.tone];
+        const here = at.tab === t.tab && (at.sub ?? null) === t.sub;
         return (
           <button
             key={t.label}
-            onClick={() => onJump(t.tab)}
-            title={t.hint}
-            className={`group rounded-2xl border border-edge border-l-4 bg-panel p-2.5 text-left transition-[border-color,transform] hover:-translate-y-0.5 hover:border-link sm:p-3.5 ${c.border}`}
+            onClick={() => onGo(t.tab, t.sub)}
+            title={`${t.hint} — open the list`}
+            aria-current={here ? "page" : undefined}
+            className={`group rounded-2xl border border-l-4 bg-panel p-2.5 text-left transition-[border-color,transform] hover:-translate-y-0.5 hover:border-link sm:p-3.5 ${c.border} ${
+              here ? "border-link ring-2 ring-link/40" : "border-edge"
+            }`}
           >
             <div className="flex items-start justify-between gap-2">
               <span className="text-[11px] font-medium leading-tight text-mut sm:text-xs">{t.label}</span>
               <span className={`hidden h-8 w-8 shrink-0 place-items-center rounded-full sm:grid ${c.badge}`}><I size={16} /></span>
             </div>
-            <div className={`mt-1 text-2xl font-bold leading-none sm:text-3xl ${c.n}`}>{t.n}</div>
+            <div className={`mt-1 text-2xl font-bold leading-none tabular-nums sm:text-3xl ${c.n}`}>{t.n}</div>
             <div className="mt-2 hidden items-end justify-between gap-2 text-[11px] leading-snug text-mut sm:flex">
               <span>{t.hint}</span>
-              <span className="inline-flex shrink-0 items-center gap-0.5 text-link opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">View <Icon.arrowRight size={12} /></span>
+              <span className="inline-flex shrink-0 items-center gap-0.5 text-link">View <Icon.arrowRight size={12} /></span>
             </div>
           </button>
         );
@@ -955,26 +1072,38 @@ function person(u: { employee_name: string; department: string | null }) {
   );
 }
 
-function updateCols(withSeverity = false): Column<DayUpdate>[] {
+function updateCols(onOpen: (taskId: string, owner: string) => void, opts: { severity?: boolean; progress?: boolean } = {}): Column<DayUpdate>[] {
+  const task: Column<DayUpdate> = {
+    head: "Task",
+    cell: (u) => (
+      <span>
+        {u.task_id ? (
+          <button onClick={() => onOpen(u.task_id!, u.employee_id ?? "")} className="text-left hover:text-link hover:underline" title="Open the task">
+            <TaskKey n={u.task_number} />
+            {u.task_title ?? "—"}
+          </button>
+        ) : (
+          <span className="text-mut">general report</span>
+        )}
+        {u.note_raw ? " 💬" : ""}
+        {u.files > 0 ? <Pill>📎 {u.files}</Pill> : null}
+      </span>
+    ),
+  };
   const base: Column<DayUpdate>[] = [
     { head: "Who", cell: person },
-    {
-      head: "Task",
-      cell: (u) => (
-        <span>
-          {u.task_title ?? "—"}
-          {u.note_raw ? " 💬" : ""}
-          {u.files > 0 ? <Pill>📎 {u.files}</Pill> : null}
-        </span>
-      ),
-    },
+    task,
+    ...(opts.progress
+      ? [{ head: "Progress", cell: (u: DayUpdate) => (u.task_id ? <div className="w-40"><ProgressMeter t={u} /></div> : "—") }]
+      : []),
     { head: "At", cell: (u) => hhmm(u.submitted_at), tight: true },
     { head: "", cell: (u) => <Demo on={u.is_synthetic} />, tight: true },
   ];
-  if (!withSeverity) return base;
+  if (!opts.severity) return base;
   return [
     { head: "Severity", cell: (u) => <Severity value={u.severity} />, tight: true },
-    ...base.slice(0, 2),
+    { head: "Who", cell: person },
+    task,
     { head: "Category", cell: (u) => u.category ?? "—", tight: true },
     { head: "State", cell: (u) => <Pill>{u.blocker_status ?? "—"}</Pill>, tight: true },
     { head: "At", cell: (u) => hhmm(u.submitted_at), tight: true },
@@ -991,12 +1120,14 @@ function TodayTab({
   viewer,
   canAck,
   onChanged,
+  onOpen,
 }: {
   d: Derived;
   review: NeedsReview[];
   viewer: string;
   canAck: boolean;
   onChanged: () => void;
+  onOpen: (taskId: string, owner: string) => void;
 }) {
   const act = useAction();
 
@@ -1033,16 +1164,16 @@ function TodayTab({
       <Section title="✅ Completed" n={d.done.length}>
         <DataTable
           rows={d.done}
-          columns={updateCols()}
+          columns={updateCols(onOpen)}
           rowKey={(r) => r.id}
           detail={detailOf}
           empty="Nobody has completed anything on this date."
         />
       </Section>
-      <Section title="⏳ Pending / in progress" n={d.pending.length}>
+      <Section title="⏳ Reported pending / in progress" n={d.pending.length}>
         <DataTable
           rows={d.pending}
-          columns={updateCols()}
+          columns={updateCols(onOpen, { progress: true })}
           rowKey={(r) => r.id}
           detail={detailOf}
           empty="Nothing pending reported on this date."
@@ -1051,7 +1182,7 @@ function TodayTab({
       <Section title="🚫 Blockers" n={d.blocked.length}>
         <DataTable
           rows={d.blocked}
-          columns={[...updateCols(true), ackCol]}
+          columns={[...updateCols(onOpen, { severity: true }), ackCol]}
           rowKey={(r) => r.id}
           detail={detailOf}
           empty="No blockers on this date. 🎉"
@@ -1118,12 +1249,13 @@ function CarryTab({ open, onOpen }: { open: OpenTask[]; onOpen: (t: OpenTask) =>
                 head: "Task",
                 cell: (t) => (
                   <button onClick={() => onOpen(t)} className="text-left hover:text-link hover:underline" title="Open the task">
+                    <TaskKey n={t.task_number} />
                     {t.title}{t.last_note ? " 💬" : ""}
                   </button>
                 ),
               },
-              { head: "Progress", cell: (t) => <Progress t={t} />, tight: true },
-              { head: "State", cell: (t) => <Pill>{t.status}</Pill>, tight: true },
+              { head: "Progress", cell: (t) => <div className="w-40"><ProgressMeter t={t} /></div> },
+              { head: "State", cell: (t) => <StatusChip status={(t.open_blockers ?? 0) > 0 ? "blocker" : t.status} />, tight: true },
               { head: "Age", cell: (t) => <Age days={t.age_days} />, tight: true },
               {
                 head: "Last reported",
@@ -1211,6 +1343,7 @@ function MyWorkTab({
                 <button onClick={() => onOpen(t)} className="group flex w-full items-start gap-2 text-left" title="Steps, progress, problems, related tasks">
                   <span className="min-w-0 flex-1">
                     <span className="block font-semibold text-ink group-hover:text-link">
+                      <TaskKey n={t.task_number} />
                       {t.title}
                       <Demo on={t.is_synthetic} />
                     </span>
@@ -1401,104 +1534,133 @@ function MorePage({
 /**
  * Giving work out, and letting people in. Both are the browser half of something the bot
  * already does — the assignment goes through the same outbox row the bot would write, so
- * it reaches the phone by the same path; the invite code is the same single-use code the
- * `/invite` command mints.
+ * it reaches the phone by the same path.
+ *
+ * Since TASK-054 the person giving the work chooses HOW the assignee is told — Telegram, the
+ * app, email — from the ways that can actually reach them; the first selection is what their own
+ * rules would use, so doing nothing keeps the old behaviour. And the CEO adds people here with
+ * their email, so someone without Telegram can be given work too.
  */
+const CHOICE_WORD: Record<NotifyChoice, string> = { telegram: "Telegram", app: "the app", email: "email" };
+const ORIGIN_WORD: Record<string, string> = { dashboard: "dashboard", telegram: "Telegram", document: "document", email: "email" };
+const listWords = (xs: string[]) => (xs.length <= 1 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs.at(-1)}`);
+
 function AssignTab({
   rows,
   people,
   viewer,
   canAssign,
+  canAddPeople,
+  tick,
   onChanged,
+  onOpenTask,
 }: {
   rows: Assignment[];
   people: Employee[];
   viewer: string;
   canAssign: boolean;
+  canAddPeople: boolean;
+  tick: number;
   onChanged: () => void;
+  onOpenTask: (taskId: string, owner: string) => void;
 }) {
   const act = useAction();
-  const invite = useAction();
   const [to, setTo] = useState("");
   const [title, setTitle] = useState("");
   const [note, setNote] = useState("");
-  const [name, setName] = useState("");
-  const [code, setCode] = useState<{ code: string; expiresAt: string } | null>(null);
+  const [channels, setChannels] = useState<NotifyChoice[]>([]);
+  const [reach, setReach] = useState<Map<string, PersonReach>>(new Map());
+  const [adding, setAdding] = useState(false);
 
-  const candidates = people.filter((p) => p.status === "active");
+  useEffect(() => {
+    if (!canAssign) return;
+    let off = false;
+    api.reach(viewer).then(
+      (r) => { if (!off) setReach(new Map(r.people.map((p) => [p.employeeId, p]))); },
+      () => { if (!off) setReach(new Map()); },
+    );
+    return () => { off = true; };
+  }, [viewer, canAssign, tick]);
+
+  // Only the people this viewer may give work to — the same list the API checks against.
+  const candidates = people.filter((p) => p.status === "active" && (reach.size === 0 || reach.has(p.id)));
+  const r = to ? (reach.get(to) ?? null) : null;
+  const who = candidates.find((p) => p.id === to)?.display_name ?? "them";
+  const usual = r?.usual ?? [];
+  // Without the reach answer (it failed to load) nothing is pre-chosen, and an empty choice means
+  // "their usual rules" — never a silent "app only".
+  const sameAsUsual = r ? channels.length === usual.length && channels.every((c) => usual.includes(c)) : channels.length === 0;
+
+  const pick = (id: string) => {
+    setTo(id);
+    // A new person starts from their own usual channels — the safe default.
+    setChannels(reach.get(id)?.usual ?? []);
+  };
 
   return (
     <div className="space-y-5">
       {canAssign ? (
-        <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
-          <Card>
-            <h3 className="mb-3 text-sm font-semibold">📌 Assign work</h3>
-            <Toast message={act.message} tone={act.tone} onDone={act.clear} />
-            <form
-              className="mt-2 space-y-3"
-              onSubmit={(e) => {
-                e.preventDefault();
-                void act.run(async () => {
-                  const r = await api.assign(viewer, {
-                    assignedTo: to,
-                    title: title.trim(),
-                    ...(note.trim() ? { note: note.trim() } : {}),
-                  });
-                  setTitle("");
-                  setNote("");
-                  onChanged();
-                  const who = candidates.find((p) => p.id === to)?.display_name ?? "them";
-                  return r.queued
-                    ? `Assigned to ${who}. They are told on every channel they use — Telegram, this app, their devices — within a few seconds.`
-                    : `Assigned to ${who}. (Nothing new was queued — this looks like a repeat.)`;
+        <Card>
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <h3 className="flex-1 text-sm font-semibold">📌 Assign work</h3>
+            {canAddPeople && !adding ? (
+              <Button onClick={() => setAdding(true)} title="Add someone — with their email, so work can reach them without Telegram">
+                <span className="inline-flex items-center gap-1.5"><Icon.userPlus size={16} /> Add a person</span>
+              </Button>
+            ) : null}
+          </div>
+          <Toast message={act.message} tone={act.tone} onDone={act.clear} />
+          <form
+            className="mt-2 grid gap-4 lg:grid-cols-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void act.run(async () => {
+                const res = await api.assign(viewer, {
+                  assignedTo: to,
+                  title: title.trim(),
+                  ...(note.trim() ? { note: note.trim() } : {}),
+                  // Unchanged from their usual channels: nobody chose, their own rules apply
+                  // (and the record says so). Changed: exactly these.
+                  ...(sameAsUsual ? {} : { channels }),
                 });
-              }}
-            >
-              <PersonPicker label="Who" value={to} onChange={setTo} people={candidates} />
+                setTitle("");
+                setNote("");
+                onChanged();
+                const told = (res.notified ?? []).map((c) => CHOICE_WORD[c]);
+                const parts = [
+                  `Assigned ${res.taskKey ?? "the task"} to ${who}`,
+                  told.length ? ` — told by ${listWords(told)}.` : " — but no channel could carry the message; it is on their list.",
+                  ...(res.skipped ?? []).map((x) => ` ${CHOICE_WORD[x.choice][0]!.toUpperCase()}${CHOICE_WORD[x.choice].slice(1)} skipped: ${x.why}.`),
+                  res.heldForConsent ? ` ${who} has not agreed to the privacy notice yet, so only the app inbox shows it until they do.` : "",
+                  res.queued ? "" : " (Nothing new was queued — this looks like a repeat.)",
+                ];
+                return parts.join("");
+              });
+            }}
+          >
+            <div className="space-y-3">
+              <PersonPicker label="Who" value={to} onChange={pick} people={candidates} />
               <TextField label="What" value={title} onChange={setTitle} placeholder="One task, in plain words" maxLength={200} />
               <TextArea label="Note (optional)" value={note} onChange={setNote} rows={2} maxLength={1000} />
-              <Button type="submit" tone="primary" busy={act.busy} disabled={!to || title.trim().length < 3}>
-                Assign &amp; notify
+            </div>
+            <div className="space-y-3">
+              {to ? (
+                <ChannelPicker reach={r} value={channels} onChange={setChannels} name={who} />
+              ) : (
+                <p className="rounded-lg border border-dashed border-edge p-3 text-sm text-mut">
+                  Choose who first — then pick how they are told: <b className="text-ink">Telegram</b>, the <b className="text-ink">app</b>, or <b className="text-ink">email</b>.
+                </p>
+              )}
+              <Button type="submit" tone="primary" busy={act.busy} disabled={!to || title.trim().length < 3 || (r !== null && channels.length === 0)} className="w-full min-h-11">
+                Assign &amp; notify{to && channels.length ? ` by ${listWords(channels.map((c) => CHOICE_WORD[c]))}` : to ? " (their usual channels)" : ""}
               </Button>
-            </form>
-          </Card>
-
-          <Card>
-            <h3 className="mb-3 text-sm font-semibold">➕ Add a person</h3>
-            <Toast message={invite.message} tone={invite.tone} onDone={invite.clear} />
-            <form
-              className="mt-2 space-y-3"
-              onSubmit={(e) => {
-                e.preventDefault();
-                void invite.run(async () => {
-                  const r = await api.invite(name.trim());
-                  setCode(r);
-                  setName("");
-                  return "Invite code created. It works once and expires in 72 hours.";
-                });
-              }}
-            >
-              <TextField label="Their name" value={name} onChange={setName} placeholder="As it should appear on the board" maxLength={120} />
-              <Button type="submit" tone="primary" busy={invite.busy} disabled={name.trim().length < 1}>
-                Create invite code
-              </Button>
-            </form>
-            {code ? (
-              <div className="mt-3 rounded-lg border border-ok/40 bg-ok/10 p-3 text-sm">
-                <div className="font-mono text-lg font-bold tracking-widest">{code.code}</div>
-                <div className="mt-1 text-xs text-mut">
-                  Valid until {dmon(code.expiresAt)} {hhmm(code.expiresAt)}. They open the bot, send /start, tap
-                  &ldquo;🔑 I have an invite code&rdquo;, and paste it.
-                </div>
-                <div className="mt-2">
-                  <Button onClick={() => void navigator.clipboard?.writeText(code.code)}>Copy code</Button>
-                </div>
-              </div>
-            ) : null}
-          </Card>
-        </div>
+              {to && !sameAsUsual ? <p className="text-xs text-mut">Their usual: {usual.length ? listWords(usual.map((c) => CHOICE_WORD[c])) : "none"}. This choice is for this task only.</p> : null}
+            </div>
+          </form>
+        </Card>
       ) : null}
 
+      {canAddPeople && adding ? <AddPersonCard viewer={viewer} people={people} onAdded={onChanged} onClose={() => setAdding(false)} /> : null}
       {canAssign ? <EmailProposalsCard viewer={viewer} people={people} onChanged={onChanged} /> : null}
       {canAssign ? <DocumentCard people={people} viewer={viewer} onChanged={onChanged} /> : null}
 
@@ -1506,14 +1668,36 @@ function AssignTab({
         rows={rows}
         columns={[
           { head: "When", cell: (a) => `${dmon(a.created_at)} ${hhmm(a.created_at)}`, tight: true },
-          { head: "From", cell: (a) => a.assigned_by },
+          {
+            head: "Task",
+            cell: (a) =>
+              a.task_id ? (
+                <button onClick={() => onOpenTask(a.task_id!, a.assigned_to_id ?? "")} className="text-left hover:text-link hover:underline" title="Open the task">
+                  <TaskKey n={a.task_number} />
+                  {a.task_title ?? a.note ?? "—"}
+                </button>
+              ) : (
+                (a.task_title ?? a.note ?? "—")
+              ),
+          },
           { head: "To", cell: (a) => <b>{a.assigned_to}</b> },
-          { head: "Task", cell: (a) => a.task_title ?? a.note ?? "—" },
+          { head: "From", cell: (a) => a.assigned_by },
+          { head: "Progress", cell: (a) => (a.task_id ? <div className="w-36"><ProgressMeter t={a} /></div> : "—") },
+          {
+            head: "Told by",
+            cell: (a) =>
+              a.notify_channels?.length ? (
+                <span className="flex flex-wrap gap-1">{a.notify_channels.map((c) => <Pill key={c} tone="ok">{CHOICE_WORD[c]}</Pill>)}</span>
+              ) : (
+                <span className="text-xs text-mut" title="Nobody chose: their own notification rules applied">their usual</span>
+              ),
+          },
+          { head: "Via", cell: (a) => (a.origin ? ORIGIN_WORD[a.origin] ?? a.origin : "—"), tight: true },
+          { head: "State", cell: (a) => <StatusChip status={a.task_status ?? a.status} />, tight: true },
           { head: "Files", cell: (a) => (a.files > 0 ? <Pill>📎 {a.files}</Pill> : "—"), tight: true },
-          { head: "State", cell: (a) => <Pill>{a.status}</Pill>, tight: true },
         ]}
         rowKey={(a) => a.id}
-        detail={(a) => (a.file_names ? <div className="text-xs text-mut">Files: {a.file_names}</div> : null)}
+        detail={(a) => (a.file_names || a.note ? <div className="space-y-0.5 text-xs text-mut">{a.note ? <div>Note: {a.note}</div> : null}{a.file_names ? <div>Files: {a.file_names}</div> : null}</div> : null)}
         empty="No assignments yet."
       />
     </div>
@@ -1731,14 +1915,27 @@ function PeopleTab({
   rows,
   viewer,
   canEditOrg,
+  tick,
   onChanged,
 }: {
   rows: Employee[];
   viewer: string;
   canEditOrg: boolean;
+  tick: number;
   onChanged: () => void;
 }) {
   const act = useAction();
+  const [adding, setAdding] = useState(false);
+  // Which ways of telling each person work — the same answer the Assign form shows.
+  const [reach, setReach] = useState<Map<string, PersonReach>>(new Map());
+  useEffect(() => {
+    let off = false;
+    api.reach(viewer).then(
+      (r) => { if (!off) setReach(new Map(r.people.map((p) => [p.employeeId, p]))); },
+      () => { if (!off) setReach(new Map()); },
+    );
+    return () => { off = true; };
+  }, [viewer, tick]);
   const roleLabel: Record<string, string> = { ceo: "CEO", manager: "Manager", lead: "Dept lead", employee: "Employee" };
   const managers = rows.filter((e) => e.status === "active" && e.access_role !== "employee");
   // Erasure is a two-step, per-row confirmation: first "has left", then a reason and the
@@ -1819,6 +2016,25 @@ function PeopleTab({
         ),
     },
     { head: "Site", cell: (e) => e.site ?? "—" },
+    {
+      head: "Reach",
+      cell: (e) => {
+        const r = reach.get(e.id);
+        const mark = (ok: boolean, label: string, why: string) => (
+          <span title={ok ? `${label}: reachable` : `${label}: ${why}`} className={`whitespace-nowrap ${ok ? "text-ok" : "text-mut line-through decoration-1"}`}>{label}</span>
+        );
+        if (!r) return <span className="text-xs text-mut">{e.linked ? "Telegram" : "app"}{e.has_email ? " · email" : ""}</span>;
+        return (
+          <span className="flex flex-wrap items-center gap-x-2 text-xs">
+            {mark(r.telegram.ok, "Telegram", r.telegram.why)}
+            {mark(r.app.ok, r.app.push ? "App + phone" : "App", r.app.why)}
+            {mark(r.email.ok, "Email", r.email.why)}
+            {!r.consented ? <span className="text-warn" title="Messages other than the app inbox wait until they agree to the privacy notice">· not agreed yet</span> : null}
+          </span>
+        );
+      },
+    },
+    ...(canEditOrg ? [{ head: "Email", cell: (e: Employee) => <EmailCell viewer={viewer} person={e} onSaved={onChanged} /> }] : []),
     { head: "State", cell: (e) => <Pill>{e.status}</Pill>, tight: true },
   ];
   if (canEditOrg) {
@@ -1867,6 +2083,17 @@ function PeopleTab({
   return (
     <div className="space-y-3">
       {canEditOrg ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="flex-1 text-sm text-mut">{rows.filter((r) => r.status === "active").length} active people</span>
+          {!adding ? (
+            <Button tone="primary" onClick={() => setAdding(true)}>
+              <span className="inline-flex items-center gap-1.5"><Icon.userPlus size={16} /> Add a person</span>
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
+      {canEditOrg && adding ? <AddPersonCard viewer={viewer} people={rows} onAdded={onChanged} onClose={() => setAdding(false)} /> : null}
+      {canEditOrg ? (
         <p className="text-xs text-mut">
           <b className="text-ink">Access</b> is what a person may do; <b className="text-ink">Reports to</b> is who sees
           their work. A manager sees and assigns to their reports; a department lead also sees everyone in their
@@ -1878,6 +2105,56 @@ function PeopleTab({
       <Toast message={act.message} tone={act.tone} onDone={act.clear} />
       <DataTable rows={rows} columns={cols} rowKey={(e) => e.id} empty="No people visible to you." />
     </div>
+  );
+}
+
+/**
+ * A person's address, editable by the CEO in place — the same rule as Records → Email: refused
+ * when malformed, already someone else's, or off EMAIL_ALLOWLIST, with the reason shown.
+ */
+function EmailCell({ viewer, person, onSaved }: { viewer: string; person: Employee; onSaved: () => void }) {
+  const act = useAction();
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(person.email ?? "");
+  if (!editing) {
+    return (
+      <span className="flex items-center gap-1.5">
+        <span className="break-all text-xs">{person.email ?? <span className="text-mut">none</span>}</span>
+        <button onClick={() => { setValue(person.email ?? ""); setEditing(true); act.clear(); }} className="text-xs text-link hover:underline" title="Change the address">
+          {person.email ? "edit" : "add"}
+        </button>
+      </span>
+    );
+  }
+  return (
+    <span className="block min-w-[14rem] space-y-1">
+      <input
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        placeholder="name@example.com"
+        maxLength={254}
+        aria-label={`Email for ${person.display_name}`}
+        className="w-full rounded-lg border border-edge bg-sunken px-2 py-1 text-xs"
+      />
+      <span className="flex gap-1.5">
+        <Button
+          tone="primary"
+          busy={act.busy}
+          onClick={() =>
+            void act.run(async () => {
+              const r = await api.setEmployeeEmail(viewer, person.id, value.trim() || null);
+              setEditing(false);
+              onSaved();
+              return r.email ? `Saved ${r.email}.` : "Address removed.";
+            })
+          }
+        >
+          Save
+        </Button>
+        <Button onClick={() => setEditing(false)}>Cancel</Button>
+      </span>
+      <Toast message={act.message} tone={act.tone} onDone={act.clear} />
+    </span>
   );
 }
 

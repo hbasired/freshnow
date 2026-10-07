@@ -574,7 +574,8 @@ docker compose stop        # keeps all data
 - **The consent notice is checked before the board loads** — nothing about a person is fetched or
   shown until they have agreed.
 - **Assignment wording is channel-neutral**: *Assign & notify*, and people without Telegram are shown
-  as *told in the app* rather than as unreachable.
+  as *told in the app* rather than as unreachable. Since TASK-054 the form has **Tell them by: Telegram · App
+  · Email** — a choice that cannot reach the person is greyed out with the reason.
 - **CI is paused** (manual *Run workflow* only).
 
 **Added on 28 Sept (consent notice 2.0)**
@@ -640,7 +641,9 @@ docker compose stop        # keeps all data
   tunnel. The laptop screens, on `localhost`, stay instant. Taken from Cloudflare's documentation, not observed.
 - **A real phone has not been tested by the developer.** Everything up to the push service was tested,
   and the notification display was tested in Chrome; the first real phone is this demo.
-- **New staff still join through Telegram** (invite code → bot). An app-only sign-up is not built yet.
+- **New staff are added by the CEO** (Assignments or People → **Add a person**, with their email — TASK-054); they can join
+  Telegram later with the invite code shown, bound to the same person. An app sign-in for them still needs `pnpm link:user`
+  (a self-service app sign-up is not built).
 - **Files attached to an assignment** are still delivered in Telegram only.
 - **Antivirus catches known malware, not everything.** A brand-new sample has no signature yet — that is why the
   other layers stay. Photos are not virus-scanned: Telegram re-encodes them into a new image before we see them.
