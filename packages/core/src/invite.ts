@@ -28,14 +28,20 @@ export async function createInvite(params: {
   ttlHours?: number;
   /** Only true for seeded demo fixtures. A code the CEO issues for a real person is real. */
   isSynthetic?: boolean;
+  /**
+   * The person this code is for, when they already exist (added on the dashboard). Redeeming it
+   * then links Telegram to THIS row (onboarding.ts) instead of creating a second person.
+   */
+  employeeId?: string;
 }): Promise<CreatedInvite> {
   const sql = getServiceSql();
   const code = generateInviteCode();
   const ttlHours = params.ttlHours ?? 72;
   const rows = await sql<{ expires_at: Date }[]>`
-    insert into invite_code (code, display_name, issued_by, expires_at, is_synthetic)
+    insert into invite_code (code, display_name, issued_by, expires_at, is_synthetic, employee_id)
     values (${code}, ${params.displayName}, ${params.issuedBy ?? DEMO_CEO_ID},
-            now() + make_interval(hours => ${ttlHours}), ${params.isSynthetic ?? false})
+            now() + make_interval(hours => ${ttlHours}), ${params.isSynthetic ?? false},
+            ${params.employeeId ?? null})
     returning expires_at`;
   return { code, expiresAt: rows[0]!.expires_at };
 }

@@ -396,6 +396,18 @@ Routing goes to the **CEO only** for now (company routing data not yet supplied)
   the laptop run (A-T53.1–5, VF49). 657 tests (VF47); local round trip (VF48).
   -> `docs/tasks/TASK-053-email-bullmq-context.html` · `EMAIL-DEMO-GUIDE.md` · COMMANDS.md §7f
 
+- **T54 Assign by email, choose the channel, add people, an Overview that opens its lists** (2026-10-07): **Assign & notify**
+  offers Telegram · App · Email; a choice that cannot reach the person is greyed out with the reason, and none reachable is
+  refused before anything is written (D172; migration 0022 records the choice and where work came from). The CEO **adds people**
+  with their email; the notice goes by email and they agree by replying I AGREE (D174, A-T54.2). **Email assigns at once** when
+  every owner is certain — the name fits one person or the email went TO them with FreshNow copied — else a proposal, as before
+  (D173, supersedes part of D166). The worker reads To **or Cc**, and the **Sent** mailbox, because Gmail never puts self-sent
+  alias mail in the Inbox (D177, A-T53.2 corrected, VF52); loop guards (D178). A person's **60%** now survives a status tap and
+  "60% done" in their words becomes their progress (D175, G142). The Overview's six numbers are counted in SQL and **each opens
+  its list** — new Pending work, Completed and Problems pages with filters in the URL (D176). `reset-employee` fixed for email
+  rows (G143). 683 tests (VF50), 34/34 browser checks (VF51).
+  -> `docs/tasks/TASK-054-assign-by-email-channels-people-overview.html` · `EMAIL-DEMO-GUIDE.md` · COMMANDS.md §7g
+
 ## Blocked on the user
 - ~~`CEO_TELEGRAM_USER_ID` is empty.~~ **Resolved 2026-09-04:** CEO = 6051615734,
   employee = 8903000291. Both have run `/start`; the CEO is linked to the CEO employee row.

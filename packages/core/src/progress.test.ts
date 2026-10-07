@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { closeDb, getServiceSql, withContext } from "./db.js";
 import { DEMO_CEO_ID } from "./meta.js";
 import {
@@ -12,8 +12,9 @@ import {
   reportProgress,
   resolveBlocker,
   setStepDone,
+  statedPercent,
 } from "./progress.js";
-import { createTask, recordTaskUpdate } from "./updates.js";
+import { attachNoteAndProcess, createTask, recordTaskUpdate } from "./updates.js";
 
 /**
  * A percentage must be evidence. These tests pin the three sources and the order they
@@ -225,5 +226,50 @@ describe("visibility of the new tables follows the task", () => {
     expect((await count({ employeeId: who }))[0]?.n).toBe(1);
     expect((await count({ employeeId: DEMO_CEO_ID, isCeo: true }))[0]?.n).toBe(1);
     expect((await count({ employeeId: other }))[0]?.n).toBe(0);
+  });
+});
+
+describe("the person's own percentage (TASK-054)", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("reads the one percentage a person wrote — and refuses to guess between two, or at 100", () => {
+    expect(statedPercent("60% done")).toBe(60);
+    expect(statedPercent("about 60 percent, two vans left")).toBe(60);
+    expect(statedPercent("60 % ho gaya")).toBe(60);
+    expect(statedPercent("done 45 per cent")).toBe(45);
+    expect(statedPercent("battery 20%, task 60% done")).toBeNull(); // two figures: whose is it?
+    expect(statedPercent("60% and still 60% this evening")).toBe(60); // the same figure twice is one
+    expect(statedPercent("100% finished")).toBeNull(); // finishing is Done, not a number
+    expect(statedPercent("restocked 3 machines")).toBeNull();
+    expect(statedPercent("version 1.5% off")).toBeNull(); // not a whole percentage of the work
+    expect(statedPercent(null)).toBeNull();
+  });
+
+  it("a reported 60% survives a later status tap; only finishing or counted steps replace it", async () => {
+    const t = await createTask(who, "PRG keeps 60", true);
+    await reportProgress({ taskId: t, employeeId: who, pct: 60, note: "two of the three vans done" });
+    await recordTaskUpdate({ taskId: t, employeeId: who, status: "pending" });
+    expect(await taskRow(t)).toMatchObject({ progress_pct: 60, progress_source: "self_reported" });
+    await recordTaskUpdate({ taskId: t, employeeId: who, status: "in_progress" });
+    expect(await taskRow(t)).toMatchObject({ progress_pct: 60, progress_source: "self_reported" });
+    await recordTaskUpdate({ taskId: t, employeeId: who, status: "done" });
+    expect(await taskRow(t)).toMatchObject({ progress_pct: 100, progress_source: "status" });
+  });
+
+  it('"60% done" typed as a status note becomes the task\'s self-reported progress — even when the model is down', async () => {
+    // The model is unreachable: the percentage is read by a pattern before any model is called.
+    vi.stubGlobal("fetch", vi.fn(async () => {
+      throw new Error("connect ECONNREFUSED (stand-in outage)");
+    }));
+    const t = await createTask(who, "PRG typed 60", true);
+    const rec = await recordTaskUpdate({ taskId: t, employeeId: who, status: "pending", channel: "web" });
+    // A "pending" report moves the task to in progress, which by status alone implies 50%.
+    expect(await taskRow(t)).toMatchObject({ progress_pct: 50, progress_source: "status" });
+    await attachNoteAndProcess(rec.taskUpdateId, "60% done, waiting for the second batch of bottles");
+    const row = (await getServiceSql()<{ progress_pct: number; progress_source: string; progress_note: string }[]>`
+      select progress_pct, progress_source, progress_note from task where id = ${t}`)[0]!;
+    expect(row).toEqual({ progress_pct: 60, progress_source: "self_reported", progress_note: "60% done, waiting for the second batch of bottles" });
   });
 });

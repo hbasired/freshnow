@@ -43,6 +43,24 @@ export const PROGRESS_BANDS: readonly ProgressBand[] = Array.from({ length: 100 
  * neither flatters nor punishes the estimate. The band is stored beside it and shown instead
  * of it, so the midpoint is never presented as something anybody measured.
  */
+/**
+ * The one percentage a person wrote in their own words — "60% done", "about 60 percent",
+ * "60 %" — or null. Deterministic: a number the person typed, read by a pattern, never a figure
+ * a model produced (CLAUDE.md rule 2). Refuses to guess: two different percentages ("battery at
+ * 20%, task 60% done") return null, and so does 100 or more, because finishing is reported as
+ * Done, not as a number.
+ */
+export function statedPercent(text: string | null | undefined): number | null {
+  if (!text) return null;
+  const found = new Set<number>();
+  for (const m of text.matchAll(/(?<![\d.,])(\d{1,3})\s*(?:%|％|percent\b|per\s?cent\b)/giu)) {
+    found.add(Number(m[1]));
+  }
+  if (found.size !== 1) return null;
+  const n = [...found][0]!;
+  return n >= 0 && n < 100 ? n : null;
+}
+
 export function bandMidpoint(b: ProgressBand): number {
   return Math.round((b.low + b.high) / 2);
 }
@@ -114,8 +132,13 @@ export async function setStepDone(p: {
 
 /**
  * Derive the percentage from evidence. Steps win when they exist; otherwise the status.
- * A self-reported figure is replaced here — a person's estimate is the weakest source and
- * a real change in the countable evidence supersedes it. The event log keeps both.
+ *
+ * A self-reported figure gives way to COUNTABLE evidence (steps) and to finishing (done or
+ * cancelled) — never to a bare status tap. "Still pending" says nothing about how far along the
+ * work is, and the figure a status implies (10% for pending, 50% for in progress) is weaker than
+ * the 60% the person themselves reported. Before TASK-054 every status tap replaced the person's
+ * figure with that default, which is why a reported 60% vanished from the board (G142). The event
+ * log keeps every change either way.
  */
 export async function recomputeProgress(taskId: string, correlationId?: string, by?: string): Promise<{ pct: number; source: ProgressSource }> {
   const sql = getServiceSql();
@@ -140,9 +163,17 @@ export async function recomputeProgress(taskId: string, correlationId?: string, 
         progress_updated_at = now()
     from derived d
     where t.id = ${taskId}
+      -- Keep the person's own figure while there is no better evidence (see above).
+      and not (t.progress_source = 'self_reported' and d.source = 'status'
+               and t.status not in ('done', 'cancelled'))
     returning d.pct, d.source, d.before, d.before_source`;
   const r = rows[0];
-  if (!r) throw new Error("no such task");
+  if (!r) {
+    const kept = await sql<{ progress_pct: number; progress_source: ProgressSource }[]>`
+      select progress_pct, progress_source from task where id = ${taskId}`;
+    if (!kept[0]) throw new Error("no such task");
+    return { pct: kept[0].progress_pct, source: kept[0].progress_source };
+  }
   if (r.pct !== r.before || r.source !== r.before_source) {
     await sql`insert into progress_event (task_id, employee_id, pct, source, correlation_id)
               values (${taskId}, ${by ?? null}, ${r.pct}, ${r.source}, ${correlationId ?? null})`;

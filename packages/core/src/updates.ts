@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { notify, notifyPeople } from "./alerts.js";
+import { NOTIFY_CHOICES, notify, notifyPeople, reachOf, type NotifyChoice } from "./alerts.js";
 import { logAudit } from "./audit.js";
 import { saveAttachments, type IncomingFile } from "./attachments.js";
 import { CONSENT_POLICY_VERSION, currentNoticeHashes } from "./consent.js";
@@ -8,7 +8,7 @@ import { DEMO_CEO_ID } from "./meta.js";
 import { ceoEmployeeId } from "./org.js";
 import { enqueueNotification } from "./outbox.js";
 import { parseTaskUpdate } from "./parse.js";
-import { recomputeProgress } from "./progress.js";
+import { recomputeProgress, reportProgress, statedPercent } from "./progress.js";
 import { routeAndAlert } from "./routing.js";
 
 export type ReportedStatus = "done" | "pending" | "blocker" | "in_progress";
@@ -49,13 +49,18 @@ export async function createTask(
   employeeId: string,
   title: string,
   isSynthetic = false,
-  opts: { correlationId?: string; createdBy?: string } = {},
+  opts: {
+    correlationId?: string;
+    createdBy?: string;
+    /** The inbound email this work was given in (task.source_email_id), when it was. */
+    sourceEmailId?: string | null;
+  } = {},
 ): Promise<string> {
   const sql = getServiceSql();
   const clean = title.trim().slice(0, 200);
   const rows = await sql<{ id: string }[]>`
-    insert into task (employee_id, title, status, is_synthetic)
-    values (${employeeId}, ${clean}, 'open', ${isSynthetic})
+    insert into task (employee_id, title, status, is_synthetic, source_email_id)
+    values (${employeeId}, ${clean}, 'open', ${isSynthetic}, ${opts.sourceEmailId ?? null})
     returning id`;
   const taskId = rows[0]!.id;
 
@@ -65,7 +70,7 @@ export async function createTask(
     action: "task.created",
     entity: "task",
     entityId: taskId,
-    detail: { employeeId, title: clean },
+    detail: { employeeId, title: clean, ...(opts.sourceEmailId ? { sourceEmailId: opts.sourceEmailId } : {}) },
   });
   return taskId;
 }
@@ -210,7 +215,23 @@ export async function attachNoteAndProcess(
   correlationId?: string,
 ): Promise<ProcessedNote> {
   const sql = getServiceSql();
-  await sql`update task_update set note_raw = ${noteRaw} where id = ${taskUpdateId}`;
+  const upd = await sql<{ task_id: string | null; employee_id: string; status: string }[]>`
+    update task_update set note_raw = ${noteRaw} where id = ${taskUpdateId}
+    returning task_id, employee_id, status`;
+
+  // "60% done" in the person's own words IS their progress report — the same as picking it in
+  // the app, labelled self-reported, with their words as the note. Read by a pattern before any
+  // model is called (statedPercent), so it lands even when the model is down. Not on "done":
+  // finishing is 100% by definition.
+  const u = upd[0];
+  const pct = u?.task_id && u.status !== "done" ? statedPercent(noteRaw) : null;
+  if (u?.task_id && pct !== null) {
+    await reportProgress({ taskId: u.task_id, employeeId: u.employee_id, pct, note: noteRaw.slice(0, 500), ...(correlationId ? { correlationId } : {}) }).catch(
+      // A refused figure (a note under three characters cannot carry a percentage anyway) must
+      // never stop the update itself from being read.
+      () => {},
+    );
+  }
 
   const parsed = await parseTaskUpdate(taskUpdateId, correlationId);
   if (parsed.needsReview) {
@@ -359,13 +380,34 @@ export async function listOpenBlockers(limit = 10): Promise<OpenBlocker[]> {
   return [...rows];
 }
 
+/**
+ * None of the channels chosen for an assignment can reach the person — refused before anything
+ * is written, so no task exists that its owner was never told about. The message names each
+ * choice and why, which is what the dashboard shows.
+ */
+export class NoReachableChannelError extends Error {}
+
+/** Where an assignment was made — assignment.origin (migration 0022). */
+export type AssignmentOrigin = "dashboard" | "telegram" | "email" | "document";
+
 export interface AssignmentResult {
   taskId: string;
+  /** The short key people say and type: "FN-57". */
+  taskKey: string;
   assignmentId: string;
   correlationId: string;
   delivered: boolean;
   /** How many files were stored and queued alongside the instruction. */
   attachments: number;
+  /** The channels a message was queued on, as the person giving the work thinks of them. */
+  notified: NotifyChoice[];
+  /** Choices that could not carry it, each with the reason — "Telegram: not linked to the bot yet". */
+  skipped: { choice: NotifyChoice; why: string }[];
+  /**
+   * The assignee has not agreed to the current privacy notice, so everything except the in-app
+   * inbox waits in the outbox until they do. Said out loud rather than reported as "sent".
+   */
+  heldForConsent: boolean;
 }
 
 /**
@@ -382,19 +424,43 @@ export async function assignTask(p: {
   attachments?: readonly IncomingFile[];
   /** Join this assignment to the request that caused it; one is minted when absent. */
   correlationId?: string;
+  /**
+   * How to tell the assignee, chosen by whoever gives the work: any of Telegram, the app, email.
+   * Absent = the assignee's own notification rules, as before. Each choice still has to be able
+   * to reach them (a linked chat, an address, the company switch on); one that cannot is skipped
+   * and reported in `skipped`, never silently swapped for another channel.
+   */
+  channels?: readonly NotifyChoice[];
+  /** Where the work was given — recorded on the assignment. */
+  origin?: AssignmentOrigin;
+  /** The inbound email this work came from, when it was emailed in. */
+  sourceEmailId?: string | null;
 }): Promise<AssignmentResult> {
   const sql = getServiceSql();
   const correlationId = p.correlationId ?? randomUUID();
+  // A choice list is a set in a fixed order; an empty one would tell nobody, so it is refused.
+  const chosen = p.channels ? NOTIFY_CHOICES.filter((c) => p.channels!.includes(c)) : null;
+  if (chosen && chosen.length === 0) throw new NoReachableChannelError("Choose at least one way to tell them: Telegram, the app or email");
+  const reach = (await reachOf([p.assignedTo])).get(p.assignedTo);
+  if (chosen && reach && !chosen.some((c) => reach[c].ok)) {
+    const label: Record<NotifyChoice, string> = { telegram: "Telegram", app: "App", email: "Email" };
+    throw new NoReachableChannelError(
+      `None of the chosen channels can reach them — ${chosen.map((c) => `${label[c]}: ${reach[c].why}`).join("; ")}. Choose another.`,
+    );
+  }
   const taskId = await createTask(p.assignedTo, p.title, false, {
     correlationId,
     createdBy: p.assignedBy,
+    sourceEmailId: p.sourceEmailId ?? null,
   });
 
-  const rows = await sql<{ id: string }[]>`
-    insert into assignment (task_id, assigned_by, assigned_to, note, status, is_synthetic)
-    values (${taskId}, ${p.assignedBy}, ${p.assignedTo}, ${p.note ?? null}, 'assigned', false)
-    returning id`;
+  const rows = await sql<{ id: string; task_number: string }[]>`
+    insert into assignment (task_id, assigned_by, assigned_to, note, status, is_synthetic, notify_channels, origin)
+    values (${taskId}, ${p.assignedBy}, ${p.assignedTo}, ${p.note ?? null}, 'assigned', false,
+            ${chosen}, ${p.origin ?? null})
+    returning id, (select task_number::text from task where id = ${taskId}) as task_number`;
   const assignmentId = rows[0]!.id;
+  const taskKey = `FN-${rows[0]!.task_number}`;
 
   const files = await saveAttachments({
     files: p.attachments ?? [],
@@ -419,9 +485,10 @@ export async function assignTask(p: {
     {
       // Attachments are Telegram file references, never bytes (attachments.ts), so only the
       // Telegram message can say "sent below". Everywhere else says where the files are
-      // rather than promising something that will not arrive.
+      // rather than promising something that will not arrive. The key (FN-57) is in every
+      // version, so the employee and the CEO can name the same job the same way.
       text:
-        `📌 New task from ${from}:\n\n${p.title}` +
+        `📌 New task from ${from} (${taskKey}):\n\n${p.title}` +
         (p.note ? `\n\n"${p.note}"` : "") +
         (files.length ? `\n\n📎 ${files.length} file(s) attached — delivered in Telegram only.` : ""),
       payload: { assignmentId, taskId },
@@ -429,7 +496,7 @@ export async function assignTask(p: {
         ? {
             telegram: {
               text:
-                `📌 New task from ${from}:\n\n${p.title}` +
+                `📌 New task from ${from} (${taskKey}):\n\n${p.title}` +
                 (p.note ? `\n\n"${p.note}"` : "") +
                 `\n\n📎 ${files.length} file(s) attached — sent below.`,
             },
@@ -437,12 +504,22 @@ export async function assignTask(p: {
         : {}),
       correlationId,
     },
+    chosen ? { chosen } : {},
   );
   const enqueued = sent.enqueued > 0;
 
+  // What reached which choice, and why a chosen one did not — for the person who chose.
+  const notified = NOTIFY_CHOICES.filter((c) =>
+    sent.recipients.some((r) => r.employeeId === p.assignedTo && (c === "app" ? r.channel === "inapp" || r.channel === "webpush" : r.channel === c)),
+  );
+  const skipped = (chosen ?? [])
+    .filter((c) => !notified.includes(c))
+    .map((c) => ({ choice: c, why: reach?.[c].why || "could not be used" }));
+
   // Each file is its own outbox row: one failing attachment must not block the
-  // instruction itself, and the idempotency key keeps a retry from double-sending.
-  for (const f of files) {
+  // instruction itself, and the idempotency key keeps a retry from double-sending. Files
+  // travel only in Telegram, so a choice that leaves Telegram out leaves them on the task.
+  for (const f of chosen && !chosen.includes("telegram") ? [] : files) {
     await enqueueNotification({
       idempotencyKey: `attachment-${f.id}`,
       chatId: chatId == null ? null : Number(chatId),
@@ -465,7 +542,26 @@ export async function assignTask(p: {
     action: "task.assigned",
     entity: "assignment",
     entityId: assignmentId,
-    detail: { assignedTo: p.assignedTo, taskId, delivered: enqueued, attachments: files.length },
+    detail: {
+      assignedTo: p.assignedTo,
+      taskId,
+      delivered: enqueued,
+      attachments: files.length,
+      origin: p.origin ?? null,
+      chosen,
+      notified,
+      ...(skipped.length ? { skipped } : {}),
+    },
   });
-  return { taskId, assignmentId, correlationId, delivered: enqueued, attachments: files.length };
+  return {
+    taskId,
+    taskKey,
+    assignmentId,
+    correlationId,
+    delivered: enqueued,
+    attachments: files.length,
+    notified,
+    skipped,
+    heldForConsent: reach ? !reach.consented : false,
+  };
 }

@@ -710,3 +710,27 @@ written. NOT Gmail (unreachable from the build machine): see A-T53.1–4.
 ## VF49 (2026-10-05) — Gmail access for programs [believed — Google Help + third-party guides, through search]
 App Passwords still work with 2-Step Verification on; "Less secure apps" is gone (2022). SMTP smtp.gmail.com 465/587, IMAP
 imap.gmail.com 993. IMAP has been always on for personal Gmail since January 2025 (the setting was removed).
+
+## VF50 (2026-10-07) — Test counts after TASK-054
+693 tests: 683 pass, 8 fail only for want of a model provider (every one `403 Host not in allowlist: api.groq.com` /
+openrouter.ai / integrate.api.nvidia.com — this build machine's network egress; the same 8 fail on the untouched TASK-053 code
+here), 2 skipped. The 5 inbox tests ran against a local Dovecot (`EMAIL_TEST_IMAP_HOST=127.0.0.1`). Typecheck clean, root and
+dashboard; `pnpm build:web` clean (the >500 kB chunk warning predates this task).
+
+## VF51 (2026-10-07) — Browser check of the new navigation and forms [verified — Chromium, demo mode, 1440×1000 and 390×844]
+34/34: six Overview tiles each open their list and the tile count equals the list count; Pending shows "FN-7 … 60% reported by
+Hemanth Demo · 07:53 today" with the person's words; Blocked / Urgent problems / Completed / Need a human open the filtered
+pages; Back returns to the previous filter; a problem's task button opens the task; the hero's "N open" is a link; Telegram is
+greyed out with "not linked to the Telegram bot yet", App pre-selected, Email selectable; the result line reads "Assigned FN-10 to
+Hemanth Demo — told by the app and email"; Add a person shows an invite code and "the privacy notice was emailed"; People shows
+reach and the address; on a phone Pending is its own page with a Back arrow, no sideways scroll; no console errors.
+
+## VF52 (2026-10-07) — Gmail does not put mail you send to your own alias in the Inbox [believed — Google Workspace Help + guides, through search]
+"Gmail doesn't deliver messages that you send to your own alias (or to a Group you belong to) to your inbox. You can find the
+message in Sent Mail or All Mail." Refutes half of A-T53.2. Gmail's IMAP extensions page shows the Sent Mail folder listed with
+the `\Sent` special-use attribute.
+
+## VF53 (2026-10-07) — imapflow 2.2.4 search supports `or: [{to}, {cc}]`, and `list()` returns `specialUse` [verified — package source + Dovecot run]
+Read in `dist/esm/search-compiler.js` (OR builds a binary IMAP OR tree; TO and CC keys exist) and typechecked; a message only in
+Dovecot's `\Sent` mailbox with the alias in Cc was found and assigned. The same test against the TASK-053 poller found nothing
+(`outcomes: {}`) — the failure reproduced before the fix.

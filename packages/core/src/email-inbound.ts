@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
+import { reachOf, type NotifyChoice } from "./alerts.js";
 import { logAudit } from "./audit.js";
-import { hasCurrentConsent } from "./consent.js";
+import { ConsentNoticeChangedError, hasCurrentConsent, recordConsent, requestConsentFromEveryone } from "./consent.js";
 import { CONTEXT_LIMITS, relevantPeople } from "./context-scope.js";
 import { getServiceSql } from "./db.js";
 import { planDocumentTasks, planningDirectory } from "./documents.js";
@@ -15,9 +16,11 @@ import {
   readAuthResults,
   taskNumberFromSubject,
 } from "./email-reply.js";
+import { canAssignTo, loadViewer } from "./org.js";
 import { enqueueNotification } from "./outbox.js";
-import { reportProgress } from "./progress.js";
-import { attachNoteAndProcess, recordTaskUpdate } from "./updates.js";
+import { matchPeopleByName } from "./people-match.js";
+import { checkRateLimit } from "./rate-limit.js";
+import { assignTask, attachNoteAndProcess, recordTaskUpdate } from "./updates.js";
 
 /**
  * An email arriving in the FreshNow inbox, turned into exactly one of: a status update, a
@@ -32,7 +35,12 @@ import { attachNoteAndProcess, recordTaskUpdate } from "./updates.js";
  *   3. ROUTE by rules — which task (the FN-42 key in the subject first, then In-Reply-To: the Jira
  *      order), whose task, and whether the sender may give work. No model decides any of it.
  *   4. Only then the model: the blocker parser reads an update's words; the planner reads a work
- *      email. A plan is a PROPOSAL — nothing is assigned until a person taps Apply.
+ *      email. WHO each job is for is then decided in code, never by the model (TASK-054): when
+ *      every job names exactly one person by name (people-match.ts), or the email was sent TO
+ *      exactly one employee and names nobody else, the work is assigned at once — exactly as a
+ *      Telegram message naming the person is — and the sender gets a reply saying what was
+ *      assigned to whom and how they were told. When any owner is a guess, ambiguous or missing,
+ *      the email becomes a PROPOSAL a person confirms in the dashboard, as before.
  */
 
 export interface InboundEmailMessage {
@@ -60,7 +68,9 @@ export type InboundEmailOutcome =
   | { kind: "refused" | "ignored"; emailId: string; reason: string }
   | { kind: "retry"; emailId: string; reason: string }
   | { kind: "update"; emailId: string; taskUpdateId: string; taskId: string | null; taskKey: string | null; status: string; blocker: boolean }
-  | { kind: "proposal"; emailId: string; proposalId: string | null; tasks: number };
+  | { kind: "proposal"; emailId: string; proposalId: string | null; tasks: number }
+  | { kind: "assigned"; emailId: string; assigned: { taskId: string; taskKey: string; assignedTo: string }[] }
+  | { kind: "consent"; emailId: string; agreed: boolean };
 
 /** After this many failed reads (a model outage), an email is handed to a person instead. */
 export const MAX_EMAIL_ATTEMPTS = 4;
@@ -149,6 +159,13 @@ export async function screenAndRoute(emailId: string, m: InboundEmailMessage, en
     await close("ignored", `not addressed to the FreshNow inbox (${inbox.inboxAddress})`);
     return { kind: "ignored", emailId, reason: "not addressed to the inbox" };
   }
+  // One of OUR messages coming back (the poller reads the Sent mailbox, where every email FreshNow
+  // sends also lands): never read as someone's words, or a reply could answer itself for ever.
+  const mid = normaliseMessageId(m.messageId);
+  if (mid && (await sql`select 1 from email_message where direction = 'out' and message_id = ${mid} limit 1`).length > 0) {
+    await close("ignored", "a message FreshNow sent itself");
+    return { kind: "ignored", emailId, reason: "our own message" };
+  }
   if ((m.autoSubmitted && m.autoSubmitted.toLowerCase() !== "no") || ["bulk", "junk", "list"].includes((m.precedence ?? "").toLowerCase())) {
     await close("ignored", "an automatic message (out-of-office, mailing list)");
     return { kind: "ignored", emailId, reason: "automatic message" };
@@ -175,6 +192,12 @@ export async function screenAndRoute(emailId: string, m: InboundEmailMessage, en
     await close("refused", sender ? "that person's account is not active" : "no active employee has that email address", { auth });
     return { kind: "refused", emailId, reason: "not an active employee" };
   }
+  // A reply to the privacy notice we emailed them (TASK-054) — the one thing an email from
+  // someone who has not agreed yet may do. Matched by thread to OUR notice email to THEM.
+  const consentHash = await consentRequestRepliedTo(m, sender.id);
+  if (consentHash) {
+    return consentReply({ emailId, correlationId, sender, noticeHash: consentHash, words: row.body_text ?? "", auth, close });
+  }
   if (!(await hasCurrentConsent(sender.id))) {
     // The same door as Telegram and the dashboard: nothing is taken from someone who has not
     // agreed to the notice as it reads today. Their email stays recorded; nothing is read.
@@ -189,14 +212,16 @@ export async function screenAndRoute(emailId: string, m: InboundEmailMessage, en
   }
 
   // 3 ── which task? The key in the subject first, then the thread (Jira's order).
-  const task = await findTask(m);
+  const task = await findTask(m, sender.id);
   const mayGiveWork = sender.access_role !== "employee";
 
   if (task && task.employee_id === sender.id) {
     return fileUpdate({ emailId, correlationId, sender, task, words, auth, close });
   }
   if (mayGiveWork) {
-    return proposeWork({ emailId, correlationId, sender, subject: m.subject, words, auth, attempts: row.attempts, close });
+    // Everyone else the email was addressed to — the people it may be FOR.
+    const recipients = to.filter((a) => a !== from && a !== inbox?.inboxAddress);
+    return proposeWork({ emailId, correlationId, sender, subject: m.subject, words, auth, attempts: row.attempts, close, recipients });
   }
   // An employee writing about no task of theirs: still a report — words kept, a problem still
   // escalates — just not filed against someone else's job.
@@ -210,21 +235,108 @@ interface TaskRow {
   task_number: string;
 }
 
-async function findTask(m: InboundEmailMessage): Promise<TaskRow | null> {
+async function findTask(m: InboundEmailMessage, senderId: string): Promise<TaskRow | null> {
   const sql = getServiceSql();
   const n = taskNumberFromSubject(m.subject);
   if (n !== null) {
     const byKey = (await sql<TaskRow[]>`select id, employee_id, title, task_number::text from task where task_number = ${n}`)[0];
     if (byKey) return byKey;
   }
-  const ids = [normaliseMessageId(m.inReplyTo), ...m.references.map(normaliseMessageId)].filter((x): x is string => !!x);
+  const ids = threadIds(m);
   if (ids.length === 0) return null;
   const byThread = (await sql<TaskRow[]>`
     select t.id, t.employee_id, t.title, t.task_number::text
       from email_message e join task t on t.id = e.task_id
      where e.direction = 'out' and e.message_id = any(${ids})
      order by e.created_at desc limit 1`)[0];
-  return byThread ?? null;
+  if (byThread) return byThread;
+  // A reply-all to the email the work was GIVEN in (the CEO wrote to them and copied the inbox):
+  // the sender's own task made from that email — and only when there is exactly one, because
+  // with two jobs in one email a bare reply does not say which (TASK-054).
+  const fromSource = await sql<TaskRow[]>`
+    select t.id, t.employee_id, t.title, t.task_number::text
+      from email_message e join task t on t.source_email_id = e.id
+     where e.direction = 'in' and e.message_id = any(${ids}) and t.employee_id = ${senderId}
+     limit 2`;
+  return fromSource.length === 1 ? fromSource[0]! : null;
+}
+
+/** Every Message-ID this email says it answers, In-Reply-To first. */
+function threadIds(m: InboundEmailMessage): string[] {
+  return [normaliseMessageId(m.inReplyTo), ...m.references.map(normaliseMessageId)].filter((x): x is string => !!x);
+}
+
+/**
+ * Is this a reply to the privacy notice we emailed THIS person? Returns the hash of the notice
+ * that email carried, or null. Only our own outbound notice to the same person counts — a
+ * forwarded copy answered by someone else is not their agreement.
+ */
+async function consentRequestRepliedTo(m: InboundEmailMessage, senderId: string): Promise<string | null> {
+  const ids = threadIds(m);
+  if (ids.length === 0) return null;
+  const rows = await getServiceSql()<{ notice_hash: string | null }[]>`
+    select o.payload->>'noticeHash' as notice_hash
+      from email_message e join notification_outbox o on o.id = e.outbox_id
+     where e.direction = 'out' and e.message_id = any(${ids}) and e.employee_id = ${senderId}
+       and o.payload->>'kind' = 'consent.requested'
+     order by e.created_at desc limit 1`;
+  return rows[0]?.notice_hash ?? null;
+}
+
+/**
+ * The words that count as agreeing, on the first line of the reply: "I agree", "I AGREE",
+ * "Yes, I agree", "agreed", "I accept", "I consent". Anything with a negation is not agreement,
+ * and a bare "yes" or "ok" is not either — consent has to be the clear statement the email asked
+ * for (PDPL: "a specific, clear and unambiguous indication"). Pure and exported for tests.
+ */
+export function isConsentAgreement(reply: string): boolean {
+  const first = (reply.split("\n").find((l) => l.trim().length > 0) ?? "").trim().toLowerCase();
+  if (first.length === 0 || first.length > 120) return false;
+  if (/\b(not|don'?t|do\s+not|disagree|refuse|won'?t|never|no)\b/.test(first)) return false;
+  return /\b(i\s+agree|agreed|i\s+accept|i\s+consent)\b/.test(first);
+}
+
+async function consentReply(p: {
+  emailId: string;
+  correlationId: string;
+  sender: Sender;
+  noticeHash: string;
+  words: string;
+  auth: Record<string, unknown>;
+  close: Close;
+}): Promise<InboundEmailOutcome> {
+  if (!isConsentAgreement(p.words)) {
+    await p.close("processed", "a reply to the privacy notice that did not agree — nothing recorded", { employeeId: p.sender.id, auth: p.auth });
+    // Part of the consent conversation, so it goes out as one (the relay holds every other
+    // message to someone who has not agreed).
+    await acknowledge({
+      emailId: p.emailId, to: p.sender.id, taskId: null, kind: "consent.requested",
+      title: "Nothing was recorded",
+      text: "Thank you for your reply. Nothing was recorded. If you agree to the notice, reply to it with the words I AGREE. If you have questions, ask the CEO.",
+      correlationId: p.correlationId,
+    });
+    return { kind: "consent", emailId: p.emailId, agreed: false };
+  }
+  try {
+    await recordConsent({ employeeId: p.sender.id, noticeHash: p.noticeHash, via: "email", correlationId: p.correlationId });
+  } catch (err) {
+    if (!(err instanceof ConsentNoticeChangedError)) throw err;
+    // They agreed to words that are no longer the notice. Nothing is recorded against text they
+    // did not see; the current notice is sent to them instead.
+    await p.close("processed", "agreed to an older version of the notice — the current one was sent", { employeeId: p.sender.id, auth: p.auth });
+    await requestConsentFromEveryone({ correlationId: p.correlationId, employeeIds: [p.sender.id] });
+    return { kind: "consent", emailId: p.emailId, agreed: false };
+  }
+  await p.close("processed", "agreed to the privacy notice by email", { employeeId: p.sender.id, auth: p.auth });
+  await acknowledge({
+    emailId: p.emailId, to: p.sender.id, taskId: null,
+    title: "Thank you — recorded",
+    text:
+      "Thank you — your agreement to the privacy notice is recorded.\n\n" +
+      "From now on, work given to you can arrive by email. To update a task, reply to its email: write \"done\", a percentage like \"40%\", or what is stopping you.",
+    correlationId: p.correlationId,
+  });
+  return { kind: "consent", emailId: p.emailId, agreed: true };
 }
 
 type Close = (
@@ -252,9 +364,8 @@ async function fileUpdate(p: {
     channel: "email",
     correlationId: p.correlationId,
   });
-  if (p.task && st.percent !== null && st.status !== "done") {
-    await reportProgress({ taskId: p.task.id, employeeId: p.sender.id, pct: st.percent, note: p.words.slice(0, 500), correlationId: p.correlationId }).catch(() => {});
-  }
+  // A percentage in the reply ("40% done") becomes the task's self-reported progress inside
+  // attachNoteAndProcess — the same rule for Telegram, the app and email (TASK-054).
   const res = await attachNoteAndProcess(rec.taskUpdateId, p.words, p.correlationId);
   await p.close("processed", key ? `status update on ${key} (${st.status})` : `status update (${st.status})`, {
     employeeId: p.sender.id,
@@ -285,6 +396,8 @@ async function proposeWork(p: {
   auth: Record<string, unknown>;
   attempts: number;
   close: Close;
+  /** The addresses the email went to, other than the inbox and the sender. */
+  recipients: readonly string[];
 }): Promise<InboundEmailOutcome> {
   const sql = getServiceSql();
   const text = `${p.subject ? `${p.subject}\n\n` : ""}${p.words}`.slice(0, CONTEXT_LIMITS.documentChars);
@@ -313,6 +426,25 @@ async function proposeWork(p: {
     await p.close("processed", "no tasks found in it", { employeeId: p.sender.id, auth: p.auth });
     await acknowledge({ emailId: p.emailId, to: p.sender.id, taskId: null, title: "No tasks found", text: "I found no separate pieces of work in your email, so nothing was proposed. Write one line per job, naming the person.", correlationId: p.correlationId });
     return { kind: "proposal", emailId: p.emailId, proposalId: null, tasks: 0 };
+  }
+
+  // WHO, decided in code (TASK-054). Every job needs an owner we are CERTAIN of, and the sender
+  // must be allowed to give each of them work; otherwise the whole email waits for a person —
+  // never half of it assigned and half not.
+  const owners = await certainOwners(plan.tasks, p.recipients, p.sender.id);
+  const actor = await loadViewer(p.sender.id);
+  let directBlocked: string | null = owners.every((o) => o !== null) ? null : "not every job names exactly one person";
+  if (!directBlocked && actor) {
+    for (const o of owners) {
+      if (!(await canAssignTo(actor, o!.id))) { directBlocked = `${o!.name} is outside the people you may give work to`; break; }
+    }
+  }
+  if (!directBlocked) {
+    const rl = await checkRateLimit({ key: "assignment", employeeId: p.sender.id });
+    if (!rl.allowed) directBlocked = "the hourly assignment limit was reached";
+  }
+  if (!directBlocked && actor) {
+    return assignFromEmail({ ...p, tasks: plan.tasks.map((t, i) => ({ title: t.title, detail: t.detail, owner: owners[i]! })) });
   }
 
   const tasks = plan.tasks.map((t) => ({
@@ -345,12 +477,141 @@ async function proposeWork(p: {
     taskId: null,
     title: `${tasks.length} task(s) to confirm`,
     text:
-      `I read ${tasks.length} task(s) in your email. Nothing has been assigned yet — confirm them in the dashboard (Assign → From email):\n\n` +
-      tasks.map((t, i) => `${i + 1}. ${t.title} → ${owner(t)}`).join("\n"),
+      `I read ${tasks.length} task(s) in your email. Nothing has been assigned yet (${directBlocked ?? "it needs a check"}) — confirm them in the dashboard (Assign → From email):\n\n` +
+      tasks.map((t, i) => `${i + 1}. ${t.title} → ${owner(t)}`).join("\n") +
+      "\n\nNext time, to have it assigned at once: name one person per job as they appear in FreshNow, or send the email TO that person and copy this address.",
     url: "/app/#tasks/assign",
     correlationId: p.correlationId,
   });
   return { kind: "proposal", emailId: p.emailId, proposalId: proposal?.id ?? null, tasks: tasks.length };
+}
+
+interface Owner {
+  id: string;
+  name: string;
+  /** How we know: the name as written, the address it was written as, or who the email went to. */
+  by: "name" | "address" | "addressed";
+}
+
+/**
+ * The owner of each job when it is CERTAIN, else null — pure rules over the plan the model read
+ * and the email's own headers, never the model's pick alone (D161):
+ *   1. the name written fits exactly one person (people-match.ts did this: matchedBy "name");
+ *   2. the job names someone by email address, and that address is an active person's;
+ *   3. the email went TO exactly one employee, and the job names nobody else — "the email to
+ *      Hemanth says fix the chiller" is Hemanth's job.
+ * Anything else — two possible people, a nickname only the model recognised, a name nobody has —
+ * is uncertain, and the email becomes a proposal.
+ */
+async function certainOwners(
+  tasks: readonly { assignee: { id: string; display_name: string } | null; namedAs: string | null; matchedBy: "name" | "ai" | null }[],
+  recipients: readonly string[],
+  senderId: string,
+): Promise<(Owner | null)[]> {
+  const sql = getServiceSql();
+  const addressed = recipients.length
+    ? await sql<{ id: string; display_name: string; email: string }[]>`
+        select id, display_name, lower(email) as email from employee
+         where status = 'active' and id <> ${senderId} and lower(email) = any(${[...recipients]})`
+    : [];
+  const sole = addressed.length === 1 ? addressed[0]! : null;
+  const out: (Owner | null)[] = [];
+  for (const t of tasks) {
+    if (t.assignee && t.matchedBy === "name") {
+      out.push({ id: t.assignee.id, name: t.assignee.display_name, by: "name" });
+      continue;
+    }
+    const written = t.namedAs?.trim().toLowerCase() ?? "";
+    if (written.includes("@")) {
+      const byAddress = (await sql<{ id: string; display_name: string }[]>`
+        select id, display_name from employee where status = 'active' and lower(email) = ${emailAddressOf(written)}`)[0];
+      out.push(byAddress ? { id: byAddress.id, name: byAddress.display_name, by: "address" } : null);
+      continue;
+    }
+    if (sole) {
+      // No name written (the model's own fill-in is the assignee's name), or the name written is
+      // the addressed person's: the email's recipient is the owner. Any other name: not certain.
+      const noName = !written || (t.assignee !== null && t.matchedBy === "ai" && written === t.assignee.display_name.toLowerCase());
+      if (noName || matchPeopleByName(written, [sole]).length === 1) {
+        out.push({ id: sole.id, name: sole.display_name, by: "addressed" });
+        continue;
+      }
+    }
+    out.push(null);
+  }
+  return out;
+}
+
+/**
+ * Assign what an email asked for, the moment every owner is certain — the email channel's equal
+ * of naming the person in Telegram. Each task records the email it came from
+ * (task.source_email_id) and origin "email"; the assignee is told on their usual channels AND by
+ * email when they have an address, so their reply to that email lands on the right task; the
+ * sender gets one reply listing what went to whom.
+ */
+async function assignFromEmail(p: {
+  emailId: string;
+  correlationId: string;
+  sender: Sender;
+  subject: string | null;
+  auth: Record<string, unknown>;
+  close: Close;
+  tasks: { title: string; detail: string | null; owner: Owner }[];
+}): Promise<InboundEmailOutcome> {
+  const provenance = `(from ${p.sender.display_name}'s email${p.subject ? `: ${p.subject.slice(0, 120)}` : ""})`;
+  const reach = await reachOf(p.tasks.map((t) => t.owner.id));
+  const assigned: { taskId: string; taskKey: string; assignedTo: string; name: string; notified: NotifyChoice[]; held: boolean }[] = [];
+  for (const t of p.tasks) {
+    const r = reach.get(t.owner.id);
+    // Their usual channels, plus email when it can reach them: work given by email should be
+    // answerable by email.
+    const channels = r ? ([...new Set<NotifyChoice>([...r.usual, ...(r.email.ok ? (["email"] as const) : [])])] as NotifyChoice[]) : undefined;
+    const res = await assignTask({
+      assignedBy: p.sender.id,
+      assignedTo: t.owner.id,
+      title: t.title,
+      note: t.detail ? `${t.detail}\n\n${provenance}` : provenance,
+      correlationId: p.correlationId,
+      origin: "email",
+      sourceEmailId: p.emailId,
+      ...(channels && channels.length ? { channels } : {}),
+    });
+    assigned.push({ taskId: res.taskId, taskKey: res.taskKey, assignedTo: t.owner.id, name: t.owner.name, notified: res.notified, held: res.heldForConsent });
+  }
+  await p.close(
+    "processed",
+    `assigned ${assigned.length} task(s): ${assigned.map((a) => `${a.taskKey} → ${a.name}`).join(", ")}`.slice(0, 300),
+    { employeeId: p.sender.id, auth: p.auth, ...(assigned.length === 1 ? { taskId: assigned[0]!.taskId } : {}) },
+  );
+  await logAudit({
+    correlationId: p.correlationId,
+    actor: `employee:${p.sender.id}`,
+    action: "email.assigned",
+    entity: "email_message",
+    entityId: p.emailId,
+    detail: { tasks: assigned.map((a, i) => ({ taskId: a.taskId, assignedTo: a.assignedTo, ownerBy: p.tasks[i]!.owner.by, notified: a.notified })) },
+  });
+  const label: Record<NotifyChoice, string> = { telegram: "Telegram", app: "the app", email: "email" };
+  await acknowledge({
+    emailId: p.emailId,
+    to: p.sender.id,
+    taskId: null,
+    title: `Assigned ${assigned.length} task(s)`,
+    text:
+      `Assigned from your email:\n\n` +
+      assigned
+        .map(
+          (a, i) =>
+            `${i + 1}. ${a.taskKey} ${p.tasks[i]!.title} → ${a.name}` +
+            (a.notified.length ? ` (told by ${a.notified.map((c) => label[c]).join(", ")})` : " (no channel could reach them — it is on their list in the app)") +
+            (a.held ? ` — waiting: ${a.name} has not agreed to the privacy notice yet, so messages are held until they do` : ""),
+        )
+        .join("\n") +
+      "\n\nEach task is on the dashboard now. Replies they send to the task email are filed against it.",
+    url: "/app/#tasks/assign",
+    correlationId: p.correlationId,
+  });
+  return { kind: "assigned", emailId: p.emailId, assigned: assigned.map(({ taskId, taskKey, assignedTo }) => ({ taskId, taskKey, assignedTo })) };
 }
 
 /**
@@ -358,7 +619,17 @@ async function proposeWork(p: {
  * email whatever their per-event preferences say — but only if the email channel is live, and
  * the outbox keeps it to one reply per inbound email.
  */
-async function acknowledge(p: { emailId: string; to: string; taskId: string | null; title: string; text: string; url?: string; correlationId: string }): Promise<void> {
+async function acknowledge(p: {
+  emailId: string;
+  to: string;
+  taskId: string | null;
+  title: string;
+  text: string;
+  url?: string;
+  correlationId: string;
+  /** Part of the consent conversation: the one kind the relay sends before someone has agreed. */
+  kind?: "email.ack" | "consent.requested";
+}): Promise<void> {
   const sql = getServiceSql();
   const e = (await sql<{ message_id: string; subject: string | null }[]>`select message_id, subject from email_message where id = ${p.emailId}`)[0];
   const subject = e?.subject ? (/^re:/i.test(e.subject) ? e.subject : `Re: ${e.subject}`) : p.title;
@@ -367,7 +638,7 @@ async function acknowledge(p: { emailId: string; to: string; taskId: string | nu
     channel: "email",
     recipientEmployeeId: p.to,
     reason: "reply to your email",
-    payload: { kind: "email.ack", title: p.title, text: p.text, subject, inReplyTo: e?.message_id, ...(p.taskId ? { taskId: p.taskId } : {}), ...(p.url ? { url: p.url } : {}) },
+    payload: { kind: p.kind ?? "email.ack", title: p.title, text: p.text, subject, inReplyTo: e?.message_id, ...(p.taskId ? { taskId: p.taskId } : {}), ...(p.url ? { url: p.url } : {}) },
     correlationId: p.correlationId,
   });
 }

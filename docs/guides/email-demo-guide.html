@@ -50,9 +50,25 @@ the email thread), files it as Hemanth's update, and replies &quot;Saved your up
         │
 &quot;Done&quot; closes FN-42 · &quot;40%&quot; sets progress · &quot;Blocked…&quot; raises a problem the CEO is alerted to
 </code></pre>
-<p>And the other way: the CEO emails work to the <code>+freshnow</code> address ("Hemanth: restock the Marina
-machine") → it appears in <strong>Assign → From email</strong> as a proposal → the CEO taps <strong>Assign &amp; notify</strong>.
-<strong>Nothing an email says is assigned until a person taps.</strong></p>
+<p>And the other way (TASK-054): the CEO gives work <strong>by email, exactly like a Telegram message</strong> — either</p>
+<ul>
+<li>writes to the <code>+freshnow</code> address naming the person ("Hemanth: restock the Marina machine"), or</li>
+<li>writes <strong>to Hemanth directly and copies (Cc) the <code>+freshnow</code> address</strong> — like copying a secretary.</li>
+</ul>
+<p>When every job names exactly one person the CEO may give work to (or the email went <strong>to</strong> exactly one
+employee), it is <strong>assigned at once</strong>: the task appears on the dashboard (Pending work, Assignments),
+Hemanth is told on his usual channels <strong>and by email</strong> (<code>[FN-57] New task for you…</code>), every step is in the
+audit log under one correlation id, and the CEO gets a reply: <em>"Assigned from your email: 1. FN-57 … →
+Hemanth (told by the app, email)"</em>. When a name fits two people, nobody, or only a guess, nothing is
+assigned — it waits in <strong>Assign → From email</strong> for a tap, and the reply says why.</p>
+<pre><code>CEO's Gmail ──To: Hemanth, Cc: &lt;CEO Gmail+freshnow&gt;──► Hemanth reads it as a normal email
+        │
+        └── FreshNow reads the copy (Inbox or Sent, To or Cc) ─► proves it is the CEO (Gmail Sent / SPF+DKIM+DMARC)
+              ─► model reads the jobs ─► WHO decided in code: the name fits one person, or the email went TO them
+              ─► task + assignment (origin &quot;email&quot;, linked to this email) ─► Hemanth told: usual channels + email
+              ─► audit log ─► reply to the CEO in the same thread
+Hemanth &quot;Reply all&quot; with &quot;60% done&quot; ─► filed on that task (found by the thread) ─► 60% on the Pending page
+</code></pre>
 <hr />
 <h2>1 · One-time Gmail setup (5 minutes, on the CEO's account only)</h2>
 <p>The system signs in to the CEO's Gmail to send and to read the inbox alias. Gmail requires an <strong>App
@@ -131,17 +147,30 @@ do, nothing of theirs is emailed and their emailed replies are recorded but not 
 <h2>4 · The demo, act by act (≈ 10 minutes)</h2>
 <p>Three windows: the <strong>dashboard as the CEO</strong> (Chrome), <strong>the CEO's Gmail</strong>, and <strong>Hemanth's Gmail</strong> (his
 phone is best — it shows email arriving like the real thing).</p>
+<h3>Act E0 — Add a person with their email (CEO, 1 min) — optional</h3>
+<p>Dashboard → <strong>Assignments → Add a person</strong> (or <strong>People → Add a person</strong>): name, <strong>email</strong>, department,
+who they report to. FreshNow emails them the privacy notice; they reply <strong>I AGREE</strong> and from then on
+work can reach them by email — no Telegram needed. A Telegram invite code is shown too, bound to the same
+person, in case they join the bot later.</p>
+<blockquote>
+<p>The address must be allowed: with <code>EMAIL_ALLOWLIST</code> set in <code>.env</code> (the demo's safety list), add the new
+address there and restart the api and worker — or empty the list to allow every employee's own address.</p>
+</blockquote>
 <h3>Act E1 — Work arrives by email (CEO → Hemanth, 1 min)</h3>
-<p>Dashboard → <strong>Assign</strong> → <em>Who:</em> Hemanth, <em>What:</em> <code>Fix the van 2 chiller</code> → <strong>Assign &amp; notify</strong>.
-Within a few seconds Hemanth's Gmail shows <strong><code>[FN-42] New task for you: Fix the van 2 chiller</code></strong> (the
-number will differ). Open the task in the dashboard: its title bar shows the same <strong>FN-42</strong>.</p>
+<p>Dashboard → <strong>Assign</strong> → <em>Who:</em> Hemanth, <em>What:</em> <code>Fix the van 2 chiller</code>. Under <strong>Tell them by</strong>, tap
+<strong>Email</strong> (and/or Telegram, App — a choice that cannot reach him is greyed out with the reason) →
+<strong>Assign &amp; notify by …</strong>. The green line under the form says exactly where it went: <em>"Assigned FN-42 to
+Hemanth — told by the app and email."</em> Within a few seconds Hemanth's Gmail shows <strong><code>[FN-42] New task for
+you: Fix the van 2 chiller</code></strong> (the number will differ). Open the task in the dashboard: its title bar
+shows the same <strong>FN-42</strong>.</p>
 <blockquote>
 <p>"Every task has a short key, like Jira's — it is how a reply finds its task."</p>
 </blockquote>
 <h3>Act E2 — Progress by replying (Hemanth, 1 min)</h3>
 <p>In Hemanth's Gmail press <strong>Reply</strong> and write <code>40% done, compressor arrived</code>. Send.
 Within a minute: Hemanth gets <strong>"Saved your update on FN-42 … Status: in progress (40%)"</strong> in the
-same thread, and the dashboard shows the task at 40%.</p>
+same thread. On the dashboard, tap the <strong>Pending</strong> number on the Overview: FN-42 shows <strong>40% — reported
+by Hemanth</strong>, with his words under it.</p>
 <h3>Act E3 — A problem by replying (Hemanth → CEO, 2 min)</h3>
 <p>Reply again: <code>Blocked - no gas for the chiller</code>. The system files it, reads it as a problem, and the
 CEO is alerted — in Telegram as always, and <strong>by email</strong> (the setup opted the CEO in). Hemanth's reply
@@ -154,12 +183,15 @@ says <em>"Logged a high supply problem — the CEO has been alerted."</em></p>
 Hemanth: restock the Marina vending machine
 Hemanth: check the van 3 tyres
 </code></pre>
-<p>Within a minute the CEO gets <strong>"2 task(s) to confirm"</strong>, and the dashboard → <strong>Assign</strong> shows a
-<strong>✉️ From email</strong> card with both tasks, owner already filled in ("named in the email"). Tap <strong>Assign &amp;
-notify</strong> — only now is Hemanth told.</p>
+<p>Within a minute both tasks are <strong>assigned</strong>: they appear under <strong>Pending work</strong> and <strong>Assignments</strong> (Via:
+email), Hemanth gets two <code>[FN-…]</code> emails, and the CEO gets one reply listing both with how Hemanth was told.</p>
+<p><strong>The same thing, written to Hemanth:</strong> a new email <strong>To: <code>&lt;Hemanth Gmail&gt;</code></strong>, <strong>Cc: the <code>+freshnow</code>
+address</strong>, subject <code>Filler</code>, body <code>Please clean the filler before 4 pm.</code> — no name needed, because the
+email went to him. When Hemanth presses <strong>Reply all</strong> and writes <code>60% done</code>, it is filed on that task.</p>
 <blockquote>
-<p>"An email never assigns work by itself. A name that fits two people is shown as 'could be X or Y —
-choose'; a name the system could only guess is marked 'my guess — check'."</p>
+<p>"Email works like Telegram: when the person is certain, it is assigned at once and recorded; when it is
+not — a name that fits two people, a nickname, someone not in the system — nothing happens until you
+choose, in Assign → From email. The model reads the jobs; it never decides who."</p>
 </blockquote>
 <h3>Act E6 — The record (CEO, 1 min)</h3>
 <p>Dashboard → <strong>Records → Email</strong> (phone: More → Email): sending on, inbox read and when it was last
@@ -201,7 +233,15 @@ became — <em>processed</em>, <em>ignored</em> (an out-of-office) or <em>refuse
 </tr>
 <tr>
 <td>The CEO's own email is not picked up</td>
-<td>It must go <strong>to the <code>+freshnow</code> address</strong>. Look in Records → Email for it; <em>refused — sender not authenticated</em> means Gmail did not mark it as sent by the account — reply to any FreshNow email instead.</td>
+<td>The <code>+freshnow</code> address must be in <strong>To or Cc</strong>. Gmail files mail you send to your own alias under <strong>Sent</strong>, not Inbox — FreshNow reads both (TASK-054), so restart the worker after pulling. Look in Records → Email: <em>refused — sender not authenticated</em> means it came from another account.</td>
+</tr>
+<tr>
+<td>The CEO's email became "to confirm" instead of assigned</td>
+<td>The reply says why: a name fits two people or nobody, or the person is outside who that sender may give work to. Write the name as it is in FreshNow, or send it <strong>To</strong> the person.</td>
+</tr>
+<tr>
+<td>A person added on the dashboard gets no email</td>
+<td>They must reply <strong>I AGREE</strong> to the privacy-notice email first (People shows <em>not agreed yet</em>); until then only the app inbox gets their work. Check the address is on <code>EMAIL_ALLOWLIST</code>.</td>
 </tr>
 <tr>
 <td>"Saved" replies arrive in Gmail's Spam</td>
@@ -220,6 +260,10 @@ became — <em>processed</em>, <em>ignored</em> (an out-of-office) or <em>refuse
 <li><strong>Replies are read about once a minute</strong>, not instantly (IMAP polling; Gmail push would need a Google
   Cloud project).</li>
 <li><strong>Text only.</strong> Attachments in an emailed reply are not read; send photos through Telegram or the app.</li>
+<li><strong>Reply all.</strong> When the CEO writes to Hemanth directly, Hemanth's update reaches FreshNow only if his reply
+  still copies the <code>+freshnow</code> address (Reply all). Replying to FreshNow's own <code>[FN-…]</code> email always works.</li>
+<li><strong>Agreeing by email</strong> ("I AGREE" to the notice) is a developer's reading of PDPL consent — a clear written
+  statement, recorded with the hash of the exact notice — not a lawyer's. Get it checked before real staff.</li>
 <li><strong>Quoted text is stripped for Gmail, Outlook and phone formats in English.</strong> A mail app writing its
   "On … wrote:" line in another language may leave the quote in the update — the words are still kept.</li>
 <li><strong>Not tested against Gmail itself from the build machine</strong> (it cannot reach Gmail). It was tested

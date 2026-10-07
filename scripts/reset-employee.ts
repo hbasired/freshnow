@@ -138,6 +138,22 @@ for (const t of targets) {
     await sql`update escalation set escalated_to = null where escalated_to = ${id}`;
   }
 
+  // Email (TASK-053, TASK-054). Its rows point at tasks, assignments and updates, and a task
+  // points back at the email it was given in — so both directions are released before anything
+  // is deleted. Before this, resetting anyone with email history failed on a foreign key (G143).
+  await sql`update task set source_email_id = null
+            where employee_id = ${id}
+               or source_email_id in (select id from email_message where employee_id = ${id})`;
+  await sql`update email_message set task_id = null, assignment_id = null, task_update_id = null
+            where task_id in (select id from task where employee_id = ${id})
+               or assignment_id in (select id from assignment where assigned_to = ${id} or assigned_by = ${id})
+               or task_update_id in (select id from task_update where employee_id = ${id})`;
+  await sql`update email_proposal set decided_by = null where decided_by = ${id}`;
+  await sql`delete from email_proposal
+            where proposed_by = ${id}
+               or email_message_id in (select id from email_message where employee_id = ${id})`;
+  await sql`delete from email_message where employee_id = ${id}`;
+
   // Attachments reference assignments, tasks, updates AND the uploader, and nothing in
   // this schema cascades — so files go first or every delete below hits a foreign key.
   // (The table arrived in migration 0004, after this script was first written.)

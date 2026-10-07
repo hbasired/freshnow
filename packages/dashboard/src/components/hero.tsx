@@ -17,30 +17,47 @@ export function Hero({
   pending,
   problems,
   isToday,
+  onDone,
+  onPending,
+  onProblems,
   actions,
 }: {
   greeting: string;
   name: string;
   dateLabel: string;
+  /** Reported done on the day shown. */
   done: number;
+  /** Open tasks — not done, not cancelled. */
   pending: number;
+  /** Problems still open. */
   problems: number;
   isToday: boolean;
+  /** Each count opens the list it counted (TASK-054). */
+  onDone?: () => void;
+  onPending?: () => void;
+  onProblems?: () => void;
   actions: { label: string; icon: IconName; onClick: () => void; primary?: boolean }[];
 }) {
-  const reported = done + pending + problems;
+  // Each part of the sentence is a link to its list: "3 completed" opens what was completed.
+  const part = (text: string, go: (() => void) | undefined) =>
+    go ? (
+      <button key={text} onClick={go} className="font-semibold underline decoration-on-brand/40 underline-offset-2 hover:decoration-on-brand">
+        {text}
+      </button>
+    ) : (
+      <span key={text}>{text}</span>
+    );
+  const parts = [
+    part(`${done} completed ${isToday ? "today" : "that day"}`, onDone),
+    part(`${pending} open`, onPending),
+    ...(problems ? [part(`${problems} ${problems === 1 ? "problem" : "problems"} open`, onProblems)] : []),
+  ];
   const summary =
-    reported === 0
+    done + pending + problems === 0
       ? isToday
-        ? "nothing has been reported yet today"
+        ? "nothing is open and nothing has been reported yet today"
         : "nothing was reported on this day"
-      : [
-          `${done} completed`,
-          `${pending} still going`,
-          problems ? `${problems} ${problems === 1 ? "problem" : "problems"}` : null,
-        ]
-          .filter(Boolean)
-          .join(" · ");
+      : parts.flatMap((p, i) => (i === 0 ? [p] : [<span key={`s${i}`}> · </span>, p]));
 
   return (
     <section
@@ -76,7 +93,7 @@ export function Hero({
           {greeting}, {name} <span aria-hidden>👋</span>
         </h2>
         <p className="mt-1 max-w-2xl text-sm font-medium text-on-brand/80">
-          {dateLabel} — {summary}. Every number below is counted in the database, never estimated.
+          {dateLabel} — {summary}. Every number here is counted in the database, never estimated — tap one to see the list.
         </p>
 
         {actions.length ? (

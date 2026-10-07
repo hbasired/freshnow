@@ -200,6 +200,10 @@ export interface Employee {
   is_synthetic: boolean;
   /** Whether the bot can reach them on Telegram. */
   linked: boolean;
+  /** Whether an email address is on file. */
+  has_email?: boolean;
+  /** The address itself — sent to the CEO only, who manages addresses. */
+  email?: string | null;
   access_role: AccessRole;
   manager_employee_id: string | null;
   manager_name: string | null;
@@ -210,6 +214,14 @@ export type AccessRole = "ceo" | "manager" | "lead" | "employee";
 export interface DayUpdate {
   id: string;
   status: string;
+  /** telegram | web | email — where the report came from. */
+  channel?: string | null;
+  employee_id?: string;
+  task_number?: string | null;
+  progress_pct?: number | null;
+  progress_source?: ProgressSource | null;
+  progress_band_low?: number | null;
+  progress_band_high?: number | null;
   note_raw: string | null;
   summary: string | null;
   submitted_at: string;
@@ -231,6 +243,19 @@ export interface OpenTask {
   employee_id: string;
   title: string;
   status: string;
+  /** "57" — shown as FN-57. */
+  task_number?: string | null;
+  /** The reason a person gave with a self-reported percentage — their own words. */
+  progress_note?: string | null;
+  progress_updated_at?: string | null;
+  /** Who made the last progress change. */
+  progress_by?: string | null;
+  /** The last status they reported: pending, in_progress, blocker, done — null if never. */
+  last_status?: string | null;
+  /** Problems on this task still open or acknowledged. */
+  open_blockers?: number;
+  blocker_severity?: string | null;
+  assigned_by_name?: string | null;
   created_at: string;
   is_synthetic: boolean;
   employee_name: string;
@@ -313,6 +338,17 @@ export interface TaskDetail {
 export interface Assignment {
   id: string;
   status: string;
+  task_id?: string | null;
+  task_number?: string | null;
+  /** What the person giving the work chose; null = the assignee's own rules. */
+  notify_channels?: NotifyChoice[] | null;
+  /** dashboard | telegram | document | email — null before TASK-054. */
+  origin?: string | null;
+  assigned_to_id?: string;
+  progress_pct?: number | null;
+  progress_source?: ProgressSource | null;
+  progress_band_low?: number | null;
+  progress_band_high?: number | null;
   note: string | null;
   created_at: string;
   is_synthetic: boolean;
@@ -360,6 +396,66 @@ export interface Blocker {
   raised_at: string;
   is_synthetic: boolean;
   raised_by_name: string;
+  raised_by?: string;
+  sla_due_at?: string | null;
+  resolver_name?: string | null;
+  /** The raiser's own words, and the parser's one-line reading of them. */
+  note_raw?: string | null;
+  summary?: string | null;
+  task_id?: string | null;
+  task_title?: string | null;
+  task_number?: string | null;
+}
+
+/** The three ways to tell someone about new work (TASK-054). */
+export type NotifyChoice = "telegram" | "app" | "email";
+export const NOTIFY_CHOICES: readonly NotifyChoice[] = ["telegram", "app", "email"];
+
+/** Can each choice reach this person, and what their own rules would use. */
+export interface PersonReach {
+  employeeId: string;
+  telegram: { ok: boolean; why: string };
+  app: { ok: boolean; why: string; push: boolean };
+  email: { ok: boolean; why: string };
+  usual: NotifyChoice[];
+  consented: boolean;
+}
+
+/** The Overview's numbers, each counted by Postgres under the viewer's rules. */
+export interface Summary {
+  date: string;
+  open_tasks: number;
+  in_progress: number;
+  not_started: number;
+  blocked_tasks: number;
+  behind: number;
+  carried_over: number;
+  completed: number;
+  reports: number;
+  open_blockers: number;
+  urgent_blockers: number;
+  acknowledged_blockers: number;
+  needs_review: number;
+}
+
+export interface NewPerson {
+  displayName: string;
+  email?: string | null;
+  department?: string | null;
+  roleTitle?: string | null;
+  site?: string | null;
+  shift?: string | null;
+  accessRole?: "employee" | "manager" | "lead";
+  managerEmployeeId?: string | null;
+  telegramInvite?: boolean;
+}
+
+export interface AddedPerson {
+  employeeId: string;
+  email: string | null;
+  invite: { code: string; expiresAt: string } | null;
+  sameName: number;
+  consentRequested: boolean;
 }
 
 /** One company day of the last seven, counted by Postgres under the viewer's rules. */
@@ -441,6 +537,9 @@ export const api = {
   employees: (viewer: string) => get<Employee[]>("/dashboard/employees", { viewer }),
   day: (viewer: string, date: string) => get<DayUpdate[]>("/dashboard/day", { viewer, date }),
   week: (viewer: string, date: string) => get<WeekDay[]>("/dashboard/week", { viewer, date }),
+  summary: (viewer: string, date: string) => get<Summary>("/dashboard/summary", { viewer, date }),
+  reach: (viewer: string) => get<{ people: PersonReach[] }>("/dashboard/people/reach", { viewer }),
+  addPerson: (viewer: string, body: NewPerson) => post<AddedPerson>("/dashboard/people", body, { viewer }),
   channels: (viewer: string) => get<{ channels: ChannelState[]; mode: DeliveryMode | "custom" }>("/dashboard/channels", { viewer }),
   setDeliveryMode: (viewer: string, mode: DeliveryMode) =>
     post<{ mode: DeliveryMode | "custom"; channels: ChannelState[] }>("/dashboard/channels/mode", { mode }, { viewer }, "PUT"),
@@ -475,7 +574,7 @@ export const api = {
   // ── Writes. Each one is the browser half of something the bot can already do. ──
   createTask: (viewer: string, body: { title: string; employeeId?: string }) =>
     post<{ taskId: string; employeeId: string }>("/dashboard/tasks", body, { viewer }),
-  assign: (viewer: string, body: { assignedTo: string; title: string; note?: string }) =>
+  assign: (viewer: string, body: { assignedTo: string; title: string; note?: string; channels?: NotifyChoice[] }) =>
     post<AssignResult>("/dashboard/assignments", body, { viewer }),
   reportUpdate: (viewer: string, body: { taskId?: string | null; status: ReportedStatus; note?: string }) =>
     post<UpdateResult>("/dashboard/task-updates", body, { viewer }),
@@ -726,9 +825,17 @@ export type ReportedStatus = "done" | "pending" | "blocker" | "in_progress";
 
 export interface AssignResult {
   taskId: string;
+  /** "FN-57". */
+  taskKey?: string;
   assignmentId: string;
-  /** The message is queued for Telegram — the worker owns whether it arrives. */
+  /** The message is queued — the worker owns whether it arrives. */
   queued: boolean;
+  /** Where a message was queued. */
+  notified?: NotifyChoice[];
+  /** Chosen, but could not reach them — with why. */
+  skipped?: { choice: NotifyChoice; why: string }[];
+  /** They have not agreed to the privacy notice yet: only the app inbox gets it until they do. */
+  heldForConsent?: boolean;
 }
 
 export interface UpdateResult {

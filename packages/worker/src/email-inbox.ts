@@ -18,8 +18,13 @@ import {
  *
  * The adapter is thin on purpose: it finds new messages and hands each to core, which records,
  * screens and routes it (core/email-inbound.ts). What it guarantees on its own:
- *   - it reads ONLY mail addressed to the inbox alias (an IMAP search), never the rest of the
- *     mailbox — and core checks the To: header again;
+ *   - it reads ONLY mail addressed to the inbox alias, in To or Cc (an IMAP search), never the
+ *     rest of the mailbox — and core checks the To/Cc headers again;
+ *   - it reads the server's Sent mailbox as well as the inbox (TASK-054). Gmail does not deliver
+ *     mail you send to your own alias to your Inbox — it is filed only under Sent Mail and All
+ *     Mail — so the CEO writing to (or copying) the +freshnow alias from the same account was
+ *     never seen. A message found in Sent was put there by the account itself, which is the
+ *     same proof the \Sent label gave; core still requires its From to be the account owner;
  *   - it never changes the mailbox: no \Seen flag, nothing moved or deleted (fetches use
  *     BODY.PEEK), so the account owner's Gmail looks exactly as before;
  *   - it asks the database first which messages it already has, so a message is downloaded and
@@ -43,7 +48,11 @@ function addresses(v: AddressObject | AddressObject[] | undefined): string[] {
 }
 
 /** One raw RFC 5322 message → the shape core understands. Exported for tests. */
-export async function toInboundMessage(source: Buffer, labels?: ReadonlySet<string>): Promise<InboundEmailMessage> {
+export async function toInboundMessage(
+  source: Buffer,
+  labels?: ReadonlySet<string>,
+  opts: { fromSentMailbox?: boolean } = {},
+): Promise<InboundEmailMessage> {
   const m = await simpleParser(source, { skipHtmlToText: false, skipTextLinks: true });
   const header = (k: string) => {
     const v = m.headers.get(k);
@@ -67,8 +76,9 @@ export async function toInboundMessage(source: Buffer, labels?: ReadonlySet<stri
     autoSubmitted: header("auto-submitted"),
     precedence: header("precedence"),
     authResults,
-    // Gmail's own label: only someone signed in to this account can put a message in Sent.
-    sentByMailboxOwner: Boolean(labels && [...labels].some((l) => l.toLowerCase() === "\\sent")),
+    // Gmail's own label, or the Sent mailbox itself: only someone signed in to this account can
+    // put a message there.
+    sentByMailboxOwner: Boolean(opts.fromSentMailbox) || Boolean(labels && [...labels].some((l) => l.toLowerCase() === "\\sent")),
   };
 }
 
@@ -88,44 +98,12 @@ export async function pollInbox(cfg: InboxConfig | null = inboxConfig()): Promis
   let failure: string | null = null;
   try {
     await client.connect();
-    const lock = await client.getMailboxLock(cfg.mailbox, { readOnly: true });
-    try {
-      const since = new Date(Date.now() - POLL_LOOKBACK_DAYS * 86_400_000);
-      const found = (await client.search({ since, to: cfg.inboxAddress }, { uid: true })) || [];
-      result.found = found.length;
-      const recent = found.slice(-MAX_PER_POLL);
-      if (recent.length > 0) {
-        // Which of these do we already have? Envelopes are cheap; whole messages are not.
-        const seen: { uid: number; id: string | null }[] = [];
-        for await (const msg of client.fetch(recent, { envelope: true, uid: true }, { uid: true })) {
-          seen.push({ uid: msg.uid, id: normaliseMessageId(msg.envelope?.messageId ?? null) });
-        }
-        const ids = seen.map((s) => s.id).filter((x): x is string => !!x);
-        const known = new Set(
-          ids.length
-            ? (await getServiceSql()<{ message_id: string }[]>`
-                select message_id from email_message where direction = 'in' and message_id = any(${ids})`).map((r) => r.message_id)
-            : [],
-        );
-        for (const s of seen) {
-          if (s.id && known.has(s.id)) continue;
-          result.fresh++;
-          try {
-            const full = await client.fetchOne(String(s.uid), { source: true, labels: true }, { uid: true });
-            if (!full || !full.source) continue;
-            const outcome = await processInboundEmail(await toInboundMessage(full.source, full.labels));
-            result.outcomes[outcome.kind] = (result.outcomes[outcome.kind] ?? 0) + 1;
-          } catch (err) {
-            // One bad message must not stop the rest; it is retried on the next poll because
-            // nothing was recorded for it.
-            result.errors++;
-            console.error("[worker] email: could not process one message", err instanceof Error ? err.message : err);
-          }
-        }
-      }
-    } finally {
-      lock.release();
-    }
+    await pollMailbox(client, cfg, cfg.mailbox, false, result);
+    // Mail the account itself sent to the alias (see the header comment). The Sent mailbox is
+    // found by its special-use flag (RFC 6154; Gmail marks "[Gmail]/Sent Mail" \Sent), never by
+    // a localised folder name. No such mailbox: nothing more to read.
+    const sent = (await client.list()).find((b) => b.specialUse === "\\Sent");
+    if (sent && sent.path !== cfg.mailbox) await pollMailbox(client, cfg, sent.path, true, result);
   } catch (err) {
     // The server's reason ("[AUTHENTICATIONFAILED] …") is what tells someone what to fix.
     failure = (err as { responseText?: string }).responseText ?? (err instanceof Error ? err.message : String(err));
@@ -135,6 +113,51 @@ export async function pollInbox(cfg: InboxConfig | null = inboxConfig()): Promis
     await recordRun("email_poll", started, failure, { ...result });
   }
   return result;
+}
+
+/**
+ * Read one mailbox: messages to the alias (To or Cc) from the last week, newest MAX_PER_POLL,
+ * skipping any the database already has. Read-only lock, PEEK fetches — nothing changes.
+ */
+async function pollMailbox(client: ImapFlow, cfg: InboxConfig, path: string, isSent: boolean, result: PollResult): Promise<void> {
+  const lock = await client.getMailboxLock(path, { readOnly: true });
+  try {
+    const since = new Date(Date.now() - POLL_LOOKBACK_DAYS * 86_400_000);
+    // To OR Cc: "copy the FreshNow address" is how the CEO logs an email to a person.
+    const found = (await client.search({ since, or: [{ to: cfg.inboxAddress }, { cc: cfg.inboxAddress }] }, { uid: true })) || [];
+    result.found += found.length;
+    const recent = found.slice(-MAX_PER_POLL);
+    if (recent.length === 0) return;
+    // Which of these do we already have? Envelopes are cheap; whole messages are not.
+    const seen: { uid: number; id: string | null }[] = [];
+    for await (const msg of client.fetch(recent, { envelope: true, uid: true }, { uid: true })) {
+      seen.push({ uid: msg.uid, id: normaliseMessageId(msg.envelope?.messageId ?? null) });
+    }
+    const ids = seen.map((x) => x.id).filter((x): x is string => !!x);
+    const known = new Set(
+      ids.length
+        ? (await getServiceSql()<{ message_id: string }[]>`
+            select message_id from email_message where direction = 'in' and message_id = any(${ids})`).map((r) => r.message_id)
+        : [],
+    );
+    for (const x of seen) {
+      if (x.id && known.has(x.id)) continue;
+      result.fresh++;
+      try {
+        const full = await client.fetchOne(String(x.uid), { source: true, labels: true }, { uid: true });
+        if (!full || !full.source) continue;
+        const outcome = await processInboundEmail(await toInboundMessage(full.source, full.labels, { fromSentMailbox: isSent }));
+        result.outcomes[outcome.kind] = (result.outcomes[outcome.kind] ?? 0) + 1;
+      } catch (err) {
+        // One bad message must not stop the rest; it is retried on the next poll because
+        // nothing was recorded for it.
+        result.errors++;
+        console.error("[worker] email: could not process one message", err instanceof Error ? err.message : err);
+      }
+    }
+  } finally {
+    lock.release();
+  }
 }
 
 /** Emails a model outage left unread, read again (bounded by MAX_EMAIL_ATTEMPTS in core). */

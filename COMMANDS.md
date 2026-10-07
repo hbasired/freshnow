@@ -44,7 +44,8 @@ phone: close and reopen the app). Details: `DEMO-GUIDE-APP.md` §1.1.
 
 > **Skipping `pnpm migrate` breaks the dashboard** whenever a pull adds a migration: the task lists
 > fail with *Request failed (500)* and the api window logs `column … does not exist`. Run it, restart
-> the api. (TASK-049 added `0018_progress_band.sql`; TASK-053 adds `0020_email.sql` and `0021_task_number.sql`.)
+> the api. (TASK-049 added `0018_progress_band.sql`; TASK-053 added `0020_email.sql` and `0021_task_number.sql`;
+> TASK-054 adds `0022_assign_channels.sql`.)
 
 ---
 
@@ -430,8 +431,26 @@ The privacy notice now names email, so each person taps **I agree** once more.
 | Only mail **to the `+freshnow` address** is read; nothing is marked read, moved or deleted | the CEO's own mail is never touched |
 | A reply finds its task by the key in the subject (`[FN-42]`), else by the email thread | the Jira pattern — survives a changed subject |
 | The sender must pass Google's SPF/DKIM/DMARC checks (or be the account's own Sent mail) and be the task's owner | a forged From: cannot file an update |
-| Email from the CEO or a manager becomes a **proposal** (Assign → From email); nothing is assigned until someone taps | the LLM never decides who |
+| Email from the CEO or a manager is **assigned at once when every owner is certain** — the name fits exactly one person, or the email went **to** that person with the `+freshnow` address copied — and they may give that person work; otherwise it becomes a **proposal** (Assign → From email) a person confirms (TASK-054) | the LLM reads the jobs; WHO is decided in code, as in Telegram |
+| The `+freshnow` address may be in **To or Cc**, and the worker reads the **Sent** mailbox too | Gmail files mail you send to your own alias under Sent, never Inbox |
+| A person added on the dashboard with an email is sent the privacy notice by email; they agree by replying **I AGREE** | consent is the person's own act — until then only the app inbox gets their work |
+| **Assign & notify** has **Telegram · App · Email** choices; one that cannot reach the person is greyed out with the reason | the CEO picks how; the system says what was actually used |
 | A model outage leaves an email unread; it is retried every 5 minutes, at most 4 times | bounded retries |
+
+---
+
+### 7g · Adding people and choosing how they are told (TASK-054)
+
+- **Add a person:** Assignments → **Add a person** (or People → **Add a person**), CEO only. Name, email,
+  department, job title, site, shift, who they report to, access. They are active at once; a Telegram invite
+  code bound to them is shown (optional). With `EMAIL_ALLOWLIST` set, the address must be on it — add it to
+  `.env` and restart the api and worker, or empty `EMAIL_ALLOWLIST=` to allow every employee's own address.
+- **Change someone's address:** People → Email column → **edit** (CEO), or Records → Email.
+- **Assign & notify:** pick the person, then under **Tell them by** tap Telegram / App / Email. The first
+  selection is their usual. Nothing chosen can reach them → refused before anything is written.
+- **Overview numbers:** every tile opens its list — Pending (`#tasks/pending`), Blocked
+  (`#tasks/pending/blocked`), Urgent problems (`#tasks/problems/urgent`), Completed (`#tasks/done`), From
+  earlier days (`#tasks/pending/older`), Need a human (`#tasks/problems/unread`).
 
 ---
 

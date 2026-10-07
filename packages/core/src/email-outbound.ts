@@ -77,10 +77,16 @@ export async function composeOutboundEmail(p: {
   const link = p.payload.url ? `\n\n${new URL(p.payload.url, p.publicUrl ?? env.PUBLIC_URL ?? "http://localhost:3001").toString()}` : "";
   // How to answer — only what this person can actually do by email.
   let footer = "";
-  if (replyTo && task && key && task.employee_id === p.recipientEmployeeId) {
+  if (p.payload.kind === "consent.requested") {
+    // The notice is the whole message; anything added under it would read as part of it.
+    footer = "";
+  } else if (replyTo && task && key && task.employee_id === p.recipientEmployeeId) {
     footer = `\n\n— Reply to this email to update ${key}: write "done", a percentage like "40%", or what is stopping you. Your reply goes straight into FreshNow.`;
   } else if (replyTo && role !== "employee" && !p.payload.inReplyTo) {
-    footer = `\n\n— To give work by email, write to ${replyTo} with one line per job, naming the person ("Rashid: restock the Marina machine"). You confirm the tasks in the dashboard before anyone is told.`;
+    footer =
+      `\n\n— To give work by email, write to ${replyTo} (or copy it on an email to the person), one line per job, naming the person` +
+      ` ("Rashid: restock the Marina machine"). When every job names exactly one person you may assign to, it is assigned at once` +
+      ` and they are told; otherwise it waits for you in the dashboard (Assign → From email).`;
   }
 
   const domain = emailAddressOf(p.fromAddress).split("@")[1] || "freshnow.local";

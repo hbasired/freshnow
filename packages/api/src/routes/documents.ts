@@ -150,6 +150,7 @@ export function registerDocumentRoutes(app: FastifyInstance): void {
         title: t.title,
         note: t.detail ? `${t.detail}\n\n${provenance}` : provenance,
         correlationId: req.correlationId,
+        origin: "document",
       });
       assigned.push({ taskId: res.taskId, assignmentId: res.assignmentId, assignedTo: t.assignedTo, queued: res.delivered });
     }

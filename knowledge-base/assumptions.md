@@ -200,10 +200,14 @@ only sends a name to "ask", never to the wrong person. Confirm/refute: real mess
 Plus addressing is documented Gmail behaviour; that `SEARCH TO` matches the alias was tested on Dovecot only. Confirm/refute:
 Act E2 in EMAIL-DEMO-GUIDE.md (a reply appears in Records → Email). Affects: `pollInbox`.
 
-## A-T53.2 — Mail the CEO sends to their own alias carries the `\Sent` label over IMAP [believed]
+## A-T53.2 — Mail the CEO sends to their own alias carries the `\Sent` label over IMAP [believed — CORRECTED 2026-10-07]
 Gmail exposes labels through `X-GM-LABELS`; a self-sent message is in Sent and Inbox. If not, the message still passes on
 Authentication-Results (Google signs its own mail) [believed]. Confirm/refute: Act E5. Affects: sender proof in
 `email-inbound.ts`.
+**Correction (TASK-054, 2026-10-07):** search found Google's own help and several guides saying the opposite — mail you send
+to your own alias is filed under **Sent Mail and All Mail, not the Inbox** ("to prevent clutter"). The poller read INBOX only,
+so the CEO's email to the `+freshnow` alias would likely never have been seen. The worker now also reads the server's `\Sent`
+special-use mailbox (D177); the "in Inbox" half of this entry is withdrawn. Still to confirm on the laptop: Act E5.
 
 ## A-T53.3 — Gmail keeps the Message-ID we set [believed]
 Gmail is documented to keep a client-supplied Message-ID on SMTP submission. If it replaced it, thread matching would fall back
@@ -215,3 +219,22 @@ Affects: `readAuthResults`, `authPasses`.
 
 ## A-T53.5 — Gmail's vacation reply sets Auto-Submitted [believed]
 Confirm/refute: turn on Hemanth's vacation reply and reply to a task. Affects: the automatic-message screen.
+
+## A-T54.1 — Gmail lists "[Gmail]/Sent Mail" with the `\Sent` special-use flag, and a CC'd self-alias copy is there [believed]
+Google's IMAP extensions page shows `* LIST (\HasNoChildren \Sent) "/" "[Gmail]/Sent Mail"`. Tested against Dovecot with a
+`\Sent` mailbox, not Gmail. Confirm/refute: on the laptop, email Hemanth with the `+freshnow` address in Cc and check Records →
+Email shows it as *assigned …*. Affects: `pollInbox` (worker/email-inbox.ts).
+
+## A-T54.2 — A reply "I AGREE" to the emailed notice is valid PDPL consent [assumed — needs a lawyer]
+It is a written, specific statement against the full notice text, from an address the receiving server authenticated, recorded
+with the notice's hash and `via: "email"`. PDPL asks for "a specific, clear and unambiguous indication… by a statement or by a
+clear affirmative action" (secondary sources, through search). A bare "yes" or "ok" is not accepted. Confirm/refute: the
+company's lawyer. Affects: `isConsentAgreement`, `consentReply` (email-inbound.ts).
+
+## A-T54.3 — A person the CEO adds is active at once [assumed]
+They can be given work immediately; anything but the app inbox waits for their consent (the relay's hold). If the company wants
+"added but not yet working" people, that is a new status. Confirm/refute: the CEO. Affects: `addPerson`.
+
+## A-T54.4 — Work given by email should reach the assignee by email as well as their usual channels [assumed]
+So their reply to that email lands on the task. Confirm/refute: watch whether staff find two notifications (Telegram + email)
+noisy. Affects: `assignFromEmail`.

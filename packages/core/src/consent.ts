@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { logAudit } from "./audit.js";
-import { inboxConfig } from "./email-config.js";
+import { emailAddressAllowed, inboxConfig } from "./email-config.js";
 import { channelAvailability, liveChannels } from "./channels.js";
 import { getServiceSql } from "./db.js";
 import { enqueueNotification } from "./outbox.js";
@@ -242,7 +242,8 @@ async function settleConsentRequests(employeeIds: readonly string[] | null): Pro
 export async function recordConsent(p: {
   employeeId: string;
   noticeHash: string;
-  via: "telegram" | "app";
+  /** Where they agreed: the bot's button, the app's screen, or a reply to the notice by email. */
+  via: "telegram" | "app" | "email";
   correlationId?: string;
 }): Promise<ConsentStatus> {
   if (!currentNoticeHashes().includes(p.noticeHash)) {
@@ -279,8 +280,10 @@ export function consentKeyboard(tag: string = noticeTag()): { inline_keyboard: {
  * device they turned on. Idempotent: each row is keyed on the notice, so running this every
  * few minutes asks each person once per version of the words, never twice.
  *
- * "Uses the system" means a Telegram account or a dashboard sign-in is linked. Seeded rows
- * with neither are records, not users, and there is nobody to ask.
+ * "Uses the system" means a Telegram account or a dashboard sign-in is linked, or — since
+ * TASK-054 — an email address is on file, so a person the CEO added with only an email is asked
+ * by email and agrees by replying "I AGREE" (email-inbound.ts). Seeded rows with none of these
+ * are records, not users, and there is nobody to ask.
  */
 export async function requestConsentFromEveryone(
   opts: {
@@ -294,11 +297,11 @@ export async function requestConsentFromEveryone(
   const only = opts.employeeIds ? [...opts.employeeIds] : null;
   // Requests already answered — including ones left unread before this cleanup existed.
   await settleConsentRequests(only);
-  const people = await sql<{ id: string; telegram_user_id: string | null }[]>`
-    select e.id, e.telegram_user_id from employee e
+  const people = await sql<{ id: string; telegram_user_id: string | null; email: string | null; display_name: string }[]>`
+    select e.id, e.telegram_user_id, e.email, e.display_name from employee e
     where e.status = 'active'
       and (${only}::uuid[] is null or e.id = any(${only}::uuid[]))
-      and (e.telegram_user_id is not null or e.auth_user_id is not null)
+      and (e.telegram_user_id is not null or e.auth_user_id is not null or e.email is not null)
       and not exists (
         select 1 from consent_record c
         where c.employee_id = e.id and c.policy_version = ${CONSENT_POLICY_VERSION} and c.notice_hash = any(${hashes})
@@ -348,6 +351,34 @@ export async function requestConsentFromEveryone(
             text: `The privacy notice changed (version ${CONSENT_POLICY_VERSION}). Open the app to read it and agree — until you do, your updates can't be taken and messages reach you only here.`,
             url: "/app/",
             tag: "consent",
+          },
+        }),
+      // By email: the whole notice in the body, and the hash of exactly those words in the
+      // payload, so a reply "I AGREE" records agreement to what this email said — and to nothing
+      // else if the notice has changed since (recordConsent refuses a stale hash).
+      live.has("email") &&
+        person.email != null &&
+        emailAddressAllowed(person.email) &&
+        enqueueNotification({
+          idempotencyKey: key("email"),
+          channel: "email",
+          recipientEmployeeId: person.id,
+          reason,
+          correlationId: opts.correlationId,
+          payload: {
+            kind: "consent.requested",
+            title: "Please read FreshNow's privacy notice",
+            subject: "FreshNow privacy notice — reply I AGREE to start",
+            noticeHash: currentNoticeHash(),
+            noticeTag: tag,
+            text:
+              `Hello ${person.display_name},\n\n` +
+              "FreshNow is the system the company uses for daily tasks. Before it can send you work or take your updates, " +
+              "please read the notice below.\n\n" +
+              "To agree, reply to this email with the words: I AGREE\n" +
+              "If you do not agree, do nothing — nothing about you will be sent by email, and you can ask the CEO any questions.\n\n" +
+              "────────────────────────────\n" +
+              notice,
           },
         }),
       withDevice.has(person.id) &&

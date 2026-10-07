@@ -24,6 +24,7 @@ export {
   PROGRESS_BANDS,
   PROGRESS_BAND_WIDTH,
   bandMidpoint,
+  statedPercent,
 } from "./progress.js";
 export type { ProgressBand, ProgressSource, RelationKind, TaskStep } from "./progress.js";
 export {
@@ -154,8 +155,10 @@ export {
   removeTaskWatcher,
   setNotificationPref,
   markNotificationsRead,
+  NOTIFY_CHOICES,
+  reachOf,
 } from "./alerts.js";
-export type { AlertEvent, AlertEventType, PrefEventType, AlertRecipient, NotifyResult, EscalationLevelRow, PrefMode, Presentation } from "./alerts.js";
+export type { AlertEvent, AlertEventType, PrefEventType, AlertRecipient, NotifyResult, EscalationLevelRow, PrefMode, Presentation, NotifyChoice, PersonReach, ChoiceReach } from "./alerts.js";
 
 export { replayRun } from "./replay.js";
 export type { ReplayReport, ReplayCheck } from "./replay.js";
@@ -219,6 +222,7 @@ export {
   listEmployees,
   listOpenBlockers,
   assignTask,
+  NoReachableChannelError,
 } from "./updates.js";
 export type {
   OpenTask,
@@ -229,6 +233,7 @@ export type {
   DirectoryEntry,
   OpenBlocker,
   AssignmentResult,
+  AssignmentOrigin,
 } from "./updates.js";
 
 export {
@@ -326,9 +331,12 @@ export {
   unreadInboundEmails,
   storedInboundMessage,
   MAX_EMAIL_ATTEMPTS,
+  isConsentAgreement,
 } from "./email-inbound.js";
 export type { InboundEmailMessage, InboundEmailOutcome, EmailProposalRow } from "./email-inbound.js";
 export { relevantPeople, CONTEXT_LIMITS } from "./context-scope.js";
 export type { ScopedPeople } from "./context-scope.js";
-export { setEmployeeEmail, emailOverview, emailHealth, EmailAddressError } from "./email-people.js";
+export { setEmployeeEmail, emailOverview, emailHealth, EmailAddressError, checkedEmployeeEmail } from "./email-people.js";
+export { addPerson, AddPersonError } from "./people.js";
+export type { AddPersonInput, AddPersonResult } from "./people.js";
 export type { EmailOverview } from "./email-people.js";

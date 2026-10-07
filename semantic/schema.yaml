@@ -65,7 +65,8 @@ tables:
         counted (done steps / total steps — the strongest evidence), status (the percentage the
         status implies, task_status.pct_when_here, used when there are no steps), or
         self_reported (a person typed it, with a mandatory note in progress_note; shown
-        labelled, replaced by the next counted change). "Is this task really 90% done" is
+        labelled, replaced by the next counted change or by finishing — a status tap such as
+        "still pending" does not replace it, since TASK-054). "Is this task really 90% done" is
         answered by this column, not by the number.
       progress_note: The reason a person gave for a self-reported figure.
       progress_band_low: >
@@ -89,6 +90,7 @@ tables:
         is the unit of work for projects TOO — there is no parallel project-task system — so a
         person's list is one list whichever it came from.
       milestone_id: The milestone within that project, when it is filed under one.
+      source_email_id: The inbound email this task was created from (migration 0022), when the CEO or a manager emailed the work in; NULL for work given any other way. Answers "which email did FN-57 come from?".
       is_synthetic: TRUE for demo/seed rows.
     foreign_keys:
       employee_id:
@@ -106,6 +108,9 @@ tables:
       parent_task_id:
         references: task.id
         purpose: "SELF-REFERENTIAL. Subtasks of a task: FROM task child JOIN task parent ON child.parent_task_id = parent.id."
+      source_email_id:
+        references: email_message.id
+        purpose: "Where a task came from when it was emailed in: the sender, subject and when (JOIN email_message e ON e.id = task.source_email_id)."
 
   task_status:
     notes: Lookup of the five task statuses, each mapped to a reporting category and to the percentage a task is considered to be at merely by being in that status (status-based progress, used when a task has no steps). The percentages are assumed placeholders until the company sets its own.
@@ -646,7 +651,7 @@ tables:
         purpose: '"Why did this blocker go to X?" — answered by a row here, never by a model.'
 
   assignment:
-    notes: A task the CEO assigned to an employee, delivered via Telegram. The employee reports status back, closing the loop.
+    notes: A task the CEO (or a manager) assigned to an employee, delivered on the channels chosen for it or the assignee's own rules (Telegram, the app, email). The employee reports status back, closing the loop.
     columns:
       id: Primary key.
       task_id: The task created for the assignment.
@@ -654,6 +659,8 @@ tables:
       assigned_to: Who received it.
       note: What the CEO asked for.
       status: assigned | accepted | done | cancelled.
+      notify_channels: The channels the person giving the work CHOSE to tell the assignee on — any of telegram, app, email (migration 0022). NULL means nobody chose and the assignee's own notification rules applied. What was actually sent is in notification_outbox; this is the intent.
+      origin: Where the assignment was made — dashboard, telegram, document or email. NULL on assignments made before migration 0022 (unknown, not guessed).
       created_at: When.
       is_synthetic: TRUE for demo/seed rows.
     foreign_keys:
