@@ -1,0 +1,14 @@
+import postgres from "postgres";
+import { config } from "dotenv";
+config({ path: "C:/Users/acer/Downloads/freshnow/.env", quiet: true });
+const sql = postgres(process.env.DATABASE_URL_SERVICE!, { max: 1, onnotice: () => {} });
+const cols = await sql`select column_name, data_type from information_schema.columns where table_name = 'tv_machine' order by ordinal_position`;
+const keys = await sql`select k, count(*)::int as n from tv_machine, jsonb_object_keys(raw) k group by k order by n desc, k limit 80`;
+const regions = await sql`select region_caption, count(*)::int as n, count(*) filter (where enabled)::int as enabled from tv_machine group by 1 order by 2 desc`;
+const sample = await sql`select caption, asset_no, region_caption, raw->'location' as location, raw->'machineType' as mtype, raw->'locationType' as ltype from tv_machine where enabled limit 6`;
+const mcols = await sql`select column_name from information_schema.columns where table_name = 'machine' order by ordinal_position`;
+const vend = await sql`select min(at) as first, max(at) as last, count(*)::int as n, count(distinct machine_tv_id)::int as machines from tv_vend`;
+const ev = await sql`select min(started_at) as first, max(started_at) as last, count(*)::int as n from tv_event`;
+const rf = await sql`select min(at) as first, max(at) as last, count(*)::int as n from tv_refill`;
+console.log(JSON.stringify({ cols: cols.map((c) => `${c.column_name}:${c.data_type}`), keys, regions, sample, machineCols: mcols.map((c) => c.column_name), vend, ev, rf }, null, 1));
+await sql.end();

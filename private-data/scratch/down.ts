@@ -1,0 +1,11 @@
+import "dotenv/config";
+import postgres from "postgres";
+const sql = postgres(process.env.DATABASE_URL_SERVICE!, { onnotice: () => {} });
+const tv = await sql`select max(started_at) at from tv_sync_run where mode = 'incremental'`;
+const jr = await sql`select job_name, max(created_at) at from job_run group by 1 order by 2 desc limit 6`;
+const ob = await sql`select count(*)::int n, min(created_at) oldest from notification_outbox where status = 'pending'`;
+const dubai = (d: Date | null) => (d ? new Date(d.getTime() + 4 * 3_600_000).toISOString().slice(0, 19).replace("T", " ") : "-");
+console.log("last Televend sync started:", dubai(tv[0].at), "Dubai");
+for (const r of jr) console.log(`last ${r.job_name}: ${dubai(r.at)} Dubai`);
+console.log(`outbox pending: ${ob[0].n}, oldest ${dubai(ob[0].oldest)} Dubai`);
+await sql.end();

@@ -1,0 +1,4 @@
+$ tsx scripts/televend-sync.ts backfill "--from" "2026-10-04" "--to" "2026-10-13" "--streams" "vends,events,refills" "--max-requests" "2500"
+2026-10-13: vends 1612 read, 1612 new · events 1250 read, 1250 new · refills 48 read, 48 new
+2026-10-12: vends 1570 read, 1570 new · events 3224 read, 3224 new · refills 54 read, 54 new
+2026-10-11: vends 2039 read, 2039 new · events 1905 read, 1905 new · refills 65 read, 64 new

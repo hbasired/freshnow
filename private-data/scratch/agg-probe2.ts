@@ -1,0 +1,11 @@
+import "dotenv/config";
+import { HOSTS, PasswordSession, TelevendClient, readTelevendConfig } from "../../packages/televend/src/index.js";
+const cfg = readTelevendConfig()!;
+const s = new PasswordSession({ username: cfg.username!, password: cfg.password! }, { fetch: globalThis.fetch as never, now: Date.now });
+const c = new TelevendClient(s, { tenantId: cfg.tenantId, companyId: cfg.companyId, minIntervalMs: 1000 });
+const T = `tenants/${cfg.tenantId}/companies/${cfg.companyId}`;
+const agg = (from: string, to: string) => c.get(TelevendClient.url(HOSTS.cloudApi, `/machinist/api/v1/${T}/vends/aggregates`, { from_timestamp: from, to_timestamp: to }));
+console.log("12 Oct 00:00 → 12 Oct 23:59:59 :", JSON.stringify(await agg("2026-10-12T00:00:00+04:00", "2026-10-12T23:59:59+04:00")));
+console.log("13 Oct 00:00 → 13 Oct 23:59:59 :", JSON.stringify(await agg("2026-10-13T00:00:00+04:00", "2026-10-13T23:59:59+04:00")));
+console.log("12 Oct 06:00 → 12 Oct 07:00    :", JSON.stringify(await agg("2026-10-12T06:00:00+04:00", "2026-10-12T07:00:00+04:00")));
+console.log("requests:", c.sent);

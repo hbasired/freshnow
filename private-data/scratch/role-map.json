@@ -1,0 +1,1141 @@
+{
+  "ts_sites": [
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/core/src/onboarding.ts",
+      "line": 145,
+      "decides": "Self-service profile edit. The bot's 'Update my details' button (bot.ts:616 -> bot.ts:1206) lets a person rewrite their own department (145), site (151) and shift (154). The write runs on the SERVICE role, so the 0014 trigger ('department may only be changed by the CEO') never fires. Department sets a lead's scope in app_can_view_employee, canAssignTo and listAssignable. Site and shift pick the routing_rule resolver (routing.ts:57-58, 87). Failure, live today: a lead in 'warehouse' re-answers the profile with 'production'. On the next request app.department is 'production', so RLS shows them every production employee's tasks, updates and blockers, and canAssignTo lets them assign and manage that department's work.",
+      "pattern": "other",
+      "new_roles_today": "All 7 can rewrite their own department, site and shift; there is no role check. Any v2 team scope keyed on these fields (for example a supervisor's 'their teams') would inherit the hole.",
+      "risk": "over-privilege",
+      "proposed_capability": "people.edit_scope: department, site and shift writable only by the CEO or admin. The self-service profile keeps only role_title and language."
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/bot/src/bot.ts",
+      "line": 329,
+      "decides": "The consent gate passes straight through (return next()) for any linked person whose status is not 'active'. The auth middleware (300-310) builds ctx.role and ctx.viewer from access_role without looking at status. canAssignTo and listAssignable never check the actor's status. Failure, live today: manager M sends /withdraw, which sets status to 'disabled' but keeps telegram_user_id. M later types 'Rashid restock the Marina machine': the resolver model reads M's words, canAssignTo returns true, and assignTask runs as M. An employee who withdrew still has every message stored and sent to the model. The dashboard refuses the same person (auth.ts:102).",
+      "pattern": "other",
+      "new_roles_today": "Same for every role: a disabled person keeps their bot role and is processed without the consent gate.",
+      "risk": "over-privilege",
+      "proposed_capability": "account.active as a precondition in the single role-to-capability resolver: no capabilities and no processing unless status is 'active'."
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/bot/src/bot.ts",
+      "line": 549,
+      "decides": "/withdraw has no CEO guard. The API version refuses the CEO (routes/alerts.ts:336). Failure, live today: the CEO sends /withdraw, and withdrawConsent marks the CEO row 'disabled'. Dashboard sign-in then fails with 403 'not linked to an active employee' (auth.ts:102). No API route sets status back to 'active': invite redemption and ensureCeoLinked do write it, but neither applies here. Recovery needs SQL.",
+      "pattern": "other",
+      "new_roles_today": "Withdrawing is correct for the 7 new roles. v2 may want the same protection for the last admin.",
+      "risk": "over-privilege",
+      "proposed_capability": "Rule protect_ceo, shared with alerts.ts:336, work.ts:262 and org.ts:111."
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/bot/src/bot.ts",
+      "line": 642,
+      "decides": "The status buttons 'log:<taskId>:<status>' (and 'whichtask:<taskId>' at 944) take the task id from callback data with no ownership check. Core recordTaskUpdate (updates.ts:144-160) does not check ownership either. The dashboard version refuses a report on someone else's task unless the viewer is CEO (routes/work.ts:168). The bot code itself treats callback data as forgeable (bot.ts:730-734, 767). Failure: a manager who sees a report's task id in the dashboard sends 'log:<id>:done'. The task is set done with resolution done, and the assigner is told '<manager> finished: <title>'.",
+      "pattern": "other",
+      "new_roles_today": "Any linked person, in any role, can report on any task whose id they know.",
+      "risk": "over-privilege",
+      "proposed_capability": "work.report_for_others (CEO-only on the dashboard today). Enforce it in core recordTaskUpdate, not separately per channel."
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/core/src/email-inbound.ts",
+      "line": 216,
+      "decides": "mayGiveWork = sender.access_role !== 'employee' (a deny-list). An email that is not about the sender's own task goes to proposeWork (model plan plus an email_proposal) instead of fileUpdate (task_update, blocker parsing, escalation). canAssignTo at line 439 then blocks direct assignment, so the email ends up as a proposal.",
+      "pattern": "deny-list",
+      "new_roles_today": "All 7 are treated as people who give work. Failure: a technician or VMO emails 'Mina 793 compressor dead, machine down' with no FN key. The result is 'No tasks found' or a work proposal: no task_update, no blocker, no alert. The same email from an 'employee' raises a blocker.",
+      "risk": "over-privilege",
+      "proposed_capability": "work.give_by_email"
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/api/src/routes/documents.ts",
+      "line": 53,
+      "decides": "Turning a document into tasks is refused only when accessRole === 'employee' (a deny-list). Applying the plan (line 134) is still guarded by canAssignTo.",
+      "pattern": "deny-list",
+      "new_roles_today": "All 7, including technician, vmo, cash_auditor and warehouse_keeper, can upload a file and spend a rate-limited model call. The reply returns the ids and names of whoever the text names, matched against every active employee (planningDirectory). The bot keeps this CEO-only (bot.ts:1462).",
+      "risk": "over-privilege",
+      "proposed_capability": "work.plan_from_documents"
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/api/src/routes/projects.ts",
+      "line": 227,
+      "decides": "Creating a project is refused only when accessRole === 'employee' and the viewer is not CEO (a deny-list). createProject (core/projects.ts:58-73) makes the creator and any named lead or sponsor members, with no canAssignTo check.",
+      "pattern": "deny-list",
+      "new_roles_today": "All 7 can start a project and name any employee as lead or sponsor. That person becomes a member, sees the project and gets project alerts. Naming themselves lead gives them full manage rights. The plan allows this only for ops_head (plus admin and the CEO).",
+      "risk": "over-privilege",
+      "proposed_capability": "projects.create"
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/dashboard/src/App.tsx",
+      "line": 1940,
+      "decides": "The 'Reports to' picker lists active people whose access_role !== 'employee' (a deny-list). Escalation level 1, 'manager_of_raiser' (core/alerts.ts:180-181), ignores role. The escalation message carries the raiser's name, site and own words (core/routing.ts:159-170).",
+      "pattern": "deny-list",
+      "new_roles_today": "All 7 are offered as managers. Failure: the CEO sets Priya's manager to technician T. Priya's blocker then escalates to T with her own words, while RLS (app_can_view_employee) hides the blocker from T and mayAcknowledgeBlocker refuses T.",
+      "risk": "leak",
+      "proposed_capability": "people.view_team: only roles holding it may be someone's manager."
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/dashboard/src/components/work-views.tsx",
+      "line": 523,
+      "decides": "The same deny-list for 'Reports to' in the Add-a-person card.",
+      "pattern": "deny-list",
+      "new_roles_today": "All 7 are offered as a new hire's manager, with the same leak as App.tsx:1940.",
+      "risk": "leak",
+      "proposed_capability": "people.view_team"
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/core/src/inbound-email.ts",
+      "line": 102,
+      "decides": "Gate 3 of the webhook route (/inbound/email) refuses only access_role === 'employee' (a deny-list). Accepted mail is planned by the model and stored as an email_proposal.",
+      "pattern": "deny-list",
+      "new_roles_today": "All 7 pass, costing a model call and creating a stored proposal per email.",
+      "risk": "over-privilege",
+      "proposed_capability": "work.give_by_email"
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/core/src/email-outbound.ts",
+      "line": 85,
+      "decides": "The footer 'To give work by email, write to ...' is added for any recipient whose access_role (read at line 66) !== 'employee' (a deny-list).",
+      "pattern": "deny-list",
+      "new_roles_today": "All 7 are told they can give work by email, which then sends their mail into proposals (email-inbound.ts:216).",
+      "risk": "over-privilege",
+      "proposed_capability": "work.give_by_email"
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/dashboard/src/App.tsx",
+      "line": 338,
+      "decides": "canGiveWork = me.accessRole !== 'employee' (a deny-list). It drives the Assign tab and phone tab (361), the 'Assign work' hero action (662), the Acknowledge buttons (711, 741, 800), the start-project card (639 -> projects.tsx:96) and the task-drawer manage controls (854).",
+      "pattern": "deny-list",
+      "new_roles_today": "All 7 see the assign, acknowledge and manage controls. The API refuses those actions (canAssignTo, mayAcknowledgeBlocker), except project creation and document planning, which succeed.",
+      "risk": "over-privilege",
+      "proposed_capability": "work.give, blockers.ack and projects.create, sent as a capability list by /dashboard/me."
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/dashboard/src/components/projects.tsx",
+      "line": 96,
+      "decides": "Shows the New project card when canStart is true (canStart = canGiveWork, App.tsx:639).",
+      "pattern": "deny-list",
+      "new_roles_today": "All 7 get a working New project form; the API accepts it (projects.ts:227).",
+      "risk": "over-privilege",
+      "proposed_capability": "projects.create"
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/core/src/org.ts",
+      "line": 111,
+      "decides": "updateOrg refuses to demote only the seeded DEMO_CEO_ID row. Any other access_role='ceo' row can be demoted, and anyone can be made 'ceo' (OrgBody allows it, work.ts:69).",
+      "pattern": "ceo-only",
+      "new_roles_today": "Nothing, because the route is CEO-only (work.ts:223). It becomes the hole as soon as admin gets people.manage_roles: admin could demote a real (non-seeded) CEO or promote themselves to ceo.",
+      "risk": "none",
+      "proposed_capability": "people.manage_roles plus rule protect_ceo: changing a row whose role is 'ceo', or granting 'ceo' or 'admin', requires a CEO actor."
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/api/src/routes/work.ts",
+      "line": 69,
+      "decides": "OrgBody.accessRole = z.enum(ACCESS_ROLES). It includes 'ceo' and widens automatically when ACCESS_ROLES grows. The same applies to routes/people.ts:31.",
+      "pattern": "allow-list",
+      "new_roles_today": "Cannot be stored yet (0009 CHECK). Once ACCESS_ROLES grows, every new value can be granted here with no per-actor limit.",
+      "risk": "none",
+      "proposed_capability": "people.manage_roles with a list of grantable roles per actor."
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/api/src/routes/work.ts",
+      "line": 223,
+      "decides": "Changing someone's role, manager or department: CEO only.",
+      "pattern": "ceo-only",
+      "new_roles_today": "Refused for all 7, admin included.",
+      "risk": "under-privilege",
+      "proposed_capability": "people.manage_roles (admin), guarded by protect_ceo."
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/core/src/query/guard.ts",
+      "line": 21,
+      "decides": "The SQL guard for the question box blocks set_config and current_setting by regex, and the asker's RLS identity lives in GUCs (db.ts:80-83). A U&-escaped identifier that spells set_config (code point 0073 for 's') passes validateReadOnlySql; I verified this by running the pure function. Whether Postgres then applies the setting to RLS inside the same statement is NOT verified.",
+      "pattern": "other",
+      "new_roles_today": "Out of reach: the question box is CEO-only (dashboard.ts:454, bot.ts:1912).",
+      "risk": "none",
+      "proposed_capability": "data.ask: grant it only to roles that already see everything (CEO, admin), unless identity moves out of user-settable GUCs or the guard is hardened."
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/api/src/routes/dashboard.ts",
+      "line": 454,
+      "decides": "POST /dashboard/query (natural language to SQL) is CEO-only when sign-in is on. It runs under the asker's RLS (line 460). Demo mode has no check.",
+      "pattern": "ceo-only",
+      "new_roles_today": "Refused for all 7.",
+      "risk": "under-privilege",
+      "proposed_capability": "data.ask (see guard.ts:21 before widening it)."
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/api/src/routes/email.ts",
+      "line": 57,
+      "decides": "The email proposal list is empty only when accessRole === 'employee' and the viewer is not CEO (a deny-list). The CEO sees all proposals; everyone else sees their own (line 58).",
+      "pattern": "deny-list",
+      "new_roles_today": "All 7 see their own pending proposals (created through the email deny-lists) and nobody else's.",
+      "risk": "none",
+      "proposed_capability": "work.give_by_email; proposals.decide_all for the CEO branch."
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/api/src/routes/people.ts",
+      "line": 76,
+      "decides": "/dashboard/people/reach returns an empty list only when accessRole === 'employee' and the viewer is not CEO (a deny-list). The result is then filtered by canAssignTo (line 83).",
+      "pattern": "deny-list",
+      "new_roles_today": "They pass the gate, but canAssignTo (an allow-list) filters out everyone, so the list is empty.",
+      "risk": "none",
+      "proposed_capability": "work.give"
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/core/src/org.ts",
+      "line": 20,
+      "decides": "ACCESS_ROLES is the role catalogue. It feeds the zod enums in routes/people.ts:31 and routes/work.ts:69, and the addPerson check (core/people.ts:69).",
+      "pattern": "allow-list",
+      "new_roles_today": "Not listed yet. Adding them here is all it takes to make them grantable through both routes, once the CHECK allows them.",
+      "risk": "none",
+      "proposed_capability": "Role catalogue plus a role-to-capability map: one source, mirrored in SQL."
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/core/src/db.ts",
+      "line": 47,
+      "decides": "The AccessRole type union. The same four values appear in bot.ts:89, dashboard lib/api.ts:212 and NewPerson (api.ts:448).",
+      "pattern": "allow-list",
+      "new_roles_today": "Type-level only. Most role checks are === comparisons, so the compiler will not flag the deny-lists when the union grows.",
+      "risk": "none",
+      "proposed_capability": "A Role type derived from the catalogue, and a Capability type used for checks."
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/core/src/db.ts",
+      "line": 81,
+      "decides": "withContext sets the RLS identity GUCs for every app-role transaction: app.is_ceo (from ctx.isCeo), app.access_role (the raw string) and app.department.",
+      "pattern": "other",
+      "new_roles_today": "app.is_ceo is 'off', and app.access_role carries the raw new value, which no policy recognises, so they get employee-level visibility.",
+      "risk": "none",
+      "proposed_capability": "Add an app.capabilities GUC, or derive capabilities in SQL from app.access_role. Never implement admin by setting app.is_ceo (it would inherit the 0014 trigger exemption)."
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/api/src/auth.ts",
+      "line": 109,
+      "decides": "Dashboard identity: isCeo = id === DEMO_CEO_ID || access_role === 'ceo'. accessRole is passed through raw (line 111). Only status 'active' can sign in (line 102).",
+      "pattern": "ceo-only",
+      "new_roles_today": "isCeo is false and the raw role is passed on, so every isCeo gate refuses them and every deny-list admits them.",
+      "risk": "under-privilege",
+      "proposed_capability": "One role-to-capability resolver shared with org.ts:63 and bot.ts:300."
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/core/src/org.ts",
+      "line": 63,
+      "decides": "loadViewer derives isCeo the same way as auth.ts:109. It is used by demo mode, mayAcknowledgeBlocker and email-inbound.",
+      "pattern": "ceo-only",
+      "new_roles_today": "isCeo is false.",
+      "risk": "under-privilege",
+      "proposed_capability": "The same single resolver."
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/bot/src/bot.ts",
+      "line": 300,
+      "decides": "Bot identity: ctx.role = botRole(configured CEO id, access_role). ctx.viewer.isCeo = (ctx.role === 'ceo'). accessRole is 'ceo' for the CEO, otherwise the raw value. Status is ignored (see bot.ts:329).",
+      "pattern": "allow-list",
+      "new_roles_today": "ctx.role is 'employee', so they get the employee menu. viewer.accessRole is the raw value, so canAssignTo, listAssignable and listOpenBlockersFor give them their own work only.",
+      "risk": "under-privilege",
+      "proposed_capability": "The same single resolver; build the menu from capabilities."
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/bot/src/bot.ts",
+      "line": 290,
+      "decides": "configCeo: the Telegram id in CEO_TELEGRAM_USER_ID is the CEO whatever the employee row says (resolveRole, roles.ts:23).",
+      "pattern": "ceo-only",
+      "new_roles_today": "Not applicable.",
+      "risk": "none",
+      "proposed_capability": "Identity anchor for protect_ceo, not a capability."
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/core/src/roles.ts",
+      "line": 39,
+      "decides": "botRole returns 'ceo' if configured or access_role is 'ceo', 'manager' for manager or lead, and 'employee' for everything else. Every ctx.role check in the bot (bot.ts:720-755, 1799) depends on this set staying closed.",
+      "pattern": "allow-list",
+      "new_roles_today": "All 7 become 'employee'. If v2 maps supervisor or ops_head to 'manager', the blocker queue, assign menu and free-text assignment open for them, with scope still decided by canAssignTo.",
+      "risk": "under-privilege",
+      "proposed_capability": "Bot menu items from capabilities: blockers.view_team, work.give, people.invite, work.plan_from_documents."
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/core/src/org.ts",
+      "line": 75,
+      "decides": "canAssignTo: the CEO can assign to anyone, everyone to themselves, a manager to direct reports, a lead to reports plus their department. It is the write-side version of app_can_view_employee (0009) and listAssignable (org.ts:151): three copies of one rule.",
+      "pattern": "allow-list",
+      "new_roles_today": "Themselves only, for all 7.",
+      "risk": "under-privilege",
+      "proposed_capability": "work.give (scoped) and work.give_all, with one scope function and a SQL twin."
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/core/src/org.ts",
+      "line": 151,
+      "decides": "listAssignable is the SQL copy of canAssignTo used for the bot's people list: the CEO gets everyone, managers and leads their scope, everyone else nobody.",
+      "pattern": "allow-list",
+      "new_roles_today": "An empty list for all 7.",
+      "risk": "under-privilege",
+      "proposed_capability": "work.give (the same scope function)."
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/core/src/org.ts",
+      "line": 190,
+      "decides": "listOpenBlockersFor: the CEO gets every blocker through the service role, managers and leads get theirs under RLS, and anyone else gets none.",
+      "pattern": "allow-list",
+      "new_roles_today": "Empty for all 7, although ops_head and supervisor are expected to see blockers.",
+      "risk": "under-privilege",
+      "proposed_capability": "blockers.view_team and blockers.view_all"
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/core/src/org.ts",
+      "line": 42,
+      "decides": "ceoEmployeeId picks an active access_role='ceo' row (seeded id first, DEMO_CEO_ID as fallback). It is the default manager for new hires (onboarding.ts:82, people.ts:78) and the only recipient of updates nobody could read (updates.ts:309).",
+      "pattern": "ceo-only",
+      "new_roles_today": "Never chosen. Admin and ops_head never receive the needs-review updates.",
+      "risk": "none",
+      "proposed_capability": "Not applicable (CEO identity). Decide whether needs-review updates also go to holders of blockers.view_all."
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/core/src/people.ts",
+      "line": 69,
+      "decides": "addPerson: the role must be in ACCESS_ROLES and must not be 'ceo'. The error text names three roles.",
+      "pattern": "allow-list",
+      "new_roles_today": "Once ACCESS_ROLES grows, the CEO can add anyone directly in any new role, admin included.",
+      "risk": "none",
+      "proposed_capability": "people.manage with a list of grantable roles per actor."
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/core/src/alerts.ts",
+      "line": 182,
+      "decides": "The escalation target 'department_lead' resolves to active access_role='lead' rows in the raiser's department. 'manager_of_raiser' (line 180) is the raiser's manager_employee_id whatever that person's role.",
+      "pattern": "allow-list",
+      "new_roles_today": "No new role is ever a department_lead target. A manager holding a new role (possible through App.tsx:1940) receives manager_of_raiser escalations.",
+      "risk": "under-privilege",
+      "proposed_capability": "Escalation target types keyed on a capability, for example blockers.receive_team."
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/core/src/alerts.ts",
+      "line": 191,
+      "decides": "The escalation target 'ceo' resolves to up to 3 active access_role='ceo' rows, or DEMO_CEO_ID if there are none.",
+      "pattern": "ceo-only",
+      "new_roles_today": "Admin and ops_head are never reached by the 'ceo' rungs.",
+      "risk": "none",
+      "proposed_capability": "Not applicable. Add an explicit 'ops_head' target type if wanted."
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/core/src/alerts.ts",
+      "line": 776,
+      "decides": "mayAcknowledgeBlocker (bot and dashboard): the CEO, the person the blocker was routed to, or anyone who may assign to the raiser.",
+      "pattern": "allow-list",
+      "new_roles_today": "Only when they are the routed resolver.",
+      "risk": "under-privilege",
+      "proposed_capability": "blockers.ack (scoped)"
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/core/src/projects.ts",
+      "line": 587,
+      "decides": "canManageProject: the CEO, the project's lead or sponsor, or anyone who may assign to the lead. Used by routes/projects.ts lines 249 to 445.",
+      "pattern": "allow-list",
+      "new_roles_today": "Only projects where they are lead or sponsor, which projects.ts:227 lets them arrange.",
+      "risk": "under-privilege",
+      "proposed_capability": "projects.manage_all (ops_head, admin)"
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/core/src/projects.ts",
+      "line": 600,
+      "decides": "canContributeToProject: manage rights, or membership.",
+      "pattern": "allow-list",
+      "new_roles_today": "Projects they are members of.",
+      "risk": "none",
+      "proposed_capability": "projects.contribute (by membership)"
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/core/src/updates.ts",
+      "line": 479,
+      "decides": "The assignment message names the giver 'the CEO' when their access_role is 'ceo' or they are DEMO_CEO_ID.",
+      "pattern": "other",
+      "new_roles_today": "Their own name is shown.",
+      "risk": "none",
+      "proposed_capability": "Not applicable (label)."
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/core/src/onboarding.ts",
+      "line": 175,
+      "decides": "ensureCeoLinked binds the configured CEO Telegram id to the seeded DEMO_CEO_ID row, and re-activates the row only when the id changes.",
+      "pattern": "ceo-only",
+      "new_roles_today": "Not applicable.",
+      "risk": "none",
+      "proposed_capability": "Not applicable (CEO identity)."
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/core/src/query/answer.ts",
+      "line": 83,
+      "decides": "answerQuestion's default asker is the seeded CEO context (isCeo true). The bot's CEO path relies on it (bot.ts:1915), so a real CEO's question runs as the seeded row.",
+      "pattern": "ceo-only",
+      "new_roles_today": "Out of reach.",
+      "risk": "none",
+      "proposed_capability": "data.ask; pass the real viewer."
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/core/src/invite.ts",
+      "line": 42,
+      "decides": "invite_code.issued_by defaults to DEMO_CEO_ID when no issuer is given (the demo-mode API, and the bot fallback at bot.ts:1980).",
+      "pattern": "other",
+      "new_roles_today": "Not applicable.",
+      "risk": "none",
+      "proposed_capability": "people.invite (attribution only)."
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/api/src/viewer.ts",
+      "line": 35,
+      "decides": "actorOf maps the demo viewer label 'ceo' to DEMO_CEO_ID (resolveViewer does the same at line 70).",
+      "pattern": "ceo-only",
+      "new_roles_today": "Not applicable: demo mode only, where the query string chooses the viewer.",
+      "risk": "none",
+      "proposed_capability": "Not applicable."
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/api/src/viewer.ts",
+      "line": 39,
+      "decides": "The isCeo(req) helper: viewerIsCeo, or the viewer label 'ceo'. Nothing in src calls it.",
+      "pattern": "ceo-only",
+      "new_roles_today": "Not applicable.",
+      "risk": "none",
+      "proposed_capability": "Remove it, or replace it with can(req, capability)."
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/api/src/viewer.ts",
+      "line": 80,
+      "decides": "A demo viewer id that matches nobody falls back to accessRole 'employee' and isCeo false.",
+      "pattern": "allow-list",
+      "new_roles_today": "Not applicable.",
+      "risk": "none",
+      "proposed_capability": "An empty capability set."
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/api/src/routes/dashboard.ts",
+      "line": 122,
+      "decides": "The auth hook copies isCeo and the raw access_role onto the request (viewerIsCeo and viewerRole) for every /dashboard and /employees route.",
+      "pattern": "other",
+      "new_roles_today": "viewerIsCeo is false and viewerRole is the raw value.",
+      "risk": "none",
+      "proposed_capability": "Attach the resolved capability set instead."
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/api/src/routes/dashboard.ts",
+      "line": 164,
+      "decides": "/dashboard/me returns isCeo and the raw accessRole, and the browser derives every UI gate from them (App.tsx:338, 396, 793, 804).",
+      "pattern": "other",
+      "new_roles_today": "The raw value reaches the UI deny-lists.",
+      "risk": "none",
+      "proposed_capability": "Return capabilities[]."
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/api/src/routes/dashboard.ts",
+      "line": 188,
+      "decides": "The employee list includes email addresses only when the viewer is CEO.",
+      "pattern": "ceo-only",
+      "new_roles_today": "Hidden.",
+      "risk": "under-privilege",
+      "proposed_capability": "people.view_contact (admin)"
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/api/src/routes/dashboard.ts",
+      "line": 246,
+      "decides": "The activity feed reads audit_log under RLS, and that policy is CEO-only (0001 audit_select).",
+      "pattern": "ceo-only",
+      "new_roles_today": "An empty list.",
+      "risk": "under-privilege",
+      "proposed_capability": "audit.read (admin)"
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/api/src/routes/dashboard.ts",
+      "line": 443,
+      "decides": "Generating everyone's end-of-day reports (spends model calls) is CEO-only when sign-in is on.",
+      "pattern": "ceo-only",
+      "new_roles_today": "Refused.",
+      "risk": "under-privilege",
+      "proposed_capability": "reports.generate_all"
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/api/src/routes/alerts.ts",
+      "line": 209,
+      "decides": "Setting the company's delivery mode (Telegram or app): CEO only.",
+      "pattern": "ceo-only",
+      "new_roles_today": "Refused, although the plan gives admin 'settings'.",
+      "risk": "under-privilege",
+      "proposed_capability": "settings.channels"
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/api/src/routes/alerts.ts",
+      "line": 227,
+      "decides": "Switching a channel on or off: CEO only.",
+      "pattern": "ceo-only",
+      "new_roles_today": "Refused.",
+      "risk": "under-privilege",
+      "proposed_capability": "settings.channels"
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/api/src/routes/alerts.ts",
+      "line": 336,
+      "decides": "The CEO may not withdraw consent in the app (protects against locking the company out).",
+      "pattern": "ceo-only",
+      "new_roles_today": "They may withdraw, which is correct.",
+      "risk": "none",
+      "proposed_capability": "Rule protect_ceo (also needed in bot.ts:549)."
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/api/src/routes/compliance.ts",
+      "line": 26,
+      "decides": "Opening the compliance record: CEO only.",
+      "pattern": "ceo-only",
+      "new_roles_today": "Refused.",
+      "risk": "none",
+      "proposed_capability": "compliance.read (CEO, and admin if the plan wants it)."
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/api/src/routes/compliance.ts",
+      "line": 43,
+      "decides": "Exporting another person's data: CEO only.",
+      "pattern": "ceo-only",
+      "new_roles_today": "Refused. Exporting their own data (line 33) is open to everyone.",
+      "risk": "under-privilege",
+      "proposed_capability": "people.export_data (admin)"
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/api/src/routes/email.ts",
+      "line": 34,
+      "decides": "The email channel overview (addresses and the last 30 emails): CEO only.",
+      "pattern": "ceo-only",
+      "new_roles_today": "Refused.",
+      "risk": "under-privilege",
+      "proposed_capability": "settings.email (admin)"
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/api/src/routes/email.ts",
+      "line": 41,
+      "decides": "Setting or clearing a person's email address: CEO only.",
+      "pattern": "ceo-only",
+      "new_roles_today": "Refused.",
+      "risk": "under-privilege",
+      "proposed_capability": "people.manage (admin)"
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/api/src/routes/email.ts",
+      "line": 68,
+      "decides": "Applying an email proposal: the CEO or the proposer, then canAssignTo for each task (line 71).",
+      "pattern": "allow-list",
+      "new_roles_today": "Their own proposals only, assignable only to themselves.",
+      "risk": "none",
+      "proposed_capability": "proposals.decide_all plus work.give"
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/api/src/routes/email.ts",
+      "line": 100,
+      "decides": "Dismissing an email proposal: the CEO or the proposer.",
+      "pattern": "ceo-only",
+      "new_roles_today": "Their own proposals.",
+      "risk": "none",
+      "proposed_capability": "proposals.decide_all"
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/api/src/routes/employees.ts",
+      "line": 15,
+      "decides": "Creating an invite code: CEO only when sign-in is on (open in demo mode).",
+      "pattern": "ceo-only",
+      "new_roles_today": "Refused.",
+      "risk": "under-privilege",
+      "proposed_capability": "people.invite (admin)"
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/api/src/routes/people.ts",
+      "line": 43,
+      "decides": "Adding a person: CEO only.",
+      "pattern": "ceo-only",
+      "new_roles_today": "Refused.",
+      "risk": "under-privilege",
+      "proposed_capability": "people.manage (admin)"
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/api/src/routes/work.ts",
+      "line": 81,
+      "decides": "Creating a task for someone: canAssignTo (always allowed for yourself).",
+      "pattern": "allow-list",
+      "new_roles_today": "Themselves only.",
+      "risk": "under-privilege",
+      "proposed_capability": "work.give"
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/api/src/routes/work.ts",
+      "line": 100,
+      "decides": "Assigning work: canAssignTo. Assigning to yourself is refused at line 97.",
+      "pattern": "allow-list",
+      "new_roles_today": "Refused for anyone else.",
+      "risk": "under-privilege",
+      "proposed_capability": "work.give"
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/api/src/routes/work.ts",
+      "line": 168,
+      "decides": "Reporting status on a task: the owner, or the CEO for anyone's task.",
+      "pattern": "ceo-only",
+      "new_roles_today": "Their own tasks only.",
+      "risk": "none",
+      "proposed_capability": "work.report_for_others"
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/api/src/routes/work.ts",
+      "line": 207,
+      "decides": "Acknowledging a blocker: it must be visible under RLS and pass mayAcknowledgeBlocker.",
+      "pattern": "allow-list",
+      "new_roles_today": "Only as the routed resolver.",
+      "risk": "under-privilege",
+      "proposed_capability": "blockers.ack"
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/api/src/routes/work.ts",
+      "line": 255,
+      "decides": "Erasing (anonymising) a person: CEO only, and never yourself.",
+      "pattern": "ceo-only",
+      "new_roles_today": "Refused.",
+      "risk": "under-privilege",
+      "proposed_capability": "people.erase (admin)"
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/api/src/routes/work.ts",
+      "line": 262,
+      "decides": "Refuses to erase a row whose access_role is 'ceo'.",
+      "pattern": "ceo-only",
+      "new_roles_today": "The CEO can erase them, including an admin row.",
+      "risk": "none",
+      "proposed_capability": "Rule protect_ceo"
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/api/src/routes/tasks.ts",
+      "line": 72,
+      "decides": "mayManage (steps, progress, fields, relations, closing): the owner, or canAssignTo(owner).",
+      "pattern": "allow-list",
+      "new_roles_today": "Their own tasks only.",
+      "risk": "under-privilege",
+      "proposed_capability": "work.manage_team"
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/api/src/routes/tasks.ts",
+      "line": 213,
+      "decides": "Resolving a blocker: the CEO, the resolver, the raiser, or canAssignTo(raiser).",
+      "pattern": "allow-list",
+      "new_roles_today": "Only blockers they raised or that were routed to them.",
+      "risk": "under-privilege",
+      "proposed_capability": "blockers.resolve"
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/api/src/routes/documents.ts",
+      "line": 134,
+      "decides": "Applying a document plan: canAssignTo is checked for every task before anything is written.",
+      "pattern": "allow-list",
+      "new_roles_today": "Themselves only.",
+      "risk": "none",
+      "proposed_capability": "work.give"
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/bot/src/bot.ts",
+      "line": 89,
+      "decides": "LinkedEmployee.access_role is a literal union of the four roles.",
+      "pattern": "allow-list",
+      "new_roles_today": "Type only; at runtime the raw string passes through.",
+      "risk": "none",
+      "proposed_capability": "Role type from the catalogue."
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/bot/src/bot.ts",
+      "line": 175,
+      "decides": "mainMenu(role): the CEO menu (blockers, assign, invites, log), the manager menu (team blockers, assign to team), otherwise the employee menu.",
+      "pattern": "allow-list",
+      "new_roles_today": "The employee menu for all 7.",
+      "risk": "under-privilege",
+      "proposed_capability": "A menu built from capabilities."
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/bot/src/bot.ts",
+      "line": 397,
+      "decides": "/start for the configured CEO with no linked row binds the Telegram id to DEMO_CEO_ID and forces the viewer to isCeo with accessRole 'ceo'.",
+      "pattern": "ceo-only",
+      "new_roles_today": "Not applicable.",
+      "risk": "none",
+      "proposed_capability": "Not applicable (CEO identity)."
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/bot/src/bot.ts",
+      "line": 418,
+      "decides": "Role wording: /start says 'signed in as CEO/manager/employee', /help differs by role (443, lead line at 459), and blocker and people-list replies change wording (1999, 2001, 2020).",
+      "pattern": "other",
+      "new_roles_today": "Described as 'employee'.",
+      "risk": "none",
+      "proposed_capability": "Role label from the catalogue."
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/bot/src/bot.ts",
+      "line": 507,
+      "decides": "/eod: the CEO gets everyone's reports (spends model calls, names who stayed silent); everyone else gets their own.",
+      "pattern": "ceo-only",
+      "new_roles_today": "Their own report.",
+      "risk": "under-privilege",
+      "proposed_capability": "reports.view_all and reports.generate_all"
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/bot/src/bot.ts",
+      "line": 700,
+      "decides": "Creating invites (button at 700, /invite at 709): CEO only.",
+      "pattern": "ceo-only",
+      "new_roles_today": "Refused.",
+      "risk": "under-privilege",
+      "proposed_capability": "people.invite"
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/bot/src/bot.ts",
+      "line": 720,
+      "decides": "The blocker queue (button at 720, /blockers at 725) is refused when ctx.role === 'employee'. This deny-list is safe only because botRole has a closed set of three values.",
+      "pattern": "deny-list",
+      "new_roles_today": "Refused, because botRole maps them to 'employee'.",
+      "risk": "under-privilege",
+      "proposed_capability": "blockers.view_team"
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/bot/src/bot.ts",
+      "line": 736,
+      "decides": "The Acknowledge button: mayAcknowledgeBlocker.",
+      "pattern": "allow-list",
+      "new_roles_today": "Only as the resolver.",
+      "risk": "under-privilege",
+      "proposed_capability": "blockers.ack"
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/bot/src/bot.ts",
+      "line": 750,
+      "decides": "The assign menu (750, /assign at 755) is refused when ctx.role === 'employee' (a deny-list over the closed botRole set).",
+      "pattern": "deny-list",
+      "new_roles_today": "Refused.",
+      "risk": "under-privilege",
+      "proposed_capability": "work.give"
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/bot/src/bot.ts",
+      "line": 770,
+      "decides": "The assignto:<id> callback: canAssignTo, and not yourself.",
+      "pattern": "allow-list",
+      "new_roles_today": "Refused.",
+      "risk": "none",
+      "proposed_capability": "work.give"
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/bot/src/bot.ts",
+      "line": 835,
+      "decides": "docplan:go re-checks canAssignTo for each task at the moment of writing.",
+      "pattern": "allow-list",
+      "new_roles_today": "Out of reach (document plans are CEO-only).",
+      "risk": "none",
+      "proposed_capability": "work.give"
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/bot/src/bot.ts",
+      "line": 886,
+      "decides": "docplan:who and docwho (902) list every non-disabled employee (listEmployees, not scoped). They are reachable only inside the CEO-only confirm_doc_tasks step, and docplan:go re-checks.",
+      "pattern": "other",
+      "new_roles_today": "Out of reach.",
+      "risk": "none",
+      "proposed_capability": "work.plan_from_documents (switch to listAssignable if this is widened)."
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/bot/src/bot.ts",
+      "line": 1121,
+      "decides": "Offering 'read it and assign' for a document sent without a caption: CEO only (wording at 1135).",
+      "pattern": "ceo-only",
+      "new_roles_today": "The file is held as evidence for their report.",
+      "risk": "none",
+      "proposed_capability": "work.plan_from_documents"
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/bot/src/bot.ts",
+      "line": 1377,
+      "decides": "assign_title re-checks canAssignTo when the task title arrives.",
+      "pattern": "allow-list",
+      "new_roles_today": "Out of reach.",
+      "risk": "none",
+      "proposed_capability": "work.give"
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/bot/src/bot.ts",
+      "line": 1462,
+      "decides": "planFromDocument is CEO-only, checked inside the function because the doc:read callback can be forged. The dashboard differs: it admits any role other than 'employee' (documents.ts:53).",
+      "pattern": "ceo-only",
+      "new_roles_today": "Refused.",
+      "risk": "none",
+      "proposed_capability": "work.plan_from_documents (one rule for both channels)."
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/bot/src/bot.ts",
+      "line": 1678,
+      "decides": "askWhoFor offers only the candidates the viewer may assign to (canAssignTo).",
+      "pattern": "allow-list",
+      "new_roles_today": "Out of reach for them; an assignment request is filed as a report.",
+      "risk": "none",
+      "proposed_capability": "work.give"
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/bot/src/bot.ts",
+      "line": 1747,
+      "decides": "Free text sent while a readable document is held goes to document planning only for the CEO.",
+      "pattern": "ceo-only",
+      "new_roles_today": "The normal report path.",
+      "risk": "none",
+      "proposed_capability": "work.plan_from_documents"
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/bot/src/bot.ts",
+      "line": 1799,
+      "decides": "A free-text 'assignment' is acted on when ctx.role !== 'employee' (the closed botRole set), with each person re-checked by canAssignTo. Otherwise it is filed as the sender's report.",
+      "pattern": "deny-list",
+      "new_roles_today": "Filed as a report (botRole is 'employee').",
+      "risk": "under-privilege",
+      "proposed_capability": "work.give"
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/bot/src/bot.ts",
+      "line": 1879,
+      "decides": "A status update that matches no task: non-CEO roles are asked which task it is about; the CEO's is filed without a task.",
+      "pattern": "other",
+      "new_roles_today": "Asked which task.",
+      "risk": "none",
+      "proposed_capability": "Not applicable."
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/bot/src/bot.ts",
+      "line": 1912,
+      "decides": "Questions: the CEO gets natural-language SQL (run as the seeded CEO context, answer.ts:83); everyone else gets a summary of their own work.",
+      "pattern": "ceo-only",
+      "new_roles_today": "A summary of their own work.",
+      "risk": "under-privilege",
+      "proposed_capability": "data.ask"
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/bot/src/bot.ts",
+      "line": 1980,
+      "decides": "issueInvite records the caller, or DEMO_CEO_ID, as the issuer. Its callers are CEO-gated (700, 709); the invite_name and ambiguous steps are only set behind those gates.",
+      "pattern": "ceo-only",
+      "new_roles_today": "Out of reach.",
+      "risk": "none",
+      "proposed_capability": "people.invite"
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/dashboard/src/App.tsx",
+      "line": 60,
+      "decides": "The CEO_ONLY tabs (ask, compliance, email) are hidden unless ceoTools is true (line 166: no identity, or isCeo). The same flag drives the nav filters (469, 751), the redirect (271), the EOD generate button (802) and the tab bodies (807-809).",
+      "pattern": "ceo-only",
+      "new_roles_today": "Hidden.",
+      "risk": "under-privilege",
+      "proposed_capability": "data.ask, compliance.read, settings.email and reports.generate_all, from /dashboard/me."
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/dashboard/src/App.tsx",
+      "line": 160,
+      "decides": "The initial demo viewer label is 'me' or 'ceo', from identity.isCeo.",
+      "pattern": "ceo-only",
+      "new_roles_today": "'me'",
+      "risk": "none",
+      "proposed_capability": "Not applicable."
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/dashboard/src/App.tsx",
+      "line": 396,
+      "decides": "The header role label: CEO, Manager, Dept lead, otherwise 'Employee'.",
+      "pattern": "allow-list",
+      "new_roles_today": "Shown as 'Employee'.",
+      "risk": "none",
+      "proposed_capability": "Label from the role catalogue."
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/dashboard/src/App.tsx",
+      "line": 804,
+      "decides": "canEditOrg = isCeo: the People tab's role and manager pickers, the email column (2037), and the export and erase columns (2040). canAddPeople = isCeo (793).",
+      "pattern": "ceo-only",
+      "new_roles_today": "A read-only People tab showing only themselves (RLS).",
+      "risk": "under-privilege",
+      "proposed_capability": "people.manage, people.manage_roles, people.export_data"
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/dashboard/src/App.tsx",
+      "line": 1988,
+      "decides": "The Access picker offers only employee, manager and lead (label map at 1939), so a row holding any other value has no matching option.",
+      "pattern": "allow-list",
+      "new_roles_today": "The CEO cannot set any new role. A row with a new role would display as the first option, 'Employee': I believe React falls back to the first option, but I did not run it.",
+      "risk": "under-privilege",
+      "proposed_capability": "people.manage_roles, with the grantable list supplied by the API."
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/dashboard/src/App.tsx",
+      "line": 2055,
+      "decides": "CEO rows get no role or manager pickers (1980, 2000) and no erase button.",
+      "pattern": "ceo-only",
+      "new_roles_today": "The CEO can edit and erase them.",
+      "risk": "none",
+      "proposed_capability": "Rule protect_ceo (the UI copy)."
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/dashboard/src/components/work-views.tsx",
+      "line": 568,
+      "decides": "The Add-a-person Access options: employee, manager, lead (default 'employee' at line 519).",
+      "pattern": "allow-list",
+      "new_roles_today": "Cannot be chosen.",
+      "risk": "under-privilege",
+      "proposed_capability": "people.manage, with grantable roles supplied by the API."
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/dashboard/src/lib/api.ts",
+      "line": 212,
+      "decides": "The AccessRole union (4 values), NewPerson.accessRole (448, 3 values) and Me.isCeo/accessRole (506-508).",
+      "pattern": "allow-list",
+      "new_roles_today": "Type only.",
+      "risk": "none",
+      "proposed_capability": "capabilities[] on Me"
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/dashboard/src/components/alerts.tsx",
+      "line": 280,
+      "decides": "The channel switches and delivery mode are editable only when isCeo. ConsentCard (283, 751) hides the withdraw button for the CEO.",
+      "pattern": "ceo-only",
+      "new_roles_today": "Read-only switches; they may withdraw.",
+      "risk": "under-privilege",
+      "proposed_capability": "settings.channels; protect_ceo"
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/dashboard/src/components/alerts.tsx",
+      "line": 41,
+      "decides": "Labels for the escalation target types (department_lead, ceo and so on).",
+      "pattern": "other",
+      "new_roles_today": "Not applicable.",
+      "risk": "none",
+      "proposed_capability": "Labels for any new target types."
+    },
+    {
+      "file": "C:/Users/acer/Downloads/freshnow/packages/dashboard/src/Root.tsx",
+      "line": 75,
+      "decides": "The signed-in identity takes isCeo from /dashboard/me. Portals are not role-gated: any active person can open Tasks or Projects.",
+      "pattern": "ceo-only",
+      "new_roles_today": "The full web dashboard with employee-level data, although technician and VMO are meant to use only the mobile app.",
+      "risk": "none",
+      "proposed_capability": "app.web (dashboard access) versus app.mobile_only"
+    }
+  ],
+  "sql_sites": [
+    {
+      "migration": "0009_org_roles.sql (lines 20-21)",
+      "object": "employee.access_role CHECK (written inline, so Postgres names it; I believe the name is employee_access_role_check)",
+      "kind": "check constraint",
+      "decides": "Which role values can be stored: ceo, manager, lead, employee.",
+      "new_roles_today": "Rejected. An insert or update with any of the 7 values fails (23514), so no new role can exist yet.",
+      "change_needed": "A forward migration that drops and re-adds the CHECK with all 11 values (check the constraint name first). Update ACCESS_ROLES, AccessRole and the dashboard unions in the same task."
+    },
+    {
+      "migration": "0009_org_roles.sql (line 23)",
+      "object": "update employee set access_role='ceo' for the seeded row 00000000-0000-0000-0000-0000000000ce",
+      "kind": "seed",
+      "decides": "The seeded row is the CEO anchor; it is DEMO_CEO_ID in TypeScript.",
+      "new_roles_today": "Not applicable.",
+      "change_needed": "None. protect_ceo must cover this row and every other access_role='ceo' row."
+    },
+    {
+      "migration": "0001_init.sql (lines 27-30)",
+      "object": "app_is_ceo()",
+      "kind": "function",
+      "decides": "CEO-wide visibility. It is true only when withContext set app.is_ceo='on', which TypeScript does only for DEMO_CEO_ID or access_role 'ceo'. It is used by about 25 policies, by app_can_view_employee and app_can_view_project, and as the exemption in the 0014 trigger.",
+      "new_roles_today": "False for all 7.",
+      "change_needed": "Keep it as the CEO identity check only. Add capability helpers (for example app_has_cap(text), read from app.access_role or an app.capabilities GUC) for admin and ops 'see everything'. Do not give admin app.is_ceo: the 0014 trigger would then let admin change the CEO's access_role and status."
+    },
+    {
+      "migration": "0009_org_roles.sql (lines 31-34)",
+      "object": "app_access_role()",
+      "kind": "function",
+      "decides": "The viewer's role as seen by policies; an empty setting means 'employee'.",
+      "new_roles_today": "Returns the raw new value, which no policy recognises, so they get employee-level visibility.",
+      "change_needed": "Validate the value against the catalogue (unknown means 'employee') and use it to back the capability helper."
+    },
+    {
+      "migration": "0009_org_roles.sql (lines 36-39)",
+      "object": "app_department()",
+      "kind": "function",
+      "decides": "A lead's department scope inside app_can_view_employee.",
+      "new_roles_today": "Not used for them.",
+      "change_needed": "The department behind it must not be self-editable; today updateProfileField rewrites department, site and shift on the service role (onboarding.ts:145). Add team or site scope helpers for supervisor if needed."
+    },
+    {
+      "migration": "0009_org_roles.sql (lines 45-68)",
+      "object": "app_can_view_employee(target)",
+      "kind": "function (SECURITY DEFINER)",
+      "decides": "Who may see a person's rows: the CEO, the person themselves, a manager or lead for direct reports, and a lead for their whole department. It is the read-side version of canAssignTo (org.ts:75) and listAssignable (org.ts:151).",
+      "new_roles_today": "Themselves only (it allows only 'manager' and 'lead').",
+      "change_needed": "Add branches: admin sees everyone; ops_head sees everyone (or all ops staff); supervisor sees their team(s); cash_auditor, warehouse_keeper, technician and vmo see themselves. Change the two TypeScript copies in the same commit."
+    },
+    {
+      "migration": "0009_org_roles.sql (lines 104-134)",
+      "object": "employee_select, task_select, task_update_select, blocker_select (plus assigned_resolver), assignment_select (plus assigned_by), daily_report_read, attachment_read",
+      "kind": "RLS select policies",
+      "decides": "Row visibility, all through app_can_view_employee.",
+      "new_roles_today": "Their own rows, plus blockers routed to them and assignments they gave.",
+      "change_needed": "Nothing beyond app_can_view_employee, unless cash_auditor or warehouse_keeper should see some of these rows without seeing the people; that needs a separate capability branch."
+    },
+    {
+      "migration": "0010_task_depth.sql (lines 147-157)",
+      "object": "task_step_select, task_relation_select, progress_event_select",
+      "kind": "RLS select policies",
+      "decides": "These follow the visibility of the task, through app_can_view_employee.",
+      "new_roles_today": "Their own tasks.",
+      "change_needed": "Follow app_can_view_employee."
+    },
+    {
+      "migration": "0001_init.sql (lines 244-246)",
+      "object": "employee_update",
+      "kind": "RLS update policy",
+      "decides": "App-role updates: your own row, or any row for the CEO. The 0014 trigger then limits which columns can change.",
+      "new_roles_today": "Their own row only.",
+      "change_needed": "None, as long as people management stays on the service role behind API capability checks. Never widen it with app_is_ceo() for admin."
+    },
+    {
+      "migration": "0001_init.sql (lines 255-256, 263-264, 279-280, 283-284)",
+      "object": "task_update_insert, blocker_insert, consent_insert, voice_insert",
+      "kind": "RLS insert policies",
+      "decides": "App-role inserts: your own rows, or any for the CEO.",
+      "new_roles_today": "Their own rows.",
+      "change_needed": "None; core writes use the service role."
+    },
+    {
+      "migration": "0001_init.sql (lines 277-278, 281-282)",
+      "object": "consent_select, voice_select",
+      "kind": "RLS select policies",
+      "decides": "Your own rows, or all for the CEO.",
+      "new_roles_today": "Their own rows.",
+      "change_needed": "Add a compliance.read branch for admin if admin is to answer questions about consent."
+    },
+    {
+      "migration": "0001_init.sql (lines 287-292, 295) and 0011_alerting.sql (lines 30-31)",
+      "object": "invite_ceo, outbox_ceo (plus outbox_recipient for your own in-app rows), escalation_ceo, run_trace_ceo, llm_call_ceo, job_run_ceo, audit_select",
+      "kind": "RLS select policies",
+      "decides": "System tables that only the CEO can read.",
+      "new_roles_today": "Nothing, apart from their own in-app notifications.",
+      "change_needed": "Capability branches: people.invite for invite_code; audit.read and system.observe for audit_log, run_trace, llm_call, job_run and notification_outbox (admin); escalation history for ops_head and supervisor, limited to blockers they may see."
+    },
+    {
+      "migration": "0001_init.sql (lines 306-315)",
+      "object": "Seed: the demo CEO row, and routing_rule resolvers (catch-all, equipment, supply, staffing, quality all go to the demo CEO)",
+      "kind": "seed",
+      "decides": "Every blocker's resolver is the seeded CEO until the rules are edited.",
+      "new_roles_today": "Never resolvers.",
+      "change_needed": "A data change, not a schema change: v2 can route equipment to technicians or ops_head with routing_rule rows."
+    },
+    {
+      "migration": "0003_daily_report.sql (lines 38-39) and 0004_attachment.sql (lines 49-55)",
+      "object": "daily_report_read and attachment_read (original versions)",
+      "kind": "RLS select policies (replaced)",
+      "decides": "The CEO or the owner. Both were dropped and recreated in 0009.",
+      "new_roles_today": "Not applicable.",
+      "change_needed": "None."
+    },
+    {
+      "migration": "0008_employee_display_name.sql (lines 20-29)",
+      "object": "employee_display_name(uuid), with grant execute to freshnow_app",
+      "kind": "function (SECURITY DEFINER) plus grant",
+      "decides": "Any app session can read any employee's display name by id, whatever its role.",
+      "new_roles_today": "The same as everyone: anyone's name by id.",
+      "change_needed": "Nothing required. Worth knowing for the mobile-only roles."
+    },
+    {
+      "migration": "0011_alerting.sql (line 70)",
+      "object": "escalation_target.target_type CHECK ('resolver', 'manager_of_raiser', 'department_lead', 'ceo', 'employee')",
+      "kind": "check constraint",
+      "decides": "The symbolic escalation targets. TypeScript resolves department_lead to access_role='lead' and ceo to access_role='ceo' (alerts.ts:182, 191).",
+      "new_roles_today": "Never a symbolic target. They are reached only by name (the 'employee' type) or as manager_of_raiser.",
+      "change_needed": "Replace the CHECK if v2 adds targets (for example supervisor_of_raiser or ops_head), and extend resolveTarget to match."
+    },
+    {
+      "migration": "0011_alerting.sql (lines 81-92)",
+      "object": "Default escalation ladder seed (L1: resolver and manager_of_raiser; L2: ceo; L3: ceo)",
+      "kind": "seed",
+      "decides": "Who is told when a blocker's SLA runs out.",
+      "new_roles_today": "Only as resolver or as manager.",
+      "change_needed": "Decide whether ops_head joins L2; this is a data change."
+    },
+    {
+      "migration": "0011_alerting.sql (lines 173-174)",
+      "object": "alert_select",
+      "kind": "RLS select policy",
+      "decides": "The CEO, or anyone who can see the person the alert is about.",
+      "new_roles_today": "Alerts about themselves.",
+      "change_needed": "Follow app_can_view_employee. Machine and ops alerts (TASK-059) are not about a person, so they will need an ops capability branch."
+    },
+    {
+      "migration": "0011_alerting.sql (lines 177-179)",
+      "object": "task_watcher_select",
+      "kind": "RLS select policy",
+      "decides": "Your own watches, or the watchers of tasks you can see.",
+      "new_roles_today": "Their own.",
+      "change_needed": "Follow app_can_view_employee."
+    },
+    {
+      "migration": "0011_alerting.sql (lines 182-183)",
+      "object": "notification_pref_select",
+      "kind": "RLS select policy",
+      "decides": "Your own preferences, or all for the CEO.",
+      "new_roles_today": "Their own.",
+      "change_needed": "An admin branch only if admin supports people's notification settings."
+    },
+    {
+      "migration": "0012_projects.sql (lines 157-167)",
+      "object": "app_can_view_project(target)",
+      "kind": "function (SECURITY DEFINER)",
+      "decides": "The CEO, a project member, or anyone who can see the project's lead or sponsor.",
+      "new_roles_today": "Projects they are members of, which projects.ts:227 lets them create.",
+      "change_needed": "Add a projects.view_all branch (ops_head, admin)."
+    },
+    {
+      "migration": "0012_projects.sql (lines 314-335; views at 296-297 and 340-341)",
+      "object": "project_select, project_requirement_select, milestone_select, project_member_select (plus your own membership), project_update_select, project_issue_select; the project_progress and flow_metrics views (security_invoker, grant select)",
+      "kind": "RLS select policies and views",
+      "decides": "All go through app_can_view_project; the views inherit it through security_invoker.",
+      "new_roles_today": "Projects they are members of.",
+      "change_needed": "Follow app_can_view_project."
+    },
+    {
+      "migration": "0014_privilege_hardening.sql (function lines 30-63, trigger lines 65-68)",
+      "object": "employee_guard_privileged_columns() and the trigger employee_privileged_columns",
+      "kind": "trigger",
+      "decides": "Blocks app-role changes to access_role, auth_user_id, manager_employee_id, department, status and telegram_user_id, unless session_user is a member of postgres (the service role) or app_is_ceo() is true.",
+      "new_roles_today": "They cannot change these columns through the app role. But every service-role path is exempt, including the bot's self-edit of department, site and shift (onboarding.ts:145).",
+      "change_needed": "Add a rule that rows with access_role='ceo', and any promotion to 'ceo', can be changed only by a CEO session. Keep admin off app.is_ceo. Add site and shift if they become scope fields. Move the department/site/shift self-edit behind people.edit_scope in core, because the trigger cannot see service-role writes."
+    },
+    {
+      "migration": "0017_channels.sql (lines 95-96)",
+      "object": "push_subscription_own",
+      "kind": "RLS select policy",
+      "decides": "Each person sees only their own device subscriptions; deliberately not even the CEO.",
+      "new_roles_today": "Their own.",
+      "change_needed": "This conflicts with 'Admin manages devices' if 'devices' means push subscriptions. Decide: keep it own-only and let admin revoke through a service-role route, or define devices as the enrolled devices from TASK-063/064."
+    },
+    {
+      "migration": "0020_email.sql (lines 89-90)",
+      "object": "email_message_select",
+      "kind": "RLS select policy",
+      "decides": "The CEO, or anyone who can see the employee. Mail from refused strangers (employee_id is null) is CEO-only.",
+      "new_roles_today": "Their own email.",
+      "change_needed": "An admin (settings.email) branch for the rows with no employee."
+    },
+    {
+      "migration": "0020_email.sql (lines 94-95)",
+      "object": "email_proposal_select",
+      "kind": "RLS select policy",
+      "decides": "The CEO, or the proposer.",
+      "new_roles_today": "Their own proposals, created through the email deny-lists.",
+      "change_needed": "A proposals.decide_all branch if admin should see them. Also fix the TypeScript deny-lists so new roles stop creating proposals."
+    },
+    {
+      "migration": "0023_televend_mirror.sql (lines 202-214)",
+      "object": "A '<table>_select' policy using app_is_ceo(), plus grant select, on tv_machine, tv_machine_caption, machine, machine_placement, tv_vend, tv_event, tv_refill, tv_sync_run and tv_sync_cursor",
+      "kind": "RLS select policies and grants",
+      "decides": "Operations data is CEO-only; the migration header says TASK-057 will widen it.",
+      "new_roles_today": "Nothing. ops_head, supervisor, cash_auditor, warehouse_keeper and technician see no machines, vends, events or refills.",
+      "change_needed": "Capability branches per table: ops.view for machines, events and placements (supervisor and technician limited to their scope); cash.view for the tv_vend value columns (cash_auditor, ops_head); inventory.view for tv_refill (warehouse_keeper); system.observe for tv_sync_*. tv_refill.filled_by is personal data. The app role probably also holds INSERT/UPDATE/DELETE through 0005's default privileges (this depends on which role runs migrations), but it has no write policy, so RLS refuses writes. Keep it that way."
+    }
+  ],
+  "summary": "How to read this: the 0009 CHECK (access_role in ceo, manager, lead, employee) means no row can hold any of the 7 new roles yet, so none of the role-specific findings below are live. 'new_roles_today' means what the code would do once only the CHECK, ACCESS_ROLES and AccessRole are widened. Four separate defects are live now (see 'Riskiest sites'). Every RLS check is an allow-list: app_is_ceo is set only for DEMO_CEO_ID or access_role 'ceo', and app_can_view_employee matches only 'manager' and 'lead'. So in SQL the 7 roles would see only their own rows. In TypeScript they are under-privileged everywhere except at the deny-lists listed below.\n\nThe work, in its shortest correct form:\n1. A forward migration that replaces the 0009 CHECK.\n2. One role-to-capability map in core, with a SQL twin (a capability helper the policies read), and one resolver that replaces the three isCeo derivations (auth.ts:109, org.ts:63, and bot.ts:300 through botRole).\n3. Replace the roughly 35 isCeo gates and the 9 'employee' deny-lists with capability checks. Send capabilities, not isCeo/accessRole, to the dashboard and to the bot menus.\n4. Widen app_can_view_employee, canAssignTo and listAssignable together; they are three copies of one rule. Also widen app_can_view_project, the CEO-only system policies (audit_log, notification_outbox, escalation, invite_code, llm_call, run_trace, job_run) and the nine 0023 tv_* policies.\n5. Escalation targets: department_lead resolves only to 'lead', and needs-review updates go only to the CEO.\n6. Make 'Admin cannot remove or demote the CEO' explicit. Today org.ts:111 protects only DEMO_CEO_ID, OrgBody (work.ts:69) accepts 'ceo', and the 0014 trigger exempts any app_is_ceo() session. So admin must not be implemented as isCeo.\n\nRiskiest sites, live today regardless of new roles:\n1. core/onboarding.ts:145, reached through the bot's 'Update my details' (bot.ts:616 and 1206). Anyone can rewrite their own department, site and shift on the service role, which bypasses the 0014 trigger. A lead who answers with another department gains RLS visibility and assign rights over it. Site and shift change who resolves the person's blockers. Any v2 team scope keyed on these fields inherits the hole.\n2. bot.ts:329 with bot.ts:300: the bot ignores employee.status. After /withdraw, a person's messages are still stored and sent to the model, and a disabled manager can still assign work. The dashboard refuses them (auth.ts:102).\n3. bot.ts:549: the CEO can /withdraw, which the API forbids (alerts.ts:336). That disables the CEO row and locks the CEO out of the dashboard, and no route reactivates it.\n4. bot.ts:642 and 944: task ids in callback data are never checked for ownership, and core recordTaskUpdate does not check either. Anyone who knows a task id can report on it, including marking it done; the dashboard forbids this (work.ts:168).\n\nWhere adding only the role value would quietly grant power (all deny-lists):\n- documents.ts:53: document-to-tasks model calls, plus a name-to-id lookup, for all 7 roles.\n- routes/projects.ts:227 and components/projects.tsx:96: starting projects and naming any lead or sponsor, who become members and get project alerts.\n- core/email-inbound.ts:216: a technician's or VMO's email reporting a problem becomes a work proposal, so it never becomes a blocker or an escalation.\n- core/inbound-email.ts:102: the webhook path, with model spend.\n- core/email-outbound.ts:85: tells them they can give work by email.\n- App.tsx:338: assign, acknowledge and manage controls in the UI; the API refuses those actions.\n- App.tsx:1940 and work-views.tsx:523: new roles are offered under 'Reports to'. manager_of_raiser escalations would then send a raiser's own words to someone RLS hides them from.\n- routes/email.ts:57 and routes/people.ts:76 are harmless; canAssignTo filters the results.\n- org.ts:20 ACCESS_ROLES automatically widens the zod enums in routes/people.ts:31 and routes/work.ts:69, so the CEO could grant every new value with no per-actor limit.\n- The bot's ctx.role deny-lists (bot.ts:720, 750, 1799) are safe only because botRole turns unknown roles into 'employee'. Mapping supervisor or ops_head to 'manager' opens the blocker queue and the assign menu for them.\n\nBefore widening the question box (data.ask, CEO-only now at dashboard.ts:454 and bot.ts:1912): RLS identity lives in GUCs (db.ts:80-83), and query/guard.ts:21 blocks set_config only by regex. A U&-escaped identifier passes validateReadOnlySql; I verified that on the pure function. Whether Postgres then applies the setting to RLS within the same statement is not verified.\n\nChecked, with no role dependence: the worker package (no role branches); migrations 0002, 0005 and 0007 (their grants are database-role level); the 0013 notify trigger; 0015; the 0016 audit actor guard (identity, not role); 0018, 0019, 0021 and 0022; and the 'using (true)' configuration policies (routing_rule, task_status, the SLA and escalation configuration, channel_setting). Root.tsx portals are not role-gated, so technician and VMO would get the web dashboard.\n\nNot verified: the CHECK constraint's generated name, React's fallback to the first option in a select, and whether a U&-escaped set_config takes effect for RLS. No tests were run and no database was touched; one pure function was run from a scratch file at C:/Users/acer/AppData/Local/Temp/claude/c--Users-acer-Downloads-freshnow/dabd6b19-1024-4402-9fcd-7df00b64b825/scratchpad/guardcheck2.mts."
+}

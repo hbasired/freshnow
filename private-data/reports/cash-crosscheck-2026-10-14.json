@@ -1,0 +1,353 @@
+{
+  "window": "10-14 12:00 → 10-15 11:00 (Asia/Dubai)",
+  "whatsappCashPosts": 41,
+  "matchedToTelevendEvent": 38,
+  "whatsappPostsWithoutTelevendEvent": [
+    {
+      "at": "10-15 02:18",
+      "asset": 318,
+      "amount": 180,
+      "who": "Kamran",
+      "text": "Naif 318 AED 180 Kamran"
+    },
+    {
+      "at": "10-15 07:13",
+      "asset": null,
+      "amount": null,
+      "who": null,
+      "text": "Fuel van 4"
+    },
+    {
+      "at": "10-15 07:13",
+      "asset": null,
+      "amount": null,
+      "who": "Kiran",
+      "text": "Kiran"
+    }
+  ],
+  "televendCollectionsInWindow": 41,
+  "televendCollectionsWithoutWhatsappPost": [
+    {
+      "at": "10-15 02:10",
+      "asset": 319,
+      "machine": "Naif Souk-319-DXB"
+    },
+    {
+      "at": "10-15 10:44",
+      "asset": 389,
+      "machine": "Metro-Centerpoint-389-DXB"
+    },
+    {
+      "at": "10-15 10:58",
+      "asset": 382,
+      "machine": "NMC-382-Block B- Ground floor-Cashless 1-DXB"
+    }
+  ],
+  "matched": [
+    {
+      "asset": 693,
+      "who": "David",
+      "amount": 30,
+      "whatsapp": "10-14 15:41",
+      "televend": "10-14 15:40",
+      "minutesApart": 1
+    },
+    {
+      "asset": 793,
+      "who": "David",
+      "amount": 60,
+      "whatsapp": "10-14 16:10",
+      "televend": "10-14 16:10",
+      "minutesApart": 0
+    },
+    {
+      "asset": 310,
+      "who": "David",
+      "amount": 180,
+      "whatsapp": "10-14 17:02",
+      "televend": "10-14 17:02",
+      "minutesApart": 1
+    },
+    {
+      "asset": 366,
+      "who": "NEWTON",
+      "amount": 150,
+      "whatsapp": "10-14 17:44",
+      "televend": "10-14 17:42",
+      "minutesApart": 1
+    },
+    {
+      "asset": 543,
+      "who": "David",
+      "amount": 70,
+      "whatsapp": "10-14 17:57",
+      "televend": "10-14 17:56",
+      "minutesApart": 1
+    },
+    {
+      "asset": 316,
+      "who": "David",
+      "amount": 110,
+      "whatsapp": "10-14 18:39",
+      "televend": "10-14 18:38",
+      "minutesApart": 1
+    },
+    {
+      "asset": 362,
+      "who": "NEWTON",
+      "amount": 90,
+      "whatsapp": "10-14 19:02",
+      "televend": "10-14 19:01",
+      "minutesApart": 1
+    },
+    {
+      "asset": 397,
+      "who": "Kiran",
+      "amount": 150,
+      "whatsapp": "10-14 20:21",
+      "televend": "10-14 20:20",
+      "minutesApart": 1
+    },
+    {
+      "asset": 798,
+      "who": "Kamran",
+      "amount": 0,
+      "whatsapp": "10-14 21:06",
+      "televend": "10-14 21:04",
+      "minutesApart": 2
+    },
+    {
+      "asset": 400,
+      "who": "Kiran",
+      "amount": 130,
+      "whatsapp": "10-14 21:12",
+      "televend": "10-14 21:11",
+      "minutesApart": 0
+    },
+    {
+      "asset": 364,
+      "who": "Kamran",
+      "amount": 0,
+      "whatsapp": "10-14 21:27",
+      "televend": "10-14 21:26",
+      "minutesApart": 1
+    },
+    {
+      "asset": 381,
+      "who": "Kiran",
+      "amount": 130,
+      "whatsapp": "10-14 22:10",
+      "televend": "10-14 22:08",
+      "minutesApart": 1
+    },
+    {
+      "asset": 861,
+      "who": "Kamran",
+      "amount": 110,
+      "whatsapp": "10-14 22:43",
+      "televend": "10-14 22:27",
+      "minutesApart": 16
+    },
+    {
+      "asset": 370,
+      "who": "Kiran",
+      "amount": 140,
+      "whatsapp": "10-14 22:57",
+      "televend": "10-14 22:56",
+      "minutesApart": 0
+    },
+    {
+      "asset": 318,
+      "who": "Kamran",
+      "amount": 110,
+      "whatsapp": "10-14 23:21",
+      "televend": "10-14 23:16",
+      "minutesApart": 5
+    },
+    {
+      "asset": 692,
+      "who": "Kamran",
+      "amount": 80,
+      "whatsapp": "10-14 23:55",
+      "televend": "10-14 23:48",
+      "minutesApart": 7
+    },
+    {
+      "asset": 395,
+      "who": "Kiran",
+      "amount": 210,
+      "whatsapp": "10-15 00:02",
+      "televend": "10-15 00:02",
+      "minutesApart": 0
+    },
+    {
+      "asset": 799,
+      "who": null,
+      "amount": 20,
+      "whatsapp": "10-15 00:09",
+      "televend": "10-15 00:08",
+      "minutesApart": 2
+    },
+    {
+      "asset": 797,
+      "who": null,
+      "amount": 185,
+      "whatsapp": "10-15 01:03",
+      "televend": "10-15 00:56",
+      "minutesApart": 7
+    },
+    {
+      "asset": 863,
+      "who": "Kiran",
+      "amount": 0,
+      "whatsapp": "10-15 01:18",
+      "televend": "10-15 01:11",
+      "minutesApart": 7
+    },
+    {
+      "asset": 399,
+      "who": "Kamran",
+      "amount": 150,
+      "whatsapp": "10-15 01:35",
+      "televend": "10-15 01:30",
+      "minutesApart": 5
+    },
+    {
+      "asset": 384,
+      "who": "Kiran",
+      "amount": 50,
+      "whatsapp": "10-15 02:27",
+      "televend": "10-15 02:27",
+      "minutesApart": 0
+    },
+    {
+      "asset": 313,
+      "who": null,
+      "amount": 95,
+      "whatsapp": "10-15 02:55",
+      "televend": "10-15 02:42",
+      "minutesApart": 12
+    },
+    {
+      "asset": 859,
+      "who": "Kiran",
+      "amount": 30,
+      "whatsapp": "10-15 03:10",
+      "televend": "10-15 03:09",
+      "minutesApart": 1
+    },
+    {
+      "asset": 857,
+      "who": "Kamran",
+      "amount": 50,
+      "whatsapp": "10-15 03:18",
+      "televend": "10-15 03:13",
+      "minutesApart": 5
+    },
+    {
+      "asset": 790,
+      "who": "Kiran",
+      "amount": 230,
+      "whatsapp": "10-15 03:37",
+      "televend": "10-15 03:25",
+      "minutesApart": 11
+    },
+    {
+      "asset": 791,
+      "who": "Kiran",
+      "amount": 110,
+      "whatsapp": "10-15 04:01",
+      "televend": "10-15 03:51",
+      "minutesApart": 9
+    },
+    {
+      "asset": 698,
+      "who": "Kamran",
+      "amount": 0,
+      "whatsapp": "10-15 04:05",
+      "televend": "10-15 03:55",
+      "minutesApart": 10
+    },
+    {
+      "asset": 363,
+      "who": "Kamran",
+      "amount": 130,
+      "whatsapp": "10-15 04:40",
+      "televend": "10-15 04:32",
+      "minutesApart": 8
+    },
+    {
+      "asset": 315,
+      "who": "Kiran",
+      "amount": 90,
+      "whatsapp": "10-15 04:42",
+      "televend": "10-15 04:32",
+      "minutesApart": 10
+    },
+    {
+      "asset": 398,
+      "who": "Kiran",
+      "amount": 140,
+      "whatsapp": "10-15 05:22",
+      "televend": "10-15 05:21",
+      "minutesApart": 0
+    },
+    {
+      "asset": 795,
+      "who": "Kamran",
+      "amount": 90,
+      "whatsapp": "10-15 05:34",
+      "televend": "10-15 05:08",
+      "minutesApart": 26
+    },
+    {
+      "asset": 545,
+      "who": "Kiran",
+      "amount": 130,
+      "whatsapp": "10-15 06:15",
+      "televend": "10-15 06:12",
+      "minutesApart": 2
+    },
+    {
+      "asset": 383,
+      "who": "Kamran",
+      "amount": 80,
+      "whatsapp": "10-15 06:22",
+      "televend": "10-15 06:18",
+      "minutesApart": 4
+    },
+    {
+      "asset": 359,
+      "who": "David",
+      "amount": 110,
+      "whatsapp": "10-15 08:54",
+      "televend": "10-15 08:53",
+      "minutesApart": 1
+    },
+    {
+      "asset": 394,
+      "who": "David",
+      "amount": 90,
+      "whatsapp": "10-15 09:18",
+      "televend": "10-15 09:18",
+      "minutesApart": 1
+    },
+    {
+      "asset": 789,
+      "who": "David",
+      "amount": 110,
+      "whatsapp": "10-15 10:09",
+      "televend": "10-15 10:08",
+      "minutesApart": 1
+    },
+    {
+      "asset": 864,
+      "who": "NEWTON",
+      "amount": 10,
+      "whatsapp": "10-15 10:14",
+      "televend": "10-15 10:13",
+      "minutesApart": 1
+    }
+  ],
+  "requests": 53
+}

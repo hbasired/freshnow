@@ -1,0 +1,301 @@
+{
+  "code": 200,
+  "message": "User details.",
+  "response": {
+    "access_all_company": false,
+    "administration_permission": true,
+    "application_permission": {
+      "evoca_horeca": false,
+      "televend_cloud": true
+    },
+    "asset_management_permission": {
+      "edit": true,
+      "view": true
+    },
+    "assignment_type": 1,
+    "call_center_permission": {
+      "call_center_configuration_edit": true,
+      "call_center_configuration_view": true,
+      "stream_edit": true,
+      "stream_view": true
+    },
+    "cash_center_permission": {
+      "cash_center_cash_counting_edit": false,
+      "cash_center_details_edit": false,
+      "cash_center_details_view": false,
+      "cash_center_reports_view": false
+    },
+    "cloud_user_id": 40220,
+    "companies": [
+      {
+        "clock_time_format": "24-hour",
+        "cloud_id": 3334,
+        "country_code": "AE",
+        "currency": "AED",
+        "date_format": "DD.MM.YYYY",
+        "details": {
+          "fri": {
+            "work": true,
+            "working_hours": [
+              {
+                "end": "23:59",
+                "start": "00:00"
+              }
+            ]
+          },
+          "mon": {
+            "work": true,
+            "working_hours": [
+              {
+                "end": "23:59",
+                "start": "00:00"
+              }
+            ]
+          },
+          "sat": {
+            "work": true,
+            "working_hours": [
+              {
+                "end": "23:59",
+                "start": "00:00"
+              }
+            ]
+          },
+          "sun": {
+            "work": true,
+            "working_hours": [
+              {
+                "end": "23:59",
+                "start": "00:00"
+              }
+            ]
+          },
+          "thu": {
+            "work": true,
+            "working_hours": [
+              {
+                "end": "23:59",
+                "start": "00:00"
+              }
+            ]
+          },
+          "tue": {
+            "work": true,
+            "working_hours": [
+              {
+                "end": "23:59",
+                "start": "00:00"
+              }
+            ]
+          },
+          "wed": {
+            "work": true,
+            "working_hours": [
+              {
+                "end": "23:59",
+                "start": "00:00"
+              }
+            ]
+          }
+        },
+        "id": "94a7fd0f-3d32-4658-8e9a-34c37c24d23d",
+        "integration_newis": false,
+        "integration_wallet": true,
+        "light_speed_integration": false,
+        "name": "Daily Vending LLC",
+        "timezone": "Asia/Dubai"
+      }
+    ],
+    "company_id": 3334,
+    "contract_center_permission": {
+      "contract_list": {
+        "edit": true,
+        "view": true
+      }
+    },
+    "custom_forms_permission": {
+      "edit": true,
+      "view": true
+    },
+    "email": "hemanthkumarreddy15@gmail.com",
+    "ev_assignment_type": "ALL_STATIONS",
+    "ev_charging_permission": {
+      "ev_commands_edit": true,
+      "ev_commands_view": true,
+      "ev_energy_management_edit": true,
+      "ev_energy_management_view": true,
+      "ev_events_edit": true,
+      "ev_events_view": true,
+      "ev_fees_edit": true,
+      "ev_fees_view": true,
+      "ev_logs_edit": true,
+      "ev_logs_view": true,
+      "ev_rfid_tags_edit": true,
+      "ev_rfid_tags_view": true,
+      "ev_sessions_edit": true,
+      "ev_sessions_view": true,
+      "ev_stations_assignment_edit": true,
+      "ev_stations_assignment_view": true,
+      "ev_stations_edit": true,
+      "ev_stations_view": true,
+      "ev_tarrifs_edit": true,
+      "ev_tarrifs_view": true,
+      "ev_transactions_edit": true,
+      "ev_transactions_view": true
+    },
+    "event_configuration_permission": {
+      "edit": true,
+      "view": true
+    },
+    "event_list_permission": {
+      "edit": true,
+      "view": true
+    },
+    "events_permission": false,
+    "evoca_horeca_permission": {
+      "administration_edit": false,
+      "administration_view": false,
+      "beverages_view": false,
+      "events_view": false,
+      "general_dashboard_view": false,
+      "machine_dashboard_view": false,
+      "machine_list_view": false,
+      "machine_setup_edit": false,
+      "machine_setup_view": false,
+      "reports_view": false,
+      "users_edit": false,
+      "users_view": false
+    },
+    "exp": 1792658714,
+    "first_name": "Hemanth",
+    "fiscal_data_collection_permission": {
+      "edit": true,
+      "view": true
+    },
+    "fiscal_devices_permission": {
+      "edit": true,
+      "view": true
+    },
+    "fsm_permission": {
+      "planer_edit": true,
+      "planer_view": true,
+      "spare_parts_edit": false,
+      "spare_parts_view": false
+    },
+    "full_name": "Hemanth Reddy",
+    "global_manage_permission": {
+      "brand_model": {
+        "edit": false,
+        "view": false
+      }
+    },
+    "is_superuser": false,
+    "last_name": "Reddy",
+    "machine_assign_permission": {
+      "machine_assign_edit": false,
+      "machine_assign_view": false
+    },
+    "machine_bulk_planogram_change_permission": {
+      "edit": false
+    },
+    "machine_device_permission": {
+      "edit": true,
+      "view": true
+    },
+    "machine_planograms_permission": {
+      "edit": false,
+      "view": true
+    },
+    "machine_stock_permission": {
+      "edit": true,
+      "view": true
+    },
+    "machines_permission": true,
+    "machines_permission_edit": true,
+    "marketing_module": {
+      "marketing_analytics_edit": true,
+      "marketing_analytics_view": true,
+      "marketing_digital_signage_edit": true,
+      "marketing_digital_signage_view": true,
+      "marketing_sales_booster_edit": true,
+      "marketing_sales_booster_view": true,
+      "marketing_themes_edit": true,
+      "marketing_themes_view": true
+    },
+    "pricelist_catalog_permission": {
+      "edit": true,
+      "view": true
+    },
+    "product_permission": {
+      "edit": true,
+      "view": true,
+      "view_assigned": false
+    },
+    "product_warehouse": {
+      "edit": false,
+      "view": false
+    },
+    "purchase_module_permission": {
+      "edit": true,
+      "view": true
+    },
+    "reports_permission": {
+      "cash_conformity": false,
+      "cash_details_view": false,
+      "cash_flow": false,
+      "machine_inventory": false,
+      "moneybag_tracking": false,
+      "overview": false,
+      "refill_log": true,
+      "report_builder": false,
+      "reports_generator_view": true,
+      "routing_reports": true,
+      "tax_center": true,
+      "technical_center_reports": true,
+      "transaction_list": false,
+      "vend_list": true,
+      "vend_revenue": false,
+      "z_reports": false
+    },
+    "role_caption": "CompanyManager",
+    "route_permission": {
+      "edit": true,
+      "routing_configuration": {
+        "edit": true,
+        "view": true
+      },
+      "task_manager": {
+        "edit": true,
+        "view": true
+      },
+      "view": true,
+      "view_assigned": false
+    },
+    "services": {
+      "call_center_tickets": false,
+      "credit_refund": true,
+      "staff_mobile_app": false,
+      "stock_mobile_app": false,
+      "technical_mobile_app": false
+    },
+    "staff_app_permission": {
+      "cash_collector": false,
+      "ocs_module": false,
+      "product_checker": false
+    },
+    "tax_center_permission": {
+      "edit_tax_center": false,
+      "sales_tax_module_enabled_edit": true,
+      "sales_tax_module_enabled_view": true,
+      "tax_report": true,
+      "view_tax_center": false
+    },
+    "tenant_id": "5",
+    "user_language": "en",
+    "user_permission": {
+      "user_edit": false,
+      "user_view": false
+    },
+    "user_timezone": "Asia/Dubai"
+  }
+}

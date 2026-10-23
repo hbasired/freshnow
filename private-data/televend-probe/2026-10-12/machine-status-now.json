@@ -1,0 +1,22 @@
+{
+  "meta": {
+    "code": 200,
+    "message": "ok"
+  },
+  "content": {
+    "filter": {
+      "view_mode": "live",
+      "now": "2026-10-15T12:45:23.706110+04:00"
+    },
+    "details": {
+      "count_all": 87,
+      "count_ok": 71,
+      "count_warn": 1,
+      "count_err": 15,
+      "count_considered": 87,
+      "perc_ok": 81.609,
+      "perc_warn": 1.149,
+      "perc_err": 17.242
+    }
+  }
+}

@@ -1,0 +1,744 @@
+{
+  "user-details": {
+    "ok": true,
+    "shape": {
+      "code": "number",
+      "message": "string",
+      "response": {
+        "access_all_company": "boolean",
+        "administration_permission": "boolean",
+        "application_permission": {
+          "evoca_horeca": "boolean",
+          "televend_cloud": "boolean"
+        },
+        "asset_management_permission": {
+          "edit": "boolean",
+          "view": "boolean"
+        },
+        "assignment_type": "number",
+        "call_center_permission": {
+          "call_center_configuration_edit": "boolean",
+          "call_center_configuration_view": "boolean",
+          "stream_edit": "boolean",
+          "stream_view": "boolean"
+        },
+        "cash_center_permission": {
+          "cash_center_cash_counting_edit": "boolean",
+          "cash_center_details_edit": "boolean",
+          "cash_center_details_view": "boolean",
+          "cash_center_reports_view": "boolean"
+        },
+        "cloud_user_id": "number",
+        "companies": [
+          {
+            "clock_time_format": "string",
+            "cloud_id": "number",
+            "country_code": "string",
+            "currency": "string",
+            "date_format": "string",
+            "details": {
+              "fri": "…",
+              "mon": "…",
+              "sat": "…",
+              "sun": "…",
+              "thu": "…",
+              "tue": "…",
+              "wed": "…"
+            },
+            "id": "string",
+            "integration_newis": "boolean",
+            "integration_wallet": "boolean",
+            "light_speed_integration": "boolean",
+            "name": "string",
+            "timezone": "string"
+          },
+          "(1 items)"
+        ],
+        "company_id": "number",
+        "contract_center_permission": {
+          "contract_list": {
+            "edit": "boolean",
+            "view": "boolean"
+          }
+        },
+        "custom_forms_permission": {
+          "edit": "boolean",
+          "view": "boolean"
+        },
+        "email": "string",
+        "ev_assignment_type": "string",
+        "ev_charging_permission": {
+          "ev_commands_edit": "boolean",
+          "ev_commands_view": "boolean",
+          "ev_energy_management_edit": "boolean",
+          "ev_energy_management_view": "boolean",
+          "ev_events_edit": "boolean",
+          "ev_events_view": "boolean",
+          "ev_fees_edit": "boolean",
+          "ev_fees_view": "boolean",
+          "ev_logs_edit": "boolean",
+          "ev_logs_view": "boolean",
+          "ev_rfid_tags_edit": "boolean",
+          "ev_rfid_tags_view": "boolean",
+          "ev_sessions_edit": "boolean",
+          "ev_sessions_view": "boolean",
+          "ev_stations_assignment_edit": "boolean",
+          "ev_stations_assignment_view": "boolean",
+          "ev_stations_edit": "boolean",
+          "ev_stations_view": "boolean",
+          "ev_tarrifs_edit": "boolean",
+          "ev_tarrifs_view": "boolean",
+          "ev_transactions_edit": "boolean",
+          "ev_transactions_view": "boolean"
+        },
+        "event_configuration_permission": {
+          "edit": "boolean",
+          "view": "boolean"
+        },
+        "event_list_permission": {
+          "edit": "boolean",
+          "view": "boolean"
+        },
+        "events_permission": "boolean",
+        "evoca_horeca_permission": {
+          "administration_edit": "boolean",
+          "administration_view": "boolean",
+          "beverages_view": "boolean",
+          "events_view": "boolean",
+          "general_dashboard_view": "boolean",
+          "machine_dashboard_view": "boolean",
+          "machine_list_view": "boolean",
+          "machine_setup_edit": "boolean",
+          "machine_setup_view": "boolean",
+          "reports_view": "boolean",
+          "users_edit": "boolean",
+          "users_view": "boolean"
+        },
+        "exp": "number",
+        "first_name": "string",
+        "fiscal_data_collection_permission": {
+          "edit": "boolean",
+          "view": "boolean"
+        },
+        "fiscal_devices_permission": {
+          "edit": "boolean",
+          "view": "boolean"
+        },
+        "fsm_permission": {
+          "planer_edit": "boolean",
+          "planer_view": "boolean",
+          "spare_parts_edit": "boolean",
+          "spare_parts_view": "boolean"
+        },
+        "full_name": "string",
+        "global_manage_permission": {
+          "brand_model": {
+            "edit": "boolean",
+            "view": "boolean"
+          }
+        },
+        "is_superuser": "boolean",
+        "last_name": "string",
+        "machine_assign_permission": {
+          "machine_assign_edit": "boolean",
+          "machine_assign_view": "boolean"
+        },
+        "machine_bulk_planogram_change_permission": {
+          "edit": "boolean"
+        },
+        "machine_device_permission": {
+          "edit": "boolean",
+          "view": "boolean"
+        },
+        "machine_planograms_permission": {
+          "edit": "boolean",
+          "view": "boolean"
+        },
+        "machine_stock_permission": {
+          "edit": "boolean",
+          "view": "boolean"
+        },
+        "machines_permission": "boolean",
+        "machines_permission_edit": "boolean",
+        "marketing_module": {
+          "marketing_analytics_edit": "boolean",
+          "marketing_analytics_view": "boolean",
+          "marketing_digital_signage_edit": "boolean",
+          "marketing_digital_signage_view": "boolean",
+          "marketing_sales_booster_edit": "boolean",
+          "marketing_sales_booster_view": "boolean",
+          "marketing_themes_edit": "boolean",
+          "marketing_themes_view": "boolean"
+        },
+        "pricelist_catalog_permission": {
+          "edit": "boolean",
+          "view": "boolean"
+        },
+        "product_permission": {
+          "edit": "boolean",
+          "view": "boolean",
+          "view_assigned": "boolean"
+        },
+        "product_warehouse": {
+          "edit": "boolean",
+          "view": "boolean"
+        },
+        "purchase_module_permission": {
+          "edit": "boolean",
+          "view": "boolean"
+        },
+        "reports_permission": {
+          "cash_conformity": "boolean",
+          "cash_details_view": "boolean",
+          "cash_flow": "boolean",
+          "machine_inventory": "boolean",
+          "moneybag_tracking": "boolean",
+          "overview": "boolean",
+          "refill_log": "boolean",
+          "report_builder": "boolean",
+          "reports_generator_view": "boolean",
+          "routing_reports": "boolean",
+          "tax_center": "boolean",
+          "technical_center_reports": "boolean",
+          "transaction_list": "boolean",
+          "vend_list": "boolean",
+          "vend_revenue": "boolean",
+          "z_reports": "boolean"
+        },
+        "role_caption": "string",
+        "route_permission": {
+          "edit": "boolean",
+          "routing_configuration": {
+            "edit": "boolean",
+            "view": "boolean"
+          },
+          "task_manager": {
+            "edit": "boolean",
+            "view": "boolean"
+          },
+          "view": "boolean",
+          "view_assigned": "boolean"
+        },
+        "services": {
+          "call_center_tickets": "boolean",
+          "credit_refund": "boolean",
+          "staff_mobile_app": "boolean",
+          "stock_mobile_app": "boolean",
+          "technical_mobile_app": "boolean"
+        },
+        "staff_app_permission": {
+          "cash_collector": "boolean",
+          "ocs_module": "boolean",
+          "product_checker": "boolean"
+        },
+        "tax_center_permission": {
+          "edit_tax_center": "boolean",
+          "sales_tax_module_enabled_edit": "boolean",
+          "sales_tax_module_enabled_view": "boolean",
+          "tax_report": "boolean",
+          "view_tax_center": "boolean"
+        },
+        "tenant_id": "string",
+        "user_language": "string",
+        "user_permission": {
+          "user_edit": "boolean",
+          "user_view": "boolean"
+        },
+        "user_timezone": "string"
+      }
+    }
+  },
+  "acl": {
+    "ok": true,
+    "shape": {
+      "meta": {
+        "code": "number",
+        "message": "string"
+      },
+      "content": {
+        "tenant_id": "string",
+        "cloud_user_id": "number",
+        "companies": [
+          {
+            "timezone": "string",
+            "cloud_id": "number",
+            "name": "string",
+            "integration_newis": "boolean",
+            "integration_wallet": "boolean",
+            "light_speed_integration": "boolean",
+            "country_code": "string",
+            "date_format": "string",
+            "clock_time_format": "string"
+          },
+          "(1 items)"
+        ],
+        "email": "string",
+        "first_name": "string",
+        "last_name": "string",
+        "full_name": "string",
+        "role_caption": "string",
+        "user_language": "string",
+        "user_timezone": "string",
+        "assignment_type": "number",
+        "access_all_company": "boolean",
+        "administration_permission": "boolean",
+        "application_permission": {
+          "evoca_horeca": "boolean",
+          "televend_cloud": "boolean"
+        },
+        "asset_management_permission": {
+          "edit": "boolean",
+          "view": "boolean"
+        },
+        "call_center_permission": {
+          "call_center_configuration_edit": "boolean",
+          "call_center_configuration_view": "boolean",
+          "stream_edit": "boolean",
+          "stream_view": "boolean"
+        },
+        "contract_center_permission": {
+          "contract_list": {
+            "edit": "boolean",
+            "view": "boolean"
+          }
+        },
+        "pricelist_catalog_permission": {
+          "edit": "boolean",
+          "view": "boolean"
+        },
+        "custom_forms_permission": {
+          "edit": "boolean",
+          "view": "boolean"
+        },
+        "event_configuration_permission": {
+          "edit": "boolean",
+          "view": "boolean"
+        },
+        "event_list_permission": {
+          "edit": "boolean",
+          "view": "boolean"
+        },
+        "evoca_horeca_permission": {
+          "general_dashboard_view": "boolean",
+          "machine_dashboard_view": "boolean",
+          "machine_list_view": "boolean",
+          "events_view": "boolean",
+          "beverages_view": "boolean",
+          "machine_setup_view": "boolean",
+          "machine_setup_edit": "boolean",
+          "administration_view": "boolean",
+          "administration_edit": "boolean",
+          "reports_view": "boolean",
+          "users_view": "boolean",
+          "users_edit": "boolean"
+        },
+        "exp": "number",
+        "fiscal_devices_permission": {
+          "edit": "boolean",
+          "view": "boolean"
+        },
+        "fsm_permission": {
+          "planer_edit": "boolean",
+          "planer_view": "boolean",
+          "spare_parts_edit": "boolean",
+          "spare_parts_view": "boolean"
+        },
+        "global_manage_permission": {
+          "brand_model": {
+            "edit": "boolean",
+            "view": "boolean"
+          }
+        },
+        "is_superuser": "boolean",
+        "machine_assign_permission": {
+          "machine_assign_edit": "boolean",
+          "machine_assign_view": "boolean"
+        },
+        "machine_device_permission": {
+          "edit": "boolean",
+          "view": "boolean"
+        },
+        "machine_planograms_permission": {
+          "edit": "boolean",
+          "view": "boolean"
+        },
+        "machine_bulk_planogram_change_permission": {
+          "edit": "boolean"
+        },
+        "machine_stock_permission": {
+          "edit": "boolean",
+          "view": "boolean"
+        },
+        "machines_permission": "boolean",
+        "machines_permission_edit": "boolean",
+        "product_permission": {
+          "edit": "boolean",
+          "view": "boolean",
+          "view_assigned": "boolean"
+        },
+        "reports_permission": {
+          "overview": "boolean",
+          "vend_list": "boolean",
+          "vend_revenue": "boolean",
+          "cash_flow": "boolean",
+          "refill_log": "boolean",
+          "routing_reports": "boolean",
+          "report_builder": "boolean",
+          "cash_conformity": "boolean",
+          "moneybag_tracking": "boolean",
+          "tax_center": "boolean",
+          "transaction_list": "boolean",
+          "reports_generator_view": "boolean",
+          "technical_center_reports": "boolean",
+          "z_reports": "boolean",
+          "machine_inventory": "boolean",
+          "cash_details_view": "boolean"
+        },
+        "route_permission": {
+          "edit": "boolean",
+          "view": "boolean",
+          "view_assigned": "boolean",
+          "task_manager": {
+            "edit": "boolean",
+            "view": "boolean"
+          },
+          "routing_configuration": {
+            "edit": "boolean",
+            "view": "boolean"
+          }
+        },
+        "services": {
+          "call_center_tickets": "boolean",
+          "technical_mobile_app": "boolean",
+          "credit_refund": "boolean",
+          "staff_mobile_app": "boolean",
+          "stock_mobile_app": "boolean"
+        },
+        "staff_app_permission": {
+          "cash_collector": "boolean",
+          "product_checker": "boolean",
+          "ocs_module": "boolean"
+        },
+        "user_permission": {
+          "user_edit": "boolean",
+          "user_view": "boolean"
+        },
+        "fiscal_data_collection_permission": {
+          "edit": "boolean",
+          "view": "boolean"
+        },
+        "product_warehouse": {
+          "edit": "boolean",
+          "view": "boolean"
+        },
+        "tax_center_permission": {
+          "view_tax_center": "boolean",
+          "edit_tax_center": "boolean",
+          "tax_report": "boolean",
+          "sales_tax_module_enabled_view": "boolean",
+          "sales_tax_module_enabled_edit": "boolean"
+        },
+        "events_permission": "boolean",
+        "purchase_module_permission": {
+          "edit": "boolean",
+          "view": "boolean"
+        },
+        "marketing_module": {
+          "marketing_analytics_view": "boolean",
+          "marketing_analytics_edit": "boolean",
+          "marketing_themes_view": "boolean",
+          "marketing_themes_edit": "boolean",
+          "marketing_digital_signage_view": "boolean",
+          "marketing_digital_signage_edit": "boolean",
+          "marketing_sales_booster_view": "boolean",
+          "marketing_sales_booster_edit": "boolean"
+        },
+        "cash_center_permission": {
+          "cash_center_details_view": "boolean",
+          "cash_center_details_edit": "boolean",
+          "cash_center_reports_view": "boolean",
+          "cash_center_cash_counting_edit": "boolean"
+        },
+        "ev_assignment_type": "string",
+        "ev_charging_permission": {
+          "ev_stations_view": "boolean",
+          "ev_stations_edit": "boolean",
+          "ev_stations_assignment_view": "boolean",
+          "ev_stations_assignment_edit": "boolean",
+          "ev_commands_view": "boolean",
+          "ev_commands_edit": "boolean",
+          "ev_logs_view": "boolean",
+          "ev_logs_edit": "boolean",
+          "ev_sessions_view": "boolean",
+          "ev_sessions_edit": "boolean",
+          "ev_transactions_view": "boolean",
+          "ev_transactions_edit": "boolean",
+          "ev_events_view": "boolean",
+          "ev_events_edit": "boolean",
+          "ev_energy_management_view": "boolean",
+          "ev_energy_management_edit": "boolean",
+          "ev_tarrifs_view": "boolean",
+          "ev_tarrifs_edit": "boolean",
+          "ev_fees_view": "boolean",
+          "ev_fees_edit": "boolean",
+          "ev_rfid_tags_view": "boolean",
+          "ev_rfid_tags_edit": "boolean"
+        }
+      }
+    }
+  },
+  "machines": {
+    "ok": true,
+    "shape": {
+      "meta": {
+        "code": "number",
+        "message": "string",
+        "page": "number",
+        "page_size": "number",
+        "has_next_page": "boolean",
+        "number_of_items": "number"
+      },
+      "content": [
+        {
+          "id": "number",
+          "caption": "string",
+          "role": "string",
+          "location": {
+            "id": "number",
+            "city": "string",
+            "caption": "string",
+            "address": "string"
+          },
+          "enabled": "boolean",
+          "machine_type": {
+            "id": "number",
+            "caption": "string"
+          },
+          "client": "null",
+          "stock_tracking": "boolean",
+          "pid": "string",
+          "column_count": "number",
+          "device_type": "string",
+          "route": "boolean",
+          "last_refill": "string",
+          "last_refill_utc": "string",
+          "last_vend": "string",
+          "last_vend_utc": "string",
+          "model_number": "null",
+          "connection_details": {
+            "signal_strength": "number",
+            "connection_status": "number"
+          },
+          "stock": "number",
+          "stock_data": {
+            "percentage": "number",
+            "sum_column_percentage": "number",
+            "num_column": "number",
+            "product_percentage": "number",
+            "sum_component_percentage": "number",
+            "num_component": "number",
+            "component_percentage": "number",
+            "category_percentages": [
+              "(empty)"
+            ],
+            "has_negative_value_product": "boolean",
+            "has_negative_value_component": "boolean"
+          },
+          "fiscalization_type": "number",
+          "last_status": "number",
+          "barcode": "null",
+          "external_id": "string",
+          "region": {
+            "id": "number",
+            "caption": "string"
+          },
+          "status_info": "null",
+          "machine_clusters": [
+            "(empty)"
+          ],
+          "free_vend": "boolean",
+          "sales_tax_calculation_mode": "string",
+          "micro_market_entities": [
+            "(empty)"
+          ]
+        },
+        "(5 items)"
+      ]
+    }
+  },
+  "vends": {
+    "ok": true,
+    "shape": {
+      "meta": {
+        "code": "number",
+        "message": "string",
+        "page": "number",
+        "page_size": "number",
+        "has_next_page": "boolean",
+        "number_of_items": "number"
+      },
+      "content": [
+        {
+          "vend_id": "number",
+          "machine_id": "number",
+          "machine_caption": "string",
+          "location_caption": "string",
+          "timestamp": "string",
+          "product_caption": "string",
+          "is_composite": "boolean",
+          "payment_type": "number",
+          "payment_type_caption": "string",
+          "value": "null",
+          "column_index": "number",
+          "quantity": "number",
+          "price_list_number": "number",
+          "basket_id": "null",
+          "fiscal_sign": "null",
+          "transaction_id": "null",
+          "correlation_id": "null",
+          "origin_id": "null",
+          "card_id": "string",
+          "active_barcode": "null",
+          "televend_device_vend_id": "number",
+          "external_cashless_reference_id": "number"
+        },
+        "(5 items)"
+      ]
+    }
+  },
+  "vends-aggregates": {
+    "ok": true,
+    "shape": {
+      "total_revenue": "null",
+      "number_of_sale_vends": "number",
+      "total_quantity": "number"
+    }
+  },
+  "events": {
+    "ok": true,
+    "shape": {
+      "meta": {
+        "code": "number",
+        "message": "string",
+        "page": "number",
+        "page_size": "number",
+        "has_next_page": "boolean",
+        "number_of_items": "null"
+      },
+      "content": [
+        {
+          "id": "number",
+          "level": "number",
+          "type": "string",
+          "source": "number",
+          "start_time": "string",
+          "counter": "number",
+          "name": "null",
+          "description": "string",
+          "resolved_time": "null",
+          "resolved_by_user_first_name": "null",
+          "resolved_by_user_last_name": "null",
+          "machine": {
+            "id": "number",
+            "caption": "string",
+            "location_caption": "string",
+            "micro_market": "null"
+          },
+          "assigned_users": [
+            "(empty)"
+          ]
+        },
+        "(5 items)"
+      ]
+    }
+  },
+  "collections": {
+    "ok": false,
+    "error": "TelevendHttpError: Televend GET api-cloud.televendcloud.com/cashtrack/v1/tenants/5/companies/3334/collections failed with HTTP 403 after 1 attempt(s)",
+    "status": 403,
+    "errorShape": {
+      "meta": {
+        "code": "number",
+        "message": "string"
+      },
+      "errors": [
+        {
+          "msg": "string"
+        },
+        "(1 items)"
+      ]
+    }
+  },
+  "refills-details": {
+    "ok": true,
+    "shape": {
+      "meta": {
+        "code": "number",
+        "message": "string"
+      },
+      "content": [
+        "(empty)"
+      ]
+    }
+  },
+  "refills-statistic": {
+    "ok": true,
+    "shape": {
+      "meta": {
+        "code": "number",
+        "message": "string"
+      },
+      "content": {
+        "grouped_events_list": [
+          "(empty)"
+        ],
+        "avg_no_empties": "number",
+        "avg_fillings": "number",
+        "avg_stocks": "number",
+        "no_of_visits": "number"
+      }
+    }
+  },
+  "dashboard-vends-today": {
+    "ok": false,
+    "error": "TelevendHttpError: Televend GET cloud-cloud-web-app.televendcloud.com/api/dashboard/v1/3334/stats/vends/today failed with HTTP 403 after 1 attempt(s)",
+    "status": 403,
+    "errorShape": {
+      "meta": {
+        "code": "number",
+        "message": "string"
+      },
+      "errors": [
+        {
+          "msg": "string"
+        },
+        "(1 items)"
+      ]
+    }
+  },
+  "machine-status-now": {
+    "ok": true,
+    "shape": {
+      "meta": {
+        "code": "number",
+        "message": "string"
+      },
+      "content": {
+        "filter": {
+          "view_mode": "string",
+          "now": "string"
+        },
+        "details": {
+          "count_all": "number",
+          "count_ok": "number",
+          "count_warn": "number",
+          "count_err": "number",
+          "count_considered": "number",
+          "perc_ok": "number",
+          "perc_warn": "number",
+          "perc_err": "number"
+        }
+      }
+    }
+  }
+}

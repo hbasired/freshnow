@@ -1,0 +1,190 @@
+{
+  "day": "2026-10-12",
+  "exportsDir": "data-televend",
+  "exportFiles": [
+    "event_list (1).xls",
+    "event_list (10).xls",
+    "event_list (2).xls",
+    "event_list (3).xls",
+    "event_list (4).xls",
+    "event_list (5).xls",
+    "event_list (6).xls",
+    "event_list (7).xls",
+    "event_list (8).xls",
+    "event_list (9).xls",
+    "event_list.xls",
+    "refill_log (1).csv",
+    "refill_log (2).csv",
+    "refill_log.csv",
+    "VendingMachines (1).xlsx",
+    "VendingMachines.xlsx"
+  ],
+  "machines": {
+    "live": {
+      "total": 221,
+      "enabled": 87
+    },
+    "file": {
+      "total": 221,
+      "enabled": 87
+    },
+    "enabledOnlyLive": [
+      "Arabian center-393- Cashless 1-DXB",
+      "NMC DIP Block Pediatrics 1st floor-AED15 -856-Cashless 1-DXB",
+      "NMC DIP Block Pediatrics 1st floor-AED15-863-Cashless 1-DXB",
+      "NMC DIP Emergency-AED15-862-Cashless 1-DXB",
+      "Dubai holding 2-361-Cashless 1-DXB",
+      "Dubai Holding -697-Cashless 1-DXB",
+      "Al Barsha Health -DHA-859-Cashless 1-DXB",
+      "Oasis Mall DXB-543-Cashless 1-DXB",
+      "Saudi German Ajman-362-card only -aed12-Cashless 1-AJM"
+    ],
+    "enabledOnlyFile": [
+      "Saudi German Ajman-362-Cashless 1-AJM",
+      "Oasis Mall DXB-543-DXB",
+      "Al Barsha Health -DHA-859-DXB",
+      "Dubai Holding -697-DXB",
+      "Dubai holding 2-361-DXB",
+      "NMC DIP Emergency-Card only--AED15-862-DXB",
+      "NMC DIP Block Pediatrics 1st floor-Card only-AED15-863-DXB",
+      "NMC DIP Block Pediatrics 1st floor-Card only-AED15 -856-DXB",
+      "Arabian center-393-DXB"
+    ]
+  },
+  "refills": {
+    "live": {
+      "rows": 54,
+      "cups": 1830,
+      "machines": 53
+    },
+    "file": {
+      "rows": 54,
+      "cups": 1830,
+      "machines": 53
+    },
+    "captionMismatches": [
+      {
+        "machine": "Al Barsha Health -DHA-859-Cashless 1-DXB",
+        "live": {
+          "rows": 1,
+          "cups": 29
+        },
+        "file": {
+          "rows": 0,
+          "cups": 0
+        }
+      },
+      {
+        "machine": "Saudi German Ajman-362-card only -aed12-Cashless 1-AJM",
+        "live": {
+          "rows": 2,
+          "cups": 91
+        },
+        "file": {
+          "rows": 0,
+          "cups": 0
+        }
+      },
+      {
+        "machine": "Oasis Mall DXB-543-Cashless 1-DXB",
+        "live": {
+          "rows": 1,
+          "cups": 54
+        },
+        "file": {
+          "rows": 0,
+          "cups": 0
+        }
+      },
+      {
+        "machine": "Al Barsha Health -DHA-859-DXB",
+        "live": {
+          "rows": 0,
+          "cups": 0
+        },
+        "file": {
+          "rows": 1,
+          "cups": 29
+        }
+      },
+      {
+        "machine": "Saudi German Ajman-362-Cashless 1-AJM",
+        "live": {
+          "rows": 0,
+          "cups": 0
+        },
+        "file": {
+          "rows": 2,
+          "cups": 91
+        }
+      },
+      {
+        "machine": "Oasis Mall DXB-543-DXB",
+        "live": {
+          "rows": 0,
+          "cups": 0
+        },
+        "file": {
+          "rows": 1,
+          "cups": 54
+        }
+      }
+    ],
+    "assetMismatches": [],
+    "liveActions": {
+      "filled": 53,
+      "corrected": 1
+    },
+    "liveOrigins": {
+      "mobile_app": 53,
+      "web_app": 1
+    }
+  },
+  "events": {
+    "live": {
+      "rows": 3224,
+      "complete": true,
+      "byLevelType": {
+        "level 1 / type 2": 3033,
+        "level 1 / type 0": 117,
+        "level 3 / type 0": 61,
+        "level 3 / type 1": 4,
+        "level 2 / type 3": 5,
+        "level 2 / type 0": 4
+      }
+    },
+    "file": {
+      "rows": 65,
+      "note": "exports hold alarms/warnings only, for the periods someone chose"
+    },
+    "fileRowsMatchedToLive": 65,
+    "matchedCodes": {
+      "Alarm -> level 3 / type 0": 61,
+      "Alarm -> level 3 / type 1": 4
+    },
+    "unmatchedFileSample": []
+  },
+  "vends": {
+    "listRows": 1570,
+    "uniqueVendIds": 1570,
+    "complete": true,
+    "aggregate": {
+      "vends": 1570,
+      "quantity": 1570,
+      "revenue": null
+    },
+    "quantityInList": 1570,
+    "byPaymentType": {
+      "Cashless 3": 723,
+      "Cashless": 481,
+      "Token": 40,
+      "Cash": 321,
+      "Wallet": 5
+    },
+    "valuesVisible": false
+  },
+  "requests": {
+    "sent": 143,
+    "passwordSignIns": 1
+  }
+}

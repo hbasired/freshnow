@@ -1,0 +1,133 @@
+Date,Time,Region,Location,Routing Cluster,Client,Machine Type,Machine,Machine External ID,Employee,Employee External ID,Route,Stock,Filling percentage,Column,Product,Product External ID,Product Barcode,Action,Quantity,Current quantity,Capacity,Fill qty,Empty,Source
+12.10.2026.,04:51:42,Metro,Metro,,,RTA Metro Stations,Metro Emirates Towers-315-DXB,,Kiran Steephen,,,100,73.02,32767,Orange Juice New,,,Filled,46,63,63,63,0,Mobile app
+13.10.2026.,03:36:11,Metro,Metro,,,RTA Metro Stations,Metro Emirates Towers-315-DXB,,Yakub Lama,,,100,46.03,32767,Orange Juice New,,,Filled,29,63,63,63,0,Mobile app
+12.10.2026.,00:23:04,Tram,Tram,,,RTA Tram Stations,Tram Mina Seyahi -793-DXB,,Kiran Steephen,,,100,60,32767,Orange Juice New,,,Filled,18,30,30,30,0,Mobile app
+12.10.2026.,05:17:21,Metro,Metro,,,RTA Metro Stations,Metro Jafiliya Max-365-DXB,,Kiran Steephen,,,100,74.6,32767,Orange Juice New,,,Filled,47,63,63,63,0,Mobile app
+11.10.2026.,04:48:02,Hospital / Clinics,Hospital / Clinics,,,Hospitals,Al Barsha Health -DHA-859-DXB,,Kiran Steephen,,,100,42.86,32767,Orange Juice New,,,Filled,27,63,63,63,0,Mobile app
+12.10.2026.,01:51:37,Hospital / Clinics,Hospital / Clinics,,,Hospitals,Al Barsha Health -DHA-859-DXB,,Kiran Steephen,,,100,46.03,32767,Orange Juice New,,,Filled,29,63,63,63,0,Mobile app
+13.10.2026.,03:47:49,Hospital / Clinics,Hospital / Clinics,,,Hospitals,Al Barsha Health -DHA-859-DXB,,Kiran Steephen,,,100,63.49,32767,Orange Juice New,,,Filled,40,63,63,63,0,Mobile app
+12.10.2026.,23:10:02,Shopping Mall / Complex,Shopping Mall / Complex,,,Shopping Center,Kabayel Ajman2-360-Cashless 1-AJM,,kamran I,,,100,41.27,32767,Orange Juice New,,,Filled,26,63,63,63,0,Mobile app
+11.10.2026.,23:47:05,Events,Events,,,Exhibition Center,Expo-403 -Front Right -Card only- AED15-Cashless 1-SHJ,,Faheem Ikhlak,,,100,39.68,32767,Orange Juice New,,,Filled,25,63,63,63,0,Mobile app
+11.10.2026.,21:45:59,Metro,Metro,,,RTA Metro Stations,Metro Ibn Battuta-395-DXB,,Kiran Steephen,,,100,87.3,32767,Orange Juice New,,,Filled,55,63,63,63,0,Mobile app
+12.10.2026.,23:28:36,Metro,Metro,,,RTA Metro Stations,Metro Ibn Battuta-395-DXB,,Kiran Steephen,,,100,52.38,32767,Orange Juice New,,,Filled,33,63,63,63,0,Mobile app
+11.10.2026.,11:19:11,Metro,Metro,,,RTA Metro Stations,Metro Emirates-391 -DXB,,Noel David Dycoco,,,100,68.25,32767,Orange Juice New,,,Filled,43,63,63,63,0,Mobile app
+12.10.2026.,20:51:49,Metro,Metro,,,RTA Metro Stations,Metro Emirates-391 -DXB,,Yakub Lama,,,100,85.71,32767,Orange Juice New,,,Filled,54,63,63,63,0,Mobile app
+12.10.2026.,11:21:18,Office Buildings,Office Buildings,,,Government Offices,Sharjah Police Rahmania -Operation-AED12-Card only-696-Cashless 1-SHJ,,Noel David Dycoco,,,100,90,32767,Orange Juice New,,,Filled,27,30,30,30,0,Mobile app
+12.10.2026.,01:09:28,Hospital / Clinics,Hospital / Clinics,,,Clinic,Prime Motor-Card only-AED13-695-DXB,,Kiran Steephen,,,100,83.33,511,Orange Juices,,,Filled,25,30,30,30,0,Mobile app
+11.10.2026.,23:16:12,Metro,Metro,,,RTA Metro Stations,Metro Dubai Internet City-397-DXB,,Kiran Steephen,,,100,84.13,32767,Orange Juice New,,,Filled,53,63,63,63,0,Mobile app
+12.10.2026.,20:37:42,Metro,Metro,,,RTA Metro Stations,Metro Dubai Internet City-397-DXB,,Kiran Steephen,,,100,60.32,32767,Orange Juice New,,,Filled,38,63,63,63,0,Mobile app
+11.10.2026.,10:24:53,Metro,Metro,,,RTA Metro Stations,Metro-Centerpoint-389-DXB,,Noel David Dycoco,,,100,82.54,32767,Orange Juice New,,,Filled,52,63,63,63,0,Mobile app
+11.10.2026.,20:53:40,Metro,Metro,,,RTA Metro Stations,Metro-Centerpoint-389-DXB,,Yakub Lama,,,100,53.97,32767,Orange Juice New,,,Filled,34,63,63,63,0,Mobile app
+13.10.2026.,03:59:06,Metro,Metro,,,RTA Metro Stations,Metro-Centerpoint-389-DXB,,kamran I,,,100,80.95,32767,Orange Juice New,,,Filled,51,63,63,63,0,Mobile app
+12.10.2026.,11:43:40,Events,Events,,,Exhibition Center,Sharjah Police-Rahmania -Main Building-AED12-Card Only-392-Cashless 1-SHJ,,Noel David Dycoco,,,100,23.33,32767,Orange Juice New,,,Filled,7,30,30,30,0,Mobile app
+12.10.2026.,23:04:16,Tram,Tram,,,RTA Tram Stations,Tram Palm Jumeirah -370-DXB,,Kiran Steephen,,,100,82.54,32767,Orange Juice New,,,Filled,52,63,63,63,0,Mobile app
+11.10.2026.,22:58:56,Office Buildings,Office Buildings,,,Corporate Offices & Commercial Towers,RTA HQ Garhoud-698-card-AED8-DXB,,Yakub Lama,,,100,61.9,32767,Orange Juice New,,,Filled,39,63,63,63,0,Mobile app
+11.10.2026.,19:11:30,Hospital / Clinics,Hospital / Clinics,,,Hospitals,NMC-699-A Block-First Floor-Cashless 1-DXB,,Yakub Lama,,,100,77.78,511,Orange Juice New,,,Filled,49,63,63,63,0,Mobile app
+12.10.2026.,18:18:23,Hospital / Clinics,Hospital / Clinics,,,Hospitals,NMC-699-A Block-First Floor-Cashless 1-DXB,,Noel David Dycoco,,,100,38.1,511,Orange Juice New,,,Filled,24,63,63,63,0,Mobile app
+11.10.2026.,04:27:44,Events,Events,,,Exhibition Center,prime nahda clinic sharjah -AED12-Cashless1 only -796-SHJ,,kamran I,,,100,100,32767,Orange Juice New,,,Filled,31,30,30,30,1,Mobile app
+13.10.2026.,02:23:39,Events,Events,,,Exhibition Center,prime nahda clinic sharjah -AED12-Cashless1 only -796-SHJ,,kamran I,,,100,73.33,32767,Orange Juice New,,,Filled,22,30,30,30,0,Mobile app
+11.10.2026.,14:04:38,Shopping Mall / Complex,Shopping Mall / Complex,,,Hospitals,Saudi German Ajman-362-Cashless 1-AJM,,Faheem Ikhlak,,,100,60.32,32767,Orange Juice New,,,Filled,38,63,63,63,0,Mobile app
+11.10.2026.,23:32:36,Shopping Mall / Complex,Shopping Mall / Complex,,,Hospitals,Saudi German Ajman-362-Cashless 1-AJM,,kamran I,,,100,76.19,32767,Orange Juice New,,,Filled,48,63,63,63,0,Mobile app
+12.10.2026.,16:27:21,Shopping Mall / Complex,Shopping Mall / Complex,,,Hospitals,Saudi German Ajman-362-Cashless 1-AJM,,Noel David Dycoco,,,100,66.67,32767,Orange Juice New,,,Filled,42,63,63,63,0,Mobile app
+12.10.2026.,23:51:44,Shopping Mall / Complex,Shopping Mall / Complex,,,Hospitals,Saudi German Ajman-362-Cashless 1-AJM,,kamran I,,,100,77.78,32767,Orange Juice New,,,Filled,49,63,63,63,0,Mobile app
+12.10.2026.,12:37:14,Office Buildings,Office Buildings,,,Government Offices,Sharjah Police- Antinarcotics -546-SHJ,,Noel David Dycoco,,,100,16.67,32767,Orange Juice New,,,Filled,5,30,30,30,0,Mobile app
+11.10.2026.,23:18:28,Events,Events,,,Exhibition Center,Expo-364-back-AED15-CARD only-Cashless 1-SHJ,,Faheem Ikhlak,,,100,71.43,32767,Orange Juices,,,Filled,45,63,63,63,0,Mobile app
+12.10.2026.,22:24:12,Events,Events,,,Exhibition Center,Expo-364-back-AED15-CARD only-Cashless 1-SHJ,,Faheem Ikhlak,,,100,33.33,32767,Orange Juices,,,Filled,21,63,63,63,0,Mobile app
+11.10.2026.,17:46:37,Tram,Tram,,,RTA Tram Stations,Tram Dubai Marina-396-DXB,,Noel David Dycoco,,,100,69.84,32767,Orange Juice New,,,Filled,44,63,63,63,0,Mobile app
+12.10.2026.,03:05:27,Metro,Metro,,,RTA Metro Stations,Metro Baniyas-313-DXB,,Yakub Lama,,,100,66.67,32767,Orange Juice New,,,Filled,42,63,63,63,0,Mobile app
+11.10.2026.,09:45:38,Shopping Centers,Shopping Centers,,,Shopping Center,Wasl Village -864- Cashless 1 - DXB,,Noel David Dycoco,,,DefaultValue,9.55,511,Orange Juices,,,Filled,3,0,33,33,2,Mobile app
+11.10.2026.,09:45:38,Shopping Centers,Shopping Centers,,,Shopping Center,Wasl Village -864- Cashless 1 - DXB,,Noel David Dycoco,,,DefaultValue,9.55,767,Orange Beetroot Juice,,,Filled,3,0,30,30,2,Mobile app
+11.10.2026.,09:51:35,Shopping Centers,Shopping Centers,,,Shopping Center,Wasl Village -864- Cashless 1 - DXB,,Molishid Kiganda,,,100,,511,Orange Juices,,,Corrected,33,33,33,33,0,Web app
+11.10.2026.,09:51:35,Shopping Centers,Shopping Centers,,,Shopping Center,Wasl Village -864- Cashless 1 - DXB,,Molishid Kiganda,,,100,,767,Orange Beetroot Juice,,,Corrected,30,30,30,30,0,Web app
+12.10.2026.,06:43:29,Shopping Centers,Shopping Centers,,,Shopping Center,Wasl Village -864- Cashless 1 - DXB,,kamran I,,,86.67,50,511,Orange Juices,,,Filled,34,33,33,33,1,Mobile app
+13.10.2026.,06:28:50,Shopping Centers,Shopping Centers,,,Shopping Center,Wasl Village -864- Cashless 1 - DXB,,kamran I,,,65,39.39,511,Orange Juices,,,Filled,26,33,33,33,0,Mobile app
+12.10.2026.,01:06:05,Metro,Metro,,,RTA Metro Stations,Metro Burjuman-312-DXB,,Yakub Lama,,,100,79.37,32767,Orange Juice New,,,Filled,50,63,63,63,0,Mobile app
+11.10.2026.,21:51:06,Events,Events,,,Exhibition Center,Expo-412-hall3-AED15-CARD only-Cashless 1-SHJ,,Faheem Ikhlak,,,100,31.75,511,Orange Juices,,,Filled,20,63,63,63,0,Mobile app
+11.10.2026.,23:35:26,Events,Events,,,Exhibition Center,Expo-412-hall3-AED15-CARD only-Cashless 1-SHJ,,Faheem Ikhlak,,,100,1.59,511,Orange Juices,,,Filled,1,63,63,63,0,Mobile app
+11.10.2026.,12:24:33,Hospital / Clinics,Hospital / Clinics,,,Hospitals,Nad Al Hammar Health-DHA-789-Cashless 1-DXB,,Noel David Dycoco,,,100,55.56,32767,Orange Juice New,,,Filled,35,63,63,63,0,Mobile app
+11.10.2026.,22:13:28,Hospital / Clinics,Hospital / Clinics,,,Hospitals,Nad Al Hammar Health-DHA-789-Cashless 1-DXB,,Yakub Lama,,,100,69.84,32767,Orange Juice New,,,Filled,44,63,63,63,0,Mobile app
+12.10.2026.,16:40:20,Hospital / Clinics,Hospital / Clinics,,,Hospitals,Nad Al Hammar Health-DHA-789-Cashless 1-DXB,,Faheem Ikhlak,,,100,63.49,32767,Orange Juice New,,,Filled,40,63,63,63,0,Mobile app
+12.10.2026.,00:22:09,Hospital / Clinics,Hospital / Clinics,,,Hospitals,Rashid hospital-DHA-857-DXB,,Yakub Lama,,,100,77.78,511,Orange Juices,,,Filled,49,63,63,63,0,Mobile app
+13.10.2026.,05:13:00,Hospital / Clinics,Hospital / Clinics,,,Hospitals,Rashid hospital-DHA-857-DXB,,Yakub Lama,,,98.41,22.22,511,Orange Juices,,,Filled,14,62,63,63,0,Mobile app
+13.10.2026.,00:58:39,Hospital / Clinics,Hospital / Clinics,,,Hospitals,NMC DIP Block Pediatrics 1st floor-Card only-AED15 -856-DXB,,Kiran Steephen,,,100,50.79,511,Orange Juices,,,Filled,32,63,63,63,0,Mobile app
+11.10.2026.,21:40:51,Events,Events,,,Exhibition Center,Expo-798-back-AED15-Card only-Cashless 1-SHJ,,Faheem Ikhlak,,,100,100,32767,Orange Juices,,,Filled,66,63,63,63,1,Mobile app
+11.10.2026.,23:23:30,Events,Events,,,Exhibition Center,Expo-798-back-AED15-Card only-Cashless 1-SHJ,,Faheem Ikhlak,,,100,7.94,32767,Orange Juices,,,Filled,5,63,63,63,0,Mobile app
+12.10.2026.,22:20:07,Events,Events,,,Exhibition Center,Expo-798-back-AED15-Card only-Cashless 1-SHJ,,Faheem Ikhlak,,,100,57.14,32767,Orange Juices,,,Filled,36,63,63,63,0,Mobile app
+13.10.2026.,02:57:30,Office Buildings,Office Buildings,,,Corporate Offices & Commercial Towers,Dubai holding 2-361-DXB,,Yakub Lama,,,100,100,32767,Orange Juice New,,,Filled,30,30,30,30,1,Mobile app
+12.10.2026.,22:25:19,Metro,Metro,,,RTA Metro Stations,Metro Rigga-311-DXB,,Yakub Lama,,,100,96.67,32767,Orange Juice New,,,Filled,29,30,30,30,0,Mobile app
+13.10.2026.,08:44:50,Metro,Metro,,,RTA Metro Stations,Metro Rigga-311-DXB,,Sameer Abdul Rahiman,,,DefaultValue,,32767,Orange Juice New,,,Corrected,-30,0,30,30,0,Web app
+11.10.2026.,06:08:59,Shopping Mall / Complex,Shopping Mall / Complex,,,Shopping Malls,Festival City-Ikea- 795 -DXB,,Yakub Lama,,,100,92.06,32767,Orange Juice New,,,Filled,58,63,63,63,0,Mobile app
+12.10.2026.,05:06:22,Shopping Mall / Complex,Shopping Mall / Complex,,,Shopping Malls,Festival City-Ikea- 795 -DXB,,Yakub Lama,,,100,63.49,32767,Orange Juice New,,,Filled,40,63,63,63,0,Mobile app
+12.10.2026.,03:20:23,Metro,Metro,,,RTA Metro Stations,Metro Insurance Market -790-DXB,,Kiran Steephen,,,100,68.25,32767,Orange Juice New,,,Filled,43,63,63,63,0,Mobile app
+11.10.2026.,23:37:58,Events,Events,,,Exhibition Center,Expo -544-Back1-CArd only AED15-Cashless 1-SHJ,,Faheem Ikhlak,,,100,53.97,511,Orange Juices,,,Filled,34,63,63,63,0,Mobile app
+12.10.2026.,01:25:35,Shopping Centers,Shopping Centers,,,Shopping Center,Kabayel zahya ajman -385-AJM,,kamran I,,,100,100,32767,Orange Juice New,,,Filled,31,30,30,30,1,Mobile app
+11.10.2026.,20:02:37,Metro,Metro,,,RTA Metro Stations,Metro ADCB-316-DXB,,Kiran Steephen,,,100,71.43,32767,Orange Juice New,,,Filled,45,63,63,63,0,Mobile app
+13.10.2026.,01:12:59,Metro,Metro,,,RTA Metro Stations,Metro ADCB-316-DXB,,Yakub Lama,,,100,42.86,32767,Orange Juice New,,,Filled,27,63,63,63,0,Mobile app
+11.10.2026.,15:04:44,Shopping Mall / Complex,Shopping Mall / Complex,,,Shopping Malls,Oasis Mall DXB-543-DXB,,Noel David Dycoco,,,100,68.25,32767,Orange Juice New,,,Filled,43,63,63,63,0,Mobile app
+11.10.2026.,17:08:10,Shopping Mall / Complex,Shopping Mall / Complex,,,Shopping Malls,Oasis Mall DXB-543-DXB,,Molishid Kiganda,,,93.65,,32767,Orange Juice New,,,Corrected,-4,59,63,63,0,Web app
+12.10.2026.,19:40:20,Shopping Mall / Complex,Shopping Mall / Complex,,,Shopping Malls,Oasis Mall DXB-543-DXB,,Kiran Steephen,,,100,85.71,32767,Orange Juice New,,,Filled,54,63,63,63,0,Mobile app
+11.10.2026.,22:07:27,Shopping Mall / Complex,Shopping Mall / Complex,,,Shopping Malls,China Mall GBlock -317 -AJM,,kamran I,,,100,87.3,32767,Orange Juice New,,,Filled,55,63,63,63,0,Mobile app
+11.10.2026.,15:15:53,Shopping Mall / Complex,Shopping Mall / Complex,,,Shopping Malls,Souq Al Jubail-861-SHJ,,Faheem Ikhlak,,,100,73.02,32767,Orange Juice New,,,Filled,46,63,63,63,0,Mobile app
+12.10.2026.,03:52:27,Shopping Mall / Complex,Shopping Mall / Complex,,,Shopping Malls,Souq Al Jubail-861-SHJ,,kamran I,,,100,61.9,32767,Orange Juice New,,,Filled,39,63,63,63,0,Mobile app
+13.10.2026.,01:43:22,Shopping Mall / Complex,Shopping Mall / Complex,,,Shopping Malls,Souq Al Jubail-861-SHJ,,kamran I,,,100,55.56,32767,Orange Juice New,,,Filled,35,63,63,63,0,Mobile app
+12.10.2026.,03:22:15,Hospital / Clinics,Hospital / Clinics,,,Hospitals,Saudi German Shj-314-SHJ,,kamran I,,,100,55.56,32767,Orange Juice New,,,Filled,35,63,63,63,0,Mobile app
+12.10.2026.,00:00:10,Tram,Tram,,,RTA Tram Stations,Tram JBR2-381-DXB,,Kiran Steephen,,,100,71.43,32767,Orange Juice New,,,Filled,45,63,63,63,0,Mobile app
+11.10.2026.,06:38:33,Office Buildings,Office Buildings,,,Corporate Offices & Commercial Towers,Control Tower Motor City -384- DXB,,Molishid Kiganda,,,100,,32767,Orange Juice New,,,Corrected,30,30,30,30,0,Web app
+13.10.2026.,03:14:28,Office Buildings,Office Buildings,,,Corporate Offices & Commercial Towers,Control Tower Motor City -384- DXB,,Kiran Steephen,,,100,53.33,32767,Orange Juice New,,,Filled,16,30,30,30,0,Mobile app
+11.10.2026.,22:48:05,Shopping Mall / Complex,Shopping Mall / Complex,,,Shopping Malls,Kabayel Ajman1-390-Cashless 1-AJM,,kamran I,,,95.24,34.92,32767,Orange Juice New,,,Filled,22,60,63,63,0,Mobile app
+11.10.2026.,06:34:41,Shopping Mall / Complex,Shopping Mall / Complex,,,Shopping Malls,Century Mall Outdoor-797-Cashless 1-DXB,,kamran I,,,100,63.33,32767,Orange Juice New,,,Filled,19,30,30,30,0,Mobile app
+12.10.2026.,21:59:54,Shopping Mall / Complex,Shopping Mall / Complex,,,Shopping Malls,Century Mall Outdoor-797-Cashless 1-DXB,,kamran I,,,100,76.67,32767,Orange Juice New,,,Filled,23,30,30,30,0,Mobile app
+12.10.2026.,02:53:42,Shopping Mall / Complex,Shopping Mall / Complex,,,Shopping Malls,Sharjah Central-318-SHJ,,kamran I,,,100,47.62,32767,Orange Juice New,,,Filled,30,63,63,63,0,Mobile app
+13.10.2026.,01:04:18,Shopping Mall / Complex,Shopping Mall / Complex,,,Shopping Malls,Sharjah Central-318-SHJ,,kamran I,,,100,23.81,32767,Orange Juice New,,,Filled,15,63,63,63,0,Mobile app
+11.10.2026.,05:13:50,Shopping Mall / Complex,Shopping Mall / Complex,,,Shopping Malls,Ghurair-Parking -545-DXB,,Yakub Lama,,,100,49.21,32767,Orange Juice New,,,Filled,31,63,63,63,0,Mobile app
+12.10.2026.,03:44:04,Shopping Mall / Complex,Shopping Mall / Complex,,,Shopping Malls,Ghurair-Parking -545-DXB,,Yakub Lama,,,100,50.79,32767,Orange Juice New,,,Filled,32,63,63,63,0,Mobile app
+13.10.2026.,06:23:58,Shopping Mall / Complex,Shopping Mall / Complex,,,Shopping Malls,Ghurair-Parking -545-DXB,,Yakub Lama,,,100,22.22,32767,Orange Juice New,,,Filled,14,63,63,63,0,Mobile app
+12.10.2026.,02:00:47,Metro,Metro,,,RTA Metro Stations,Metro Goldsouq-368-DXB,,Yakub Lama,,,100,60.32,32767,Orange Juice New,,,Filled,38,63,63,63,0,Mobile app
+12.10.2026.,09:48:44,Shopping Mall / Complex,Shopping Mall / Complex,,,Shopping Malls,Sahara Center-394-Cashless 1-SHJ,,Noel David Dycoco,,,100,63.49,32767,Orange Juice New,,,Filled,40,63,63,63,0,Mobile app
+13.10.2026.,02:45:23,Shopping Mall / Complex,Shopping Mall / Complex,,,Shopping Malls,Sahara Center-394-Cashless 1-SHJ,,kamran I,,,100,39.68,32767,Orange Juice New,,,Filled,25,63,63,63,0,Mobile app
+11.10.2026.,19:27:47,Hospital / Clinics,Hospital / Clinics,,,Hospitals,NMC-694-A Block-Ground Floor-Cashless 1-DXB,,Yakub Lama,,,100,60.32,511,Orange Juices,,,Filled,38,63,63,63,0,Mobile app
+12.10.2026.,18:34:56,Hospital / Clinics,Hospital / Clinics,,,Hospitals,NMC-694-A Block-Ground Floor-Cashless 1-DXB,,Noel David Dycoco,,,100,34.92,511,Orange Juices,,,Filled,22,63,63,63,0,Mobile app
+11.10.2026.,04:38:05,Shopping Mall / Complex,Shopping Mall / Complex,,,Shopping Malls,Naif Souk-319-DXB,,Yakub Lama,,,100,83.33,32767,Orange Juice New,,,Filled,25,30,30,30,0,Mobile app
+11.10.2026.,05:08:04,Metro,Metro,,,RTA Metro Stations,Metro Stadium-399-DXB,,kamran I,,,100,84.13,32767,Orange Juice New,,,Filled,53,63,63,63,0,Mobile app
+12.10.2026.,05:03:21,Metro,Metro,,,RTA Metro Stations,Metro Stadium-399-DXB,,kamran I,,,100,58.73,32767,Orange Juice New,,,Filled,37,63,63,63,0,Mobile app
+13.10.2026.,03:24:36,Metro,Metro,,,RTA Metro Stations,Metro Stadium-399-DXB,,kamran I,,,100,41.27,32767,Orange Juice New,,,Filled,26,63,63,63,0,Mobile app
+12.10.2026.,21:27:32,Shopping Mall / Complex,Shopping Mall / Complex,,,Shopping Malls,Kabayel Deira-542-DXB,,kamran I,,,100,87.3,32767,Orange Juice New,,,Filled,55,63,63,63,0,Mobile app
+12.10.2026.,23:27:01,Other stations,Other Stations,,,RTA Bus Stations,GHUBAIBA-1745-AED5-DXB,,Yakub Lama,,,100,45,32767,Orange Juice New,,,Filled,27,60,60,60,0,Mobile app
+11.10.2026.,22:21:32,Metro,Metro,,,RTA Metro Stations,Metro DMCC-400-DXB,,Kiran Steephen,,,100,71.43,32767,Orange Juice New,,,Filled,45,63,63,63,0,Mobile app
+12.10.2026.,21:24:47,Metro,Metro,,,RTA Metro Stations,Metro DMCC-400-DXB,,Kiran Steephen,,,100,60.32,32767,Orange Juice New,,,Filled,38,63,63,63,0,Mobile app
+12.10.2026.,02:18:24,Hospital / Clinics,Hospital / Clinics,,,Hospitals,Qassimi Hospital-692- 1st Floor-Cashless 1-SHJ,,kamran I,,,100,39.68,32767,Orange Juice New,,,Filled,25,63,63,63,0,Mobile app
+11.10.2026.,19:48:15,Hospital / Clinics,Hospital / Clinics,,,Hospitals,NMC-382-Block B- Ground floor-Cashless 1-DXB,,Yakub Lama,,,100,36.51,511,Orange Juices,,,Filled,23,63,63,63,0,Mobile app
+12.10.2026.,17:53:26,Hospital / Clinics,Hospital / Clinics,,,Hospitals,NMC-382-Block B- Ground floor-Cashless 1-DXB,,Noel David Dycoco,,,100,57.14,511,Orange Juices,,,Filled,36,63,63,63,0,Mobile app
+11.10.2026.,04:06:00,Other stations,Other Stations,,,Marine Station,Abra Marine Station Outdoor-402-DXB,,Yakub Lama,,,100,100,32767,Orange Juice New,,,Filled,41,30,30,30,1,Mobile app
+12.10.2026.,23:56:04,Other stations,Other Stations,,,Marine Station,Abra Marine Station Outdoor-402-DXB,,Yakub Lama,,,100,96.67,32767,Orange Juice New,,,Filled,29,30,30,30,0,Mobile app
+11.10.2026.,20:48:49,Hospital / Clinics,Hospital / Clinics,,,Hospitals,Prime 06-366-SHJ,,kamran I,,,100,36.51,32767,Orange Juice New,,,Filled,23,63,63,63,0,Mobile app
+13.10.2026.,00:29:32,Hospital / Clinics,Hospital / Clinics,,,Hospitals,Prime 06-366-SHJ,,kamran I,,,100,61.9,32767,Orange Juice New,,,Filled,39,63,63,63,0,Mobile app
+12.10.2026.,06:08:58,Hospital / Clinics,Hospital / Clinics,,,Hospitals,Prime Arabian-383-Cashless 1-DXB,,kamran I,,,100,28.57,32767,Orange Juice New,,,Filled,18,63,63,63,0,Mobile app
+13.10.2026.,05:56:00,Hospital / Clinics,Hospital / Clinics,,,Hospitals,Prime Arabian-383-Cashless 1-DXB,,kamran I,,,100,57.14,32767,Orange Juice New,,,Filled,36,63,63,63,0,Mobile app
+13.10.2026.,00:22:55,Shopping Mall / Complex,Shopping Mall / Complex,,,Shopping Malls,Festival plaza-701-DXB,,Kiran Steephen,,,100,100,511,Orange Juices,,,Filled,44,30,30,30,1,Mobile app
+12.10.2026.,06:46:17,Shopping Centers,Shopping Centers,,,Shopping Center,DreamLand-386-SHJ,,Molishid Kiganda,,,100,,511,Orange Juices,,,Corrected,30,30,30,30,0,Web app
+12.10.2026.,04:22:45,Shopping Mall / Complex,Shopping Mall / Complex,,,Shopping Malls,Sharjah City Center-794-Cashless 1-SHJ,,kamran I,,,100,49.21,32767,Orange Juice New,,,Filled,31,63,63,63,0,Mobile app
+13.10.2026.,08:45:25,Hospital / Clinics,Hospital / Clinics,,,Hospitals,NMC DIP Emergency-Card only--AED15-862-DXB,,Sameer Abdul Rahiman,,,DefaultValue,,511,Orange Juices,,,Corrected,-19,0,30,30,0,Web app
+12.10.2026.,00:08:54,Tram,Tram,,,RTA Tram Stations,Tram Marina Towers -693-DXB,,Kiran Steephen,,,100,56.67,32767,Orange Juice New,,,Filled,17,30,30,30,0,Mobile app
+12.10.2026.,09:20:51,Shopping Mall / Complex,Shopping Mall / Complex,,,Shopping Malls,Sahara Center-359-Cashless 1-SHJ,,Noel David Dycoco,,,100,66.67,32767,Orange Juice New,,,Filled,20,30,30,30,0,Mobile app
+11.10.2026.,13:17:04,Metro,Metro,,,RTA Metro Stations,Metro Business Bay-387-DXB,,Noel David Dycoco,,,100,71.43,32767,Orange Juice New,,,Filled,45,63,63,63,0,Mobile app
+13.10.2026.,02:30:48,Metro,Metro,,,RTA Metro Stations,Metro Business Bay-387-DXB,,Yakub Lama,,,100,73.02,32767,Orange Juice New,,,Filled,46,63,63,63,0,Mobile app
+11.10.2026.,04:52:45,Metro,Metro,,,RTA Metro Stations,Metro Mall Of Emirates -310-DXB,,Kiran Steephen,,,100,88.89,32767,Orange Juice New,,,Filled,56,63,63,63,0,Mobile app
+12.10.2026.,03:40:37,Metro,Metro,,,RTA Metro Stations,Metro Mall Of Emirates -310-DXB,,Kiran Steephen,,,100,60.32,32767,Orange Juice New,,,Filled,38,63,63,63,0,Mobile app
+13.10.2026.,04:09:30,Metro,Metro,,,RTA Metro Stations,Metro Mall Of Emirates -310-DXB,,Kiran Steephen,,,100,52.38,32767,Orange Juice New,,,Filled,33,63,63,63,0,Mobile app
+11.10.2026.,20:29:59,Parks,Parks,,,Public Park,Zabeel Park-Outdoor-547-DXB,,Kiran Steephen,,,100,100,32767,Orange Juice New,,,Filled,31,30,30,30,1,Mobile app
+13.10.2026.,04:06:11,Parks,Parks,,,Public Park,Zabeel Park-Outdoor-547-DXB,,Yakub Lama,,,100,100,32767,Orange Juice New,,,Filled,30,30,30,30,1,Mobile app
+12.10.2026.,17:54:06,Hospital / Clinics,Hospital / Clinics,,,Hospitals,Aster Clinic Al Warqa-700-Cashless 1-DXB,,Faheem Ikhlak,,,98.41,74.6,511,Orange Juices,,,Filled,47,62,63,63,0,Mobile app
+13.10.2026.,00:36:05,Metro,Metro,,,RTA Metro Stations,Metro SharafDG Exit 1-398-DXB,,Yakub Lama,,,100,74.6,32767,Orange Juice New,,,Filled,47,63,63,63,0,Mobile app
+11.10.2026.,15:40:35,Metro,Metro,,,RTA Metro Stations,Metro On Passive-791-DXB,,Noel David Dycoco,,,100,63.49,32767,Orange Juice New,,,Filled,40,63,63,63,0,Mobile app
+13.10.2026.,02:02:16,Metro,Metro,,,RTA Metro Stations,Metro On Passive-791-DXB,,Yakub Lama,,,100,52.38,32767,Orange Juice New,,,Filled,33,63,63,63,0,Mobile app
+11.10.2026.,23:36:54,Hospital / Clinics,Hospital / Clinics,,,Hospitals,Latifa Hospital -DHA-858-DXB,,Yakub Lama,,,100,22.22,32767,Orange Juice New,,,Filled,14,63,63,63,0,Mobile app
+13.10.2026.,04:40:08,Hospital / Clinics,Hospital / Clinics,,,Hospitals,Latifa Hospital -DHA-858-DXB,,Yakub Lama,,,100,53.97,32767,Orange Juice New,,,Filled,34,63,63,63,0,Mobile app
+11.10.2026.,06:43:06,Shopping Mall / Complex,Shopping Mall / Complex,,,Shopping Malls,Festival City-VOX-363-DXB,,Yakub Lama,,,100,61.9,32767,Orange Juice New,,,Filled,39,63,63,63,0,Mobile app
+12.10.2026.,04:36:58,Shopping Mall / Complex,Shopping Mall / Complex,,,Shopping Malls,Festival City-VOX-363-DXB,,Yakub Lama,,,100,44.44,32767,Orange Juice New,,,Filled,28,63,63,63,0,Mobile app
+11.10.2026.,22:22:42,Shopping Mall / Complex,Shopping Mall / Complex,,,Shopping Malls,China Mall Gate9-369-Cashless 1-AJM,,kamran I,,,100,74.6,32767,Orange Juice New,,,Filled,47,63,63,63,0,Mobile app
+12.10.2026.,21:46:26,Tram,Tram,,,RTA Tram Stations,Tram Jumeirah lakes towers -541-DXB,,Kiran Steephen,,,100,57.14,32767,Orange Juice New,,,Filled,36,63,63,63,0,Mobile app
+13.10.2026.,04:37:59,Office Buildings,Office Buildings,,,Corporate Offices & Commercial Towers,FlyDubai-401-DXB,,kamran I,,,100,31.75,32767,Orange Juice New,,,Filled,20,63,63,63,0,Mobile app
+11.10.2026.,17:02:37,Metro,Metro,,,RTA Metro Stations,Metro Sobha Realty-388-DXB,,Noel David Dycoco,,,100,61.9,32767,Orange Juice New,,,Filled,39,63,63,63,0,Mobile app
+12.10.2026.,22:16:45,Metro,Metro,,,RTA Metro Stations,Metro Sobha Realty-388-DXB,,Kiran Steephen,,,100,36.51,32767,Orange Juice New,,,Filled,23,63,63,63,0,Mobile app
+11.10.2026.,05:49:39,Hospital / Clinics,Hospital / Clinics,,,Hospitals,Dubai Hospital -DHA-860-DXB,,kamran I,,,100,46.03,32767,Orange Juice New,,,Filled,29,63,63,63,0,Mobile app

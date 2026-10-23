@@ -1,0 +1,112 @@
+{
+  "meta": {
+    "code": 200,
+    "message": "OK",
+    "page": 1,
+    "page_size": 5,
+    "has_next_page": true,
+    "number_of_items": null
+  },
+  "content": [
+    {
+      "id": 698591964,
+      "level": 1,
+      "type": "2",
+      "source": 1,
+      "start_time": "2026-10-12T01:01:20Z",
+      "counter": 1,
+      "name": null,
+      "description": "ORF_T109",
+      "resolved_time": null,
+      "resolved_by_user_first_name": null,
+      "resolved_by_user_last_name": null,
+      "machine": {
+        "id": 217267,
+        "caption": "Festival City-Ikea- 795 -DXB",
+        "location_caption": "Shopping Mall / Complex",
+        "micro_market": null
+      },
+      "assigned_users": []
+    },
+    {
+      "id": 698594867,
+      "level": 1,
+      "type": "2",
+      "source": 1,
+      "start_time": "2026-10-12T01:06:37Z",
+      "counter": 1,
+      "name": "Cash Collection",
+      "description": "Cash has been collected from the machine.",
+      "resolved_time": null,
+      "resolved_by_user_first_name": null,
+      "resolved_by_user_last_name": null,
+      "machine": {
+        "id": 217267,
+        "caption": "Festival City-Ikea- 795 -DXB",
+        "location_caption": "Shopping Mall / Complex",
+        "micro_market": null
+      },
+      "assigned_users": []
+    },
+    {
+      "id": 698595284,
+      "level": 1,
+      "type": "0",
+      "source": 1,
+      "start_time": "2026-10-12T01:07:53Z",
+      "counter": 1,
+      "name": "Banknote acceptor error",
+      "description": "Stacker out of position - The validator has detected the cash box to be open or removed.",
+      "resolved_time": "2026-10-12T08:09:22Z",
+      "resolved_by_user_first_name": null,
+      "resolved_by_user_last_name": null,
+      "machine": {
+        "id": 217267,
+        "caption": "Festival City-Ikea- 795 -DXB",
+        "location_caption": "Shopping Mall / Complex",
+        "micro_market": null
+      },
+      "assigned_users": []
+    },
+    {
+      "id": 698644167,
+      "level": 1,
+      "type": "2",
+      "source": 1,
+      "start_time": "2026-10-12T03:06:46Z",
+      "counter": 1,
+      "name": null,
+      "description": "ORF_T70",
+      "resolved_time": null,
+      "resolved_by_user_first_name": null,
+      "resolved_by_user_last_name": null,
+      "machine": {
+        "id": 217267,
+        "caption": "Festival City-Ikea- 795 -DXB",
+        "location_caption": "Shopping Mall / Complex",
+        "micro_market": null
+      },
+      "assigned_users": []
+    },
+    {
+      "id": 698711357,
+      "level": 1,
+      "type": "2",
+      "source": 1,
+      "start_time": "2026-10-12T04:42:32Z",
+      "counter": 1,
+      "name": null,
+      "description": "ORF_RST",
+      "resolved_time": null,
+      "resolved_by_user_first_name": null,
+      "resolved_by_user_last_name": null,
+      "machine": {
+        "id": 217267,
+        "caption": "Festival City-Ikea- 795 -DXB",
+        "location_caption": "Shopping Mall / Complex",
+        "micro_market": null
+      },
+      "assigned_users": []
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+import "dotenv/config";
+import postgres from "postgres";
+import { parseRefillLog } from "../../packages/televend/src/index.js";
+import { readFileSync } from "node:fs";
+const sql = postgres(process.env.DATABASE_URL_SERVICE!, { onnotice: () => {} });
+console.table(await sql`select source, action, origin, raw->>'fill_type' fill_type, count(*)::int n from tv_refill group by 1,2,3,4 order by 1,2,3`);
+const csv = parseRefillLog(readFileSync("data-televend/refill_log (2).csv"));
+const by = new Map<string, number>();
+for (const r of csv) by.set(`${r.action}|${r.origin}`, (by.get(`${r.action}|${r.origin}`) ?? 0) + 1);
+console.log("export actions (1 Sep-13 Oct):", Object.fromEntries(by));
+await sql.end();

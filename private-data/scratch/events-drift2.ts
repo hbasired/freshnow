@@ -1,0 +1,18 @@
+import "dotenv/config";
+import { BridgeSource, PasswordSession, TelevendClient, readTelevendConfig, CASH_COLLECTED_DESCRIPTION } from "../../packages/televend/src/index.js";
+const cfg = readTelevendConfig()!;
+const s = new PasswordSession({ username: cfg.username!, password: cfg.password! }, { fetch: globalThis.fetch as never, now: Date.now });
+const c = new TelevendClient(s, { tenantId: cfg.tenantId, companyId: cfg.companyId, minIntervalMs: 1000 });
+const src = new BridgeSource(c, { tenantId: cfg.tenantId, companyId: cfg.companyId });
+const from = new Date("2026-10-14T12:00:00+04:00"), to = new Date("2026-10-15T11:00:00+04:00");
+const run = async () => (await src.events({ from, to }, { maxRows: 20000 })).rows;
+const a = await run();
+const b = await run();
+const ia = new Set(a.map((e) => e.televendId)), ib = new Set(b.map((e) => e.televendId));
+const dupA = a.length - ia.size, dupB = b.length - ib.size;
+console.log(`23-hour window: run1 rows ${a.length} distinct ${ia.size} (dups ${dupA}); run2 rows ${b.length} distinct ${ib.size} (dups ${dupB})`);
+console.log(`only in run1: ${[...ia].filter((x) => !ib.has(x)).length}, only in run2: ${[...ib].filter((x) => !ia.has(x)).length}`);
+const cash = (rows: typeof a) => new Set(rows.filter((e) => (e.description ?? "").trim() === CASH_COLLECTED_DESCRIPTION).map((e) => e.televendId));
+const ca = cash(a), cb = cash(b);
+console.log(`cash-collected events: run1 ${ca.size}, run2 ${cb.size}, differing ${[...ca].filter((x) => !cb.has(x)).length + [...cb].filter((x) => !ca.has(x)).length}`);
+console.log("requests:", c.sent);

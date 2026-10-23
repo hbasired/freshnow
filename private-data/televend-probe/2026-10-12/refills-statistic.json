@@ -1,0 +1,13 @@
+{
+  "meta": {
+    "code": 200,
+    "message": "ok"
+  },
+  "content": {
+    "grouped_events_list": [],
+    "avg_no_empties": 0,
+    "avg_fillings": 0,
+    "avg_stocks": 0,
+    "no_of_visits": 0
+  }
+}

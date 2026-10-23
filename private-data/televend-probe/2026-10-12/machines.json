@@ -1,0 +1,300 @@
+{
+  "meta": {
+    "code": 200,
+    "message": "OK",
+    "page": 1,
+    "page_size": 5,
+    "has_next_page": true,
+    "number_of_items": 221
+  },
+  "content": [
+    {
+      "id": 506389,
+      "caption": "Arabian center-393- Cashless 1-DXB",
+      "role": "VENDING_MACHINE",
+      "location": {
+        "id": 82456,
+        "city": "Dubai",
+        "caption": "Shopping Centers",
+        "address": "Dubai Silicon Oasis - Dubai - United Arab Emirates"
+      },
+      "enabled": true,
+      "machine_type": {
+        "id": 20665,
+        "caption": "Shopping Malls"
+      },
+      "client": null,
+      "stock_tracking": true,
+      "pid": "2202643683",
+      "column_count": 1,
+      "device_type": "Shopping Malls",
+      "route": false,
+      "last_refill": "13.10.2026. 23:33",
+      "last_refill_utc": "2026-10-13T23:33:23+00:00",
+      "last_vend": "14.10.2026. 18:27",
+      "last_vend_utc": "2026-10-14T18:27:34+00:00",
+      "model_number": null,
+      "connection_details": {
+        "signal_strength": 100,
+        "connection_status": 1
+      },
+      "stock": 0.88889,
+      "stock_data": {
+        "percentage": 0.8888888888888888,
+        "sum_column_percentage": 0.8888888888888888,
+        "num_column": 1,
+        "product_percentage": 0.8888888888888888,
+        "sum_component_percentage": 0,
+        "num_component": 0,
+        "component_percentage": 0,
+        "category_percentages": [],
+        "has_negative_value_product": false,
+        "has_negative_value_component": false
+      },
+      "fiscalization_type": 0,
+      "last_status": 1,
+      "barcode": null,
+      "external_id": "",
+      "region": {
+        "id": 9233,
+        "caption": "Shopping Centers"
+      },
+      "status_info": null,
+      "machine_clusters": [],
+      "free_vend": false,
+      "sales_tax_calculation_mode": "NO_CALCULATION",
+      "micro_market_entities": []
+    },
+    {
+      "id": 505434,
+      "caption": "Expo-393-back-aed15-card only-Cashless 1-SHJ",
+      "role": "VENDING_MACHINE",
+      "location": {
+        "id": 82459,
+        "city": "Dubai",
+        "caption": "Events",
+        "address": "Mirdif - Dubai - United Arab Emirates"
+      },
+      "enabled": false,
+      "machine_type": {
+        "id": 32718,
+        "caption": "Exhibition Center"
+      },
+      "client": null,
+      "stock_tracking": false,
+      "pid": null,
+      "column_count": 1,
+      "device_type": "Exhibition Center",
+      "route": false,
+      "last_refill": null,
+      "last_refill_utc": null,
+      "last_vend": "06.10.2026. 12:03",
+      "last_vend_utc": "2026-10-06T12:03:02+00:00",
+      "model_number": null,
+      "connection_details": {
+        "signal_strength": 100,
+        "connection_status": 1
+      },
+      "stock": -0.06349,
+      "stock_data": {
+        "percentage": -0.06349206349206349,
+        "sum_column_percentage": -0.06349206349206349,
+        "num_column": 1,
+        "product_percentage": -0.06349206349206349,
+        "sum_component_percentage": 0,
+        "num_component": 0,
+        "component_percentage": 0,
+        "category_percentages": [],
+        "has_negative_value_product": true,
+        "has_negative_value_component": false
+      },
+      "fiscalization_type": 0,
+      "last_status": 3,
+      "barcode": null,
+      "external_id": "",
+      "region": {
+        "id": 9236,
+        "caption": "Events"
+      },
+      "status_info": {
+        "message": "Cashless device",
+        "start_time": "2026-10-06T18:19:23Z"
+      },
+      "machine_clusters": [],
+      "free_vend": null,
+      "sales_tax_calculation_mode": "NO_CALCULATION",
+      "micro_market_entities": []
+    },
+    {
+      "id": 505110,
+      "caption": "Expo-798-back-AED15-Card only-Cashless 1-SHJ",
+      "role": "VENDING_MACHINE",
+      "location": {
+        "id": 82459,
+        "city": "Dubai",
+        "caption": "Events",
+        "address": "Mirdif - Dubai - United Arab Emirates"
+      },
+      "enabled": true,
+      "machine_type": {
+        "id": 32718,
+        "caption": "Exhibition Center"
+      },
+      "client": null,
+      "stock_tracking": true,
+      "pid": "2202643703",
+      "column_count": 1,
+      "device_type": "Exhibition Center",
+      "route": false,
+      "last_refill": "14.10.2026. 17:04",
+      "last_refill_utc": "2026-10-14T17:04:37+00:00",
+      "last_vend": "14.10.2026. 19:23",
+      "last_vend_utc": "2026-10-14T19:23:33+00:00",
+      "model_number": null,
+      "connection_details": {
+        "signal_strength": 84,
+        "connection_status": 1
+      },
+      "stock": 0.73016,
+      "stock_data": {
+        "percentage": 0.7301587301587301,
+        "sum_column_percentage": 0.7301587301587301,
+        "num_column": 1,
+        "product_percentage": 0.7301587301587301,
+        "sum_component_percentage": 0,
+        "num_component": 0,
+        "component_percentage": 0,
+        "category_percentages": [],
+        "has_negative_value_product": false,
+        "has_negative_value_component": false
+      },
+      "fiscalization_type": 0,
+      "last_status": 1,
+      "barcode": null,
+      "external_id": "",
+      "region": {
+        "id": 9236,
+        "caption": "Events"
+      },
+      "status_info": null,
+      "machine_clusters": [],
+      "free_vend": false,
+      "sales_tax_calculation_mode": "NO_CALCULATION",
+      "micro_market_entities": []
+    },
+    {
+      "id": 505108,
+      "caption": "Expo-364-back-AED15-CARD only-Cashless 1-SHJ",
+      "role": "VENDING_MACHINE",
+      "location": {
+        "id": 82459,
+        "city": "Dubai",
+        "caption": "Events",
+        "address": "Mirdif - Dubai - United Arab Emirates"
+      },
+      "enabled": true,
+      "machine_type": {
+        "id": 32718,
+        "caption": "Exhibition Center"
+      },
+      "client": null,
+      "stock_tracking": true,
+      "pid": "2202648889",
+      "column_count": 1,
+      "device_type": "Exhibition Center",
+      "route": false,
+      "last_refill": "14.10.2026. 17:26",
+      "last_refill_utc": "2026-10-14T17:26:34+00:00",
+      "last_vend": "14.10.2026. 18:09",
+      "last_vend_utc": "2026-10-14T18:09:46+00:00",
+      "model_number": null,
+      "connection_details": {
+        "signal_strength": 74,
+        "connection_status": 1
+      },
+      "stock": 0.93651,
+      "stock_data": {
+        "percentage": 0.9365079365079365,
+        "sum_column_percentage": 0.9365079365079365,
+        "num_column": 1,
+        "product_percentage": 0.9365079365079365,
+        "sum_component_percentage": 0,
+        "num_component": 0,
+        "component_percentage": 0,
+        "category_percentages": [],
+        "has_negative_value_product": false,
+        "has_negative_value_component": false
+      },
+      "fiscalization_type": 0,
+      "last_status": 1,
+      "barcode": null,
+      "external_id": "",
+      "region": {
+        "id": 9236,
+        "caption": "Events"
+      },
+      "status_info": null,
+      "machine_clusters": [],
+      "free_vend": false,
+      "sales_tax_calculation_mode": "NO_CALCULATION",
+      "micro_market_entities": []
+    },
+    {
+      "id": 503894,
+      "caption": "prime nahda clinic sharjah -AED12-Cashless1 only -796-SHJ",
+      "role": "VENDING_MACHINE",
+      "location": {
+        "id": 82459,
+        "city": "Dubai",
+        "caption": "Events",
+        "address": "Mirdif - Dubai - United Arab Emirates"
+      },
+      "enabled": true,
+      "machine_type": {
+        "id": 32718,
+        "caption": "Exhibition Center"
+      },
+      "client": null,
+      "stock_tracking": true,
+      "pid": "2202643690",
+      "column_count": 1,
+      "device_type": "Exhibition Center",
+      "route": false,
+      "last_refill": "12.10.2026. 22:23",
+      "last_refill_utc": "2026-10-12T22:23:39+00:00",
+      "last_vend": "15.10.2026. 08:26",
+      "last_vend_utc": "2026-10-15T08:26:22+00:00",
+      "model_number": null,
+      "connection_details": {
+        "signal_strength": 77,
+        "connection_status": 1
+      },
+      "stock": 0.36667,
+      "stock_data": {
+        "percentage": 0.36666666666666664,
+        "sum_column_percentage": 0.36666666666666664,
+        "num_column": 1,
+        "product_percentage": 0.36666666666666664,
+        "sum_component_percentage": 0,
+        "num_component": 0,
+        "component_percentage": 0,
+        "category_percentages": [],
+        "has_negative_value_product": false,
+        "has_negative_value_component": false
+      },
+      "fiscalization_type": 0,
+      "last_status": 1,
+      "barcode": null,
+      "external_id": "",
+      "region": {
+        "id": 9236,
+        "caption": "Events"
+      },
+      "status_info": null,
+      "machine_clusters": [],
+      "free_vend": false,
+      "sales_tax_calculation_mode": null,
+      "micro_market_entities": []
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+import "dotenv/config";
+import postgres from "postgres";
+const sql = postgres(process.env.DATABASE_URL_SERVICE!, { onnotice: () => {} });
+const m = await sql`select televend_id, caption, asset_no, enabled, first_seen_at, last_seen_at, raw->>'last_refill' as last_refill, raw->>'is_enabled' as is_enabled from tv_machine where asset_no = '393' or caption ilike '%393%'`;
+console.log("tv_machine rows for 393:", m.length);
+for (const r of m) console.log(" ", r.televend_id, "| enabled", r.enabled, "| last_refill", r.last_refill, "| first_seen", r.first_seen_at?.toISOString?.());
+const caps = await sql`select televend_id, caption from tv_machine_caption where caption ilike '%393%'`;
+console.log("captions:", caps.length);
+const rf = await sql`select date_trunc('day', at at time zone 'Asia/Dubai') as d, count(*)::int n, array_agg(distinct column_no) cols from tv_refill where machine_caption ilike '%393%' group by 1 order by 1`;
+console.log("refills stored for 393 by Dubai day:", rf.map((r) => `${r.d.toISOString().slice(0,10)}:${r.n} cols ${r.cols}`).join(", "));
+const c32767 = await sql`select count(*)::int n, count(distinct machine_caption)::int machines from tv_refill where column_no = 32767`;
+console.log("stored rows with column 32767:", c32767[0]);
+const enabledCount = await sql`select count(*) filter (where enabled)::int enabled, count(*)::int total from tv_machine`;
+console.log("tv_machine enabled/total:", enabledCount[0]);
+await sql.end();

@@ -1,0 +1,177 @@
+  tv_machine:
+    notes: >
+      Televend's vending machines as last read from Televend (migration 0023, refreshed by every sync). A read-only copy —
+      nothing here is written back to Televend. Names change over time (see tv_machine_caption); the physical machine,
+      with the asset number staff use, is in `machine`. Visible to the CEO only until the operations roles exist.
+    columns:
+      televend_id: Televend's own id for the machine record. Primary key.
+      caption: The machine's current name in Televend, e.g. "Metro …-791-DXB". Not an identity — names change.
+      asset_no: The 3–4 digit number inside the name that staff write ("Mina 793"); survives renames. NULL when the name has none.
+      enabled: Whether the machine is enabled in Televend (the live fleet).
+      pid: The telemetry box's id as Televend shows it.
+      external_id: The machine's external id in Televend, when one is set.
+      location_id: Televend's location record id.
+      location_caption: Televend's location group, e.g. "Metro", "Hospital / Clinics" — a grouping, not an address.
+      city: City of the location as Televend has it.
+      region_caption: Televend region.
+      machine_type_caption: Televend machine type, e.g. "RTA Metro Stations", "Hospitals".
+      stock_tracking: Whether Televend tracks this machine's stock.
+      last_vend_at: When the machine last sold, per Televend.
+      last_refill_at: When the machine was last refilled, per Televend. A change is how the sync knows which refill logs to read.
+      stock_percent: Televend's stock level, percent of the machine's capacity in cups.
+      last_status: Televend's last status code for the machine (code meanings not yet mapped).
+      connection_status: Televend's connection status code.
+      signal_strength: Mobile signal strength the telemetry box reported.
+      raw: Televend's own JSON for the machine as last read — for replaying the normalisation.
+      first_seen_at: When the sync first saw this machine.
+      last_seen_at: When the sync last saw it.
+      is_synthetic: TRUE for demo/test rows.
+
+  tv_machine_caption:
+    notes: Every name a Televend machine has had, with when the sync first and last saw it. Answers "what was this machine called on 12 Oct?" — exports and WhatsApp posts use old names.
+    columns:
+      televend_id: The Televend machine. Part of the primary key.
+      caption: One of its names. Part of the primary key.
+      first_seen_at: When the sync first saw this name.
+      last_seen_at: When the sync last saw this name.
+    foreign_keys:
+      televend_id:
+        references: tv_machine.televend_id
+        purpose: "Which machine had this name. Join to tv_machine for its current name and details."
+
+  machine:
+    notes: >
+      FreshNow's own record of a physical vending machine — one per asset number. Created by the Televend sync on first
+      sight of an enabled machine; later carries the QR sticker token a visit starts with. Televend's records of the same
+      machine (it can move or be re-registered) are linked through machine_placement.
+    columns:
+      id: Primary key.
+      asset_no: The machine's asset number, as staff write it. Unique.
+      label: What people call it today — follows the Televend name unless set by hand.
+      label_manual: TRUE when the label was set by hand and the sync must not change it.
+      model: Machine model, when known (e.g. an Oranfresh model).
+      serial_no: Manufacturer serial number, when known.
+      qr_token: Random token printed as the machine's QR sticker; scanning it proves presence at the machine.
+      status: active | inactive | retired.
+      notes: Free notes about the machine.
+      created_at: When the record was created.
+      updated_at: When it last changed.
+      is_synthetic: TRUE for demo/test rows.
+
+  machine_placement:
+    notes: Which Televend machine record a physical machine is, over time. One open placement (valid_to NULL) per Televend record; a disabled Televend machine has none.
+    columns:
+      id: Primary key.
+      machine_id: The physical machine.
+      tv_machine_id: The Televend machine record it is (or was).
+      valid_from: Since when.
+      valid_to: Until when; NULL = now.
+      source: televend_sync (made by the sync) | manual.
+      created_at: When the row was written.
+      is_synthetic: TRUE for demo/test rows.
+    foreign_keys:
+      machine_id:
+        references: machine.id
+        purpose: "The physical machine — join to machine for its asset number and label."
+      tv_machine_id:
+        references: tv_machine.televend_id
+        purpose: "The Televend record — join to tv_machine to reach its vends, events and refills (by machine_tv_id)."
+
+  tv_vend:
+    notes: >
+      Every sale (vend) Televend recorded, one row each, copied by the sync (migration 0023). One cup per row in practice
+      (quantity). Payment types as Televend names them (Cash, Cashless, Cashless 3, Token, Wallet). `value` is NULL while
+      the Televend account may not see revenue. Counts per day are only complete for days whose tv_sync_run says complete.
+    columns:
+      source: Which Televend transport read it — bridge (web endpoints) or official (Data-Streaming API). Part of the primary key.
+      external_id: Televend's id for the vend in that transport. Part of the primary key.
+      machine_tv_id: The Televend machine (tv_machine.televend_id); not a foreign key so a vend from a machine not yet synced is kept.
+      at: When the vend happened.
+      product: Product name, e.g. "Orange Juice New".
+      payment_type: Televend's payment type code.
+      payment_caption: Payment type as Televend names it.
+      value: Price paid in AED; NULL when hidden from the Televend account.
+      column_no: Machine column (32767 = Televend's default single column).
+      quantity: Units sold in this vend.
+      price_list: Televend price list number.
+      device_vend_id: The telemetry box's own vend number — recognises one vend across transports.
+      raw: Televend's own JSON for the vend.
+      synced_at: When the sync stored it.
+      is_synthetic: TRUE for demo/test rows.
+
+  tv_event:
+    notes: >
+      Every machine event Televend recorded — alarms (kind alarm), warnings, and info events such as "Cash has been
+      collected from the machine." (migration 0023). Updated when Televend resolves an alarm. Over half of alarms are
+      short blips that clear within minutes; actionable ones stay open for hours (TASK-055 findings).
+    columns:
+      source: bridge | official. Part of the primary key.
+      external_id: Televend's id for the event. Part of the primary key.
+      machine_tv_id: The Televend machine (tv_machine.televend_id).
+      level: Televend's level — 3 alarm, 2 warning, 1 info.
+      kind: alarm | warning | info | unknown — the level in words.
+      type_code: Televend's event type code.
+      source_code: Televend's code for where the event came from (machine, server…).
+      name: Event name as Televend's exports show it, when given.
+      description: What happened, in Televend's words, e.g. "Bill / Cash Box Full", "ORF_RST".
+      started_at: When it started (for a repeating alarm, its latest start).
+      resolved_at: When Televend marked it resolved; NULL while open. Can be earlier than started_at for repeating alarms.
+      counter: How many times it repeated.
+      raw: Televend's own JSON for the event (it can include who resolved it — personal data).
+      first_seen_at: When the sync first stored it.
+      last_seen_at: When the sync last changed it.
+      is_synthetic: TRUE for demo/test rows.
+
+  tv_refill:
+    notes: >
+      Every refill log row Televend recorded: who filled which machine, when, by how many cups (migration 0023).
+      Corrections typed later through Televend's web app are rows with action 'corrected' — they are not new fills.
+      filled_by is personal data (a person's name).
+    columns:
+      id: Primary key.
+      source: bridge | official | file (a portal export).
+      natural_key: Machine asset number + time to the second + action + quantity — the refill's identity across sources. Unique.
+      machine_tv_id: The Televend machine (tv_machine.televend_id); NULL for rows imported from an export.
+      machine_caption: The machine's name when the row was read.
+      at: When the refill was logged.
+      filled_by: Who filled, as Televend shows the name. Personal data.
+      role: Their Televend role, e.g. Filler.
+      column_no: Machine column.
+      product: Product filled.
+      action: filled | corrected | removed | unknown.
+      quantity_change: Cups added (negative for a downward correction).
+      quantity_after: Cups in the machine after the change.
+      capacity: Machine capacity in cups.
+      origin: mobile_app (Staff App at the machine) | web_app | televend | unknown.
+      raw: Televend's own JSON for the row (includes the name).
+      synced_at: When the sync stored it.
+      is_synthetic: TRUE for demo/test rows.
+
+  tv_sync_run:
+    notes: One row per Televend sync or backfill run per stream — window, requests sent, rows read, new and changed, and whether the read was complete (for a whole day of vends, complete also means it equalled Televend's own count). The record that says which days can be trusted as complete.
+    columns:
+      id: Primary key.
+      stream: machines | vends | events | refills.
+      mode: incremental (every ~10 min) | daily_check (yesterday, whole day) | backfill.
+      transport: bridge | official | files.
+      window_from: Start of the time window read.
+      window_to: End of the window read.
+      requests: Requests sent to Televend by this run.
+      rows_read: Rows Televend returned.
+      rows_new: Rows that were new to the mirror.
+      rows_changed: Rows that changed (e.g. an alarm resolved).
+      complete: TRUE only for a complete read (and, for whole-day vends, a count that matched Televend's).
+      televend_count: Televend's own vend count for the window, when it was checked.
+      status: ok | partial | error.
+      error: What went wrong, when it did.
+      correlation_id: Ties the run to audit and job records.
+      started_at: When the run started.
+      finished_at: When it finished.
+
+  tv_sync_cursor:
+    notes: How far each Televend stream has been read completely by the incremental sync. Moves only after a complete read.
+    columns:
+      stream: vends | events | refills. Primary key.
+      read_until: Everything before this instant has been read completely at least once.
+      updated_at: When it last moved.
+

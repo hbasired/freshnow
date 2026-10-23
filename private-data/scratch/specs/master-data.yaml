@@ -1,0 +1,4743 @@
+openapi: 3.0.2
+info:
+  title: Importer
+  version: 1.11.0
+paths:
+  /importer/machines/api/v1:
+    get:
+      tags:
+        - IMPORTER/MACHINES
+      summary: Get Machines
+      description: Get paginated list of Machines
+      operationId: get_machines_importer_machines_api_v1_get
+      parameters:
+        - name: Authorization
+          in: header
+          description: JWT access token for authentication/authorization. Token type is 'Bearer'
+          required: true
+          schema: &a1
+            type: string
+          example: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI.gOiAiSldUIiwia2lkIiA6ICJIZWtNRnBTS05Uak80V3JEcU5qTWZHNU5BMEdkUjR5Ym.FSaXZiMUtWT09RIn0
+        - required: false
+          schema:
+            title: Machineid
+            maxLength: 32
+            type: array
+            items:
+              maxLength: 32
+              type: string
+          name: machineId
+          in: query
+        - description: If not specified, first page is returned
+          required: false
+          schema:
+            title: Page
+            minimum: 1
+            type: integer
+            description: If not specified, first page is returned
+            default: 1
+          name: page
+          in: query
+        - description: If not specified, first 500 entities are returned
+          required: false
+          schema:
+            title: Page Size
+            maximum: 2000
+            minimum: 1
+            type: integer
+            description: If not specified, first 500 entities are returned
+            default: 500
+          name: page_size
+          in: query
+      responses:
+        "200":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CamelCasePaginationResponseModel_ImporterMachineResponse_"
+  /importer/machines/api/v1/upsert:
+    patch:
+      tags:
+        - IMPORTER/MACHINES
+      summary: Machine Bulk Upsert
+      description: Upsert machine by external ID. If machine is found for specified external ID, machine will be updated. Otherwise, new machine will be created.
+      operationId: machine_bulk_upsert_importer_machines_api_v1_upsert_patch
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImporterMachineBulkInput"
+        required: true
+      responses:
+        "201":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkOutput"
+      parameters:
+        - name: Authorization
+          in: header
+          description: JWT access token for authentication/authorization. Token type is 'Bearer'
+          required: true
+          schema: *a1
+          example: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI.gOiAiSldUIiwia2lkIiA6ICJIZWtNRnBTS05Uak80V3JEcU5qTWZHNU5BMEdkUjR5Ym.FSaXZiMUtWT09RIn0
+  /importer/machines/api/v1/delete:
+    post:
+      tags:
+        - IMPORTER/MACHINES
+      summary: Machine Bulk Delete
+      description: Delete list of machines identified by external ID
+      operationId: machine_bulk_delete_importer_machines_api_v1_delete_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImporterMachineBulkDeleteInput"
+        required: true
+      responses:
+        "201":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkOutput"
+      parameters:
+        - name: Authorization
+          in: header
+          description: JWT access token for authentication/authorization. Token type is 'Bearer'
+          required: true
+          schema: *a1
+          example: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI.gOiAiSldUIiwia2lkIiA6ICJIZWtNRnBTS05Uak80V3JEcU5qTWZHNU5BMEdkUjR5Ym.FSaXZiMUtWT09RIn0
+  /importer/locations/api/v1:
+    get:
+      tags:
+        - IMPORTER/LOCATIONS
+      summary: Get Locations
+      description: Get paginated list of Locations
+      operationId: get_locations_importer_locations_api_v1_get
+      parameters:
+        - name: Authorization
+          in: header
+          description: JWT access token for authentication/authorization. Token type is 'Bearer'
+          required: true
+          schema: *a1
+          example: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI.gOiAiSldUIiwia2lkIiA6ICJIZWtNRnBTS05Uak80V3JEcU5qTWZHNU5BMEdkUjR5Ym.FSaXZiMUtWT09RIn0
+        - required: false
+          schema:
+            title: Locationid
+            maxLength: 32
+            type: array
+            items:
+              maxLength: 32
+              type: string
+          name: locationId
+          in: query
+        - description: If not specified, first page is returned
+          required: false
+          schema:
+            title: Page
+            minimum: 1
+            type: integer
+            description: If not specified, first page is returned
+            default: 1
+          name: page
+          in: query
+        - description: If not specified, first 500 entities are returned
+          required: false
+          schema:
+            title: Page Size
+            maximum: 2000
+            minimum: 1
+            type: integer
+            description: If not specified, first 500 entities are returned
+            default: 500
+          name: page_size
+          in: query
+      responses:
+        "200":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CamelCasePaginationResponseModel_ImporterLocationResponse_"
+  /importer/locations/api/v1/upsert:
+    patch:
+      tags:
+        - IMPORTER/LOCATIONS
+      summary: Location Bulk Upsert
+      description: Upsert Location by external ID. If location is found for specified external ID, location will be updated. Otherwise, new location will be created.
+      operationId: location_bulk_upsert_importer_locations_api_v1_upsert_patch
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImporterLocationBulkInput"
+        required: true
+      responses:
+        "201":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkOutput"
+      parameters:
+        - name: Authorization
+          in: header
+          description: JWT access token for authentication/authorization. Token type is 'Bearer'
+          required: true
+          schema: *a1
+          example: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI.gOiAiSldUIiwia2lkIiA6ICJIZWtNRnBTS05Uak80V3JEcU5qTWZHNU5BMEdkUjR5Ym.FSaXZiMUtWT09RIn0
+  /importer/locations/api/v1/delete:
+    post:
+      tags:
+        - IMPORTER/LOCATIONS
+      summary: Location Bulk Delete
+      description: Delete list of Locations identified by external ID
+      operationId: location_bulk_delete_importer_locations_api_v1_delete_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImporterLocationBulkDeleteInput"
+        required: true
+      responses:
+        "201":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkOutput"
+      parameters:
+        - name: Authorization
+          in: header
+          description: JWT access token for authentication/authorization. Token type is 'Bearer'
+          required: true
+          schema: *a1
+          example: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI.gOiAiSldUIiwia2lkIiA6ICJIZWtNRnBTS05Uak80V3JEcU5qTWZHNU5BMEdkUjR5Ym.FSaXZiMUtWT09RIn0
+  /importer/regions/api/v1:
+    get:
+      tags:
+        - IMPORTER/REGIONS
+      summary: Get Regions
+      description: Get paginated list of Regions
+      operationId: get_regions_importer_regions_api_v1_get
+      parameters:
+        - name: Authorization
+          in: header
+          description: JWT access token for authentication/authorization. Token type is 'Bearer'
+          required: true
+          schema: *a1
+          example: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI.gOiAiSldUIiwia2lkIiA6ICJIZWtNRnBTS05Uak80V3JEcU5qTWZHNU5BMEdkUjR5Ym.FSaXZiMUtWT09RIn0
+        - required: false
+          schema:
+            title: Regionid
+            maxLength: 32
+            type: array
+            items:
+              maxLength: 32
+              type: string
+          name: regionId
+          in: query
+        - description: If not specified, first page is returned
+          required: false
+          schema:
+            title: Page
+            minimum: 1
+            type: integer
+            description: If not specified, first page is returned
+            default: 1
+          name: page
+          in: query
+        - description: If not specified, first 500 entities are returned
+          required: false
+          schema:
+            title: Page Size
+            maximum: 2000
+            minimum: 1
+            type: integer
+            description: If not specified, first 500 entities are returned
+            default: 500
+          name: page_size
+          in: query
+      responses:
+        "200":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CamelCasePaginationResponseModel_ImporterRegionResponse_"
+  /importer/regions/api/v1/upsert:
+    patch:
+      tags:
+        - IMPORTER/REGIONS
+      summary: Region Bulk Upsert
+      description: Upsert Region by external ID. If region is found for specified external ID, region will be updated. Otherwise, new region will be created.
+      operationId: region_bulk_upsert_importer_regions_api_v1_upsert_patch
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImporterRegionBulkInput"
+        required: true
+      responses:
+        "201":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkOutput"
+      parameters:
+        - name: Authorization
+          in: header
+          description: JWT access token for authentication/authorization. Token type is 'Bearer'
+          required: true
+          schema: *a1
+          example: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI.gOiAiSldUIiwia2lkIiA6ICJIZWtNRnBTS05Uak80V3JEcU5qTWZHNU5BMEdkUjR5Ym.FSaXZiMUtWT09RIn0
+  /importer/regions/api/v1/delete:
+    post:
+      tags:
+        - IMPORTER/REGIONS
+      summary: Region Bulk Delete
+      description: Delete list of Regions identified by external ID
+      operationId: region_bulk_delete_importer_regions_api_v1_delete_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImporterRegionBulkDeleteInput"
+        required: true
+      responses:
+        "201":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkOutput"
+      parameters:
+        - name: Authorization
+          in: header
+          description: JWT access token for authentication/authorization. Token type is 'Bearer'
+          required: true
+          schema: *a1
+          example: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI.gOiAiSldUIiwia2lkIiA6ICJIZWtNRnBTS05Uak80V3JEcU5qTWZHNU5BMEdkUjR5Ym.FSaXZiMUtWT09RIn0
+  /importer/machine-types/api/v1:
+    get:
+      tags:
+        - IMPORTER/MACHINE-TYPES
+      summary: Get Machine Types
+      description: Get paginated list of Machine types
+      operationId: get_machine_types_importer_machine_types_api_v1_get
+      parameters:
+        - name: Authorization
+          in: header
+          description: JWT access token for authentication/authorization. Token type is 'Bearer'
+          required: true
+          schema: *a1
+          example: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI.gOiAiSldUIiwia2lkIiA6ICJIZWtNRnBTS05Uak80V3JEcU5qTWZHNU5BMEdkUjR5Ym.FSaXZiMUtWT09RIn0
+        - required: false
+          schema:
+            title: Machinetypeid
+            maxLength: 32
+            type: array
+            items:
+              maxLength: 32
+              type: string
+          name: machineTypeId
+          in: query
+        - description: If not specified, first page is returned
+          required: false
+          schema:
+            title: Page
+            minimum: 1
+            type: integer
+            description: If not specified, first page is returned
+            default: 1
+          name: page
+          in: query
+        - description: If not specified, first 500 entities are returned
+          required: false
+          schema:
+            title: Page Size
+            maximum: 2000
+            minimum: 1
+            type: integer
+            description: If not specified, first 500 entities are returned
+            default: 500
+          name: page_size
+          in: query
+      responses:
+        "200":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CamelCasePaginationResponseModel_ImporterMachineTypeResponse_"
+  /importer/machine-types/api/v1/upsert:
+    patch:
+      tags:
+        - IMPORTER/MACHINE-TYPES
+      summary: Machine Type Bulk Upsert
+      description: Upsert Machine type by external ID. If machine type is found for specified external ID, machine type will be updated. Otherwise, new machine type will be created.
+      operationId: machine_type_bulk_upsert_importer_machine_types_api_v1_upsert_patch
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImporterMachineTypeBulkInput"
+        required: true
+      responses:
+        "201":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkOutput"
+      parameters:
+        - name: Authorization
+          in: header
+          description: JWT access token for authentication/authorization. Token type is 'Bearer'
+          required: true
+          schema: *a1
+          example: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI.gOiAiSldUIiwia2lkIiA6ICJIZWtNRnBTS05Uak80V3JEcU5qTWZHNU5BMEdkUjR5Ym.FSaXZiMUtWT09RIn0
+  /importer/machine-types/api/v1/delete:
+    post:
+      tags:
+        - IMPORTER/MACHINE-TYPES
+      summary: Machine Type Bulk Delete
+      description: Delete list of Machine types identified by external ID
+      operationId: machine_type_bulk_delete_importer_machine_types_api_v1_delete_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImporterMachineTypeBulkDeleteInput"
+        required: true
+      responses:
+        "201":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkOutput"
+      parameters:
+        - name: Authorization
+          in: header
+          description: JWT access token for authentication/authorization. Token type is 'Bearer'
+          required: true
+          schema: *a1
+          example: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI.gOiAiSldUIiwia2lkIiA6ICJIZWtNRnBTS05Uak80V3JEcU5qTWZHNU5BMEdkUjR5Ym.FSaXZiMUtWT09RIn0
+  /importer/components/api/v1:
+    get:
+      tags:
+        - IMPORTER/COMPONENTS
+      summary: Get Components
+      description: Get paginated list of Components
+      operationId: get_components_importer_components_api_v1_get
+      parameters:
+        - name: Authorization
+          in: header
+          description: JWT access token for authentication/authorization. Token type is 'Bearer'
+          required: true
+          schema: *a1
+          example: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI.gOiAiSldUIiwia2lkIiA6ICJIZWtNRnBTS05Uak80V3JEcU5qTWZHNU5BMEdkUjR5Ym.FSaXZiMUtWT09RIn0
+        - required: false
+          schema:
+            title: Componentid
+            maxLength: 30
+            type: array
+            items:
+              maxLength: 30
+              type: string
+          name: componentId
+          in: query
+        - description: If not specified, first page is returned
+          required: false
+          schema:
+            title: Page
+            minimum: 1
+            type: integer
+            description: If not specified, first page is returned
+            default: 1
+          name: page
+          in: query
+        - description: If not specified, first 500 entities are returned
+          required: false
+          schema:
+            title: Page Size
+            maximum: 2000
+            minimum: 1
+            type: integer
+            description: If not specified, first 500 entities are returned
+            default: 500
+          name: page_size
+          in: query
+      responses:
+        "200":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CamelCasePaginationResponseModel_ImporterComponentResponse_"
+  /importer/components/api/v1/upsert:
+    patch:
+      tags:
+        - IMPORTER/COMPONENTS
+      summary: Component Bulk Upsert
+      description: Upsert Component by external ID. If component is found for specified external ID, component will be updated. Otherwise, new component will be created.
+      operationId: component_bulk_upsert_importer_components_api_v1_upsert_patch
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImporterComponentBulkInput"
+        required: true
+      responses:
+        "201":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkOutput"
+      parameters:
+        - name: Authorization
+          in: header
+          description: JWT access token for authentication/authorization. Token type is 'Bearer'
+          required: true
+          schema: *a1
+          example: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI.gOiAiSldUIiwia2lkIiA6ICJIZWtNRnBTS05Uak80V3JEcU5qTWZHNU5BMEdkUjR5Ym.FSaXZiMUtWT09RIn0
+  /importer/components/api/v1/delete:
+    post:
+      tags:
+        - IMPORTER/COMPONENTS
+      summary: Component Bulk Delete
+      description: Delete list of Components identified by external ID
+      operationId: component_bulk_delete_importer_components_api_v1_delete_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImporterComponentBulkDeleteInput"
+        required: true
+      responses:
+        "201":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkOutput"
+      parameters:
+        - name: Authorization
+          in: header
+          description: JWT access token for authentication/authorization. Token type is 'Bearer'
+          required: true
+          schema: *a1
+          example: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI.gOiAiSldUIiwia2lkIiA6ICJIZWtNRnBTS05Uak80V3JEcU5qTWZHNU5BMEdkUjR5Ym.FSaXZiMUtWT09RIn0
+  /importer/products/api/v1:
+    get:
+      tags:
+        - IMPORTER/PRODUCTS
+      summary: Get Products
+      description: Get paginated list of Products
+      operationId: get_products_importer_products_api_v1_get
+      parameters:
+        - name: Authorization
+          in: header
+          description: JWT access token for authentication/authorization. Token type is 'Bearer'
+          required: true
+          schema: *a1
+          example: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI.gOiAiSldUIiwia2lkIiA6ICJIZWtNRnBTS05Uak80V3JEcU5qTWZHNU5BMEdkUjR5Ym.FSaXZiMUtWT09RIn0
+        - required: false
+          schema:
+            title: Productid
+            maxLength: 30
+            type: array
+            items:
+              maxLength: 30
+              type: string
+          name: productId
+          in: query
+        - description: If not specified, first page is returned
+          required: false
+          schema:
+            title: Page
+            minimum: 1
+            type: integer
+            description: If not specified, first page is returned
+            default: 1
+          name: page
+          in: query
+        - description: If not specified, first 500 entities are returned
+          required: false
+          schema:
+            title: Page Size
+            maximum: 2000
+            minimum: 1
+            type: integer
+            description: If not specified, first 500 entities are returned
+            default: 500
+          name: page_size
+          in: query
+      responses:
+        "200":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CamelCasePaginationResponseModel_ImporterProductResponse_"
+  /importer/products/api/v1/upsert:
+    patch:
+      tags:
+        - IMPORTER/PRODUCTS
+      summary: Product Bulk Upsert
+      description: Upsert Product by external ID. If product is found for specified external ID, product will be updated. Otherwise, new product will be created.
+      operationId: product_bulk_upsert_importer_products_api_v1_upsert_patch
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImporterProductBulkInput"
+        required: true
+      responses:
+        "201":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkOutput"
+      parameters:
+        - name: Authorization
+          in: header
+          description: JWT access token for authentication/authorization. Token type is 'Bearer'
+          required: true
+          schema: *a1
+          example: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI.gOiAiSldUIiwia2lkIiA6ICJIZWtNRnBTS05Uak80V3JEcU5qTWZHNU5BMEdkUjR5Ym.FSaXZiMUtWT09RIn0
+  /importer/products/api/v1/delete:
+    post:
+      tags:
+        - IMPORTER/PRODUCTS
+      summary: Product Bulk Delete
+      description: Delete list of Products identified by external ID
+      operationId: product_bulk_delete_importer_products_api_v1_delete_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImporterProductBulkDeleteInput"
+        required: true
+      responses:
+        "201":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkOutput"
+      parameters:
+        - name: Authorization
+          in: header
+          description: JWT access token for authentication/authorization. Token type is 'Bearer'
+          required: true
+          schema: *a1
+          example: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI.gOiAiSldUIiwia2lkIiA6ICJIZWtNRnBTS05Uak80V3JEcU5qTWZHNU5BMEdkUjR5Ym.FSaXZiMUtWT09RIn0
+  /importer/clients/api/v1:
+    get:
+      tags:
+        - IMPORTER/CLIENTS
+      summary: Get Clients
+      description: Get paginated list of Clients
+      operationId: get_clients_importer_clients_api_v1_get
+      parameters:
+        - name: Authorization
+          in: header
+          description: JWT access token for authentication/authorization. Token type is 'Bearer'
+          required: true
+          schema: *a1
+          example: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI.gOiAiSldUIiwia2lkIiA6ICJIZWtNRnBTS05Uak80V3JEcU5qTWZHNU5BMEdkUjR5Ym.FSaXZiMUtWT09RIn0
+        - required: false
+          schema:
+            title: Clientid
+            maxLength: 32
+            type: array
+            items:
+              maxLength: 32
+              type: string
+          name: clientId
+          in: query
+        - description: If not specified, first page is returned
+          required: false
+          schema:
+            title: Page
+            minimum: 1
+            type: integer
+            description: If not specified, first page is returned
+            default: 1
+          name: page
+          in: query
+        - description: If not specified, first 500 entities are returned
+          required: false
+          schema:
+            title: Page Size
+            maximum: 2000
+            minimum: 1
+            type: integer
+            description: If not specified, first 500 entities are returned
+            default: 500
+          name: page_size
+          in: query
+      responses:
+        "200":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CamelCasePaginationResponseModel_ImporterClientResponse_"
+  /importer/clients/api/v1/upsert:
+    patch:
+      tags:
+        - IMPORTER/CLIENTS
+      summary: Client Bulk Upsert
+      description: Upsert Client by external ID. If client is found for specified external ID, client will be updated. Otherwise, new client will be created.
+      operationId: client_bulk_upsert_importer_clients_api_v1_upsert_patch
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImporterClientBulkInput"
+        required: true
+      responses:
+        "201":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkOutput"
+      parameters:
+        - name: Authorization
+          in: header
+          description: JWT access token for authentication/authorization. Token type is 'Bearer'
+          required: true
+          schema: *a1
+          example: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI.gOiAiSldUIiwia2lkIiA6ICJIZWtNRnBTS05Uak80V3JEcU5qTWZHNU5BMEdkUjR5Ym.FSaXZiMUtWT09RIn0
+  /importer/clients/api/v1/delete:
+    post:
+      tags:
+        - IMPORTER/CLIENTS
+      summary: Client Bulk Delete
+      description: Delete list of Clients identified by external ID
+      operationId: client_bulk_delete_importer_clients_api_v1_delete_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImporterClientBulkDeleteInput"
+        required: true
+      responses:
+        "201":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkOutput"
+      parameters:
+        - name: Authorization
+          in: header
+          description: JWT access token for authentication/authorization. Token type is 'Bearer'
+          required: true
+          schema: *a1
+          example: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI.gOiAiSldUIiwia2lkIiA6ICJIZWtNRnBTS05Uak80V3JEcU5qTWZHNU5BMEdkUjR5Ym.FSaXZiMUtWT09RIn0
+  /importer/recipes/api/v1:
+    get:
+      tags:
+        - IMPORTER/RECIPES
+      summary: Get Recipes
+      description: Get paginated list of Recipes
+      operationId: get_recipes_importer_recipes_api_v1_get
+      parameters:
+        - name: Authorization
+          in: header
+          description: JWT access token for authentication/authorization. Token type is 'Bearer'
+          required: true
+          schema: *a1
+          example: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI.gOiAiSldUIiwia2lkIiA6ICJIZWtNRnBTS05Uak80V3JEcU5qTWZHNU5BMEdkUjR5Ym.FSaXZiMUtWT09RIn0
+        - required: false
+          schema:
+            title: Recipeid
+            maxLength: 30
+            type: array
+            items:
+              maxLength: 30
+              type: string
+          name: recipeId
+          in: query
+        - description: If not specified, first page is returned
+          required: false
+          schema:
+            title: Page
+            minimum: 1
+            type: integer
+            description: If not specified, first page is returned
+            default: 1
+          name: page
+          in: query
+        - description: If not specified, first 500 entities are returned
+          required: false
+          schema:
+            title: Page Size
+            maximum: 2000
+            minimum: 1
+            type: integer
+            description: If not specified, first 500 entities are returned
+            default: 500
+          name: page_size
+          in: query
+      responses:
+        "200":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CamelCasePaginationResponseModel_ImporterRecipeResponse_"
+  /importer/recipes/api/v1/upsert:
+    patch:
+      tags:
+        - IMPORTER/RECIPES
+      summary: Recipe Bulk Upsert
+      description: Upsert Recipe by external ID. If recipe is found for specified external ID, recipe will be updated. Otherwise, new recipe will be created.
+      operationId: recipe_bulk_upsert_importer_recipes_api_v1_upsert_patch
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImporterRecipeBulkInput"
+        required: true
+      responses:
+        "201":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkOutput"
+      parameters:
+        - name: Authorization
+          in: header
+          description: JWT access token for authentication/authorization. Token type is 'Bearer'
+          required: true
+          schema: *a1
+          example: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI.gOiAiSldUIiwia2lkIiA6ICJIZWtNRnBTS05Uak80V3JEcU5qTWZHNU5BMEdkUjR5Ym.FSaXZiMUtWT09RIn0
+  /importer/recipes/api/v1/delete:
+    post:
+      tags:
+        - IMPORTER/RECIPES
+      summary: Recipe Bulk Delete
+      description: Delete list of Recipes identified by external ID
+      operationId: recipe_bulk_delete_importer_recipes_api_v1_delete_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImporterRecipeBulkDeleteInput"
+        required: true
+      responses:
+        "201":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkOutput"
+      parameters:
+        - name: Authorization
+          in: header
+          description: JWT access token for authentication/authorization. Token type is 'Bearer'
+          required: true
+          schema: *a1
+          example: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI.gOiAiSldUIiwia2lkIiA6ICJIZWtNRnBTS05Uak80V3JEcU5qTWZHNU5BMEdkUjR5Ym.FSaXZiMUtWT09RIn0
+  /importer/product-categories/api/v1:
+    get:
+      tags:
+        - IMPORTER/PRODUCT-CATEGORIES
+      summary: Get Product Categories
+      description: Get paginated list of ProductCategories
+      operationId: get_product_categories_importer_product_categories_api_v1_get
+      parameters:
+        - name: Authorization
+          in: header
+          description: JWT access token for authentication/authorization. Token type is 'Bearer'
+          required: true
+          schema: *a1
+          example: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI.gOiAiSldUIiwia2lkIiA6ICJIZWtNRnBTS05Uak80V3JEcU5qTWZHNU5BMEdkUjR5Ym.FSaXZiMUtWT09RIn0
+        - required: false
+          schema:
+            title: Productcategoryid
+            maxLength: 30
+            type: array
+            items:
+              maxLength: 30
+              type: string
+          name: productCategoryId
+          in: query
+        - description: If not specified, first page is returned
+          required: false
+          schema:
+            title: Page
+            minimum: 1
+            type: integer
+            description: If not specified, first page is returned
+            default: 1
+          name: page
+          in: query
+        - description: If not specified, first 500 entities are returned
+          required: false
+          schema:
+            title: Page Size
+            maximum: 2000
+            minimum: 1
+            type: integer
+            description: If not specified, first 500 entities are returned
+            default: 500
+          name: page_size
+          in: query
+      responses:
+        "200":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CamelCasePaginationResponseModel_ImporterProductCategoryResponse_"
+  /importer/product-categories/api/v1/upsert:
+    patch:
+      tags:
+        - IMPORTER/PRODUCT-CATEGORIES
+      summary: Product Category Bulk Upsert
+      description: Upsert ProductCategory by external ID. If product category is found for specified external ID, product category will be updated. Otherwise, new product category will be created.
+      operationId: product_category_bulk_upsert_importer_product_categories_api_v1_upsert_patch
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImporterProductCategoryBulkInput"
+        required: true
+      responses:
+        "201":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkOutput"
+      parameters:
+        - name: Authorization
+          in: header
+          description: JWT access token for authentication/authorization. Token type is 'Bearer'
+          required: true
+          schema: *a1
+          example: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI.gOiAiSldUIiwia2lkIiA6ICJIZWtNRnBTS05Uak80V3JEcU5qTWZHNU5BMEdkUjR5Ym.FSaXZiMUtWT09RIn0
+  /importer/product-categories/api/v1/delete:
+    post:
+      tags:
+        - IMPORTER/PRODUCT-CATEGORIES
+      summary: Product Category Bulk Delete
+      description: Delete list of Product categories identified by external ID
+      operationId: product_category_bulk_delete_importer_product_categories_api_v1_delete_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImporterProductCategoryBulkDeleteInput"
+        required: true
+      responses:
+        "201":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkOutput"
+      parameters:
+        - name: Authorization
+          in: header
+          description: JWT access token for authentication/authorization. Token type is 'Bearer'
+          required: true
+          schema: *a1
+          example: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI.gOiAiSldUIiwia2lkIiA6ICJIZWtNRnBTS05Uak80V3JEcU5qTWZHNU5BMEdkUjR5Ym.FSaXZiMUtWT09RIn0
+  /importer/product-packings/api/v1:
+    get:
+      tags:
+        - IMPORTER/PRODUCT-PACKINGS
+      summary: Get Product Packings
+      description: Get paginated list of Products and their assigned packings
+      operationId: get_product_packings_importer_product_packings_api_v1_get
+      parameters:
+        - name: Authorization
+          in: header
+          description: JWT access token for authentication/authorization. Token type is 'Bearer'
+          required: true
+          schema: *a1
+          example: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI.gOiAiSldUIiwia2lkIiA6ICJIZWtNRnBTS05Uak80V3JEcU5qTWZHNU5BMEdkUjR5Ym.FSaXZiMUtWT09RIn0
+        - required: false
+          schema:
+            title: Productid
+            maxLength: 30
+            type: array
+            items:
+              maxLength: 30
+              type: string
+          name: productId
+          in: query
+        - description: If not specified, first page is returned
+          required: false
+          schema:
+            title: Page
+            minimum: 1
+            type: integer
+            description: If not specified, first page is returned
+            default: 1
+          name: page
+          in: query
+        - description: If not specified, first 500 entities are returned
+          required: false
+          schema:
+            title: Page Size
+            maximum: 2000
+            minimum: 1
+            type: integer
+            description: If not specified, first 500 entities are returned
+            default: 500
+          name: page_size
+          in: query
+      responses:
+        "200":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CamelCasePaginationResponseModel_ImporterProductPackingResponse_"
+  /importer/product-packings/api/v1/upsert:
+    patch:
+      tags:
+        - IMPORTER/PRODUCT-PACKINGS
+      summary: Product Packings Bulk Upsert
+      description: Upsert Product packings by external ID. Each list of packings that is sent for a product is the list that ends into database.
+      operationId: product_packings_bulk_upsert_importer_product_packings_api_v1_upsert_patch
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImporterProductPackingBulkInput"
+        required: true
+      responses:
+        "201":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkOutput"
+      parameters:
+        - name: Authorization
+          in: header
+          description: JWT access token for authentication/authorization. Token type is 'Bearer'
+          required: true
+          schema: *a1
+          example: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI.gOiAiSldUIiwia2lkIiA6ICJIZWtNRnBTS05Uak80V3JEcU5qTWZHNU5BMEdkUjR5Ym.FSaXZiMUtWT09RIn0
+  /importer/product-packings/api/v1/delete:
+    post:
+      tags:
+        - IMPORTER/PRODUCT-PACKINGS
+      summary: Product Bulk Delete
+      description: Delete list of Product packings identified by external ID
+      operationId: product_bulk_delete_importer_product_packings_api_v1_delete_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImporterProductPackingBulkDeleteInput"
+        required: true
+      responses:
+        "201":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkOutput"
+      parameters:
+        - name: Authorization
+          in: header
+          description: JWT access token for authentication/authorization. Token type is 'Bearer'
+          required: true
+          schema: *a1
+          example: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI.gOiAiSldUIiwia2lkIiA6ICJIZWtNRnBTS05Uak80V3JEcU5qTWZHNU5BMEdkUjR5Ym.FSaXZiMUtWT09RIn0
+  /importer/component-packings/api/v1:
+    get:
+      tags:
+        - IMPORTER/COMPONENT-PACKINGS
+      summary: Get Component Packings
+      description: Get paginated list of Components and their assigned packings
+      operationId: get_component_packings_importer_component_packings_api_v1_get
+      parameters:
+        - name: Authorization
+          in: header
+          description: JWT access token for authentication/authorization. Token type is 'Bearer'
+          required: true
+          schema: *a1
+          example: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI.gOiAiSldUIiwia2lkIiA6ICJIZWtNRnBTS05Uak80V3JEcU5qTWZHNU5BMEdkUjR5Ym.FSaXZiMUtWT09RIn0
+        - required: false
+          schema:
+            title: Componentid
+            maxLength: 30
+            type: array
+            items:
+              maxLength: 30
+              type: string
+          name: componentId
+          in: query
+        - description: If not specified, first page is returned
+          required: false
+          schema:
+            title: Page
+            minimum: 1
+            type: integer
+            description: If not specified, first page is returned
+            default: 1
+          name: page
+          in: query
+        - description: If not specified, first 500 entities are returned
+          required: false
+          schema:
+            title: Page Size
+            maximum: 2000
+            minimum: 1
+            type: integer
+            description: If not specified, first 500 entities are returned
+            default: 500
+          name: page_size
+          in: query
+      responses:
+        "200":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CamelCasePaginationResponseModel_ImporterComponentPackingResponse_"
+  /importer/component-packings/api/v1/upsert:
+    patch:
+      tags:
+        - IMPORTER/COMPONENT-PACKINGS
+      summary: Component Packings Bulk Upsert
+      description: Upsert Component packings by external ID. Each list of packings that is sent for a component is the list that ends into database.
+      operationId: component_packings_bulk_upsert_importer_component_packings_api_v1_upsert_patch
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImporterComponentPackingBulkInput"
+        required: true
+      responses:
+        "201":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkOutput"
+      parameters:
+        - name: Authorization
+          in: header
+          description: JWT access token for authentication/authorization. Token type is 'Bearer'
+          required: true
+          schema: *a1
+          example: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI.gOiAiSldUIiwia2lkIiA6ICJIZWtNRnBTS05Uak80V3JEcU5qTWZHNU5BMEdkUjR5Ym.FSaXZiMUtWT09RIn0
+  /importer/component-packings/api/v1/delete:
+    post:
+      tags:
+        - IMPORTER/COMPONENT-PACKINGS
+      summary: Component Bulk Delete
+      description: Delete list of Component packings identified by external ID
+      operationId: component_bulk_delete_importer_component_packings_api_v1_delete_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImporterComponentPackingBulkDeleteInput"
+        required: true
+      responses:
+        "201":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkOutput"
+      parameters:
+        - name: Authorization
+          in: header
+          description: JWT access token for authentication/authorization. Token type is 'Bearer'
+          required: true
+          schema: *a1
+          example: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI.gOiAiSldUIiwia2lkIiA6ICJIZWtNRnBTS05Uak80V3JEcU5qTWZHNU5BMEdkUjR5Ym.FSaXZiMUtWT09RIn0
+  /importer/assets/api/v1:
+    get:
+      tags:
+        - IMPORTER/ASSETS
+      summary: Get Assets
+      description: Get filtered and paginated list of assets
+      operationId: get_assets_importer_assets_api_v1_get
+      parameters:
+        - name: Authorization
+          in: header
+          description: JWT access token for authentication/authorization. Token type is 'Bearer'
+          required: true
+          schema: *a1
+          example: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI.gOiAiSldUIiwia2lkIiA6ICJIZWtNRnBTS05Uak80V3JEcU5qTWZHNU5BMEdkUjR5Ym.FSaXZiMUtWT09RIn0
+        - required: false
+          schema:
+            title: Assetid
+            type: array
+            items:
+              type: string
+          name: assetId
+          in: query
+        - required: false
+          schema:
+            type: array
+            items:
+              $ref: "#/components/schemas/ProductLineEnum"
+          name: productLine
+          in: query
+        - required: false
+          schema:
+            title: Serialnumber
+            type: array
+            items:
+              type: string
+          name: serialNumber
+          in: query
+        - description: If not specified, first page is returned
+          required: false
+          schema:
+            title: Page
+            minimum: 1
+            type: integer
+            description: If not specified, first page is returned
+            default: 1
+          name: page
+          in: query
+        - description: If not specified, first 500 entities are returned
+          required: false
+          schema:
+            title: Page Size
+            maximum: 2000
+            minimum: 1
+            type: integer
+            description: If not specified, first 500 entities are returned
+            default: 500
+          name: page_size
+          in: query
+      responses:
+        "200":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CamelCasePaginationResponseModel_AssetItemDto_"
+  /importer/assets/api/v1/upsert:
+    patch:
+      tags:
+        - IMPORTER/ASSETS
+      summary: Upsert Assets
+      description: Upsert assets by external ID. If asset is found for specified external ID, it will be updated. Otherwise, new asset will be created.
+      operationId: upsert_assets_importer_assets_api_v1_upsert_patch
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssetsUpsertInput"
+        required: true
+      responses:
+        "201":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkOutput"
+      parameters:
+        - name: Authorization
+          in: header
+          description: JWT access token for authentication/authorization. Token type is 'Bearer'
+          required: true
+          schema: *a1
+          example: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI.gOiAiSldUIiwia2lkIiA6ICJIZWtNRnBTS05Uak80V3JEcU5qTWZHNU5BMEdkUjR5Ym.FSaXZiMUtWT09RIn0
+  /importer/assets/api/v1/delete:
+    post:
+      tags:
+        - IMPORTER/ASSETS
+      summary: Delete Assets
+      description: Delete list of assets
+      operationId: delete_assets_importer_assets_api_v1_delete_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssetDeleteInput"
+        required: true
+      responses:
+        "201":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkOutput"
+      parameters:
+        - name: Authorization
+          in: header
+          description: JWT access token for authentication/authorization. Token type is 'Bearer'
+          required: true
+          schema: *a1
+          example: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI.gOiAiSldUIiwia2lkIiA6ICJIZWtNRnBTS05Uak80V3JEcU5qTWZHNU5BMEdkUjR5Ym.FSaXZiMUtWT09RIn0
+  /importer/assets/api/v1/machine-assignment:
+    get:
+      tags:
+        - IMPORTER/ASSETS
+      summary: Get Asset Assignments
+      description: Get filtered and paginated list of asset-machine assignments
+      operationId: get_asset_assignments_importer_assets_api_v1_machine_assignment_get
+      parameters:
+        - name: Authorization
+          in: header
+          description: JWT access token for authentication/authorization. Token type is 'Bearer'
+          required: true
+          schema: *a1
+          example: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI.gOiAiSldUIiwia2lkIiA6ICJIZWtNRnBTS05Uak80V3JEcU5qTWZHNU5BMEdkUjR5Ym.FSaXZiMUtWT09RIn0
+        - required: false
+          schema:
+            title: Assetid
+            type: array
+            items:
+              type: string
+          name: assetId
+          in: query
+        - required: false
+          schema:
+            title: Machineid
+            type: array
+            items:
+              type: string
+          name: machineId
+          in: query
+        - required: false
+          schema:
+            type: array
+            items:
+              $ref: "#/components/schemas/ProductLineEnum"
+          name: productLine
+          in: query
+        - required: false
+          schema:
+            title: Serialnumber
+            type: array
+            items:
+              type: string
+          name: serialNumber
+          in: query
+        - description: If not specified, first page is returned
+          required: false
+          schema:
+            title: Page
+            minimum: 1
+            type: integer
+            description: If not specified, first page is returned
+            default: 1
+          name: page
+          in: query
+        - description: If not specified, first 500 entities are returned
+          required: false
+          schema:
+            title: Page Size
+            maximum: 2000
+            minimum: 1
+            type: integer
+            description: If not specified, first 500 entities are returned
+            default: 500
+          name: page_size
+          in: query
+      responses:
+        "200":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CamelCasePaginationResponseModel_AssetAssignmentDto_"
+  /importer/assets/api/v1/machine-assignment/upsert:
+    patch:
+      tags:
+        - IMPORTER/ASSETS
+      summary: Upsert Asset Assignments
+      description: Upsert asset assignments by asset external ID and machine external ID. If asset assignment is found for specified external IDs, it will be updated. Otherwise, asset will be assigned to the machine.
+      operationId: upsert_asset_assignments_importer_assets_api_v1_machine_assignment_upsert_patch
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssetAssignmentUpsertInput"
+        required: true
+      responses:
+        "201":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkOutput"
+      parameters:
+        - name: Authorization
+          in: header
+          description: JWT access token for authentication/authorization. Token type is 'Bearer'
+          required: true
+          schema: *a1
+          example: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI.gOiAiSldUIiwia2lkIiA6ICJIZWtNRnBTS05Uak80V3JEcU5qTWZHNU5BMEdkUjR5Ym.FSaXZiMUtWT09RIn0
+  /importer/assets/api/v1/machine-assignment/delete:
+    post:
+      tags:
+        - IMPORTER/ASSETS
+      summary: Delete Assets Assignment
+      description: Unassign assets from machines
+      operationId: delete_assets_assignment_importer_assets_api_v1_machine_assignment_delete_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssetAssignmentDeleteInput"
+        required: true
+      responses:
+        "201":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkOutput"
+      parameters:
+        - name: Authorization
+          in: header
+          description: JWT access token for authentication/authorization. Token type is 'Bearer'
+          required: true
+          schema: *a1
+          example: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI.gOiAiSldUIiwia2lkIiA6ICJIZWtNRnBTS05Uak80V3JEcU5qTWZHNU5BMEdkUjR5Ym.FSaXZiMUtWT09RIn0
+  /importer/common/api/v1/update-external-id:
+    post:
+      tags:
+        - IMPORTER/COMMON
+      summary: Update External Id
+      description: This API updates the 'external_id' on the sent entity. The entity is identified with the old 'external_id', and if the entity exists, its 'external_id' is set to the new value. The new value must be unique inside company, otherwise an error is returned. If entity doesn't exist for old 'external_id', error is returned.
+      operationId: update_external_id_importer_common_api_v1_update_external_id_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateEntityExternalIdInput"
+        required: true
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StandardResponseModel"
+              examples:
+                External ID updated successfully:
+                  value:
+                    meta:
+                      code: 200
+                      message: External ID updated successfully
+                New and old external ID are the same:
+                  value:
+                    meta:
+                      code: 200
+                      message: OK
+        "400":
+          description: Multiple entities for specified 'old_external_id' found
+          content:
+            application/json:
+              example:
+                meta:
+                  code: 400
+                  message: Multiple entities of type 'machine' found for external ID 'M_EXT1
+        "404":
+          description: Entity for sent 'old_external_id' not found
+          content:
+            application/json:
+              example:
+                meta:
+                  code: 404
+                  message: Entity of type 'machine' for external ID 'M_EXT1' not found
+        "409":
+          description: Sent 'new_external_id' already exists on entity
+          content:
+            application/json:
+              example:
+                meta:
+                  code: 409
+                  message: External ID 'M_EXT1' already exists on entity of type `machine`
+      parameters:
+        - name: Authorization
+          in: header
+          description: JWT access token for authentication/authorization. Token type is 'Bearer'
+          required: true
+          schema: *a1
+          example: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI.gOiAiSldUIiwia2lkIiA6ICJIZWtNRnBTS05Uak80V3JEcU5qTWZHNU5BMEdkUjR5Ym.FSaXZiMUtWT09RIn0
+  /importer/common/api/v1/update-external-ids-list:
+    post:
+      tags:
+        - IMPORTER/COMMON
+      summary: External Id Bulk Upsert
+      description: This API updates the `external_id` on list of entities, but it does it in the background. The `entity_type` must be the same for all sent data.
+      operationId: external_id_bulk_upsert_importer_common_api_v1_update_external_ids_list_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImporterExternalIdsBulkInput"
+        required: true
+      responses:
+        "201":
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkOutput"
+      parameters:
+        - name: Authorization
+          in: header
+          description: JWT access token for authentication/authorization. Token type is 'Bearer'
+          required: true
+          schema: *a1
+          example: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI.gOiAiSldUIiwia2lkIiA6ICJIZWtNRnBTS05Uak80V3JEcU5qTWZHNU5BMEdkUjR5Ym.FSaXZiMUtWT09RIn0
+components:
+  schemas:
+    AssetAssignmentDeleteInput:
+      title: AssetAssignmentDeleteInput
+      required:
+        - requestId
+        - timestamp
+        - bulkGroup
+        - assignments
+      type: object
+      properties:
+        requestId:
+          title: Requestid
+          maxLength: 40
+          minLength: 6
+          type: string
+          description: "Identifier of this request. It MUST be unique for all requests (e.g. UUID, but not limited to) or at least unique for all requests on company level. Min size: 6, Max allowed size: 40 characters"
+          example: 59fcbf91-5159-4630-b15c-3278aa65aa56
+        timestamp:
+          title: Timestamp
+          type: string
+          description: ISO date and time when this payload object has been originally created
+          format: date-time
+          example: 2021-01-31T17:33:27.902+01:00
+        bulkGroup:
+          title: Bulkgroup
+          allOf:
+            - $ref: "#/components/schemas/BulkGroupInput"
+          description: If this object is provided than it indicates a sequence number of this bulk request within a group of several bulk requests. Otherwise this bulk request shall be treated as independent of other bulks
+        assignments:
+          title: Assignments
+          maxLength: 50
+          minLength: 1
+          maxItems: 10000
+          minItems: 1
+          type: array
+          items:
+            maxLength: 50
+            minLength: 1
+            type: string
+          description: A list of external asset IDs to unassign
+          example:
+            - A234
+    AssetAssignmentDto:
+      title: AssetAssignmentDto
+      required:
+        - productLine
+      type: object
+      properties:
+        assetId:
+          title: Assetid
+          type: string
+          description: Used to uniquely identify asset entity
+          example: A1243
+        machineId:
+          title: Machineid
+          type: string
+          description: Used to uniquely identify machine entity
+          example: M4567
+        isAuditDevice:
+          title: Isauditdevice
+          type: boolean
+          description: Defines if the associated telemetry device is an audit device
+          example: true
+        isActiveMaster:
+          title: Isactivemaster
+          type: boolean
+          description: Defines if the associated telemetry device is an active master device, used for Italian fiscalization only
+          example: true
+        televendAsPaymentRouter:
+          title: Televendaspaymentrouter
+          type: boolean
+          description: Set televend device to payment router mode. Can be set for telemetry assets only.
+          example: false
+        productLine:
+          allOf:
+            - $ref: "#/components/schemas/ProductLineEnum"
+          description: Asset product line
+          example: TELEMETRY_DEVICE
+        serialNumber:
+          title: Serialnumber
+          type: string
+          description: Asset serial number
+          example: COG00510118
+        machineName:
+          title: Machinename
+          type: string
+          description: Machine name
+          example: Necta Fontana Trevi
+    AssetAssignmentInputDto:
+      title: AssetAssignmentInputDto
+      required:
+        - assetId
+        - machineId
+      type: object
+      properties:
+        assetId:
+          title: Assetid
+          maxLength: 50
+          minLength: 1
+          pattern: ^[a-zA-Z0-9_\-]*$
+          type: string
+          description: Used to uniquely identify asset entity
+        machineId:
+          title: Machineid
+          maxLength: 32
+          minLength: 1
+          pattern: ^[a-zA-Z0-9_\-]*$
+          type: string
+          description: Used to uniquely identify machine entity
+        isAuditDevice:
+          title: Isauditdevice
+          type: boolean
+          description: Defines if the associated telemetry device is an audit device. Can be set for telemetry assets only.
+          default: false
+        televendAsPaymentRouter:
+          title: Televendaspaymentrouter
+          type: boolean
+          description: Set televend device to payment router mode. Can be set for telemetry assets only.
+          default: false
+        isActiveMaster:
+          title: Isactivemaster
+          type: boolean
+          description: Set asset as active fiscal device, used for Italian fiscalization only
+          default: false
+    AssetAssignmentUpsertInput:
+      title: AssetAssignmentUpsertInput
+      required:
+        - requestId
+        - timestamp
+        - bulkGroup
+        - assignments
+      type: object
+      properties:
+        requestId:
+          title: Requestid
+          maxLength: 40
+          minLength: 6
+          type: string
+          description: "Identifier of this request. It MUST be unique for all requests (e.g. UUID, but not limited to) or at least unique for all requests on company level. Min size: 6, Max allowed size: 40 characters"
+          example: 59fcbf91-5159-4630-b15c-3278aa65aa56
+        timestamp:
+          title: Timestamp
+          type: string
+          description: ISO date and time when this payload object has been originally created
+          format: date-time
+          example: 2021-01-31T17:33:27.902+01:00
+        bulkGroup:
+          title: Bulkgroup
+          allOf:
+            - $ref: "#/components/schemas/BulkGroupInput"
+          description: If this object is provided than it indicates a sequence number of this bulk request within a group of several bulk requests. Otherwise this bulk request shall be treated as independent of other bulks
+        assignments:
+          title: ImporterAssets
+          maxItems: 10000
+          minItems: 1
+          type: array
+          items:
+            $ref: "#/components/schemas/AssetAssignmentInputDto"
+          description: A list of asset assignments in bulk request
+    AssetDeleteInput:
+      title: AssetDeleteInput
+      required:
+        - requestId
+        - timestamp
+        - bulkGroup
+        - assets
+      type: object
+      properties:
+        requestId:
+          title: Requestid
+          maxLength: 40
+          minLength: 6
+          type: string
+          description: "Identifier of this request. It MUST be unique for all requests (e.g. UUID, but not limited to) or at least unique for all requests on company level. Min size: 6, Max allowed size: 40 characters"
+          example: 59fcbf91-5159-4630-b15c-3278aa65aa56
+        timestamp:
+          title: Timestamp
+          type: string
+          description: ISO date and time when this payload object has been originally created
+          format: date-time
+          example: 2021-01-31T17:33:27.902+01:00
+        bulkGroup:
+          title: Bulkgroup
+          allOf:
+            - $ref: "#/components/schemas/BulkGroupInput"
+          description: If this object is provided than it indicates a sequence number of this bulk request within a group of several bulk requests. Otherwise this bulk request shall be treated as independent of other bulks
+        assets:
+          title: Assets
+          maxLength: 50
+          minLength: 1
+          maxItems: 10000
+          minItems: 1
+          type: array
+          items:
+            maxLength: 50
+            minLength: 1
+            type: string
+          description: A list of external asset IDs for deletion
+          example:
+            - A234
+    AssetItemAuditTypeEnum:
+      title: AssetItemAuditTypeEnum
+      enum:
+        - NONE
+        - ID101
+        - ID102
+        - ID106
+        - DA101
+        - CA101
+        - CA105
+      type: string
+      description: An enumeration.
+    AssetItemDataTypeEnum:
+      title: AssetItemDataTypeEnum
+      enum:
+        - PERIOD
+        - CUMULATIVE
+      type: string
+      description: An enumeration.
+    AssetItemDto:
+      title: AssetItemDto
+      required:
+        - productLine
+      type: object
+      properties:
+        assetId:
+          title: Assetid
+          type: string
+          description: Used to uniquely identify asset entity
+          example: A1243
+        productLine:
+          allOf:
+            - $ref: "#/components/schemas/ProductLineEnum"
+          description: Product line
+          example: TELEMETRY_DEVICE
+        serialNumber:
+          title: Serialnumber
+          type: string
+          description: Device serial number
+          example: COG00510118
+        brandId:
+          title: Brandid
+          type: string
+          description: Device brand external ID
+          example: B1234
+        modelId:
+          title: Modelid
+          type: string
+          description: Device model external ID
+          example: M1234
+        dataType:
+          allOf:
+            - $ref: "#/components/schemas/AssetItemDataTypeEnum"
+          description: Fiscal master data type
+          example: PERIOD
+        auditId:
+          allOf:
+            - $ref: "#/components/schemas/AssetItemAuditTypeEnum"
+          description: Fiscal master system id identifier, used for Italian fiscalization only
+          example: ID101
+        isFiscalDevice:
+          title: Isfiscaldevice
+          type: boolean
+          description: Indicates fiscal capable device, used for Italian fiscalization only
+        masterSystemId:
+          title: Mastersystemid
+          type: string
+          description: Fiscal device master system ID, used for Italian fiscalization only
+    AssetItemInputDto:
+      title: AssetItemInputDto
+      required:
+        - assetId
+        - serialNumber
+        - brandId
+        - modelId
+      type: object
+      properties:
+        assetId:
+          title: Assetid
+          maxLength: 50
+          minLength: 1
+          pattern: ^[a-zA-Z0-9_\-]*$
+          type: string
+          description: Used to uniquely identify asset entity
+        serialNumber:
+          title: Serialnumber
+          maxLength: 50
+          minLength: 3
+          pattern: ^[a-zA-Z0-9_\-]*$
+          type: string
+          description: Device serial number
+        brandId:
+          title: Brandid
+          maxLength: 32
+          minLength: 1
+          type: string
+          description: Device brand external ID
+        modelId:
+          title: Modelid
+          maxLength: 32
+          minLength: 1
+          type: string
+          description: Device model external ID
+        dataType:
+          allOf:
+            - $ref: "#/components/schemas/AssetItemDataTypeEnum"
+          description: Fiscal master data type
+        auditId:
+          allOf:
+            - $ref: "#/components/schemas/AssetItemAuditTypeEnum"
+          description: Fiscal master system id identifier, used for Italian fiscalization only
+        isFiscalDevice:
+          title: Isfiscaldevice
+          type: boolean
+          description: Indicates fiscal capable device, used for Italian fiscalization only
+        masterSystemId:
+          title: Mastersystemid
+          maxLength: 100
+          minLength: 1
+          type: string
+          description: Fiscal device master system ID, used for Italian fiscalization only
+    AssetsUpsertInput:
+      title: AssetsUpsertInput
+      required:
+        - requestId
+        - timestamp
+        - bulkGroup
+        - assets
+      type: object
+      properties:
+        requestId:
+          title: Requestid
+          maxLength: 40
+          minLength: 6
+          type: string
+          description: "Identifier of this request. It MUST be unique for all requests (e.g. UUID, but not limited to) or at least unique for all requests on company level. Min size: 6, Max allowed size: 40 characters"
+          example: 59fcbf91-5159-4630-b15c-3278aa65aa56
+        timestamp:
+          title: Timestamp
+          type: string
+          description: ISO date and time when this payload object has been originally created
+          format: date-time
+          example: 2021-01-31T17:33:27.902+01:00
+        bulkGroup:
+          title: Bulkgroup
+          allOf:
+            - $ref: "#/components/schemas/BulkGroupInput"
+          description: If this object is provided than it indicates a sequence number of this bulk request within a group of several bulk requests. Otherwise this bulk request shall be treated as independent of other bulks
+        assets:
+          title: ImporterAssets
+          maxItems: 10000
+          minItems: 1
+          type: array
+          items:
+            $ref: "#/components/schemas/AssetItemInputDto"
+          description: A list of assets in bulk request
+    BaseMetaModel:
+      title: BaseMetaModel
+      type: object
+      properties:
+        code:
+          title: Code
+          type: integer
+          default: 200
+        message:
+          title: Message
+          type: string
+          default: ok
+        format:
+          title: Format
+          type: string
+        params:
+          title: Params
+          type: object
+    BulkGroupInput:
+      title: BulkGroupInput
+      required:
+        - bulkGroupId
+        - bulkNumber
+        - totalBulks
+      type: object
+      properties:
+        bulkGroupId:
+          title: Bulkgroupid
+          maxLength: 40
+          minLength: 6
+          type: string
+          description: "Identifier of this group of bulks. It MUST be unique per each group on a company level (e.g. UUID, but not limited to). Min size: 6, Max allowed size: 40 characters"
+          example: 12345678-1111-2222-abcd-3278aa65aa56
+        bulkNumber:
+          title: Bulknumber
+          maximum: 100000
+          minimum: 1
+          type: integer
+          description: Bulk number in order of execution - should be unique for the same Bulk group id and can not be bigger than Total number of bulks
+          example: 1
+        totalBulks:
+          title: Totalbulks
+          maximum: 100000
+          minimum: 1
+          type: integer
+          description: "Total number of bulks in this group. Min: 1, Max: 100000"
+          example: 1
+    BulkOutput:
+      title: BulkOutput
+      required:
+        - correlationId
+        - createdOn
+      type: object
+      properties:
+        correlationId:
+          title: Correlationid
+          maxLength: 40
+          minLength: 12
+          type: string
+          description: |2-
+            
+                        Unique correlation ID the transaction in the TelevendCloud system caused by the corresponding request.
+                        This correlation ID may be used for further tracing of the transaction. Note that subsequent requests
+                        with the same requestId will return the same correlationId of the very original request
+          example: 23QPV2V5THQ87W
+        createdOn:
+          title: Createdon
+          type: string
+          description: |2-
+            
+                        ISO Date and time of the transaction when was created in Televend system. Note that subsequent requests
+                        with the same requestId will return the same createdOn date and time of the very original request
+          format: date-time
+          example: 2021-01-31T17:33:27.902+01:00
+    CamelCasePaginationMetaModel:
+      title: CamelCasePaginationMetaModel
+      required:
+        - page
+        - pageSize
+      type: object
+      properties:
+        code:
+          title: Code
+          type: integer
+          default: 200
+        message:
+          title: Message
+          type: string
+          default: ok
+        format:
+          title: Format
+          type: string
+        params:
+          title: Params
+          type: object
+        page:
+          title: Page
+          type: integer
+        pageSize:
+          title: Pagesize
+          type: integer
+        hasNextPage:
+          title: Hasnextpage
+          type: boolean
+        numberOfItems:
+          title: Numberofitems
+          type: integer
+    CamelCasePaginationResponseModel_AssetAssignmentDto_:
+      title: CamelCasePaginationResponseModel[AssetAssignmentDto]
+      required:
+        - meta
+      type: object
+      properties:
+        meta:
+          $ref: "#/components/schemas/CamelCasePaginationMetaModel"
+        content:
+          title: Content
+          type: array
+          items:
+            $ref: "#/components/schemas/AssetAssignmentDto"
+      description: Response model for APIs for external integration.
+    CamelCasePaginationResponseModel_AssetItemDto_:
+      title: CamelCasePaginationResponseModel[AssetItemDto]
+      required:
+        - meta
+      type: object
+      properties:
+        meta:
+          $ref: "#/components/schemas/CamelCasePaginationMetaModel"
+        content:
+          title: Content
+          type: array
+          items:
+            $ref: "#/components/schemas/AssetItemDto"
+      description: Response model for APIs for external integration.
+    CamelCasePaginationResponseModel_ImporterClientResponse_:
+      title: CamelCasePaginationResponseModel[ImporterClientResponse]
+      required:
+        - meta
+      type: object
+      properties:
+        meta:
+          $ref: "#/components/schemas/CamelCasePaginationMetaModel"
+        content:
+          title: Content
+          type: array
+          items:
+            $ref: "#/components/schemas/ImporterClientResponse"
+      description: Response model for APIs for external integration.
+    CamelCasePaginationResponseModel_ImporterComponentPackingResponse_:
+      title: CamelCasePaginationResponseModel[ImporterComponentPackingResponse]
+      required:
+        - meta
+      type: object
+      properties:
+        meta:
+          $ref: "#/components/schemas/CamelCasePaginationMetaModel"
+        content:
+          title: Content
+          type: array
+          items:
+            $ref: "#/components/schemas/ImporterComponentPackingResponse"
+      description: Response model for APIs for external integration.
+    CamelCasePaginationResponseModel_ImporterComponentResponse_:
+      title: CamelCasePaginationResponseModel[ImporterComponentResponse]
+      required:
+        - meta
+      type: object
+      properties:
+        meta:
+          $ref: "#/components/schemas/CamelCasePaginationMetaModel"
+        content:
+          title: Content
+          type: array
+          items:
+            $ref: "#/components/schemas/ImporterComponentResponse"
+      description: Response model for APIs for external integration.
+    CamelCasePaginationResponseModel_ImporterLocationResponse_:
+      title: CamelCasePaginationResponseModel[ImporterLocationResponse]
+      required:
+        - meta
+      type: object
+      properties:
+        meta:
+          $ref: "#/components/schemas/CamelCasePaginationMetaModel"
+        content:
+          title: Content
+          type: array
+          items:
+            $ref: "#/components/schemas/ImporterLocationResponse"
+      description: Response model for APIs for external integration.
+    CamelCasePaginationResponseModel_ImporterMachineResponse_:
+      title: CamelCasePaginationResponseModel[ImporterMachineResponse]
+      required:
+        - meta
+      type: object
+      properties:
+        meta:
+          $ref: "#/components/schemas/CamelCasePaginationMetaModel"
+        content:
+          title: Content
+          type: array
+          items:
+            $ref: "#/components/schemas/ImporterMachineResponse"
+      description: Response model for APIs for external integration.
+    CamelCasePaginationResponseModel_ImporterMachineTypeResponse_:
+      title: CamelCasePaginationResponseModel[ImporterMachineTypeResponse]
+      required:
+        - meta
+      type: object
+      properties:
+        meta:
+          $ref: "#/components/schemas/CamelCasePaginationMetaModel"
+        content:
+          title: Content
+          type: array
+          items:
+            $ref: "#/components/schemas/ImporterMachineTypeResponse"
+      description: Response model for APIs for external integration.
+    CamelCasePaginationResponseModel_ImporterProductCategoryResponse_:
+      title: CamelCasePaginationResponseModel[ImporterProductCategoryResponse]
+      required:
+        - meta
+      type: object
+      properties:
+        meta:
+          $ref: "#/components/schemas/CamelCasePaginationMetaModel"
+        content:
+          title: Content
+          type: array
+          items:
+            $ref: "#/components/schemas/ImporterProductCategoryResponse"
+      description: Response model for APIs for external integration.
+    CamelCasePaginationResponseModel_ImporterProductPackingResponse_:
+      title: CamelCasePaginationResponseModel[ImporterProductPackingResponse]
+      required:
+        - meta
+      type: object
+      properties:
+        meta:
+          $ref: "#/components/schemas/CamelCasePaginationMetaModel"
+        content:
+          title: Content
+          type: array
+          items:
+            $ref: "#/components/schemas/ImporterProductPackingResponse"
+      description: Response model for APIs for external integration.
+    CamelCasePaginationResponseModel_ImporterProductResponse_:
+      title: CamelCasePaginationResponseModel[ImporterProductResponse]
+      required:
+        - meta
+      type: object
+      properties:
+        meta:
+          $ref: "#/components/schemas/CamelCasePaginationMetaModel"
+        content:
+          title: Content
+          type: array
+          items:
+            $ref: "#/components/schemas/ImporterProductResponse"
+      description: Response model for APIs for external integration.
+    CamelCasePaginationResponseModel_ImporterRecipeResponse_:
+      title: CamelCasePaginationResponseModel[ImporterRecipeResponse]
+      required:
+        - meta
+      type: object
+      properties:
+        meta:
+          $ref: "#/components/schemas/CamelCasePaginationMetaModel"
+        content:
+          title: Content
+          type: array
+          items:
+            $ref: "#/components/schemas/ImporterRecipeResponse"
+      description: Response model for APIs for external integration.
+    CamelCasePaginationResponseModel_ImporterRegionResponse_:
+      title: CamelCasePaginationResponseModel[ImporterRegionResponse]
+      required:
+        - meta
+      type: object
+      properties:
+        meta:
+          $ref: "#/components/schemas/CamelCasePaginationMetaModel"
+        content:
+          title: Content
+          type: array
+          items:
+            $ref: "#/components/schemas/ImporterRegionResponse"
+      description: Response model for APIs for external integration.
+    ComponentUnitEnum:
+      title: ComponentUnitEnum
+      enum:
+        - pcs
+        - g
+        - ml
+      type: string
+      description: An enumeration.
+    DeleteRecipeInfo:
+      title: DeleteRecipeInfo
+      required:
+        - recipeId
+        - productId
+      type: object
+      properties:
+        recipeId:
+          title: Recipeid
+          maxLength: 30
+          minLength: 1
+          type: string
+          description: Recipe external ID used for recipe identification in external partner's ERP system
+          example: R449
+        productId:
+          title: Productid
+          maxLength: 30
+          minLength: 1
+          type: string
+          description: Product external ID to which the recipe is linked
+          example: P123
+    EntityTypeEnum:
+      title: EntityTypeEnum
+      enum:
+        - client
+        - component
+        - component_packing
+        - location
+        - machine
+        - machine_type
+        - product
+        - product_category
+        - product_packing
+        - region
+        - asset
+      type: string
+      description: An enumeration.
+    HTTPValidationError:
+      title: HTTPValidationError
+      type: object
+      properties:
+        detail:
+          title: Detail
+          type: array
+          items:
+            $ref: "#/components/schemas/ValidationError"
+    ImporterClientBulkDeleteInput:
+      title: ImporterBulkDeleteClientRequest
+      required:
+        - requestId
+        - timestamp
+        - bulkGroup
+        - externalClientIdList
+      type: object
+      properties:
+        requestId:
+          title: Requestid
+          maxLength: 40
+          minLength: 6
+          type: string
+          description: "Identifier of this request. It MUST be unique for all requests (e.g. UUID, but not limited to) or at least unique for all requests on company level. Min size: 6, Max allowed size: 40 characters"
+          example: 59fcbf91-5159-4630-b15c-3278aa65aa56
+        timestamp:
+          title: Timestamp
+          type: string
+          description: ISO date and time when this payload object has been originally created
+          format: date-time
+          example: 2021-01-31T17:33:27.902+01:00
+        bulkGroup:
+          title: Bulkgroup
+          allOf:
+            - $ref: "#/components/schemas/BulkGroupInput"
+          description: If this object is provided than it indicates a sequence number of this bulk request within a group of several bulk requests. Otherwise this bulk request shall be treated as independent of other bulks
+        externalClientIdList:
+          title: externalClientIdList
+          maxLength: 32
+          minLength: 1
+          maxItems: 10000
+          minItems: 1
+          type: array
+          items:
+            maxLength: 32
+            minLength: 1
+            type: string
+          description: A list of external client IDs for deletion
+          example:
+            - CId234
+    ImporterClientBulkInput:
+      title: ImporterBulkClientRequest
+      required:
+        - requestId
+        - timestamp
+        - bulkGroup
+        - clients
+      type: object
+      properties:
+        requestId:
+          title: Requestid
+          maxLength: 40
+          minLength: 6
+          type: string
+          description: "Identifier of this request. It MUST be unique for all requests (e.g. UUID, but not limited to) or at least unique for all requests on company level. Min size: 6, Max allowed size: 40 characters"
+          example: 59fcbf91-5159-4630-b15c-3278aa65aa56
+        timestamp:
+          title: Timestamp
+          type: string
+          description: ISO date and time when this payload object has been originally created
+          format: date-time
+          example: 2021-01-31T17:33:27.902+01:00
+        bulkGroup:
+          title: Bulkgroup
+          allOf:
+            - $ref: "#/components/schemas/BulkGroupInput"
+          description: If this object is provided than it indicates a sequence number of this bulk request within a group of several bulk requests. Otherwise this bulk request shall be treated as independent of other bulks
+        clients:
+          title: ImporterClients
+          maxItems: 10000
+          minItems: 1
+          type: array
+          items:
+            $ref: "#/components/schemas/ImporterClientInput"
+          description: A list of clients in bulk request
+    ImporterClientInput:
+      title: ImporterClient
+      required:
+        - clientName
+        - clientId
+      type: object
+      properties:
+        clientName:
+          title: Clientname
+          maxLength: 100
+          minLength: 1
+          type: string
+          description: Name of the client
+          example: Client 1
+        clientId:
+          title: Clientid
+          maxLength: 32
+          minLength: 1
+          type: string
+          description: Client external ID used for client identification in external partner's ERP system
+          example: CID1234
+        parentClientId:
+          title: Parentclientid
+          maxLength: 32
+          minLength: 1
+          type: string
+          description: Parent client external ID used for parent client identification in external partner's ERP system
+          example: PCID1234
+        clientTypeId:
+          title: Clienttypeid
+          maxLength: 32
+          minLength: 1
+          type: string
+          description: Client type external ID used for client type identification in external partner's ERP system
+          example: CTID1234
+    ImporterClientResponse:
+      title: ImporterClientResponse
+      required:
+        - clientName
+        - clientId
+      type: object
+      properties:
+        clientName:
+          title: Clientname
+          type: string
+          description: Name of the client
+          example: Client 1
+        clientId:
+          title: Clientid
+          type: string
+          description: Client external ID used for client identification in external partner's ERP system
+          example: CID1234
+        parentClientId:
+          title: Parentclientid
+          type: string
+          description: Parent client external ID used for parent client identification in external partner's ERP system
+          example: PCID1234
+        clientTypeId:
+          title: Clienttypeid
+          type: string
+          description: Client type external ID used for client type identification in external partner's ERP system
+          example: CTID1234
+    ImporterComponentBulkDeleteInput:
+      title: ImporterBulkDeleteComponentsRequest
+      required:
+        - requestId
+        - timestamp
+        - bulkGroup
+        - externalComponentIdList
+      type: object
+      properties:
+        requestId:
+          title: Requestid
+          maxLength: 40
+          minLength: 6
+          type: string
+          description: "Identifier of this request. It MUST be unique for all requests (e.g. UUID, but not limited to) or at least unique for all requests on company level. Min size: 6, Max allowed size: 40 characters"
+          example: 59fcbf91-5159-4630-b15c-3278aa65aa56
+        timestamp:
+          title: Timestamp
+          type: string
+          description: ISO date and time when this payload object has been originally created
+          format: date-time
+          example: 2021-01-31T17:33:27.902+01:00
+        bulkGroup:
+          title: Bulkgroup
+          allOf:
+            - $ref: "#/components/schemas/BulkGroupInput"
+          description: If this object is provided than it indicates a sequence number of this bulk request within a group of several bulk requests. Otherwise this bulk request shall be treated as independent of other bulks
+        externalComponentIdList:
+          title: externalComponentIdList
+          maxLength: 30
+          minLength: 1
+          maxItems: 10000
+          minItems: 1
+          type: array
+          items:
+            maxLength: 30
+            minLength: 1
+            type: string
+          description: A list of external component IDs for deletion
+          example:
+            - C449
+    ImporterComponentBulkInput:
+      title: ImporterBulkComponentsRequest
+      required:
+        - requestId
+        - timestamp
+        - bulkGroup
+        - components
+      type: object
+      properties:
+        requestId:
+          title: Requestid
+          maxLength: 40
+          minLength: 6
+          type: string
+          description: "Identifier of this request. It MUST be unique for all requests (e.g. UUID, but not limited to) or at least unique for all requests on company level. Min size: 6, Max allowed size: 40 characters"
+          example: 59fcbf91-5159-4630-b15c-3278aa65aa56
+        timestamp:
+          title: Timestamp
+          type: string
+          description: ISO date and time when this payload object has been originally created
+          format: date-time
+          example: 2021-01-31T17:33:27.902+01:00
+        bulkGroup:
+          title: Bulkgroup
+          allOf:
+            - $ref: "#/components/schemas/BulkGroupInput"
+          description: If this object is provided than it indicates a sequence number of this bulk request within a group of several bulk requests. Otherwise this bulk request shall be treated as independent of other bulks
+        components:
+          title: ImporterComponents
+          maxItems: 10000
+          minItems: 1
+          type: array
+          items:
+            $ref: "#/components/schemas/ImporterComponentInput"
+          description: A list of components in bulk request
+    ImporterComponentInput:
+      title: ImporterComponent
+      required:
+        - componentId
+        - componentName
+        - unit
+      type: object
+      properties:
+        componentId:
+          title: Componentid
+          maxLength: 30
+          minLength: 1
+          type: string
+          description: Component external ID used for component identification in external partner's ERP system
+          example: C123
+        componentName:
+          title: Componentname
+          maxLength: 64
+          minLength: 1
+          type: string
+          description: Component name
+          example: Aroma Classico
+        unit:
+          allOf:
+            - $ref: "#/components/schemas/ComponentUnitEnum"
+          description: "Unit of measure, available: pcs(pieces), g(gram), ml(milliliter)"
+          example: pcs
+        barcode:
+          title: Barcode
+          maxLength: 50
+          minLength: 1
+          type: string
+          description: Default barcode of this component.
+          example: ABC123
+        weight:
+          title: Weight
+          maximum: 9999999999.99
+          minimum: 0
+          type: number
+          description: Component weight in kilograms
+          example: 0.5
+        usePacking:
+          title: Usepacking
+          type: boolean
+          description: Determines if component uses packing.
+          default: false
+          example: false
+        blacklisted:
+          title: Blacklisted
+          type: boolean
+          description: Determines if component is blacklisted.
+          default: false
+          example: false
+        description:
+          title: Description
+          maxLength: 255
+          minLength: 1
+          type: string
+          description: Component description
+          example: This is a component
+        shortShelfLife:
+          title: Shortshelflife
+          maximum: 365
+          minimum: 1
+          type: integer
+          description: Component shelf life
+          example: 120
+        purchasePrice:
+          title: Purchaseprice
+          maximum: 99999999.99
+          minimum: 0
+          type: number
+          description: Component purchase price
+          example: 10.5
+        affectThePercentageOfStockOccupancy:
+          title: Affectthepercentageofstockoccupancy
+          type: boolean
+          description: Determines if component affects the % of stock occupancy
+          default: true
+          example: true
+        componentWarehousePosition:
+          title: Componentwarehouseposition
+          maxLength: 100
+          minLength: 1
+          type: string
+          description: Component warehouse position
+          example: Component warehouse position
+    ImporterComponentPackingBulkDeleteInput:
+      title: ImporterBulkDeleteComponentPackingsRequest
+      required:
+        - requestId
+        - timestamp
+        - bulkGroup
+        - externalPackingIdList
+      type: object
+      properties:
+        requestId:
+          title: Requestid
+          maxLength: 40
+          minLength: 6
+          type: string
+          description: "Identifier of this request. It MUST be unique for all requests (e.g. UUID, but not limited to) or at least unique for all requests on company level. Min size: 6, Max allowed size: 40 characters"
+          example: 59fcbf91-5159-4630-b15c-3278aa65aa56
+        timestamp:
+          title: Timestamp
+          type: string
+          description: ISO date and time when this payload object has been originally created
+          format: date-time
+          example: 2021-01-31T17:33:27.902+01:00
+        bulkGroup:
+          title: Bulkgroup
+          allOf:
+            - $ref: "#/components/schemas/BulkGroupInput"
+          description: If this object is provided than it indicates a sequence number of this bulk request within a group of several bulk requests. Otherwise this bulk request shall be treated as independent of other bulks
+        externalPackingIdList:
+          title: externalPackingIdList
+          maxLength: 30
+          minLength: 1
+          maxItems: 10000
+          minItems: 1
+          type: array
+          items:
+            maxLength: 30
+            minLength: 1
+            type: string
+          description: A list of external component packing IDs for deletion
+          example:
+            - CP449
+    ImporterComponentPackingBulkInput:
+      title: ImporterBulkComponentPackingsRequest
+      required:
+        - requestId
+        - timestamp
+        - bulkGroup
+        - componentsAndPackings
+      type: object
+      properties:
+        requestId:
+          title: Requestid
+          maxLength: 40
+          minLength: 6
+          type: string
+          description: "Identifier of this request. It MUST be unique for all requests (e.g. UUID, but not limited to) or at least unique for all requests on company level. Min size: 6, Max allowed size: 40 characters"
+          example: 59fcbf91-5159-4630-b15c-3278aa65aa56
+        timestamp:
+          title: Timestamp
+          type: string
+          description: ISO date and time when this payload object has been originally created
+          format: date-time
+          example: 2021-01-31T17:33:27.902+01:00
+        bulkGroup:
+          title: Bulkgroup
+          allOf:
+            - $ref: "#/components/schemas/BulkGroupInput"
+          description: If this object is provided than it indicates a sequence number of this bulk request within a group of several bulk requests. Otherwise this bulk request shall be treated as independent of other bulks
+        componentsAndPackings:
+          title: ImporterComponentAndPackings
+          maxItems: 10000
+          minItems: 1
+          type: array
+          items:
+            $ref: "#/components/schemas/ImporterComponentPackingInput"
+          description: A list of component packings in bulk request
+    ImporterComponentPackingInput:
+      title: ImporterComponentPackings
+      required:
+        - componentId
+        - packings
+      type: object
+      properties:
+        componentId:
+          title: Componentid
+          maxLength: 30
+          minLength: 1
+          type: string
+          description: Component external ID used for identification in external partner's ERP system
+          example: C123
+        packings:
+          title: Packings
+          minItems: 1
+          type: array
+          items:
+            $ref: "#/components/schemas/service__api__component_packing_bulk__importer_api__v1__models__PackingInput"
+          description: List of packings on component; one must be default; this is the complete list that ends in DB; any packing that is in DB but is not specified here, will be deleted
+    ImporterComponentPackingResponse:
+      title: ImporterComponentPackingResponse
+      required:
+        - componentId
+        - packings
+      type: object
+      properties:
+        componentId:
+          title: Componentid
+          type: string
+          description: Component external ID used for component identification in external partner's ERP system
+          example: C449
+        packings:
+          title: Packings
+          type: array
+          items:
+            $ref: "#/components/schemas/service__api__component_packing_bulk__importer_api__v1__models__ImporterPackingDetailsResponse"
+    ImporterComponentResponse:
+      title: ImporterComponentResponse
+      required:
+        - componentId
+        - componentName
+        - unit
+        - affectThePercentageOfStockOccupancy
+        - blacklisted
+      type: object
+      properties:
+        componentId:
+          title: Componentid
+          type: string
+          description: Component external ID used for component identification in external partner's ERP system
+          example: C123
+        componentName:
+          title: Componentname
+          type: string
+          description: Component name
+          example: Aroma Classico
+        defaultBarcode:
+          title: Defaultbarcode
+          type: string
+          description: Default barcode of this component.
+          example: ABC123
+        weight:
+          title: Weight
+          type: number
+          description: Component weight in kilograms
+          example: 0.5
+        unit:
+          allOf:
+            - $ref: "#/components/schemas/ComponentUnitEnum"
+          description: "Unit of measure, available: pcs(pieces), g(gram), ml(milliliter)"
+          example: pcs
+        usePacking:
+          title: Usepacking
+          type: boolean
+          description: Determines if component uses packing.
+          example: false
+        description:
+          title: Description
+          type: string
+          description: Component description
+          example: This is a component
+        shortShelfLife:
+          title: Shortshelflife
+          type: integer
+          description: Component shelf life
+          example: 120
+        purchasePrice:
+          title: Purchaseprice
+          type: number
+          description: Component purchase price
+          example: 10.5
+        componentWarehousePosition:
+          title: Componentwarehouseposition
+          type: string
+          description: Component warehouse position
+          example: Component warehouse position
+        affectThePercentageOfStockOccupancy:
+          title: Affectthepercentageofstockoccupancy
+          type: boolean
+          description: Determines if component affects the % of stock occupancy
+          example: true
+        blacklisted:
+          title: Blacklisted
+          type: boolean
+          description: Determines if component is blacklisted
+          example: true
+    ImporterExternalIdsBulkInput:
+      title: ImporterExternalIdsRequest
+      required:
+        - requestId
+        - timestamp
+        - bulkGroup
+        - externalIds
+      type: object
+      properties:
+        requestId:
+          title: Requestid
+          maxLength: 40
+          minLength: 6
+          type: string
+          description: "Identifier of this request. It MUST be unique for all requests (e.g. UUID, but not limited to) or at least unique for all requests on company level. Min size: 6, Max allowed size: 40 characters"
+          example: 59fcbf91-5159-4630-b15c-3278aa65aa56
+        timestamp:
+          title: Timestamp
+          type: string
+          description: ISO date and time when this payload object has been originally created
+          format: date-time
+          example: 2021-01-31T17:33:27.902+01:00
+        bulkGroup:
+          title: Bulkgroup
+          allOf:
+            - $ref: "#/components/schemas/BulkGroupInput"
+          description: If this object is provided than it indicates a sequence number of this bulk request within a group of several bulk requests. Otherwise this bulk request shall be treated as independent of other bulks
+        externalIds:
+          title: ImporterExternalIds
+          maxItems: 10000
+          minItems: 1
+          type: array
+          items:
+            $ref: "#/components/schemas/UpdateEntityExternalIdInput"
+          description: A list of external ids for update in bulk request
+    ImporterLocationBulkDeleteInput:
+      title: ImporterBulkDeleteLocationsRequest
+      required:
+        - requestId
+        - timestamp
+        - bulkGroup
+        - externalLocationIdList
+      type: object
+      properties:
+        requestId:
+          title: Requestid
+          maxLength: 40
+          minLength: 6
+          type: string
+          description: "Identifier of this request. It MUST be unique for all requests (e.g. UUID, but not limited to) or at least unique for all requests on company level. Min size: 6, Max allowed size: 40 characters"
+          example: 59fcbf91-5159-4630-b15c-3278aa65aa56
+        timestamp:
+          title: Timestamp
+          type: string
+          description: ISO date and time when this payload object has been originally created
+          format: date-time
+          example: 2021-01-31T17:33:27.902+01:00
+        bulkGroup:
+          title: Bulkgroup
+          allOf:
+            - $ref: "#/components/schemas/BulkGroupInput"
+          description: If this object is provided than it indicates a sequence number of this bulk request within a group of several bulk requests. Otherwise this bulk request shall be treated as independent of other bulks
+        externalLocationIdList:
+          title: externalLocationIdList
+          maxLength: 32
+          minLength: 1
+          maxItems: 10000
+          minItems: 1
+          type: array
+          items:
+            maxLength: 32
+            minLength: 1
+            type: string
+          description: A list of external location IDs for deletion
+          example:
+            - trevi
+    ImporterLocationBulkInput:
+      title: ImporterBulkLocationsRequest
+      required:
+        - requestId
+        - timestamp
+        - bulkGroup
+        - locations
+      type: object
+      properties:
+        requestId:
+          title: Requestid
+          maxLength: 40
+          minLength: 6
+          type: string
+          description: "Identifier of this request. It MUST be unique for all requests (e.g. UUID, but not limited to) or at least unique for all requests on company level. Min size: 6, Max allowed size: 40 characters"
+          example: 59fcbf91-5159-4630-b15c-3278aa65aa56
+        timestamp:
+          title: Timestamp
+          type: string
+          description: ISO date and time when this payload object has been originally created
+          format: date-time
+          example: 2021-01-31T17:33:27.902+01:00
+        bulkGroup:
+          title: Bulkgroup
+          allOf:
+            - $ref: "#/components/schemas/BulkGroupInput"
+          description: If this object is provided than it indicates a sequence number of this bulk request within a group of several bulk requests. Otherwise this bulk request shall be treated as independent of other bulks
+        locations:
+          title: ImporterLocations
+          maxItems: 10000
+          minItems: 1
+          type: array
+          items:
+            $ref: "#/components/schemas/ImporterLocationInput"
+          description: A list of locations in bulk request
+    ImporterLocationInput:
+      title: ImporterLocation
+      required:
+        - locationId
+        - locationName
+      type: object
+      properties:
+        locationId:
+          title: Locationid
+          maxLength: 32
+          minLength: 1
+          type: string
+          description: Location external ID used for location identification in external partner's ERP system
+          example: trevi
+        locationName:
+          title: Locationname
+          maxLength: 100
+          minLength: 3
+          type: string
+          description: Location name
+          example: Fontana di Trevi
+        regionId:
+          title: Regionid
+          maxLength: 32
+          minLength: 1
+          type: string
+          description: Region external ID used for region identification in external partner's ERP system
+          example: municipio1
+        locationAddress:
+          title: Locationaddress
+          maxLength: 100
+          minLength: 1
+          type: string
+          description: Location address. Optional if latitude and longitude are specified. Eiter location address or latitude/longitude must be specified.
+          default: ""
+          example: Piazza di Trev1 1
+        longitude:
+          title: Longitude
+          maximum: 180
+          minimum: -180
+          type: number
+          description: Address longitude coordinates. Optional if address is specified. Eiter location address or latitude/longitude must be specified.
+          default: 45.7459421806498
+          example: 45.7459421806498
+        latitude:
+          title: Latitude
+          maximum: 90
+          minimum: -90
+          type: number
+          description: Address latitude coordinates. Optional if address is specified. Eiter location address or latitude/longitude must be specified.
+          default: 15.9998819827745
+          example: 15.9998819827745
+        phone:
+          title: Phone
+          maxLength: 100
+          type: string
+          description: Optional phone
+          example: +39XXXXXXXXX
+        email:
+          title: Email
+          maxLength: 100
+          type: string
+          description: Optional email
+          example: trevi@ditta1.com
+        description:
+          title: Description
+          maxLength: 255
+          type: string
+          description: Optional location description
+          example: Fontana di Trevi
+        workingDays:
+          title: Workingdays
+          maxLength: 7
+          minLength: 7
+          type: string
+          description: Working days as weekday mask
+          default: "1111100"
+          example: "1111100"
+        workingHours:
+          title: Workinghours
+          type: array
+          items:
+            $ref: "#/components/schemas/ImporterLocationWorkingHoursInput"
+          description: List of location working hours
+    ImporterLocationResponse:
+      title: ImporterLocationResponse
+      required:
+        - locationId
+        - locationName
+        - enabled
+        - locationAddress
+        - longitude
+        - latitude
+        - workingDays
+      type: object
+      properties:
+        locationId:
+          title: Locationid
+          type: string
+          description: Location external ID
+          example: trevi
+        locationName:
+          title: Locationname
+          type: string
+          description: Location name
+          example: Fontana di Trevi
+        enabled:
+          title: Enabled
+          type: boolean
+          description: Describes if location is enabled
+          example: true
+        locationAddress:
+          title: Locationaddress
+          type: string
+          description: Location address
+          example: Piazza di Trev1 1
+        longitude:
+          title: Longitude
+          type: number
+          description: Address longitude coordinates
+          example: 45.7459421806498
+        latitude:
+          title: Latitude
+          type: number
+          description: Address latitude coordinates
+          example: 15.9998819827745
+        workingDays:
+          title: Workingdays
+          type: string
+          description: Working days as weekday mask
+          example: "1111100"
+        phone:
+          title: Phone
+          type: string
+          description: Optional phone
+          example: +39XXXXXXXXX
+        email:
+          title: Email
+          type: string
+          description: Optional email
+          example: trevi@ditta1.com
+        description:
+          title: Description
+          type: string
+          description: Optional location description
+          example: Fontana di Trevi
+        regionId:
+          title: Regionid
+          type: string
+          description: Region external ID
+          example: municipio1
+        workingHours:
+          title: Workinghours
+          type: array
+          items:
+            $ref: "#/components/schemas/LocationWorkingTimeIntervalResponse"
+          description: List of location working hours if location has defined working hours
+          example:
+            - start_time: 08:00
+              end_time: 18:00
+    ImporterLocationWorkingHoursInput:
+      title: ImporterLocationWorkingHoursInput
+      required:
+        - start_time
+        - end_time
+      type: object
+      properties:
+        start_time:
+          title: Start Time
+          type: string
+          description: Start working time of location in format HH:MM
+          format: time
+          example: 08:00
+        end_time:
+          title: End Time
+          type: string
+          description: End working time of location in format HH:MM
+          format: time
+          example: 18:00
+    ImporterMachineBulkDeleteInput:
+      title: ImporterBulkDeleteMachinesRequest
+      required:
+        - requestId
+        - timestamp
+        - bulkGroup
+        - externalMachineIdList
+      type: object
+      properties:
+        requestId:
+          title: Requestid
+          maxLength: 40
+          minLength: 6
+          type: string
+          description: "Identifier of this request. It MUST be unique for all requests (e.g. UUID, but not limited to) or at least unique for all requests on company level. Min size: 6, Max allowed size: 40 characters"
+          example: 59fcbf91-5159-4630-b15c-3278aa65aa56
+        timestamp:
+          title: Timestamp
+          type: string
+          description: ISO date and time when this payload object has been originally created
+          format: date-time
+          example: 2021-01-31T17:33:27.902+01:00
+        bulkGroup:
+          title: Bulkgroup
+          allOf:
+            - $ref: "#/components/schemas/BulkGroupInput"
+          description: If this object is provided than it indicates a sequence number of this bulk request within a group of several bulk requests. Otherwise this bulk request shall be treated as independent of other bulks
+        externalMachineIdList:
+          title: externalMachineIdList
+          maxLength: 32
+          minLength: 1
+          maxItems: 10000
+          minItems: 1
+          type: array
+          items:
+            maxLength: 32
+            minLength: 1
+            type: string
+          description: A list of external machine IDs for deletion
+          example:
+            - nectatrev1
+    ImporterMachineBulkInput:
+      title: ImporterBulkMachinesRequest
+      required:
+        - requestId
+        - timestamp
+        - bulkGroup
+        - machines
+      type: object
+      properties:
+        requestId:
+          title: Requestid
+          maxLength: 40
+          minLength: 6
+          type: string
+          description: "Identifier of this request. It MUST be unique for all requests (e.g. UUID, but not limited to) or at least unique for all requests on company level. Min size: 6, Max allowed size: 40 characters"
+          example: 59fcbf91-5159-4630-b15c-3278aa65aa56
+        timestamp:
+          title: Timestamp
+          type: string
+          description: ISO date and time when this payload object has been originally created
+          format: date-time
+          example: 2021-01-31T17:33:27.902+01:00
+        bulkGroup:
+          title: Bulkgroup
+          allOf:
+            - $ref: "#/components/schemas/BulkGroupInput"
+          description: If this object is provided than it indicates a sequence number of this bulk request within a group of several bulk requests. Otherwise this bulk request shall be treated as independent of other bulks
+        machines:
+          title: ImporterMachines
+          maxItems: 10000
+          minItems: 1
+          type: array
+          items:
+            $ref: "#/components/schemas/ImporterMachineInput"
+          description: A list of machines in bulk request
+    ImporterMachineInput:
+      title: ImporterMachine
+      required:
+        - machineId
+        - machineName
+        - machineLocationId
+      type: object
+      properties:
+        machineId:
+          title: Machineid
+          maxLength: 32
+          minLength: 1
+          type: string
+          description: Machine external ID used for machine identification in external partner's ERP system
+          example: nectatrev1
+        machineName:
+          title: Machinename
+          maxLength: 100
+          minLength: 1
+          type: string
+          description: Machine name
+          example: Necta Fontana Trevi
+        machineLocationId:
+          title: Machinelocationid
+          maxLength: 32
+          minLength: 1
+          type: string
+          description: Machine location external ID
+          example: trevi
+        machineTypeId:
+          title: Machinetypeid
+          maxLength: 32
+          minLength: 1
+          type: string
+          description: Machine type external ID
+          default: ""
+          example: comboa
+        clientId:
+          title: Clientid
+          maxLength: 32
+          minLength: 1
+          type: string
+          description: Client external ID
+          example: client1
+        routingClusterId:
+          title: Routingclusterid
+          maxLength: 32
+          minLength: 1
+          type: string
+          description: Routing cluster external ID
+          example: rome1
+        technicalClusterId:
+          title: Technicalclusterid
+          maxLength: 32
+          minLength: 1
+          type: string
+          description: Technical cluster external ID
+          example: tech1
+        installationDate:
+          title: Installationdate
+          type: string
+          description: "Installation date in format: YYYY-MM-DD"
+          format: date
+          example: 2023-07-30
+        modelNumber:
+          title: Modelnumber
+          maxLength: 20
+          minLength: 1
+          type: string
+          description: Model number
+          example: M1234
+        description:
+          title: Description
+          maxLength: 255
+          minLength: 1
+          type: string
+          description: Machine description
+          example: Fontana di Trevi
+        routing:
+          title: Routing
+          type: boolean
+          description: Determines if routing is enabled or disabled
+          default: false
+        stockTracking:
+          title: Stocktracking
+          type: boolean
+          description: Determines if stock_tracking is enabled or disabled
+          default: false
+        eventsTracking:
+          title: Eventstracking
+          type: boolean
+          description: Determines if events_tracking is enabled or disabled
+          default: false
+        noCashAlarm:
+          title: Nocashalarm
+          maximum: 2147483647
+          minimum: 0
+          type: integer
+          description: No cash alarm time in minutes
+          example: 52
+        noCashless1Alarm:
+          title: Nocashless1Alarm
+          maximum: 2147483647
+          minimum: 0
+          type: integer
+          description: No cashless 1 alarm time in minutes
+          example: 52
+        noCashless2Alarm:
+          title: Nocashless2Alarm
+          maximum: 2147483647
+          minimum: 0
+          type: integer
+          description: No cashless 2 alarm time in minutes
+          example: 52
+        noCashless3Alarm:
+          title: Nocashless3Alarm
+          maximum: 2147483647
+          minimum: 0
+          type: integer
+          description: No cashless 3 alarm time in minutes
+          example: 52
+        noSalesAlarm:
+          title: Nosalesalarm
+          maximum: 2147483647
+          minimum: 0
+          type: integer
+          description: No sales alarm time in minutes
+          example: 52
+        machineCategoryId:
+          title: Machinecategoryid
+          maxLength: 32
+          minLength: 1
+          type: string
+          description: Machine category external ID
+          example: MC99
+        locationWarehouseId:
+          title: Locationwarehouseid
+          maxLength: 32
+          minLength: 1
+          type: string
+          description: Location warehouse external ID
+          example: LW112
+        callCentre:
+          title: Callcentre
+          type: boolean
+          description: Determines if call_centre is enabled or disabled
+          default: false
+        purchasePrice:
+          title: Purchaseprice
+          maximum: 9999999999.99
+          minimum: 0
+          type: number
+          description: Purchase price
+          example: 123.45
+        manufactureDate:
+          title: Manufacturedate
+          type: string
+          description: "Manufacture date in format: YYYY-MM-DD"
+          format: date
+          example: 2021-03-25
+        cashSnapshot:
+          title: Cashsnapshot
+          type: boolean
+          description: Determines if cash_snapshot is enabled or disabled
+          default: false
+        machineBrandId:
+          title: Machinebrandid
+          maxLength: 32
+          minLength: 1
+          type: string
+          description: Machine brand external ID
+          example: Brand1
+        machineModelId:
+          title: Machinemodelid
+          maxLength: 32
+          minLength: 1
+          type: string
+          description: Machine model external ID
+          example: Model1
+        barcode:
+          title: Barcode
+          maxLength: 50
+          minLength: 1
+          type: string
+          description: Machine barcode
+          example: barcode1
+    ImporterMachineResponse:
+      title: ImporterMachineResponse
+      required:
+        - machineId
+        - enabled
+        - machineName
+        - machineLocationId
+        - machineTypeId
+        - routing
+        - stockTracking
+        - eventsTracking
+        - cashSnapshot
+      type: object
+      properties:
+        machineId:
+          title: Machineid
+          type: string
+          description: Machine external ID
+          example: nectatrevi1
+        enabled:
+          title: Enabled
+          type: boolean
+          description: Describes if machine is enabled
+          example: true
+        machineName:
+          title: Machinename
+          type: string
+          description: Machine name
+          example: Necta Fontana Trevi
+        machineLocationId:
+          title: Machinelocationid
+          type: string
+          description: Machine location external ID
+          example: trevi
+        machineTypeId:
+          title: Machinetypeid
+          type: string
+          description: Machine type external ID
+          example: comboa
+        clientId:
+          title: Clientid
+          type: string
+          description: Client external ID
+          example: client1
+        routingClusterId:
+          title: Routingclusterid
+          type: string
+          description: Routing cluster external ID
+          example: rome1
+        technicalClusterId:
+          title: Technicalclusterid
+          type: string
+          description: Technical cluster external ID
+          example: tech1
+        installationDate:
+          title: Installationdate
+          type: string
+          description: "Installation date in format: YYYY-MM-DD"
+          format: date
+          example: 2023-07-30
+        modelNumber:
+          title: Modelnumber
+          type: string
+          description: Model number
+          example: M1234
+        description:
+          title: Description
+          type: string
+          description: Machine description
+          example: Fontana di Trevi
+        routing:
+          title: Routing
+          type: boolean
+          description: Determines if routing is enabled or disabled
+          example: true
+        stockTracking:
+          title: Stocktracking
+          type: boolean
+          description: Determines if stock_tracking is enabled or disabled
+          example: true
+        eventsTracking:
+          title: Eventstracking
+          type: boolean
+          description: Determines if events_tracking is enabled or disabled
+          example: false
+        noCashAlarm:
+          title: Nocashalarm
+          allOf:
+            - $ref: "#/components/schemas/MachineSalesAlarmTime"
+          description: No cash alarm time
+          example:
+            hours: 12
+            minutes: 22
+        noCashless1Alarm:
+          title: Nocashless1Alarm
+          allOf:
+            - $ref: "#/components/schemas/MachineSalesAlarmTime"
+          description: No cashless 1 alarm time
+          example:
+            hours: 12
+            minutes: 22
+        noCashless2Alarm:
+          title: Nocashless2Alarm
+          allOf:
+            - $ref: "#/components/schemas/MachineSalesAlarmTime"
+          description: No cashless 2 alarm time
+          example:
+            hours: 12
+            minutes: 22
+        noCashless3Alarm:
+          title: Nocashless3Alarm
+          allOf:
+            - $ref: "#/components/schemas/MachineSalesAlarmTime"
+          description: No cashless 3 alarm time
+          example:
+            hours: 12
+            minutes: 22
+        noSalesAlarm:
+          title: Nosalesalarm
+          allOf:
+            - $ref: "#/components/schemas/MachineSalesAlarmTime"
+          description: No sales alarm time
+          example:
+            hours: 12
+            minutes: 22
+        machineCategoryId:
+          title: Machinecategoryid
+          type: string
+          description: Machine category external ID
+          example: MC99
+        locationWarehouseId:
+          title: Locationwarehouseid
+          type: string
+          description: Location warehouse external ID
+          example: LW112
+        callCentre:
+          title: Callcentre
+          type: boolean
+          description: Determines if call_centre is enabled or disabled
+          example: false
+        purchasePrice:
+          title: Purchaseprice
+          type: number
+          description: Purchase price
+          example: 123.45
+        manufactureDate:
+          title: Manufacturedate
+          type: string
+          description: "Manufacture date in format: YYYY-MM-DD"
+          format: date
+          example: 2021-03-25
+        cashSnapshot:
+          title: Cashsnapshot
+          type: boolean
+          description: Determines if cash_snapshot is enabled or disabled
+          example: false
+        machineBrandId:
+          title: Machinebrandid
+          type: string
+          description: Machine brand external ID
+          example: Brand1
+        machineModelId:
+          title: Machinemodelid
+          type: string
+          description: Machine model external ID
+          example: Model1
+        barcode:
+          title: Barcode
+          type: string
+          description: Machine barcode
+          example: barcode1
+    ImporterMachineTypeBulkDeleteInput:
+      title: ImporterBulkDeleteMachineTypesRequest
+      required:
+        - requestId
+        - timestamp
+        - bulkGroup
+        - externalMachineTypeIdList
+      type: object
+      properties:
+        requestId:
+          title: Requestid
+          maxLength: 40
+          minLength: 6
+          type: string
+          description: "Identifier of this request. It MUST be unique for all requests (e.g. UUID, but not limited to) or at least unique for all requests on company level. Min size: 6, Max allowed size: 40 characters"
+          example: 59fcbf91-5159-4630-b15c-3278aa65aa56
+        timestamp:
+          title: Timestamp
+          type: string
+          description: ISO date and time when this payload object has been originally created
+          format: date-time
+          example: 2021-01-31T17:33:27.902+01:00
+        bulkGroup:
+          title: Bulkgroup
+          allOf:
+            - $ref: "#/components/schemas/BulkGroupInput"
+          description: If this object is provided than it indicates a sequence number of this bulk request within a group of several bulk requests. Otherwise this bulk request shall be treated as independent of other bulks
+        externalMachineTypeIdList:
+          title: externalMachineTypeIdList
+          maxLength: 32
+          minLength: 1
+          maxItems: 10000
+          minItems: 1
+          type: array
+          items:
+            maxLength: 32
+            minLength: 1
+            type: string
+          description: A list of external machine type IDs for deletion
+          example:
+            - snacka
+    ImporterMachineTypeBulkInput:
+      title: ImporterBulkMachineTypesRequest
+      required:
+        - requestId
+        - timestamp
+        - bulkGroup
+        - machineTypes
+      type: object
+      properties:
+        requestId:
+          title: Requestid
+          maxLength: 40
+          minLength: 6
+          type: string
+          description: "Identifier of this request. It MUST be unique for all requests (e.g. UUID, but not limited to) or at least unique for all requests on company level. Min size: 6, Max allowed size: 40 characters"
+          example: 59fcbf91-5159-4630-b15c-3278aa65aa56
+        timestamp:
+          title: Timestamp
+          type: string
+          description: ISO date and time when this payload object has been originally created
+          format: date-time
+          example: 2021-01-31T17:33:27.902+01:00
+        bulkGroup:
+          title: Bulkgroup
+          allOf:
+            - $ref: "#/components/schemas/BulkGroupInput"
+          description: If this object is provided than it indicates a sequence number of this bulk request within a group of several bulk requests. Otherwise this bulk request shall be treated as independent of other bulks
+        machineTypes:
+          title: ImporterMachineTypes
+          maxItems: 10000
+          minItems: 1
+          type: array
+          items:
+            $ref: "#/components/schemas/ImporterMachineTypeInput"
+          description: A list of machine types in bulk request
+    ImporterMachineTypeInput:
+      title: ImporterMachineType
+      required:
+        - machineTypeName
+        - machineTypeId
+      type: object
+      properties:
+        machineTypeName:
+          title: Machinetypename
+          maxLength: 100
+          minLength: 1
+          type: string
+          description: Name of the machine type
+          example: Snack A
+        machineTypeId:
+          title: Machinetypeid
+          maxLength: 32
+          minLength: 1
+          type: string
+          description: External id of the machine type
+          example: snacka
+    ImporterMachineTypeResponse:
+      title: ImporterMachineTypeResponse
+      required:
+        - machineTypeId
+        - machineTypeName
+      type: object
+      properties:
+        machineTypeId:
+          title: Machinetypeid
+          type: string
+          description: Machine type external ID
+          example: snacka
+        machineTypeName:
+          title: Machinetypename
+          type: string
+          description: Machine type name
+          example: Snack A
+        isDefault:
+          title: Isdefault
+          type: boolean
+          description: Describes if returned machine type is default machine type on company
+          default: false
+    ImporterProductBulkDeleteInput:
+      title: ImporterBulkDeleteProductsRequest
+      required:
+        - requestId
+        - timestamp
+        - bulkGroup
+        - externalProductIdList
+      type: object
+      properties:
+        requestId:
+          title: Requestid
+          maxLength: 40
+          minLength: 6
+          type: string
+          description: "Identifier of this request. It MUST be unique for all requests (e.g. UUID, but not limited to) or at least unique for all requests on company level. Min size: 6, Max allowed size: 40 characters"
+          example: 59fcbf91-5159-4630-b15c-3278aa65aa56
+        timestamp:
+          title: Timestamp
+          type: string
+          description: ISO date and time when this payload object has been originally created
+          format: date-time
+          example: 2021-01-31T17:33:27.902+01:00
+        bulkGroup:
+          title: Bulkgroup
+          allOf:
+            - $ref: "#/components/schemas/BulkGroupInput"
+          description: If this object is provided than it indicates a sequence number of this bulk request within a group of several bulk requests. Otherwise this bulk request shall be treated as independent of other bulks
+        externalProductIdList:
+          title: externalProductIdList
+          maxLength: 30
+          minLength: 1
+          maxItems: 10000
+          minItems: 1
+          type: array
+          items:
+            maxLength: 30
+            minLength: 1
+            type: string
+          description: A list of external product IDs for deletion
+          example:
+            - B449
+    ImporterProductBulkInput:
+      title: ImporterBulkProductsRequest
+      required:
+        - requestId
+        - timestamp
+        - bulkGroup
+        - products
+      type: object
+      properties:
+        requestId:
+          title: Requestid
+          maxLength: 40
+          minLength: 6
+          type: string
+          description: "Identifier of this request. It MUST be unique for all requests (e.g. UUID, but not limited to) or at least unique for all requests on company level. Min size: 6, Max allowed size: 40 characters"
+          example: 59fcbf91-5159-4630-b15c-3278aa65aa56
+        timestamp:
+          title: Timestamp
+          type: string
+          description: ISO date and time when this payload object has been originally created
+          format: date-time
+          example: 2021-01-31T17:33:27.902+01:00
+        bulkGroup:
+          title: Bulkgroup
+          allOf:
+            - $ref: "#/components/schemas/BulkGroupInput"
+          description: If this object is provided than it indicates a sequence number of this bulk request within a group of several bulk requests. Otherwise this bulk request shall be treated as independent of other bulks
+        products:
+          title: ImporterProducts
+          maxItems: 10000
+          minItems: 1
+          type: array
+          items:
+            $ref: "#/components/schemas/ImporterProductInput"
+          description: A list of products in bulk request
+    ImporterProductCategoryBulkDeleteInput:
+      title: ImporterBulkDeleteProductCategoryRequest
+      required:
+        - requestId
+        - timestamp
+        - bulkGroup
+        - externalProductCategoryIdList
+      type: object
+      properties:
+        requestId:
+          title: Requestid
+          maxLength: 40
+          minLength: 6
+          type: string
+          description: "Identifier of this request. It MUST be unique for all requests (e.g. UUID, but not limited to) or at least unique for all requests on company level. Min size: 6, Max allowed size: 40 characters"
+          example: 59fcbf91-5159-4630-b15c-3278aa65aa56
+        timestamp:
+          title: Timestamp
+          type: string
+          description: ISO date and time when this payload object has been originally created
+          format: date-time
+          example: 2021-01-31T17:33:27.902+01:00
+        bulkGroup:
+          title: Bulkgroup
+          allOf:
+            - $ref: "#/components/schemas/BulkGroupInput"
+          description: If this object is provided than it indicates a sequence number of this bulk request within a group of several bulk requests. Otherwise this bulk request shall be treated as independent of other bulks
+        externalProductCategoryIdList:
+          title: externalProductCategoryIdList
+          maxLength: 30
+          minLength: 1
+          maxItems: 10000
+          minItems: 1
+          type: array
+          items:
+            maxLength: 30
+            minLength: 1
+            type: string
+          description: A list of external product category IDs for deletion
+          example:
+            - PC1234
+    ImporterProductCategoryBulkInput:
+      title: ImporterBulkProductCategoryRequest
+      required:
+        - requestId
+        - timestamp
+        - bulkGroup
+        - productCategories
+      type: object
+      properties:
+        requestId:
+          title: Requestid
+          maxLength: 40
+          minLength: 6
+          type: string
+          description: "Identifier of this request. It MUST be unique for all requests (e.g. UUID, but not limited to) or at least unique for all requests on company level. Min size: 6, Max allowed size: 40 characters"
+          example: 59fcbf91-5159-4630-b15c-3278aa65aa56
+        timestamp:
+          title: Timestamp
+          type: string
+          description: ISO date and time when this payload object has been originally created
+          format: date-time
+          example: 2021-01-31T17:33:27.902+01:00
+        bulkGroup:
+          title: Bulkgroup
+          allOf:
+            - $ref: "#/components/schemas/BulkGroupInput"
+          description: If this object is provided than it indicates a sequence number of this bulk request within a group of several bulk requests. Otherwise this bulk request shall be treated as independent of other bulks
+        productCategories:
+          title: ImporterProductCategories
+          maxItems: 10000
+          minItems: 1
+          type: array
+          items:
+            $ref: "#/components/schemas/ImporterProductCategoryInput"
+          description: A list of product categories in bulk request
+    ImporterProductCategoryInput:
+      title: ImporterProductCategory
+      required:
+        - productCategoryName
+        - productCategoryId
+      type: object
+      properties:
+        productCategoryName:
+          title: Productcategoryname
+          maxLength: 64
+          minLength: 1
+          type: string
+          description: Name of the product category
+          example: ProductCategory 1
+        productCategoryId:
+          title: Productcategoryid
+          maxLength: 30
+          minLength: 1
+          type: string
+          description: Product category external ID used for product category identification in external partner's ERP system
+          example: PC1234
+        position:
+          title: Position
+          maximum: 32767
+          minimum: 0
+          type: integer
+          description: Product category position
+          example: 2
+    ImporterProductCategoryResponse:
+      title: ImporterProductCategoryResponse
+      required:
+        - productCategoryName
+        - productCategoryId
+      type: object
+      properties:
+        productCategoryName:
+          title: Productcategoryname
+          type: string
+          description: Name of the product category
+          example: ProductCategory 1
+        productCategoryId:
+          title: Productcategoryid
+          type: string
+          description: Product category external ID used for product category identification in external partner's ERP system
+          example: PC1234
+        position:
+          title: Position
+          type: integer
+          description: Product category position
+          example: 2
+    ImporterProductInput:
+      title: ImporterProduct
+      required:
+        - productId
+        - productName
+        - price
+      type: object
+      properties:
+        productId:
+          title: Productid
+          maxLength: 30
+          minLength: 1
+          type: string
+          description: Product external ID used for product identification in external partner's ERP system
+          example: B449
+        productName:
+          title: Productname
+          maxLength: 100
+          minLength: 1
+          type: string
+          description: Product name
+          example: BELVITA CHOCOLAT 50GR X34
+        price:
+          title: Price
+          maximum: 99999999.99
+          minimum: 0
+          type: number
+          description: Product price specified with precision to max 2 decimal places
+          example: 10.33
+        taxRate:
+          title: Taxrate
+          maximum: 99999999.99
+          minimum: 0
+          type: number
+          description: Tax rate on product specified with precision to max 2 decimal places
+          example: 5.55
+        productCategoryId:
+          title: Productcategoryid
+          maxLength: 30
+          minLength: 1
+          type: string
+          description: ProductCategory external ID used for product category identification in external partner's ERP system
+          example: PC13
+        defaultBarcode:
+          title: Defaultbarcode
+          maxLength: 50
+          minLength: 1
+          type: string
+          description: Default barcode on product
+          example: ABC123
+        barcode1:
+          title: Barcode1
+          maxLength: 50
+          minLength: 1
+          type: string
+          description: Additional barcode1 on product
+          example: ABC123_1
+        barcode2:
+          title: Barcode2
+          maxLength: 50
+          minLength: 1
+          type: string
+          description: Additional barcode2 on product
+          example: ABC123_2
+        barcode3:
+          title: Barcode3
+          maxLength: 50
+          minLength: 1
+          type: string
+          description: Additional barcode3 on product
+          example: ABC123_3
+        barcode4:
+          title: Barcode4
+          maxLength: 50
+          minLength: 1
+          type: string
+          description: Additional barcode4 on product
+          example: ABC123_4
+        weight:
+          title: Weight
+          maximum: 2147483647
+          minimum: 0
+          type: number
+          description: Product weight in kilograms
+          example: 0.05
+        length:
+          title: Length
+          maximum: 50
+          minimum: 0.01
+          type: number
+          description: Product length in centimeters specified with precision to max 2 decimal places
+          example: 0.05
+        height:
+          title: Height
+          maximum: 50
+          minimum: 0.01
+          type: number
+          description: Product height in centimeters specified with precision to max 2 decimal places
+          example: 0.05
+        width:
+          title: Width
+          maximum: 50
+          minimum: 0.01
+          type: number
+          description: Product width in centimeters specified with precision to max 2 decimal places
+          example: 0.05
+        description:
+          title: Description
+          maxLength: 255
+          type: string
+          description: Product description
+          example: Belvita Dark Chocolate Bar
+        shortShelfLife:
+          title: Shortshelflife
+          maximum: 365
+          minimum: 1
+          type: integer
+          description: Product short shelf life in days
+          example: 120
+        ageVerification:
+          title: Ageverification
+          maximum: 110
+          minimum: 0
+          type: integer
+          description: Product age verification - minimum allowed age
+          example: 100
+        capacity:
+          title: Capacity
+          maximum: 2147483647
+          minimum: 0
+          type: integer
+          description: Product capacity
+          example: 8
+        minimumRoutePickup:
+          title: Minimumroutepickup
+          maximum: 2147483647
+          minimum: 0
+          type: integer
+          description: Minimum route pickup
+          example: 0
+        purchasePrice:
+          title: Purchaseprice
+          maximum: 99999999.99
+          minimum: 0
+          type: number
+          description: Product purchase price specified with precision to max 2 decimal places
+          example: 10.33
+        depositRefund:
+          title: Depositrefund
+          maximum: 1000
+          minimum: 0
+          type: number
+          description: Deposit refund specified with precision to max 2 decimal places
+          example: 1.33
+        productWarehousePosition:
+          title: Productwarehouseposition
+          maxLength: 100
+          type: string
+          description: Product warehouse position
+          example: Product warehouse position
+        blacklisted:
+          title: Blacklisted
+          type: boolean
+          description: Determines if product is blacklisted
+          default: false
+          example: false
+        usePacking:
+          title: Usepacking
+          type: boolean
+          description: Determines if product uses packing
+          default: false
+          example: false
+    ImporterProductPackingBulkDeleteInput:
+      title: ImporterBulkDeleteProductPackingsRequest
+      required:
+        - requestId
+        - timestamp
+        - bulkGroup
+        - externalPackingIdList
+      type: object
+      properties:
+        requestId:
+          title: Requestid
+          maxLength: 40
+          minLength: 6
+          type: string
+          description: "Identifier of this request. It MUST be unique for all requests (e.g. UUID, but not limited to) or at least unique for all requests on company level. Min size: 6, Max allowed size: 40 characters"
+          example: 59fcbf91-5159-4630-b15c-3278aa65aa56
+        timestamp:
+          title: Timestamp
+          type: string
+          description: ISO date and time when this payload object has been originally created
+          format: date-time
+          example: 2021-01-31T17:33:27.902+01:00
+        bulkGroup:
+          title: Bulkgroup
+          allOf:
+            - $ref: "#/components/schemas/BulkGroupInput"
+          description: If this object is provided than it indicates a sequence number of this bulk request within a group of several bulk requests. Otherwise this bulk request shall be treated as independent of other bulks
+        externalPackingIdList:
+          title: externalPackingIdList
+          maxLength: 30
+          minLength: 1
+          maxItems: 10000
+          minItems: 1
+          type: array
+          items:
+            maxLength: 30
+            minLength: 1
+            type: string
+          description: A list of external product packing IDs for deletion
+          example:
+            - PP449
+    ImporterProductPackingBulkInput:
+      title: ImporterBulkProductPackingsRequest
+      required:
+        - requestId
+        - timestamp
+        - bulkGroup
+        - productsAndPackings
+      type: object
+      properties:
+        requestId:
+          title: Requestid
+          maxLength: 40
+          minLength: 6
+          type: string
+          description: "Identifier of this request. It MUST be unique for all requests (e.g. UUID, but not limited to) or at least unique for all requests on company level. Min size: 6, Max allowed size: 40 characters"
+          example: 59fcbf91-5159-4630-b15c-3278aa65aa56
+        timestamp:
+          title: Timestamp
+          type: string
+          description: ISO date and time when this payload object has been originally created
+          format: date-time
+          example: 2021-01-31T17:33:27.902+01:00
+        bulkGroup:
+          title: Bulkgroup
+          allOf:
+            - $ref: "#/components/schemas/BulkGroupInput"
+          description: If this object is provided than it indicates a sequence number of this bulk request within a group of several bulk requests. Otherwise this bulk request shall be treated as independent of other bulks
+        productsAndPackings:
+          title: ImporterProductsAndPackings
+          maxItems: 10000
+          minItems: 1
+          type: array
+          items:
+            $ref: "#/components/schemas/ImporterProductPackingInput"
+          description: A list of product packings in bulk request
+    ImporterProductPackingInput:
+      title: ImporterProductPackings
+      required:
+        - productId
+        - packings
+      type: object
+      properties:
+        productId:
+          title: Productid
+          maxLength: 30
+          minLength: 1
+          type: string
+          description: Product external ID used for identification in external partner's ERP system
+          example: P123
+        packings:
+          title: Packings
+          minItems: 1
+          type: array
+          items:
+            $ref: "#/components/schemas/service__api__product_packing_bulk__importer_api__v1__models__PackingInput"
+          description: List of packings on product; one must be default; this is the complete list that ends in DB; any packing that is in DB but is not specified here, will be deleted
+    ImporterProductPackingResponse:
+      title: ImporterProductPackingResponse
+      required:
+        - productId
+        - packings
+      type: object
+      properties:
+        productId:
+          title: Productid
+          type: string
+          description: Product external ID used for product identification in external partner's ERP system
+          example: B449
+        packings:
+          title: Packings
+          type: array
+          items:
+            $ref: "#/components/schemas/service__api__product_packing_bulk__importer_api__v1__models__ImporterPackingDetailsResponse"
+    ImporterProductResponse:
+      title: ImporterProductResponse
+      required:
+        - productId
+        - productName
+        - price
+        - isCombo
+        - isComposite
+        - blacklisted
+        - enabled
+        - usePacking
+      type: object
+      properties:
+        productId:
+          title: Productid
+          type: string
+          description: Product external ID used for product identification in external partner's ERP system
+          example: B449
+        productName:
+          title: Productname
+          type: string
+          description: Product name
+          example: BELVITA CHOCOLAT 50GR X34
+        price:
+          title: Price
+          type: number
+          description: Product price
+          example: 10.33
+        taxRate:
+          title: Taxrate
+          type: number
+          description: Tax rate on product
+          example: 5.55
+        productCategoryId:
+          title: Productcategoryid
+          type: string
+          description: ProductCategory external ID used for product category identification in external partner's ERP system
+          example: PC13
+        defaultBarcode:
+          title: Defaultbarcode
+          type: string
+          description: Default barcode on product
+          example: ABC123
+        barcode1:
+          title: Barcode1
+          type: string
+          description: Additional barcode1 on product
+          example: ABC123_1
+        barcode2:
+          title: Barcode2
+          type: string
+          description: Additional barcode2 on product
+          example: ABC123_2
+        barcode3:
+          title: Barcode3
+          type: string
+          description: Additional barcode3 on product
+          example: ABC123_3
+        barcode4:
+          title: Barcode4
+          type: string
+          description: Additional barcode4 on product
+          example: ABC123_4
+        weight:
+          title: Weight
+          type: number
+          description: Product weight in kilograms
+          example: 0.05
+        length:
+          title: Length
+          type: number
+          description: Product length in centimeters
+          example: 0.05
+        height:
+          title: Height
+          type: number
+          description: Product height in centimeters
+          example: 0.05
+        width:
+          title: Width
+          type: number
+          description: Product width in centimeters
+          example: 0.05
+        description:
+          title: Description
+          type: string
+          description: Product description
+          example: Belvita Dark Chocolate Bar
+        shortShelfLife:
+          title: Shortshelflife
+          type: integer
+          description: Product short shelf life
+          example: 120
+        ageVerification:
+          title: Ageverification
+          type: integer
+          description: Product age verification
+          example: 100
+        capacity:
+          title: Capacity
+          type: integer
+          description: Product capacity
+          example: 8
+        minimumRoutePickup:
+          title: Minimumroutepickup
+          type: integer
+          description: Minimum route pickup
+          example: 0
+        purchasePrice:
+          title: Purchaseprice
+          type: number
+          description: Product purchase price
+          example: 10.33
+        depositRefund:
+          title: Depositrefund
+          type: number
+          description: Deposit refund
+          example: 1.33
+        productWarehousePosition:
+          title: Productwarehouseposition
+          type: string
+          description: Product warehouse position
+          example: Product warehouse position
+        isCombo:
+          title: Iscombo
+          type: boolean
+          description: Determines if product is a combo product
+          example: false
+        isComposite:
+          title: Iscomposite
+          type: boolean
+          description: Determines if product is a composite product
+          example: false
+        blacklisted:
+          title: Blacklisted
+          type: boolean
+          description: Determines if product is blacklisted
+          example: false
+        enabled:
+          title: Enabled
+          type: boolean
+          description: Determines if product is enabled or disabled
+          example: true
+        usePacking:
+          title: Usepacking
+          type: boolean
+          description: Determines if product uses packing
+          example: false
+    ImporterRecipeBulkDeleteInput:
+      title: ImporterBulkDeleteRecipesRequest
+      required:
+        - requestId
+        - timestamp
+        - bulkGroup
+        - recipes
+      type: object
+      properties:
+        requestId:
+          title: Requestid
+          maxLength: 40
+          minLength: 6
+          type: string
+          description: "Identifier of this request. It MUST be unique for all requests (e.g. UUID, but not limited to) or at least unique for all requests on company level. Min size: 6, Max allowed size: 40 characters"
+          example: 59fcbf91-5159-4630-b15c-3278aa65aa56
+        timestamp:
+          title: Timestamp
+          type: string
+          description: ISO date and time when this payload object has been originally created
+          format: date-time
+          example: 2021-01-31T17:33:27.902+01:00
+        bulkGroup:
+          title: Bulkgroup
+          allOf:
+            - $ref: "#/components/schemas/BulkGroupInput"
+          description: If this object is provided than it indicates a sequence number of this bulk request within a group of several bulk requests. Otherwise this bulk request shall be treated as independent of other bulks
+        recipes:
+          title: recipes
+          maxItems: 10000
+          minItems: 1
+          type: array
+          items:
+            $ref: "#/components/schemas/DeleteRecipeInfo"
+          description: A list of recipes for deletion
+    ImporterRecipeBulkInput:
+      title: ImporterBulkRecipesRequest
+      required:
+        - requestId
+        - timestamp
+        - bulkGroup
+        - recipes
+      type: object
+      properties:
+        requestId:
+          title: Requestid
+          maxLength: 40
+          minLength: 6
+          type: string
+          description: "Identifier of this request. It MUST be unique for all requests (e.g. UUID, but not limited to) or at least unique for all requests on company level. Min size: 6, Max allowed size: 40 characters"
+          example: 59fcbf91-5159-4630-b15c-3278aa65aa56
+        timestamp:
+          title: Timestamp
+          type: string
+          description: ISO date and time when this payload object has been originally created
+          format: date-time
+          example: 2021-01-31T17:33:27.902+01:00
+        bulkGroup:
+          title: Bulkgroup
+          allOf:
+            - $ref: "#/components/schemas/BulkGroupInput"
+          description: If this object is provided than it indicates a sequence number of this bulk request within a group of several bulk requests. Otherwise this bulk request shall be treated as independent of other bulks
+        recipes:
+          title: ImporterRecipes
+          maxItems: 10000
+          minItems: 1
+          type: array
+          items:
+            $ref: "#/components/schemas/ImporterRecipeInput"
+          description: A list of recipes in bulk request
+    ImporterRecipeInput:
+      title: ImporterRecipe
+      required:
+        - recipeId
+        - recipeName
+        - productId
+        - components
+      type: object
+      properties:
+        recipeId:
+          title: Recipeid
+          maxLength: 30
+          minLength: 1
+          type: string
+          description: Recipe external ID used for recipe identification in external partner's ERP system
+          example: R449
+        recipeName:
+          title: Recipename
+          maxLength: 100
+          minLength: 1
+          type: string
+          description: Recipe name
+          example: Latte Macchiato
+        productId:
+          title: Productid
+          maxLength: 30
+          minLength: 1
+          type: string
+          description: Product external ID to which the recipe is linked
+          example: P123
+        components:
+          title: Components
+          maxItems: 50
+          minItems: 1
+          type: array
+          items:
+            $ref: "#/components/schemas/IngredientInput"
+          description: List of components that this recipe is consisted of
+    ImporterRecipeResponse:
+      title: ImporterRecipeResponse
+      required:
+        - recipeId
+        - recipeName
+        - default
+      type: object
+      properties:
+        recipeId:
+          title: Recipeid
+          type: string
+          description: Recipe external ID used for recipe identification in external partner's ERP system
+          example: R123
+        recipeName:
+          title: Recipename
+          type: string
+          description: Recipe name
+          example: Recipe 123
+        default:
+          title: Default
+          type: boolean
+          description: Describes whether the recipe is default on product or not
+          example: true
+        productId:
+          title: Productid
+          type: string
+          description: Product external ID to which the recipe is linked
+          example: P456
+        components:
+          title: Components
+          type: array
+          items:
+            $ref: "#/components/schemas/IngredientComponent"
+    ImporterRegionBulkDeleteInput:
+      title: ImporterBulkDeleteRegionsRequest
+      required:
+        - requestId
+        - timestamp
+        - bulkGroup
+        - externalRegionIdList
+      type: object
+      properties:
+        requestId:
+          title: Requestid
+          maxLength: 40
+          minLength: 6
+          type: string
+          description: "Identifier of this request. It MUST be unique for all requests (e.g. UUID, but not limited to) or at least unique for all requests on company level. Min size: 6, Max allowed size: 40 characters"
+          example: 59fcbf91-5159-4630-b15c-3278aa65aa56
+        timestamp:
+          title: Timestamp
+          type: string
+          description: ISO date and time when this payload object has been originally created
+          format: date-time
+          example: 2021-01-31T17:33:27.902+01:00
+        bulkGroup:
+          title: Bulkgroup
+          allOf:
+            - $ref: "#/components/schemas/BulkGroupInput"
+          description: If this object is provided than it indicates a sequence number of this bulk request within a group of several bulk requests. Otherwise this bulk request shall be treated as independent of other bulks
+        externalRegionIdList:
+          title: externalRegionIdList
+          maxLength: 32
+          minLength: 1
+          maxItems: 10000
+          minItems: 1
+          type: array
+          items:
+            maxLength: 32
+            minLength: 1
+            type: string
+          description: A list of external region IDs for deletion
+          example:
+            - rome
+    ImporterRegionBulkInput:
+      title: ImporterBulkRegionsRequest
+      required:
+        - requestId
+        - timestamp
+        - bulkGroup
+        - regions
+      type: object
+      properties:
+        requestId:
+          title: Requestid
+          maxLength: 40
+          minLength: 6
+          type: string
+          description: "Identifier of this request. It MUST be unique for all requests (e.g. UUID, but not limited to) or at least unique for all requests on company level. Min size: 6, Max allowed size: 40 characters"
+          example: 59fcbf91-5159-4630-b15c-3278aa65aa56
+        timestamp:
+          title: Timestamp
+          type: string
+          description: ISO date and time when this payload object has been originally created
+          format: date-time
+          example: 2021-01-31T17:33:27.902+01:00
+        bulkGroup:
+          title: Bulkgroup
+          allOf:
+            - $ref: "#/components/schemas/BulkGroupInput"
+          description: If this object is provided than it indicates a sequence number of this bulk request within a group of several bulk requests. Otherwise this bulk request shall be treated as independent of other bulks
+        regions:
+          title: ImporterRegions
+          maxItems: 10000
+          minItems: 1
+          type: array
+          items:
+            $ref: "#/components/schemas/ImporterRegionInput"
+          description: A list of regions in bulk request
+    ImporterRegionInput:
+      title: ImporterRegion
+      required:
+        - regionId
+        - regionName
+      type: object
+      properties:
+        regionId:
+          title: Regionid
+          maxLength: 32
+          minLength: 1
+          type: string
+          description: Region external ID used for region identification in external partner's ERP system
+          example: rome
+        regionName:
+          title: Regionname
+          maxLength: 100
+          minLength: 1
+          type: string
+          description: Region name
+          example: Rome
+        parentRegionId:
+          title: Parentregionid
+          maxLength: 32
+          minLength: 1
+          type: string
+          description: Parent region external ID. This field is optional
+          example: italia
+    ImporterRegionResponse:
+      title: ImporterRegionResponse
+      required:
+        - regionId
+        - regionName
+      type: object
+      properties:
+        regionId:
+          title: Regionid
+          type: string
+          description: Region external ID
+          example: rome
+        regionName:
+          title: Regionname
+          type: string
+          description: Region name
+          example: Rome
+        parentRegionId:
+          title: Parentregionid
+          type: string
+          description: Parent region external ID if region has parent
+          example: italia
+    IngredientComponent:
+      title: IngredientComponent
+      required:
+        - componentId
+        - quantity
+        - unit
+      type: object
+      properties:
+        componentId:
+          title: Componentid
+          type: string
+          description: External ID of a component that this recipe is consisted of
+          example: CP88345
+        quantity:
+          title: Quantity
+          type: number
+          description: Quantity in `unit` measure` of the component that this recipe is consisted of
+          example: 14
+        unit:
+          allOf:
+            - $ref: "#/components/schemas/ComponentUnitEnum"
+          description: "Indicates unit measure of `quantity` parameter, can be: PCS(pieces), ML(milliliter), G(gram)"
+          example: g
+    IngredientInput:
+      title: ImporterRecipeIngredient
+      required:
+        - componentId
+        - quantity
+      type: object
+      properties:
+        componentId:
+          title: Componentid
+          maxLength: 30
+          minLength: 1
+          type: string
+          description: External ID of a component that this recipe is consisted of
+          example: CP88345
+        quantity:
+          title: Quantity
+          maximum: 999999.99
+          exclusiveMinimum: true
+          type: number
+          description: Quantity in `unit` measure` of the component that this recipe is consisted of
+          example: 14
+          minimum: 0
+    LocationWorkingTimeIntervalResponse:
+      title: LocationWorkingTimeIntervalResponse
+      required:
+        - startTime
+        - endTime
+      type: object
+      properties:
+        startTime:
+          title: Starttime
+          type: string
+          format: time
+        endTime:
+          title: Endtime
+          type: string
+          format: time
+    MachineSalesAlarmTime:
+      title: MachineSalesAlarmTime
+      required:
+        - hours
+        - minutes
+      type: object
+      properties:
+        hours:
+          title: Hours
+          type: integer
+        minutes:
+          title: Minutes
+          type: integer
+    ProductLineEnum:
+      title: ProductLineEnum
+      enum:
+        - VENDING_MACHINE
+        - HORECA_MACHINE
+        - PROFESSIONAL_COFFEE_MACHINE
+        - TELEMETRY_DEVICE
+        - COIN_CHANGER
+        - CASHLESS_PAYMENT_DEVICE
+        - BANKNOTE_ACCEPTOR
+        - BOILER
+        - STEAMER
+        - KIOSK
+        - SMART_MACHINE
+      type: string
+      description: An enumeration.
+    StandardResponseModel:
+      title: StandardResponseModel
+      type: object
+      properties:
+        meta:
+          title: Meta
+          allOf:
+            - $ref: "#/components/schemas/BaseMetaModel"
+          default:
+            code: 200
+            message: ok
+        content:
+          title: Content
+    UpdateEntityExternalIdInput:
+      title: UpdateEntityExternalIdInput
+      required:
+        - entityType
+        - oldExternalId
+        - newExternalId
+      type: object
+      properties:
+        entityType:
+          $ref: "#/components/schemas/EntityTypeEnum"
+        oldExternalId:
+          title: Oldexternalid
+          minLength: 1
+          type: string
+        newExternalId:
+          title: Newexternalid
+          minLength: 1
+          type: string
+    ValidationError:
+      title: ValidationError
+      required:
+        - loc
+        - msg
+        - type
+      type: object
+      properties:
+        loc:
+          title: Location
+          type: array
+          items:
+            type: string
+        msg:
+          title: Message
+          type: string
+        type:
+          title: Error Type
+          type: string
+    service__api__component_packing_bulk__importer_api__v1__models__ImporterPackingDetailsResponse:
+      title: ImporterPackingDetailsResponse
+      required:
+        - packingId
+        - unit
+        - name
+        - default
+        - quantity
+        - numberOfPacks
+      type: object
+      properties:
+        packingId:
+          title: Packingid
+          type: string
+          description: Packing external ID used for packing identification in external partner's ERP system
+          example: PP449
+        unit:
+          title: Unit
+          type: string
+          description: Unit of measure; can be milliliter(ML), pieces(PCS), gram(G)
+          example: PCS
+        name:
+          title: Name
+          type: string
+          description: Packing name
+          example: Single Pack
+        default:
+          title: Default
+          type: boolean
+          description: Determines if the packing is default on component
+          example: true
+        barcode:
+          title: Barcode
+          type: string
+          description: Packing barcode
+          example: barcode1
+        quantity:
+          title: Quantity
+          type: integer
+          description: Quantity in unit of measure inside the packing
+          example: 2
+        numberOfPacks:
+          title: Numberofpacks
+          type: integer
+          description: Number of packs of the component inside the packing
+          example: 2
+    service__api__component_packing_bulk__importer_api__v1__models__PackingInput:
+      title: PackingInput
+      required:
+        - name
+        - packingId
+        - quantity
+      type: object
+      properties:
+        name:
+          title: Name
+          maxLength: 30
+          minLength: 1
+          type: string
+          description: Packing name. If packing name doesn't exist, it will be created
+          example: 6-Pack Box
+        packingId:
+          title: Packingid
+          maxLength: 30
+          minLength: 1
+          type: string
+          description: Packing external ID used for identification in external partner's ERP system
+          example: B12345
+        quantity:
+          title: Quantity
+          maximum: 2147483647
+          minimum: 1
+          type: integer
+          description: Component in unit of measure in packing; must be a multiple od the Single pack quantity
+          example: 5
+        default:
+          title: Default
+          type: boolean
+          description: Determines if the packing should be default on component; only one packing must be default
+          default: false
+          example: false
+        barcode:
+          title: Barcode
+          maxLength: 50
+          minLength: 1
+          type: string
+          description: Barcode on component packing
+          example: ABC123
+    service__api__product_packing_bulk__importer_api__v1__models__ImporterPackingDetailsResponse:
+      title: ImporterPackingDetailsResponse
+      required:
+        - packingId
+        - name
+        - default
+        - quantity
+      type: object
+      properties:
+        packingId:
+          title: Packingid
+          type: string
+          description: Packing external ID used for packing identification in external partner's ERP system
+          example: PP449
+        name:
+          title: Name
+          type: string
+          description: Packing name
+          example: Single Pack
+        default:
+          title: Default
+          type: boolean
+          description: Determines if the packing is default on product
+          example: true
+        barcode:
+          title: Barcode
+          type: string
+          description: Packing barcode
+          example: barcode1
+        quantity:
+          title: Quantity
+          type: integer
+          description: Quantity of the product inside the packing
+          example: 2
+    service__api__product_packing_bulk__importer_api__v1__models__PackingInput:
+      title: PackingInput
+      required:
+        - name
+        - packingId
+        - quantity
+      type: object
+      properties:
+        name:
+          title: Name
+          maxLength: 30
+          minLength: 1
+          type: string
+          description: Packing name. If packing name doesn't exist, it will be created
+          example: 6-Pack Box
+        packingId:
+          title: Packingid
+          maxLength: 30
+          minLength: 1
+          type: string
+          description: Packing external ID used for identification in external partner's ERP system
+          example: B12345
+        quantity:
+          title: Quantity
+          maximum: 2147483647
+          minimum: 1
+          type: integer
+          description: Product quantity in packing
+          example: 5
+        default:
+          title: Default
+          type: boolean
+          description: Determines if the packing should be default on product; only one packing must be default
+          default: false
+          example: false
+        barcode:
+          title: Barcode
+          maxLength: 50
+          minLength: 1
+          type: string
+          description: Barcode on product packing
+          example: ABC123
+servers:
+  - url: https://uat-api.televendcloud.com/televend-api
+    description: Televend API Gateway

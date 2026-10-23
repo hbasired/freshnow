@@ -1,0 +1,11 @@
+{
+  "meta": {
+    "code": 403,
+    "message": "Missing permission ReportsVendRevenuePermission"
+  },
+  "errors": [
+    {
+      "msg": "Missing permission ReportsVendRevenuePermission"
+    }
+  ]
+}

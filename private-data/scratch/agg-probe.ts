@@ -1,0 +1,18 @@
+import "dotenv/config";
+import { HOSTS, PasswordSession, TelevendClient, readTelevendConfig } from "../../packages/televend/src/index.js";
+const cfg = readTelevendConfig()!;
+const s = new PasswordSession({ username: cfg.username!, password: cfg.password! }, { fetch: globalThis.fetch as never, now: Date.now });
+const c = new TelevendClient(s, { tenantId: cfg.tenantId, companyId: cfg.companyId, minIntervalMs: 1000 });
+const T = `tenants/${cfg.tenantId}/companies/${cfg.companyId}`;
+const agg = (q: Record<string, string>) => c.get(TelevendClient.url(HOSTS.cloudApi, `/machinist/api/v1/${T}/vends/aggregates`, q));
+const list = (q: Record<string, string>) => c.get(TelevendClient.url(HOSTS.cloudApi, `/machinist/api/v1/${T}/vends`, { page: "1", page_size: "1", ...q }));
+const day = { from_timestamp: "2026-10-12T00:00:00+04:00", to_timestamp: "2026-10-13T00:00:00+04:00" };
+const half = { from_timestamp: "2026-10-12T00:00:00+04:00", to_timestamp: "2026-10-12T12:00:00+04:00" };
+console.log("agg day, no mode   :", JSON.stringify(await agg(day)));
+console.log("agg day, live      :", JSON.stringify(await agg({ ...day, machine_mode: "live" })));
+console.log("agg day, test      :", JSON.stringify(await agg({ ...day, machine_mode: "test" })));
+console.log("agg half-day, none :", JSON.stringify(await agg(half)));
+console.log("agg day, UTC Z     :", JSON.stringify(await agg({ from_timestamp: "2026-10-11T20:00:00Z", to_timestamp: "2026-10-12T20:00:00Z" })));
+console.log("list day meta      :", JSON.stringify((await list(day) as { meta: unknown }).meta));
+console.log("list day live meta :", JSON.stringify((await list({ ...day, machine_mode: "live" }) as { meta: unknown }).meta));
+console.log("requests:", c.sent);

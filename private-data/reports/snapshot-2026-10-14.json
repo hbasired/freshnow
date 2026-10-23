@@ -1,0 +1,1463 @@
+{
+  "day": "2026-10-14",
+  "machines": {
+    "total": 221,
+    "enabled": 87
+  },
+  "sales": {
+    "day": "2026-10-14",
+    "complete": true,
+    "cupsSold": 1588,
+    "vendRecords": 1588,
+    "televendOwnCount": 1588,
+    "countsAgree": true,
+    "byPaymentType": {
+      "Cashless 3": 719,
+      "Cashless": 487,
+      "Cash": 333,
+      "Token": 45,
+      "Wallet": 4
+    },
+    "revenueAed": null,
+    "revenueNote": "vend values are hidden from this Televend account (needs the vend-revenue permission)",
+    "topMachinesByCups": [
+      {
+        "name": "Saudi German Ajman-362-card only -aed12-Cashless 1-AJM",
+        "asset": 362,
+        "cups": 70
+      },
+      {
+        "name": "Metro DMCC-400-DXB",
+        "asset": 400,
+        "cups": 54
+      },
+      {
+        "name": "Metro Emirates Towers-315-DXB",
+        "asset": 315,
+        "cups": 49
+      },
+      {
+        "name": "Expo-798-back-AED15-Card only-Cashless 1-SHJ",
+        "asset": 798,
+        "cups": 49
+      },
+      {
+        "name": "Metro Dubai Internet City-397-DXB",
+        "asset": 397,
+        "cups": 47
+      },
+      {
+        "name": "Oasis Mall DXB-543-Cashless 1-DXB",
+        "asset": 543,
+        "cups": 41
+      },
+      {
+        "name": "Nad Al Hammar Health-DHA-789-Cashless 1-DXB",
+        "asset": 789,
+        "cups": 39
+      },
+      {
+        "name": "Prime 06-366-SHJ",
+        "asset": 366,
+        "cups": 37
+      },
+      {
+        "name": "Metro Stadium-399-DXB",
+        "asset": 399,
+        "cups": 36
+      },
+      {
+        "name": "Metro Mall Of Emirates -310-DXB",
+        "asset": 310,
+        "cups": 36
+      },
+      {
+        "name": "Al Barsha Health -DHA-859-Cashless 1-DXB",
+        "asset": 859,
+        "cups": 35
+      },
+      {
+        "name": "Ghurair-Parking -545-DXB",
+        "asset": 545,
+        "cups": 30
+      },
+      {
+        "name": "Prime Arabian-383-Cashless 1-DXB",
+        "asset": 383,
+        "cups": 29
+      },
+      {
+        "name": "China Mall GBlock -317 -AJM",
+        "asset": 317,
+        "cups": 29
+      },
+      {
+        "name": "Metro-Centerpoint-389-DXB",
+        "asset": 389,
+        "cups": 28
+      },
+      {
+        "name": "Rashid hospital-DHA-857-DXB",
+        "asset": 857,
+        "cups": 28
+      },
+      {
+        "name": "Metro Emirates-391 -DXB",
+        "asset": 391,
+        "cups": 27
+      },
+      {
+        "name": "Metro SharafDG Exit 1-398-DXB",
+        "asset": 398,
+        "cups": 27
+      },
+      {
+        "name": "Tram Dubai Marina-396-DXB",
+        "asset": 396,
+        "cups": 27
+      },
+      {
+        "name": "RTA HQ Garhoud-698-card-AED8-DXB",
+        "asset": 698,
+        "cups": 27
+      }
+    ],
+    "machinesWithSales": 80
+  },
+  "alarms": {
+    "day": "2026-10-14",
+    "complete": true,
+    "allEventsByLevel": {
+      "info": 1484,
+      "warning": 12,
+      "alarm": 49
+    },
+    "selected": 49,
+    "unresolved": 5,
+    "topReasons": [
+      {
+        "what": "Vending Machine Communication Interrupted",
+        "count": 16
+      },
+      {
+        "what": "No cash sales alarm",
+        "count": 11
+      },
+      {
+        "what": "Cashless device",
+        "count": 11
+      },
+      {
+        "what": "Connection lost",
+        "count": 4
+      },
+      {
+        "what": "Bill / Cash Box Full",
+        "count": 3
+      },
+      {
+        "what": "Banknote acceptor",
+        "count": 2
+      },
+      {
+        "what": "No cashless 3 sales alarm",
+        "count": 1
+      },
+      {
+        "what": "No communication with Cashless 3",
+        "count": 1
+      }
+    ],
+    "truncated": false,
+    "rows": [
+      {
+        "machine": "Kabayel zahya ajman -385-AJM",
+        "asset": 385,
+        "level": "alarm",
+        "what": "No cash sales alarm",
+        "started": "2026-10-14 23:56",
+        "resolved": null,
+        "minutesOpen": null
+      },
+      {
+        "machine": "Dubai Holding -697-Cashless 1-DXB",
+        "asset": 697,
+        "level": "alarm",
+        "what": "Cashless device",
+        "started": "2026-10-14 23:55",
+        "resolved": "2026-10-15 00:05",
+        "minutesOpen": 11
+      },
+      {
+        "machine": "Metro Sobha Realty-388-DXB",
+        "asset": 388,
+        "level": "alarm",
+        "what": "Vending Machine Communication Interrupted",
+        "started": "2026-10-14 23:30",
+        "resolved": "2026-10-14 23:21",
+        "minutesOpen": null,
+        "note": "Televend shows this resolved before its latest start"
+      },
+      {
+        "machine": "Dubai holding 2-361-Cashless 1-DXB",
+        "asset": 361,
+        "level": "alarm",
+        "what": "Vending Machine Communication Interrupted",
+        "started": "2026-10-14 23:21",
+        "resolved": "2026-10-14 23:11",
+        "minutesOpen": null,
+        "note": "Televend shows this resolved before its latest start"
+      },
+      {
+        "machine": "Metro Sobha Realty-388-DXB",
+        "asset": 388,
+        "level": "alarm",
+        "what": "Vending Machine Communication Interrupted",
+        "started": "2026-10-14 23:20",
+        "resolved": "2026-10-14 23:21",
+        "minutesOpen": 1
+      },
+      {
+        "machine": "Dubai holding 2-361-Cashless 1-DXB",
+        "asset": 361,
+        "level": "alarm",
+        "what": "No communication with Cashless 3",
+        "started": "2026-10-14 23:13",
+        "resolved": "2026-10-14 23:20",
+        "minutesOpen": 6
+      },
+      {
+        "machine": "Dubai holding 2-361-Cashless 1-DXB",
+        "asset": 361,
+        "level": "alarm",
+        "what": "Vending Machine Communication Interrupted",
+        "started": "2026-10-14 23:11",
+        "resolved": "2026-10-14 23:11",
+        "minutesOpen": 0
+      },
+      {
+        "machine": "Kabayel Ajman2-360-Cashless 1-AJM",
+        "asset": 360,
+        "level": "alarm",
+        "what": "No cash sales alarm",
+        "started": "2026-10-14 22:50",
+        "resolved": null,
+        "minutesOpen": null
+      },
+      {
+        "machine": "Oasis Mall DXB-543-Cashless 1-DXB",
+        "asset": 543,
+        "level": "alarm",
+        "what": "Vending Machine Communication Interrupted",
+        "started": "2026-10-14 22:30",
+        "resolved": "2026-10-14 22:20",
+        "minutesOpen": null,
+        "note": "Televend shows this resolved before its latest start"
+      },
+      {
+        "machine": "Oasis Mall DXB-543-Cashless 1-DXB",
+        "asset": 543,
+        "level": "alarm",
+        "what": "Cashless device",
+        "started": "2026-10-14 22:27",
+        "resolved": "2026-10-14 22:18",
+        "minutesOpen": null,
+        "note": "Televend shows this resolved before its latest start"
+      },
+      {
+        "machine": "Oasis Mall DXB-543-Cashless 1-DXB",
+        "asset": 543,
+        "level": "alarm",
+        "what": "Vending Machine Communication Interrupted",
+        "started": "2026-10-14 22:20",
+        "resolved": "2026-10-14 22:20",
+        "minutesOpen": 0
+      },
+      {
+        "machine": "Oasis Mall DXB-543-Cashless 1-DXB",
+        "asset": 543,
+        "level": "alarm",
+        "what": "Vending Machine Communication Interrupted",
+        "started": "2026-10-14 22:17",
+        "resolved": "2026-10-14 22:11",
+        "minutesOpen": null,
+        "note": "Televend shows this resolved before its latest start"
+      },
+      {
+        "machine": "Oasis Mall DXB-543-Cashless 1-DXB",
+        "asset": 543,
+        "level": "alarm",
+        "what": "Cashless device",
+        "started": "2026-10-14 22:17",
+        "resolved": "2026-10-14 22:18",
+        "minutesOpen": 1
+      },
+      {
+        "machine": "Oasis Mall DXB-543-Cashless 1-DXB",
+        "asset": 543,
+        "level": "alarm",
+        "what": "Vending Machine Communication Interrupted",
+        "started": "2026-10-14 22:07",
+        "resolved": "2026-10-14 22:11",
+        "minutesOpen": 4
+      },
+      {
+        "machine": "Latifa Hospital -DHA-858-DXB",
+        "asset": 858,
+        "level": "alarm",
+        "what": "No cash sales alarm",
+        "started": "2026-10-14 21:52",
+        "resolved": null,
+        "minutesOpen": null
+      },
+      {
+        "machine": "Expo-364-back-AED15-CARD only-Cashless 1-SHJ",
+        "asset": 364,
+        "level": "alarm",
+        "what": "Vending Machine Communication Interrupted",
+        "started": "2026-10-14 21:24",
+        "resolved": "2026-10-14 21:15",
+        "minutesOpen": null,
+        "note": "Televend shows this resolved before its latest start"
+      },
+      {
+        "machine": "Expo-364-back-AED15-CARD only-Cashless 1-SHJ",
+        "asset": 364,
+        "level": "alarm",
+        "what": "Vending Machine Communication Interrupted",
+        "started": "2026-10-14 21:14",
+        "resolved": "2026-10-14 21:15",
+        "minutesOpen": 2
+      },
+      {
+        "machine": "Metro DMCC-400-DXB",
+        "asset": 400,
+        "level": "alarm",
+        "what": "Bill / Cash Box Full",
+        "started": "2026-10-14 21:10",
+        "resolved": "2026-10-14 21:59",
+        "minutesOpen": 49
+      },
+      {
+        "machine": "Metro Dubai Internet City-397-DXB",
+        "asset": 397,
+        "level": "alarm",
+        "what": "Vending Machine Communication Interrupted",
+        "started": "2026-10-14 20:16",
+        "resolved": "2026-10-14 20:12",
+        "minutesOpen": null,
+        "note": "Televend shows this resolved before its latest start"
+      },
+      {
+        "machine": "Metro Dubai Internet City-397-DXB",
+        "asset": 397,
+        "level": "alarm",
+        "what": "Vending Machine Communication Interrupted",
+        "started": "2026-10-14 20:06",
+        "resolved": "2026-10-14 20:12",
+        "minutesOpen": 6
+      },
+      {
+        "machine": "Festival City-VOX-363-DXB",
+        "asset": 363,
+        "level": "alarm",
+        "what": "No cash sales alarm",
+        "started": "2026-10-14 19:48",
+        "resolved": null,
+        "minutesOpen": null
+      },
+      {
+        "machine": "Saudi German Ajman-362-card only -aed12-Cashless 1-AJM",
+        "asset": 362,
+        "level": "alarm",
+        "what": "Cashless device",
+        "started": "2026-10-14 19:05",
+        "resolved": "2026-10-14 19:12",
+        "minutesOpen": 7,
+        "repeats": 2
+      },
+      {
+        "machine": "Saudi German Ajman-362-card only -aed12-Cashless 1-AJM",
+        "asset": 362,
+        "level": "alarm",
+        "what": "Banknote acceptor",
+        "started": "2026-10-14 19:01",
+        "resolved": "2026-10-14 19:00",
+        "minutesOpen": null,
+        "note": "Televend shows this resolved before its latest start"
+      },
+      {
+        "machine": "Saudi German Ajman-362-card only -aed12-Cashless 1-AJM",
+        "asset": 362,
+        "level": "alarm",
+        "what": "Vending Machine Communication Interrupted",
+        "started": "2026-10-14 19:00",
+        "resolved": "2026-10-14 18:50",
+        "minutesOpen": null,
+        "note": "Televend shows this resolved before its latest start"
+      },
+      {
+        "machine": "Saudi German Ajman-362-card only -aed12-Cashless 1-AJM",
+        "asset": 362,
+        "level": "alarm",
+        "what": "Cashless device",
+        "started": "2026-10-14 18:55",
+        "resolved": "2026-10-14 19:12",
+        "minutesOpen": 17,
+        "repeats": 2
+      },
+      {
+        "machine": "Saudi German Ajman-362-card only -aed12-Cashless 1-AJM",
+        "asset": 362,
+        "level": "alarm",
+        "what": "Banknote acceptor",
+        "started": "2026-10-14 18:51",
+        "resolved": "2026-10-14 19:00",
+        "minutesOpen": 8
+      },
+      {
+        "machine": "Saudi German Ajman-362-card only -aed12-Cashless 1-AJM",
+        "asset": 362,
+        "level": "alarm",
+        "what": "Bill / Cash Box Full",
+        "started": "2026-10-14 18:50",
+        "resolved": "2026-10-14 19:58",
+        "minutesOpen": 67
+      },
+      {
+        "machine": "Saudi German Ajman-362-card only -aed12-Cashless 1-AJM",
+        "asset": 362,
+        "level": "alarm",
+        "what": "Vending Machine Communication Interrupted",
+        "started": "2026-10-14 18:50",
+        "resolved": "2026-10-14 18:50",
+        "minutesOpen": 1
+      },
+      {
+        "machine": "Tram Marina Towers -693-DXB",
+        "asset": 693,
+        "level": "alarm",
+        "what": "No cash sales alarm",
+        "started": "2026-10-14 18:48",
+        "resolved": "2026-10-14 18:53",
+        "minutesOpen": 5
+      },
+      {
+        "machine": "Oasis Mall DXB-543-Cashless 1-DXB",
+        "asset": 543,
+        "level": "alarm",
+        "what": "Vending Machine Communication Interrupted",
+        "started": "2026-10-14 18:08",
+        "resolved": "2026-10-14 17:59",
+        "minutesOpen": null,
+        "note": "Televend shows this resolved before its latest start"
+      },
+      {
+        "machine": "Oasis Mall DXB-543-Cashless 1-DXB",
+        "asset": 543,
+        "level": "alarm",
+        "what": "Vending Machine Communication Interrupted",
+        "started": "2026-10-14 17:58",
+        "resolved": "2026-10-14 17:59",
+        "minutesOpen": 0
+      },
+      {
+        "machine": "Sharjah City Center-794-Cashless 1-SHJ",
+        "asset": 794,
+        "level": "alarm",
+        "what": "No cash sales alarm",
+        "started": "2026-10-14 15:54",
+        "resolved": "2026-10-14 17:31",
+        "minutesOpen": 97
+      },
+      {
+        "machine": "Qassimi Hospital Ground  Floor-799-Cashless 1-SHJ",
+        "asset": 799,
+        "level": "alarm",
+        "what": "No cash sales alarm",
+        "started": "2026-10-14 11:54",
+        "resolved": null,
+        "minutesOpen": null
+      },
+      {
+        "machine": "Tram Dubai Marina-396-DXB",
+        "asset": 396,
+        "level": "alarm",
+        "what": "No cashless 3 sales alarm",
+        "started": "2026-10-14 09:48",
+        "resolved": "2026-10-14 10:16",
+        "minutesOpen": 28
+      },
+      {
+        "machine": "Metro Sobha Realty-388-DXB",
+        "asset": 388,
+        "level": "alarm",
+        "what": "No cash sales alarm",
+        "started": "2026-10-14 09:47",
+        "resolved": "2026-10-14 14:59",
+        "minutesOpen": 312
+      },
+      {
+        "machine": "Sahara Center-394-Cashless 1-SHJ",
+        "asset": 394,
+        "level": "alarm",
+        "what": "Cashless device",
+        "started": "2026-10-14 09:24",
+        "resolved": "2026-10-14 09:15",
+        "minutesOpen": null,
+        "note": "Televend shows this resolved before its latest start"
+      },
+      {
+        "machine": "Sahara Center-394-Cashless 1-SHJ",
+        "asset": 394,
+        "level": "alarm",
+        "what": "Cashless device",
+        "started": "2026-10-14 09:14",
+        "resolved": "2026-10-14 09:15",
+        "minutesOpen": 0
+      },
+      {
+        "machine": "Kabayel Ajman1-390-Cashless 1-AJM",
+        "asset": 390,
+        "level": "alarm",
+        "what": "Cashless device",
+        "started": "2026-10-14 09:11",
+        "resolved": "2026-10-14 09:02",
+        "minutesOpen": null,
+        "note": "Televend shows this resolved before its latest start"
+      },
+      {
+        "machine": "Kabayel Ajman1-390-Cashless 1-AJM",
+        "asset": 390,
+        "level": "alarm",
+        "what": "Cashless device",
+        "started": "2026-10-14 09:01",
+        "resolved": "2026-10-14 09:02",
+        "minutesOpen": 1
+      },
+      {
+        "machine": "Kabayel Ajman2-360-Cashless 1-AJM",
+        "asset": 360,
+        "level": "alarm",
+        "what": "Cashless device",
+        "started": "2026-10-14 08:53",
+        "resolved": "2026-10-14 08:43",
+        "minutesOpen": null,
+        "note": "Televend shows this resolved before its latest start"
+      },
+      {
+        "machine": "Kabayel Ajman2-360-Cashless 1-AJM",
+        "asset": 360,
+        "level": "alarm",
+        "what": "Cashless device",
+        "started": "2026-10-14 08:43",
+        "resolved": "2026-10-14 08:43",
+        "minutesOpen": 1
+      },
+      {
+        "machine": "Tram Mina Seyahi -793-DXB",
+        "asset": 793,
+        "level": "alarm",
+        "what": "Connection lost",
+        "started": "2026-10-14 08:16",
+        "resolved": "2026-10-14 15:55",
+        "minutesOpen": 459
+      },
+      {
+        "machine": "Kabayel Deira-542-DXB",
+        "asset": 542,
+        "level": "alarm",
+        "what": "No cash sales alarm",
+        "started": "2026-10-14 03:47",
+        "resolved": "2026-10-14 15:31",
+        "minutesOpen": 704
+      },
+      {
+        "machine": "Metro Burjuman-312-DXB",
+        "asset": 312,
+        "level": "alarm",
+        "what": "Bill / Cash Box Full",
+        "started": "2026-10-14 03:38",
+        "resolved": "2026-10-14 06:18",
+        "minutesOpen": 160
+      },
+      {
+        "machine": "Kabayel Ajman2-360-Cashless 1-AJM",
+        "asset": 360,
+        "level": "alarm",
+        "what": "Connection lost",
+        "started": "2026-10-14 03:17",
+        "resolved": "2026-10-14 08:43",
+        "minutesOpen": 326
+      },
+      {
+        "machine": "Kabayel Ajman1-390-Cashless 1-AJM",
+        "asset": 390,
+        "level": "alarm",
+        "what": "Connection lost",
+        "started": "2026-10-14 03:16",
+        "resolved": "2026-10-14 09:01",
+        "minutesOpen": 344
+      },
+      {
+        "machine": "China Mall GBlock -317 -AJM",
+        "asset": 317,
+        "level": "alarm",
+        "what": "Connection lost",
+        "started": "2026-10-14 01:17",
+        "resolved": "2026-10-14 08:38",
+        "minutesOpen": 440
+      },
+      {
+        "machine": "NMC DIP Block Pediatrics 1st floor-AED15 -856-Cashless 1-DXB",
+        "asset": 856,
+        "level": "alarm",
+        "what": "No cash sales alarm",
+        "started": "2026-10-14 00:55",
+        "resolved": "2026-10-14 06:24",
+        "minutesOpen": 330
+      },
+      {
+        "machine": "NMC DIP Block Pediatrics 1st floor-AED15-863-Cashless 1-DXB",
+        "asset": 863,
+        "level": "alarm",
+        "what": "No cash sales alarm",
+        "started": "2026-10-14 00:55",
+        "resolved": "2026-10-14 06:54",
+        "minutesOpen": 359
+      }
+    ]
+  },
+  "warnings": {
+    "day": "2026-10-14",
+    "complete": true,
+    "allEventsByLevel": {
+      "info": 1484,
+      "warning": 12,
+      "alarm": 49
+    },
+    "selected": 12,
+    "unresolved": 0,
+    "topReasons": [
+      {
+        "what": "Banknote acceptor error",
+        "count": 6
+      },
+      {
+        "what": "Product level low",
+        "count": 6
+      }
+    ],
+    "truncated": false,
+    "rows": [
+      {
+        "machine": "Metro Stadium-399-DXB",
+        "asset": 399,
+        "level": "warning",
+        "what": "Banknote acceptor error",
+        "started": "2026-10-14 20:27",
+        "resolved": "2026-10-14 20:27",
+        "minutesOpen": 0
+      },
+      {
+        "machine": "Metro Stadium-399-DXB",
+        "asset": 399,
+        "level": "warning",
+        "what": "Banknote acceptor error",
+        "started": "2026-10-14 19:54",
+        "resolved": "2026-10-14 19:54",
+        "minutesOpen": 0
+      },
+      {
+        "machine": "Prime Arabian-383-Cashless 1-DXB",
+        "asset": 383,
+        "level": "warning",
+        "what": "Product level low",
+        "started": "2026-10-14 19:51",
+        "resolved": "2026-10-15 06:18",
+        "minutesOpen": 627
+      },
+      {
+        "machine": "Metro SharafDG Exit 1-398-DXB",
+        "asset": 398,
+        "level": "warning",
+        "what": "Banknote acceptor error",
+        "started": "2026-10-14 19:00",
+        "resolved": "2026-10-14 20:35",
+        "minutesOpen": 95
+      },
+      {
+        "machine": "Saudi German Ajman-362-card only -aed12-Cashless 1-AJM",
+        "asset": 362,
+        "level": "warning",
+        "what": "Product level low",
+        "started": "2026-10-14 18:52",
+        "resolved": "2026-10-14 19:01",
+        "minutesOpen": 9
+      },
+      {
+        "machine": "DreamLand-386-SHJ",
+        "asset": 386,
+        "level": "warning",
+        "what": "Banknote acceptor error",
+        "started": "2026-10-14 18:33",
+        "resolved": "2026-10-14 18:34",
+        "minutesOpen": 2
+      },
+      {
+        "machine": "Metro-Centerpoint-389-DXB",
+        "asset": 389,
+        "level": "warning",
+        "what": "Banknote acceptor error",
+        "started": "2026-10-14 18:11",
+        "resolved": "2026-10-14 18:57",
+        "minutesOpen": 46
+      },
+      {
+        "machine": "Prime 06-366-SHJ",
+        "asset": 366,
+        "level": "warning",
+        "what": "Product level low",
+        "started": "2026-10-14 14:23",
+        "resolved": "2026-10-14 17:42",
+        "minutesOpen": 199
+      },
+      {
+        "machine": "Century Mall Outdoor-797-Cashless 1-DXB",
+        "asset": 797,
+        "level": "warning",
+        "what": "Product level low",
+        "started": "2026-10-14 14:23",
+        "resolved": "2026-10-15 00:57",
+        "minutesOpen": 634
+      },
+      {
+        "machine": "Control Tower Motor City -384- DXB",
+        "asset": 384,
+        "level": "warning",
+        "what": "Product level low",
+        "started": "2026-10-14 14:23",
+        "resolved": "2026-10-15 02:26",
+        "minutesOpen": 724
+      },
+      {
+        "machine": "Naif Souk-319-DXB",
+        "asset": 319,
+        "level": "warning",
+        "what": "Product level low",
+        "started": "2026-10-14 10:37",
+        "resolved": "2026-10-15 02:09",
+        "minutesOpen": 933
+      },
+      {
+        "machine": "Abra Marine Station Outdoor-402-DXB",
+        "asset": 402,
+        "level": "warning",
+        "what": "Banknote acceptor error",
+        "started": "2026-10-14 00:03",
+        "resolved": "2026-10-14 01:34",
+        "minutesOpen": 91
+      }
+    ]
+  },
+  "cash": {
+    "day": "2026-10-14",
+    "complete": true,
+    "source": "Televend machine events 'Cash has been collected from the machine.' (amounts need the cash-centre permission)",
+    "collections": 34,
+    "machines": 34,
+    "rows": [
+      {
+        "machine": "DreamLand-386-SHJ",
+        "asset": 386,
+        "times": [
+          "2026-10-14 00:15"
+        ]
+      },
+      {
+        "machine": "Prime Motor-Card only-AED13-695-DXB",
+        "asset": 695,
+        "times": [
+          "2026-10-14 00:41"
+        ]
+      },
+      {
+        "machine": "Sharjah City Center-794-Cashless 1-SHJ",
+        "asset": 794,
+        "times": [
+          "2026-10-14 00:45"
+        ]
+      },
+      {
+        "machine": "Al Barsha Health -DHA-859-Cashless 1-DXB",
+        "asset": 859,
+        "times": [
+          "2026-10-14 01:20"
+        ]
+      },
+      {
+        "machine": "Kabayel zahya ajman -385-AJM",
+        "asset": 385,
+        "times": [
+          "2026-10-14 01:28"
+        ]
+      },
+      {
+        "machine": "Metro Stadium-399-DXB",
+        "asset": 399,
+        "times": [
+          "2026-10-14 02:51"
+        ]
+      },
+      {
+        "machine": "Metro Emirates Towers-315-DXB",
+        "asset": 315,
+        "times": [
+          "2026-10-14 03:06"
+        ]
+      },
+      {
+        "machine": "Arabian center-393- Cashless 1-DXB",
+        "asset": 393,
+        "times": [
+          "2026-10-14 03:33"
+        ]
+      },
+      {
+        "machine": "Metro Burjuman-312-DXB",
+        "asset": 312,
+        "times": [
+          "2026-10-14 03:39"
+        ]
+      },
+      {
+        "machine": "Metro-Centerpoint-389-DXB",
+        "asset": 389,
+        "times": [
+          "2026-10-14 04:07"
+        ]
+      },
+      {
+        "machine": "Latifa Hospital -DHA-858-DXB",
+        "asset": 858,
+        "times": [
+          "2026-10-14 04:20"
+        ]
+      },
+      {
+        "machine": "Metro Emirates-391 -DXB",
+        "asset": 391,
+        "times": [
+          "2026-10-14 04:42"
+        ]
+      },
+      {
+        "machine": "Metro Goldsouq-368-DXB",
+        "asset": 368,
+        "times": [
+          "2026-10-14 05:02"
+        ]
+      },
+      {
+        "machine": "Nad Al Hammar Health-DHA-789-Cashless 1-DXB",
+        "asset": 789,
+        "times": [
+          "2026-10-14 05:21"
+        ]
+      },
+      {
+        "machine": "Dubai Hospital -DHA-860-DXB",
+        "asset": 860,
+        "times": [
+          "2026-10-14 05:29"
+        ]
+      },
+      {
+        "machine": "Wasl Village -864- Cashless 1 - DXB",
+        "asset": 864,
+        "times": [
+          "2026-10-14 09:54"
+        ]
+      },
+      {
+        "machine": "Aster Clinic Al Warqa-700-Cashless 1-DXB",
+        "asset": 700,
+        "times": [
+          "2026-10-14 10:42"
+        ]
+      },
+      {
+        "machine": "Rashid hospital-DHA-857-DXB",
+        "asset": 857,
+        "times": [
+          "2026-10-14 11:59"
+        ]
+      },
+      {
+        "machine": "Tram Marina Towers -693-DXB",
+        "asset": 693,
+        "times": [
+          "2026-10-14 15:40"
+        ]
+      },
+      {
+        "machine": "Tram Mina Seyahi -793-DXB",
+        "asset": 793,
+        "times": [
+          "2026-10-14 16:10"
+        ]
+      },
+      {
+        "machine": "Metro Mall Of Emirates -310-DXB",
+        "asset": 310,
+        "times": [
+          "2026-10-14 17:02"
+        ]
+      },
+      {
+        "machine": "Prime 06-366-SHJ",
+        "asset": 366,
+        "times": [
+          "2026-10-14 17:42"
+        ]
+      },
+      {
+        "machine": "Oasis Mall DXB-543-Cashless 1-DXB",
+        "asset": 543,
+        "times": [
+          "2026-10-14 17:56"
+        ]
+      },
+      {
+        "machine": "Metro ADCB-316-DXB",
+        "asset": 316,
+        "times": [
+          "2026-10-14 18:38"
+        ]
+      },
+      {
+        "machine": "Saudi German Ajman-362-card only -aed12-Cashless 1-AJM",
+        "asset": 362,
+        "times": [
+          "2026-10-14 19:01"
+        ]
+      },
+      {
+        "machine": "Metro Dubai Internet City-397-DXB",
+        "asset": 397,
+        "times": [
+          "2026-10-14 20:20"
+        ]
+      },
+      {
+        "machine": "Expo-798-back-AED15-Card only-Cashless 1-SHJ",
+        "asset": 798,
+        "times": [
+          "2026-10-14 21:04"
+        ]
+      },
+      {
+        "machine": "Metro DMCC-400-DXB",
+        "asset": 400,
+        "times": [
+          "2026-10-14 21:11"
+        ]
+      },
+      {
+        "machine": "Expo-364-back-AED15-CARD only-Cashless 1-SHJ",
+        "asset": 364,
+        "times": [
+          "2026-10-14 21:26"
+        ]
+      },
+      {
+        "machine": "Tram JBR2-381-DXB",
+        "asset": 381,
+        "times": [
+          "2026-10-14 22:08"
+        ]
+      },
+      {
+        "machine": "Souq Al Jubail-861-SHJ",
+        "asset": 861,
+        "times": [
+          "2026-10-14 22:27"
+        ]
+      },
+      {
+        "machine": "Tram Palm Jumeirah -370-DXB",
+        "asset": 370,
+        "times": [
+          "2026-10-14 22:56"
+        ]
+      },
+      {
+        "machine": "Sharjah Central-318-SHJ",
+        "asset": 318,
+        "times": [
+          "2026-10-14 23:16"
+        ]
+      },
+      {
+        "machine": "Qassimi Hospital-692- 1st Floor-Cashless 1-SHJ",
+        "asset": 692,
+        "times": [
+          "2026-10-14 23:48"
+        ]
+      }
+    ],
+    "truncated": false
+  },
+  "refills": {
+    "day": "2026-10-14",
+    "rows": 39,
+    "cupsFilled": 1148,
+    "netCupsChange": 1193,
+    "machinesVisited": 37,
+    "byAction": {
+      "filled": 34,
+      "corrected": 5
+    },
+    "cupsFilledByPerson": {
+      "K.S.": 386,
+      "Y.L.": 230,
+      "N.D.D.": 227,
+      "K.I.": 189,
+      "N.O.N.": 116
+    },
+    "truncated": false,
+    "sample": [
+      {
+        "at": "2026-10-14 00:15",
+        "machine": "DreamLand-386-SHJ",
+        "asset": 386,
+        "by": "Y.L.",
+        "action": "filled",
+        "cups": 15,
+        "after": 30,
+        "capacity": 30,
+        "via": "mobile_app"
+      },
+      {
+        "at": "2026-10-14 00:40",
+        "machine": "Prime Motor-Card only-AED13-695-DXB",
+        "asset": 695,
+        "by": "K.S.",
+        "action": "filled",
+        "cups": 23,
+        "after": 30,
+        "capacity": 30,
+        "via": "mobile_app"
+      },
+      {
+        "at": "2026-10-14 00:45",
+        "machine": "Sharjah City Center-794-Cashless 1-SHJ",
+        "asset": 794,
+        "by": "Y.L.",
+        "action": "filled",
+        "cups": 25,
+        "after": 63,
+        "capacity": 63,
+        "via": "mobile_app"
+      },
+      {
+        "at": "2026-10-14 01:19",
+        "machine": "Al Barsha Health -DHA-859-Cashless 1-DXB",
+        "asset": 859,
+        "by": "K.S.",
+        "action": "filled",
+        "cups": 28,
+        "after": 63,
+        "capacity": 63,
+        "via": "mobile_app"
+      },
+      {
+        "at": "2026-10-14 01:28",
+        "machine": "Kabayel zahya ajman -385-AJM",
+        "asset": 385,
+        "by": "Y.L.",
+        "action": "filled",
+        "cups": 17,
+        "after": 30,
+        "capacity": 30,
+        "via": "mobile_app"
+      },
+      {
+        "at": "2026-10-14 02:51",
+        "machine": "Metro Stadium-399-DXB",
+        "asset": 399,
+        "by": "Y.L.",
+        "action": "filled",
+        "cups": 41,
+        "after": 63,
+        "capacity": 63,
+        "via": "mobile_app"
+      },
+      {
+        "at": "2026-10-14 03:05",
+        "machine": "Metro Emirates Towers-315-DXB",
+        "asset": 315,
+        "by": "K.S.",
+        "action": "filled",
+        "cups": 37,
+        "after": 63,
+        "capacity": 63,
+        "via": "mobile_app"
+      },
+      {
+        "at": "2026-10-14 03:33",
+        "machine": "Arabian center-393- Cashless 1-DXB",
+        "asset": 393,
+        "by": "Y.L.",
+        "action": "filled",
+        "cups": 16,
+        "after": 45,
+        "capacity": 45,
+        "via": "mobile_app"
+      },
+      {
+        "at": "2026-10-14 03:38",
+        "machine": "Metro Burjuman-312-DXB",
+        "asset": 312,
+        "by": "K.S.",
+        "action": "filled",
+        "cups": 26,
+        "after": 63,
+        "capacity": 63,
+        "via": "mobile_app"
+      },
+      {
+        "at": "2026-10-14 04:07",
+        "machine": "Metro-Centerpoint-389-DXB",
+        "asset": 389,
+        "by": "Y.L.",
+        "action": "filled",
+        "cups": 31,
+        "after": 63,
+        "capacity": 63,
+        "via": "mobile_app"
+      },
+      {
+        "at": "2026-10-14 04:19",
+        "machine": "Latifa Hospital -DHA-858-DXB",
+        "asset": 858,
+        "by": "K.S.",
+        "action": "filled",
+        "cups": 34,
+        "after": 62,
+        "capacity": 63,
+        "via": "mobile_app"
+      },
+      {
+        "at": "2026-10-14 04:42",
+        "machine": "Metro Emirates-391 -DXB",
+        "asset": 391,
+        "by": "Y.L.",
+        "action": "filled",
+        "cups": 29,
+        "after": 63,
+        "capacity": 63,
+        "via": "mobile_app"
+      },
+      {
+        "at": "2026-10-14 05:01",
+        "machine": "Metro Goldsouq-368-DXB",
+        "asset": 368,
+        "by": "K.S.",
+        "action": "filled",
+        "cups": 37,
+        "after": 63,
+        "capacity": 63,
+        "via": "mobile_app"
+      },
+      {
+        "at": "2026-10-14 05:21",
+        "machine": "Nad Al Hammar Health-DHA-789-Cashless 1-DXB",
+        "asset": 789,
+        "by": "Y.L.",
+        "action": "filled",
+        "cups": 56,
+        "after": 63,
+        "capacity": 63,
+        "via": "mobile_app"
+      },
+      {
+        "at": "2026-10-14 05:29",
+        "machine": "Dubai Hospital -DHA-860-DXB",
+        "asset": 860,
+        "by": "K.S.",
+        "action": "filled",
+        "cups": 25,
+        "after": 63,
+        "capacity": 63,
+        "via": "mobile_app"
+      },
+      {
+        "at": "2026-10-14 06:26",
+        "machine": "Expo -109 -hall2-Card only- AED 15-Cashless 1-SHJ",
+        "asset": 109,
+        "by": "M.K.",
+        "action": "corrected",
+        "cups": 4,
+        "after": 0,
+        "capacity": 63,
+        "via": "web_app"
+      },
+      {
+        "at": "2026-10-14 06:58",
+        "machine": "Expo-412-hall3-AED15-CARD only-Cashless 1-SHJ",
+        "asset": 412,
+        "by": "M.K.",
+        "action": "corrected",
+        "cups": -13,
+        "after": 50,
+        "capacity": 63,
+        "via": "web_app"
+      },
+      {
+        "at": "2026-10-14 08:39",
+        "machine": "NMC DIP Emergency-AED15-862-Cashless 1-DXB",
+        "asset": 862,
+        "by": "M.K.",
+        "action": "corrected",
+        "cups": 30,
+        "after": 30,
+        "capacity": 30,
+        "via": "web_app"
+      },
+      {
+        "at": "2026-10-14 09:56",
+        "machine": "Wasl Village -864- Cashless 1 - DXB",
+        "asset": 864,
+        "by": "N.D.D.",
+        "action": "filled",
+        "cups": 3,
+        "after": 0,
+        "capacity": 30,
+        "via": "mobile_app"
+      },
+      {
+        "at": "2026-10-14 10:00",
+        "machine": "Wasl Village -864- Cashless 1 - DXB",
+        "asset": 864,
+        "by": "M.K.",
+        "action": "corrected",
+        "cups": 26,
+        "after": 33,
+        "capacity": 33,
+        "via": "web_app"
+      },
+      {
+        "at": "2026-10-14 10:49",
+        "machine": "Aster Clinic Al Warqa-700-Cashless 1-DXB",
+        "asset": 700,
+        "by": "N.D.D.",
+        "action": "filled",
+        "cups": 33,
+        "after": 63,
+        "capacity": 63,
+        "via": "mobile_app"
+      },
+      {
+        "at": "2026-10-14 12:01",
+        "machine": "Rashid hospital-DHA-857-DXB",
+        "asset": 857,
+        "by": "N.D.D.",
+        "action": "filled",
+        "cups": 35,
+        "after": 63,
+        "capacity": 63,
+        "via": "mobile_app"
+      },
+      {
+        "at": "2026-10-14 12:08",
+        "machine": "Rashid hospital-DHA-857-DXB",
+        "asset": 857,
+        "by": "M.K.",
+        "action": "corrected",
+        "cups": -2,
+        "after": 61,
+        "capacity": 63,
+        "via": "web_app"
+      },
+      {
+        "at": "2026-10-14 15:41",
+        "machine": "Tram Marina Towers -693-DXB",
+        "asset": 693,
+        "by": "N.D.D.",
+        "action": "filled",
+        "cups": 16,
+        "after": 30,
+        "capacity": 30,
+        "via": "mobile_app"
+      },
+      {
+        "at": "2026-10-14 16:10",
+        "machine": "Tram Mina Seyahi -793-DXB",
+        "asset": 793,
+        "by": "N.D.D.",
+        "action": "filled",
+        "cups": 16,
+        "after": 30,
+        "capacity": 30,
+        "via": "mobile_app"
+      },
+      {
+        "at": "2026-10-14 17:07",
+        "machine": "Metro Mall Of Emirates -310-DXB",
+        "asset": 310,
+        "by": "N.D.D.",
+        "action": "filled",
+        "cups": 50,
+        "after": 63,
+        "capacity": 63,
+        "via": "mobile_app"
+      },
+      {
+        "at": "2026-10-14 17:42",
+        "machine": "Prime 06-366-SHJ",
+        "asset": 366,
+        "by": "N.O.N.",
+        "action": "filled",
+        "cups": 55,
+        "after": 63,
+        "capacity": 63,
+        "via": "mobile_app"
+      },
+      {
+        "at": "2026-10-14 18:05",
+        "machine": "Oasis Mall DXB-543-Cashless 1-DXB",
+        "asset": 543,
+        "by": "N.D.D.",
+        "action": "filled",
+        "cups": 39,
+        "after": 63,
+        "capacity": 63,
+        "via": "mobile_app"
+      },
+      {
+        "at": "2026-10-14 18:43",
+        "machine": "Metro ADCB-316-DXB",
+        "asset": 316,
+        "by": "N.D.D.",
+        "action": "filled",
+        "cups": 35,
+        "after": 63,
+        "capacity": 63,
+        "via": "mobile_app"
+      },
+      {
+        "at": "2026-10-14 19:01",
+        "machine": "Saudi German Ajman-362-card only -aed12-Cashless 1-AJM",
+        "asset": 362,
+        "by": "N.O.N.",
+        "action": "filled",
+        "cups": 61,
+        "after": 63,
+        "capacity": 63,
+        "via": "mobile_app"
+      },
+      {
+        "at": "2026-10-14 20:19",
+        "machine": "Metro Dubai Internet City-397-DXB",
+        "asset": 397,
+        "by": "K.S.",
+        "action": "filled",
+        "cups": 45,
+        "after": 63,
+        "capacity": 63,
+        "via": "mobile_app"
+      },
+      {
+        "at": "2026-10-14 21:04",
+        "machine": "Expo-798-back-AED15-Card only-Cashless 1-SHJ",
+        "asset": 798,
+        "by": "K.I.",
+        "action": "filled",
+        "cups": 46,
+        "after": 63,
+        "capacity": 63,
+        "via": "mobile_app"
+      },
+      {
+        "at": "2026-10-14 21:11",
+        "machine": "Metro DMCC-400-DXB",
+        "asset": 400,
+        "by": "K.S.",
+        "action": "filled",
+        "cups": 48,
+        "after": 63,
+        "capacity": 63,
+        "via": "mobile_app"
+      },
+      {
+        "at": "2026-10-14 21:26",
+        "machine": "Expo-364-back-AED15-CARD only-Cashless 1-SHJ",
+        "asset": 364,
+        "by": "K.I.",
+        "action": "filled",
+        "cups": 27,
+        "after": 63,
+        "capacity": 63,
+        "via": "mobile_app"
+      },
+      {
+        "at": "2026-10-14 22:08",
+        "machine": "Tram JBR2-381-DXB",
+        "asset": 381,
+        "by": "K.S.",
+        "action": "filled",
+        "cups": 42,
+        "after": 63,
+        "capacity": 63,
+        "via": "mobile_app"
+      },
+      {
+        "at": "2026-10-14 22:27",
+        "machine": "Souq Al Jubail-861-SHJ",
+        "asset": 861,
+        "by": "K.I.",
+        "action": "filled",
+        "cups": 35,
+        "after": 63,
+        "capacity": 63,
+        "via": "mobile_app"
+      },
+      {
+        "at": "2026-10-14 22:56",
+        "machine": "Tram Palm Jumeirah -370-DXB",
+        "asset": 370,
+        "by": "K.S.",
+        "action": "filled",
+        "cups": 41,
+        "after": 63,
+        "capacity": 63,
+        "via": "mobile_app"
+      },
+      {
+        "at": "2026-10-14 23:16",
+        "machine": "Sharjah Central-318-SHJ",
+        "asset": 318,
+        "by": "K.I.",
+        "action": "filled",
+        "cups": 36,
+        "after": 63,
+        "capacity": 63,
+        "via": "mobile_app"
+      },
+      {
+        "at": "2026-10-14 23:48",
+        "machine": "Qassimi Hospital-692- 1st Floor-Cashless 1-SHJ",
+        "asset": 692,
+        "by": "K.I.",
+        "action": "filled",
+        "cups": 45,
+        "after": 63,
+        "capacity": 63,
+        "via": "mobile_app"
+      }
+    ]
+  },
+  "requests": 300,
+  "signIns": 1
+}

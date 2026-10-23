@@ -1,0 +1,11 @@
+{
+  "meta": {
+    "code": 403,
+    "message": "Forbidden"
+  },
+  "errors": [
+    {
+      "msg": "Forbidden"
+    }
+  ]
+}

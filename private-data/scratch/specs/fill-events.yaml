@@ -1,0 +1,531 @@
+openapi: 3.0.1
+info:
+  title: Data-streaming/Fill-events
+  description: API operations related to Fill-events
+  version: 1.9.0-4-SNAPSHOT
+servers:
+  - url: https://uat-api.televendcloud.com/televend-api
+    description: Televend API Gateway
+tags:
+  - name: Fill Event
+    description: Operations for data streaming of machine refills (fill events)
+  - name: Streaming Control
+    description: API operations aimed to control data streaming
+paths:
+  /data-streaming/{dataType}/api/v1/offsets:
+    get:
+      tags:
+        - Streaming Control
+      summary: Get the last committed offsets for all partitions
+      operationId: getOffsets
+      parameters:
+        - name: dataType
+          in: path
+          description: Type of data for which this streaming control API operation is called
+          required: true
+          schema:
+            type: string
+          example: vends
+        - name: demoMode
+          in: query
+          description: If any API operation (where demoMode is supported) is called with demoMode=true, then it refers to operation over example data for demo purposes only. Note that example data contains dummy values, not relevant for business, but technically valid. So it is a good way for a client application to be tested against real data structure as well as demo mode contains exact behaviour like dealing with real data (when demoMode=false)
+          required: false
+          schema:
+            type: boolean
+            default: false
+          example: true
+        - name: Authorization
+          in: header
+          description: JWT access token for authentication/authorization. Token type is 'Bearer'
+          required: true
+          schema:
+            type: string
+          example: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI.gOiAiSldUIiwia2lkIiA6ICJIZWtNRnBTS05Uak80V3JEcU5qTWZHNU5BMEdkUjR5Ym.FSaXZiMUtWT09RIn0
+      responses:
+        "200":
+          description: OK
+          content:
+            "*/*":
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Offset"
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApplicationError"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApplicationError"
+    post:
+      tags:
+        - Streaming Control
+      summary: Commit offsets for all partitions that have been fetched so far (by calling /records API operation) for the selected dataType
+      operationId: commitOffsets
+      parameters:
+        - name: dataType
+          in: path
+          description: Type of data for which this streaming control API operation is called
+          required: true
+          schema:
+            type: string
+          example: vends
+        - name: demoMode
+          in: query
+          description: If any API operation (where demoMode is supported) is called with demoMode=true, then it refers to operation over example data for demo purposes only. Note that example data contains dummy values, not relevant for business, but technically valid. So it is a good way for a client application to be tested against real data structure as well as demo mode contains exact behaviour like dealing with real data (when demoMode=false)
+          required: false
+          schema:
+            type: boolean
+            default: false
+          example: true
+        - name: Authorization
+          in: header
+          description: JWT access token for authentication/authorization. Token type is 'Bearer'
+          required: true
+          schema:
+            type: string
+          example: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI.gOiAiSldUIiwia2lkIiA6ICJIZWtNRnBTS05Uak80V3JEcU5qTWZHNU5BMEdkUjR5Ym.FSaXZiMUtWT09RIn0
+      responses:
+        "204":
+          description: No content
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApplicationError"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApplicationError"
+  /data-streaming/{dataType}/api/v1/offsets/reset:
+    post:
+      tags:
+        - Streaming Control
+      summary: Reset offsets for selected dataType. Reset means moving offsets back or forth
+      description: Be aware this API operation has impact what will return subsequent calls to /records API operation!!! For example if your application already fetched 100000 messages and currently has zero messages behind. Then this operation is called with resetType=EARLIEST, that means your application will be 100000 messages behind. And subsequent calls to /records API operation will return 100000 messages in overall in order to catch up again to the latest offsets (of course several subsequent calls to /records API operation will be required, not just one)
+      operationId: resetOffsets
+      parameters:
+        - name: dataType
+          in: path
+          description: Type of data for which this streaming control API operation is called
+          required: true
+          schema:
+            type: string
+          example: vends
+        - name: resetType
+          in: query
+          description: "Specify which type of reset is requested.\r
+
+            \ EARLIEST: positions data consuming to the earliest message available (body is ignored, if provided). LATEST: positions data consuming to the latest new message that will arrive right after execution of this API operation (body is ignored, if provided).\ 
+
+            \ OFFSET: positions data consuming to the specific offset somewhere in the middle as requested by the values in the body of the request (this type requires body to be provided that contains exactly specified offset values per partitions)"
+          required: true
+          schema:
+            type: string
+            enum:
+              - EARLIEST
+              - LATEST
+              - OFFSET
+          example: EARLIEST
+        - name: demoMode
+          in: query
+          description: If any API operation (where demoMode is supported) is called with demoMode=true, then it refers to operation over example data for demo purposes only. Note that example data contains dummy values, not relevant for business, but technically valid. So it is a good way for a client application to be tested against real data structure as well as demo mode contains exact behaviour like dealing with real data (when demoMode=false)
+          required: false
+          schema:
+            type: boolean
+            default: false
+          example: true
+        - name: Authorization
+          in: header
+          description: JWT access token for authentication/authorization. Token type is 'Bearer'
+          required: true
+          schema:
+            type: string
+          example: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI.gOiAiSldUIiwia2lkIiA6ICJIZWtNRnBTS05Uak80V3JEcU5qTWZHNU5BMEdkUjR5Ym.FSaXZiMUtWT09RIn0
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: "#/components/schemas/OffsetReset"
+      responses:
+        "204":
+          description: No content
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApplicationError"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApplicationError"
+  /data-streaming/fill-events/api/v1/records:
+    get:
+      tags:
+        - Fill Event
+      summary: Fetch collection of new fill event records that have come up meanwhile after a previous call of this API operation
+      operationId: fetchFillEventRecords
+      parameters:
+        - name: demoMode
+          in: query
+          description: If any API operation (where demoMode is supported) is called with demoMode=true, then it refers to operation over example data for demo purposes only. Note that example data contains dummy values, not relevant for business, but technically valid. So it is a good way for a client application to be tested against real data structure as well as demo mode contains exact behaviour like dealing with real data (when demoMode=false)
+          required: false
+          schema:
+            type: boolean
+            default: false
+          example: true
+        - name: Authorization
+          in: header
+          description: JWT access token for authentication/authorization. Token type is 'Bearer'
+          required: true
+          schema:
+            type: string
+          example: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI.gOiAiSldUIiwia2lkIiA6ICJIZWtNRnBTS05Uak80V3JEcU5qTWZHNU5BMEdkUjR5Ym.FSaXZiMUtWT09RIn0
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DataStreamingResponseFillEvent"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApplicationError"
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApplicationError"
+        "406":
+          description: Not Acceptable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApplicationError"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApplicationError"
+components:
+  schemas:
+    ApplicationError:
+      type: object
+      properties:
+        code:
+          type: integer
+          format: int32
+        codeType:
+          type: string
+        error:
+          type: string
+        cause:
+          type: string
+        message:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        tracingId:
+          type: string
+        errorType:
+          type: string
+          enum:
+            - CLIENT_ERROR
+            - CLIENT_ERROR_UNRESOLVABLE
+            - CLIENT_ERROR_EXPIRED
+            - CLIENT_ERROR_BUG
+            - CLIENT_ERROR_BUG_EXPIRED
+            - CLIENT_ERROR_BUG_UNRESOLVABLE
+            - SERVER_ERROR_EXT
+            - SERVER_ERROR_INT
+        fieldErrors:
+          type: array
+          items:
+            $ref: "#/components/schemas/FieldError"
+    FieldError:
+      type: object
+      properties:
+        fieldName:
+          type: string
+        rejectedValue:
+          type: string
+        message:
+          type: string
+    OffsetReset:
+      type: object
+      properties:
+        partition:
+          type: integer
+          format: int32
+        offset:
+          type: integer
+          format: int64
+    Offset:
+      type: object
+      properties:
+        dataType:
+          type: string
+        partition:
+          type: integer
+          format: int32
+        offset:
+          type: integer
+          format: int64
+        earliestOffset:
+          type: integer
+          format: int64
+        latestOffset:
+          type: integer
+          format: int64
+        messagesBehind:
+          type: integer
+          format: int64
+        messagesCount:
+          type: integer
+          format: int64
+    CompanyInfo:
+      required:
+        - uniqueId
+      type: object
+      properties:
+        uniqueId:
+          type: string
+          description: Unique identifier in Televend Cloud
+          example: 007-1405
+        name:
+          type: string
+          description: The name of the company
+          example: INTIS d.o.o
+        externalId:
+          type: string
+          description: Company external ID used for company identification in external partner's ERP system
+        address:
+          type: string
+          description: Company address
+          example: Bani 73a, Zagreb
+        vatNumber:
+          type: string
+          description: A Value Added Tax (VAT) number is a unique identification number assigned to a company or a business by the government, which enables them to pay and collect VAT
+          example: GB 123 4567 89
+      description: Object that contains parameters that identify company this transaction belongs to
+    DataStreamingResponseFillEvent:
+      type: object
+      properties:
+        partition:
+          type: integer
+          format: int32
+        offset:
+          type: integer
+          format: int64
+        dataType:
+          type: string
+        data:
+          $ref: "#/components/schemas/FillEvent"
+    EntityInfo:
+      type: object
+      properties:
+        uniqueId:
+          type: string
+          description: Unique entity identifier in Televend Cloud
+          example: "778899"
+        externalId:
+          type: string
+          description: Entity external ID used for entity identification in external partner's ERP system
+          example: EXT174H
+        name:
+          type: string
+          description: Entity descriptive name
+          example: Some name XYZ
+    FillEvent:
+      required:
+        - company
+        - correlationId
+        - receivingTime
+        - timestamp
+        - version
+      type: object
+      properties:
+        correlationId:
+          maxLength: 40
+          minLength: 12
+          type: string
+          description: Unique correlation ID of this message in the TelevendCloud
+          example: 23QPV2V5THQ87W
+        version:
+          minimum: 1
+          type: integer
+          description: Every very first original message has version 1. If the same message needs to be updated due to any reason every subsequent update of it will have version 2, 3, 4 and so on. In case updated versions are not desired, then a client application  may use this parameter to process only messages with version=1. Any subsequent vesions may be discarded in such case.
+          format: int64
+          example: 4
+          default: 1
+        timestamp:
+          type: string
+          description: |-
+            ISO date and time when the transaction or event occurred in the machine or device or in the system 
+            NOTE1: this is NOT time of sending the request, but the very first time of occurence
+          format: date-time
+          example: 2023-06-17T17:33:27.902+02:00
+        receivingTime:
+          type: string
+          description: Date and time when a message has been received by Televend Cloud if applicable. Otherwise it matches the same time as 'timestamp' field
+          format: date-time
+          example: 2023-06-17T17:33:28.406+02:00
+        machine:
+          $ref: "#/components/schemas/MachineInfo"
+        company:
+          $ref: "#/components/schemas/CompanyInfo"
+        user:
+          $ref: "#/components/schemas/UserInfo"
+        fillLogs:
+          type: array
+          items:
+            $ref: "#/components/schemas/FillLog"
+        attributes:
+          type: object
+          additionalProperties:
+            type: object
+            description: A map of additional attributes used for specific business requirements. All attributes from the map will be propagated through the whole processing chain just like other fields of this object
+            example:
+              paramInteger: 12
+              paramString: some text
+              paramBoolean: true
+              paramNull: null
+              paramComplex:
+                name: John Smith
+                color: blue
+          description: A map of additional attributes used for specific business requirements. All attributes from the map will be propagated through the whole processing chain just like other fields of this object
+          example:
+            paramInteger: 12
+            paramString: some text
+            paramBoolean: true
+            paramNull: null
+            paramComplex:
+              name: John Smith
+              color: blue
+    FillLog:
+      required:
+        - quantity
+        - stock
+      type: object
+      properties:
+        fillType:
+          type: string
+          enum:
+            - FILLED
+            - CORRECTED
+            - RETURNED
+            - EXPIRED
+            - REMOVED
+        column:
+          maximum: 65535
+          minimum: 0
+          type: integer
+          description: Identifier of a machine column where sales occurred. This is the technical machine column what the machine reported. It may or may not be equal to viewColumn. It depends on a certain machine. When no product is associated with the column, it is considered as a „ghost vend“. Must be a integer in range [0, 65535] or null.
+          format: int32
+          example: 48
+        viewColumn:
+          maximum: 65535
+          minimum: 0
+          type: integer
+          description: Identifier of a machine column where sales occurred. This is the machine column what actually a user can view in the machine and select it. When no product is associated with the column, it is considered as a „ghost vend“. Must be a integer in range [0, 65535] or null.
+          format: int32
+          example: 53
+        product:
+          $ref: "#/components/schemas/EntityInfo"
+        component:
+          $ref: "#/components/schemas/EntityInfo"
+        quantity:
+          type: number
+          description: Fill quantity done within this FillLog. Meaning of this quantity is related to FillLogType respectively
+          example: 1
+        stock:
+          type: number
+          description: Product or Component stock on the machine
+          example: 1
+        measuringUnit:
+          type: string
+          description: Measuring unit referring to quantity and stock values
+          enum:
+            - PCS
+            - GRAM
+            - MILLILITER
+            - PACK
+    MachineInfo:
+      required:
+        - companyUniqueId
+        - name
+        - uniqueId
+      type: object
+      properties:
+        companyUniqueId:
+          type: string
+          description: Unique identifier of the company in Televend Cloud that the machine belongs to
+          example: 007-1405
+        uniqueId:
+          type: string
+          description: Unique machine ID in Televend Cloud
+          example: "4466001"
+        externalId:
+          maxLength: 32
+          minLength: 1
+          type: string
+          description: Machine external ID used for machine identification in external partner's ERP system
+          example: EXT775H46
+        pid:
+          type: string
+          description: Audit device ID, so called PID of the device installed in the machine (typically Televend box, but not limited to)
+          example: "12000456"
+        deviceType:
+          type: string
+          description: Type of audit device installed in the machine (typically Televend box, but not limited to)
+          example: TE
+        locationExternalId:
+          type: string
+          description: external ID of machine location
+          example: 77F443322
+        locationName:
+          type: string
+          description: name of machine location
+          example: Intis
+        name:
+          type: string
+          description: Descriptive name of the machine
+          example: Coffee machine in shopping mall XYZ
+      description: Object that contains parameters that identify machine this transaction belongs to
+    UserInfo:
+      required:
+        - uniqueId
+      type: object
+      properties:
+        uniqueId:
+          type: string
+          description: Unique identifier in Televend Cloud the user belongs to
+          example: 007-12345678
+        externalId:
+          type: string
+          description: User external ID used for user identification in external partner's ERP system
+        email:
+          type: string
+          description: User's email address
+          example: john.smith@company.com
