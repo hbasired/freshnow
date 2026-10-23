@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { closeDb, DEMO_CEO_ID, getServiceSql } from "../packages/core/src/index.js";
+import { closeDb, DEMO_CEO_ID, forgetMediaOf, getServiceSql } from "../packages/core/src/index.js";
 
 /**
  * Clear out a demo, so it can be run again from a clean start with the same phones.
@@ -163,6 +163,99 @@ for (const t of targets) {
        or assignment_id in (select id from assignment where assigned_to = ${id} or assigned_by = ${id})
        or task_id in (select id from task where employee_id = ${id})
        or task_update_id in (select id from task_update where employee_id = ${id})`;
+
+  // Routes (TASK-061 part 2): their visits — with their proof and the links to the stock and cash they posted —
+  // through 0036's visit_purge, before the stock and cash below (a visit's links name those documents) and before
+  // the photos; then their places on team plans, and the plans they made or changed. A plan someone else has
+  // visited is part of that person's record: the reset refuses rather than leave their visit pointing at nothing.
+  await sql.begin(async (tx) => {
+    const visits = (await tx<{ id: string }[]>`select id from visit where employee_id = ${id}`).map((r) => r.id);
+    if (visits.length > 0) await tx`select visit_purge(${visits}::uuid[])`;
+    const plans = (await tx<{ id: string }[]>`select id from route_plan where created_by = ${id} or updated_by = ${id}`).map((r) => r.id);
+    const [visited] = await tx<{ n: number }[]>`
+      select count(*)::int as n from visit v join route_stop s on s.id = v.stop_id where s.plan_id = any(${plans}::uuid[])`;
+    if (visited!.n > 0) {
+      throw new Error(`${t.display_name} made or changed plans that other people's visits (${visited!.n}) carried out — reset those people first.`);
+    }
+    // The words they wrote on plans that stay (another planner's, or copied from theirs) go with them (0039) — as erasure does,
+    // '[erased]', never empty: a 'check' or 'other' stop must keep words, or copying its plan is refused.
+    await tx`update route_plan set note = '[erased]', note_by = null where note_by = ${id}`;
+    await tx`update route_stop set instructions = '[erased]', instructions_by = null where instructions_by = ${id}`;
+    await tx`delete from route_plan_member where employee_id = ${id} or plan_id = any(${plans}::uuid[])`;
+    await tx`delete from route_stop where plan_id = any(${plans}::uuid[])`;
+    await tx`update route_plan set copied_from = null where copied_from = any(${plans}::uuid[])`;
+    await tx`delete from route_plan where id = any(${plans}::uuid[])`;
+  });
+
+  // A machine category they corrected (TASK-070) keeps the correction; who made it, and why in their words, go with them
+  // (review, 20 Oct: the words stayed with no author, out of reach of erasure and the download).
+  await sql`update machine set category_note = null, category_set_by = null where category_set_by = ${id}`;
+
+  // Stock (TASK-060): the documents they made, confirmed, settled or that moved their stock, through the
+  // ledger's one purge (0032's inv_purge_docs — balances rebuilt from what remains), with the counts they
+  // took part in and any adjustment those counts posted. A practice run's stock goes; if removing it would
+  // leave a real place below zero — a delivery whose cartons went to someone who stays — the purge
+  // refuses and says so, rather than leave the books wrong. Before the photos: a document's links go with it.
+  await sql.begin(async (tx) => {
+    const sessions = (
+      await tx<{ id: string }[]>`
+        select id from count_session
+         where started_by = ${id} or recount_by = ${id} or decided_by = ${id} or recount_waived_by = ${id}`
+    ).map((r) => r.id);
+    const docs = (
+      await tx<{ id: string }[]>`
+        select d.id from stock_doc d
+          left join inv_location lf on lf.id = d.from_location_id
+          left join inv_location lt on lt.id = d.to_location_id
+         where d.created_by = ${id} or d.confirm_by = ${id} or d.answered_by = ${id} or d.settled_by = ${id}
+            or lf.employee_id = ${id} or lt.employee_id = ${id} or d.count_session_id = any(${sessions}::uuid[])`
+    ).map((r) => r.id);
+    if (docs.length > 0) await tx`select inv_purge_docs(${docs}::uuid[])`;
+    await tx`set local freshnow.ledger_purge = 'on'`;
+    await tx`delete from count_line where session_id = any(${sessions}::uuid[])`;
+    await tx`delete from count_session where id = any(${sessions}::uuid[])`;
+    await tx`delete from stock_balance where location_id in (select id from inv_location where employee_id = ${id})`;
+    await tx`delete from inv_location where employee_id = ${id}`;
+    await tx`update inv_item set created_by = null where created_by = ${id}`;
+  });
+
+  // Cash (TASK-061): their shifts with every entry in them, through the ledger's purge (0035's
+  // cash_purge_shifts — every balance rebuilt from what remains); the checks they made of other people's
+  // shifts are taken back (those shifts stay, unchecked). An undo they made in someone else's shift is part
+  // of that person's record: the reset refuses rather than leave it pointing at nobody.
+  await sql.begin(async (tx) => {
+    const [elsewhere] = await tx<{ n: number }[]>`
+      select count(*)::int as n from cash_doc d join shift s on s.id = d.shift_id where d.created_by = ${id} and s.employee_id <> ${id}`;
+    if (elsewhere!.n > 0) {
+      throw new Error(`${t.display_name} undid ${elsewhere!.n} cash entr${elsewhere!.n === 1 ? "y" : "ies"} in other people's shifts — reset those people first.`);
+    }
+    const shifts = (await tx<{ id: string }[]>`select id from shift where employee_id = ${id}`).map((r) => r.id);
+    if (shifts.length > 0) await tx`select cash_purge_shifts(${shifts}::uuid[])`;
+    await tx`update shift set audit_outcome = null, audited_by = null, audited_at = null, audit_note = null where audited_by = ${id}`;
+    await tx`update shift set ended_by = null where ended_by = ${id}`;
+    await tx`delete from cash_account where employee_id = ${id}`;
+  });
+
+  // Photos and videos (TASK-058): their own files — bytes, then records — and every link onto their
+  // tasks. Before tasks go, because the links name tasks; and the records name the person.
+  await forgetMediaOf(id);
+
+  // Phone sign-in (TASK-058): their sessions in either mode; their set-up, the codes they were given or
+  // gave, and their personal phones when they go. Children first — nothing here cascades either.
+  await sql`delete from app_session where employee_id = ${id}`;
+  if (!activityOnly) {
+    const own = sql`select id from device where bound_employee_id = ${id}`;
+    await sql`delete from app_session where device_id in (${own}) or credential_id in (select id from app_credential where employee_id = ${id})`;
+    await sql`update app_credential set setup_code_id = null
+              where setup_code_id in (select id from app_setup_code where employee_id = ${id} or created_by = ${id})`;
+    await sql`update app_credential set revoked_by = null where revoked_by = ${id}`;
+    await sql`delete from app_credential where employee_id = ${id} or device_id in (${own})`;
+    await sql`delete from app_setup_code where employee_id = ${id} or created_by = ${id} or used_on_device in (${own})`;
+    await sql`update device set enrolled_by = null where enrolled_by = ${id}`;
+    await sql`update device set revoked_by = null where revoked_by = ${id}`;
+    await sql`delete from device_enrolment where bound_employee_id = ${id} or created_by = ${id} or device_id in (${own})`;
+    await sql`delete from device where bound_employee_id = ${id}`;
+  }
 
   // Their own rows, deepest first.
   await sql`delete from escalation where blocker_id in (select id from blocker where raised_by = ${id})`;

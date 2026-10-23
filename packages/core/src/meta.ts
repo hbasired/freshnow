@@ -11,3 +11,5 @@ export const IS_DEMO = (process.env.IS_DEMO ?? "true").toLowerCase() !== "false"
 // The seeded demo CEO (see migrations/0001). The real CEO Telegram id is linked
 // at onboarding; until then routing/escalation resolve to this employee.
 export const DEMO_CEO_ID = "00000000-0000-0000-0000-0000000000ce";
+/** Who raises a problem no person reported — the machine alarms (migration 0031). Disabled: never assignable, never messaged. */
+export const SYSTEM_ACTOR_ID = "00000000-0000-0000-0000-0000000000a1";

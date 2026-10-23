@@ -21,13 +21,13 @@ describe("Core API skeleton", () => {
     expect(res.headers["x-correlation-id"]).toBeTruthy();
   });
 
-  it("echoes an inbound correlation id unchanged", async () => {
-    const res = await app.inject({
-      method: "GET",
-      url: "/health",
-      headers: { "x-correlation-id": "corr-abc-123" },
-    });
-    expect(res.headers["x-correlation-id"]).toBe("corr-abc-123");
+  it("echoes an inbound correlation id unchanged — when it is a UUID, the only kind the audit trail can store", async () => {
+    const id = "6f1c2d3e-4a5b-4c6d-8e7f-90a1b2c3d4e5";
+    const res = await app.inject({ method: "GET", url: "/health", headers: { "x-correlation-id": id } });
+    expect(res.headers["x-correlation-id"]).toBe(id);
+    // Anything else is replaced, not echoed: stored, it would fail every audit write of the request (G192).
+    const other = await app.inject({ method: "GET", url: "/health", headers: { "x-correlation-id": "corr-abc-123" } });
+    expect(other.headers["x-correlation-id"]).not.toBe("corr-abc-123");
   });
 
   it("unknown route returns the 404 error model", async () => {

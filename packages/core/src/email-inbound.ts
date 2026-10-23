@@ -21,6 +21,7 @@ import { enqueueNotification } from "./outbox.js";
 import { matchPeopleByName } from "./people-match.js";
 import { checkRateLimit } from "./rate-limit.js";
 import { assignTask, attachNoteAndProcess, recordTaskUpdate } from "./updates.js";
+import { mayGiveWork } from "./permissions.js";
 
 /**
  * An email arriving in the FreshNow inbox, turned into exactly one of: a status update, a
@@ -213,12 +214,14 @@ export async function screenAndRoute(emailId: string, m: InboundEmailMessage, en
 
   // 3 ── which task? The key in the subject first, then the thread (Jira's order).
   const task = await findTask(m, sender.id);
-  const mayGiveWork = sender.access_role !== "employee";
+  // An allow-list, not "anyone but an employee": a technician's or a VMO's email about a broken
+  // machine must not turn into a work proposal (TASK-057).
+  const mayGive = mayGiveWork({ accessRole: sender.access_role, status: sender.status });
 
   if (task && task.employee_id === sender.id) {
     return fileUpdate({ emailId, correlationId, sender, task, words, auth, close });
   }
-  if (mayGiveWork) {
+  if (mayGive) {
     // Everyone else the email was addressed to — the people it may be FOR.
     const recipients = to.filter((a) => a !== from && a !== inbox?.inboxAddress);
     return proposeWork({ emailId, correlationId, sender, subject: m.subject, words, auth, attempts: row.attempts, close, recipients });

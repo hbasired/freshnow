@@ -1,5 +1,5 @@
 import { createRemoteJWKSet, jwtVerify, type JWTPayload } from "jose";
-import { DEMO_CEO_ID, getServiceSql, loadConfig, type AccessRole } from "@freshnow/core";
+import { DEMO_CEO_ID, appSessionFor, getServiceSql, isAppAccessToken, loadConfig, type AccessRole } from "@freshnow/core";
 
 /**
  * Dashboard identity from a Supabase Auth JWT.
@@ -24,9 +24,21 @@ export interface Viewer {
   /** What they may do and where they sit — the RLS context needs both (migration 0009). */
   accessRole: AccessRole;
   department: string | null;
-  /** How the identity was established — shown in logs, never trusted for access. */
-  via: "supabase" | "demo";
+  /**
+   * How the identity was established. "app": a phone sign-in (TASK-058) — such a viewer reaches only
+   * the routes in APP_ROUTES, whatever their role (D210).
+   */
+  via: "supabase" | "demo" | "app";
+  /** For "app": the phone the session lives on. */
+  deviceId?: string;
 }
+
+/**
+ * The only dashboard routes a phone sign-in may call (D210). A phone is easier to lose and to share
+ * than a browser behind a password, so an app session never inherits the dashboard: each route is
+ * opened to the app on its own, as the app's screens are built (TASK-063 onwards).
+ */
+export const APP_ROUTES: ReadonlySet<string> = new Set(["GET /dashboard/me"]);
 
 export class AuthError extends Error {
   constructor(
@@ -35,6 +47,21 @@ export class AuthError extends Error {
   ) {
     super(message);
   }
+  /** What the central error handler reads (server.ts), so a refusal thrown in a route stays a 401/403. */
+  get statusCode(): 401 | 403 {
+    return this.status;
+  }
+}
+
+/**
+ * Whether a request reached a route the sign-in hook guards. Decided on the route the router MATCHED,
+ * never on the raw URL: the router decodes "%64" to "d" before matching, so "/%64ashboard/…" reached
+ * every dashboard route while a guard on `req.url` let it through as ?viewer= or the CEO (TASK-058
+ * review, critical). No matched route (a 404) is nothing to guard.
+ */
+export function isGuardedRoute(req: { routeOptions: { url?: string | undefined } }): boolean {
+  const route = req.routeOptions.url ?? "";
+  return route.startsWith("/dashboard") || route.startsWith("/employees");
 }
 
 let jwks: ReturnType<typeof createRemoteJWKSet> | undefined;
@@ -81,6 +108,9 @@ async function verify(token: string): Promise<JWTPayload> {
 export async function viewerFromToken(authHeader: string | undefined): Promise<Viewer> {
   const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7).trim() : null;
   if (!token) throw new AuthError("Sign in required", 401);
+  // A phone's token is opaque and only Postgres knows it; it never reaches the JWT code below, and a
+  // JWT never reaches the session lookup. Neither path falls back to the other.
+  if (isAppAccessToken(token)) return viewerFromAppToken(token);
 
   let payload: JWTPayload;
   try {
@@ -114,10 +144,31 @@ export async function viewerFromToken(authHeader: string | undefined): Promise<V
   };
 }
 
+/** A phone sign-in: the session must exist and be live — positively, on every request (device-auth.ts). */
+async function viewerFromAppToken(token: string): Promise<Viewer> {
+  const s = await appSessionFor(token);
+  if (!s) throw new AuthError("Session is invalid or has expired — sign in again", 401);
+  const [emp] = await getServiceSql()<
+    { id: string; display_name: string; status: string; access_role: AccessRole; department: string | null }[]
+  >`select id, display_name, status, access_role, department from employee where id = ${s.employeeId}`;
+  if (!emp || emp.status !== "active") throw new AuthError("This account is not linked to an active employee", 403);
+  return {
+    employeeId: emp.id,
+    isCeo: emp.id === DEMO_CEO_ID || emp.access_role === "ceo",
+    displayName: emp.display_name,
+    accessRole: emp.access_role,
+    department: emp.department,
+    via: "app",
+    deviceId: s.deviceId,
+  };
+}
+
 // The auth hook stores the resolved viewer on the request so route handlers read an
 // identity the hook verified, rather than re-deriving one from the query string.
 declare module "fastify" {
   interface FastifyRequest {
+    /** How the hook established who this is — "app" requests are held to APP_ROUTES. */
+    viewerVia?: Viewer["via"];
     viewerId?: string;
     viewerIsCeo?: boolean;
     viewerName?: string;

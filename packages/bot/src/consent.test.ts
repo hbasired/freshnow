@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { Update } from "grammy/types";
-import { closeDb, consentNotice, getServiceSql, hasCurrentConsent, noticeHash, noticeTag } from "@freshnow/core";
+import { TELEGRAM_TEXT_LIMIT, closeDb, consentNotice, createTask, getServiceSql, hasCurrentConsent, noticeHash, noticeTag } from "@freshnow/core";
 import { createBot } from "./bot.js";
 
 /**
@@ -82,6 +82,16 @@ afterAll(async () => {
   await closeDb();
 });
 
+/**
+ * Every word of the notice reached the person, in order — whether it came in one message or, once it
+ * outgrew Telegram's 4,096 characters (stock and cash, TASK-060/061), in several split at a blank line.
+ */
+function sawWholeNotice(texts: readonly string[]): void {
+  for (const t of texts) expect(t.length).toBeLessThanOrEqual(TELEGRAM_TEXT_LIMIT);
+  const flat = (x: string) => x.replace(/\n+/g, "\n");
+  expect(flat(texts.join("\n"))).toContain(flat(consentNotice("en")));
+}
+
 describe("a linked person who has not agreed to today's notice", () => {
   it("gets the notice and an I-agree button instead of having their message processed", async () => {
     await bot.handleUpdate(text(tg, "chiller in van 2 is not cooling"));
@@ -89,7 +99,7 @@ describe("a linked person who has not agreed to today's notice", () => {
     const said = texts.join("\n");
     expect(said).toMatch(/privacy notice has changed/);
     expect(said).toMatch(/have not recorded the message you just sent/);
-    expect(said).toContain(consentNotice("en"));
+    sawWholeNotice(texts);
     expect(buttons).toContain(`consent:renew:${noticeTag()}`);
     expect(buttons).toContain("consent:later");
     // Nothing about the message was stored.
@@ -101,7 +111,7 @@ describe("a linked person who has not agreed to today's notice", () => {
     await bot.handleUpdate(tap(tg, "menu:log"));
     const { texts, alerts } = drain();
     expect(alerts.join(" ")).toMatch(/updated notice/);
-    expect(texts.join("\n")).toContain(consentNotice("en"));
+    sawWholeNotice(texts);
   });
 
   it("is shown the notice by /start, without being told a message was lost", async () => {
@@ -148,5 +158,45 @@ describe("a linked person who has not agreed to today's notice", () => {
     expect(drain().texts.join("\n")).toMatch(/consent has been withdrawn/);
     const [e] = await getServiceSql()<{ status: string }[]>`select status from employee where id = ${id}`;
     expect(e?.status).toBe("disabled");
+  });
+});
+
+describe("who the bot acts for (role map, 2026-10-15)", () => {
+  it("processes nothing from an account that is not active — not stored, not sent to any AI service", async () => {
+    await getServiceSql()`update employee set status = 'disabled' where id = ${id}`;
+    await bot.handleUpdate(text(tg, "chiller in van 2 is not cooling"));
+    expect(drain().texts.join("\n")).toMatch(/account is not active/);
+    expect(await getServiceSql()`select 1 from task_update where employee_id = ${id}`).toHaveLength(0);
+    await bot.handleUpdate(tap(tg, "menu:log"));
+    expect(drain().alerts.join(" ")).toMatch(/not active/);
+  });
+
+  it("refuses /withdraw for the CEO — a disabled CEO row locks the company out of the dashboard", async () => {
+    await getServiceSql()`update employee set access_role = 'ceo' where id = ${id}`;
+    await bot.handleUpdate(text(tg, "/withdraw"));
+    expect(drain().texts.join("\n")).toMatch(/CEO account cannot withdraw/);
+    const [e] = await getServiceSql()<{ status: string }[]>`select status from employee where id = ${id}`;
+    expect(e?.status).toBe("active");
+  });
+
+  it("refuses a status tap on someone else's task, even with forged button data", async () => {
+    await bot.handleUpdate(tap(tg, `consent:renew:${noticeTag()}`)); // agree first, so the door opens
+    drain();
+    const sql = getServiceSql();
+    const other = randomUUID();
+    await sql`insert into employee (id, display_name, status, is_synthetic, access_role)
+      values (${other}, ${"CONSENT-BOT other " + other.slice(0, 8)}, 'active', true, 'employee')`;
+    const taskId = await createTask(other, "Not theirs", true);
+    try {
+      await bot.handleUpdate(tap(tg, `log:${taskId}:done`));
+      expect(drain().texts.join("\n")).toMatch(/not yours to report on/);
+      const [after] = await sql<{ status: string }[]>`select status from task where id = ${taskId}`;
+      expect(after?.status).not.toBe("done");
+      expect(await sql`select 1 from task_update where task_id = ${taskId}`).toHaveLength(0);
+    } finally {
+      await sql`delete from audit_log where entity_id = ${taskId}`;
+      await sql`delete from task where employee_id = ${other}`;
+      await sql`delete from employee where id = ${other}`;
+    }
   });
 });

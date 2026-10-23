@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyReply } from "fastify";
 import { z } from "zod";
-import { companyToday, complianceEvidence, exportPersonData } from "@freshnow/core";
+import { companyToday, complianceEvidence, exportPersonData, can } from "@freshnow/core";
 import { forbid, resolveViewer } from "../viewer.js";
 
 /**
@@ -23,7 +23,7 @@ export function registerComplianceRoutes(app: FastifyInstance): void {
   /** The CEO's view: every rule, where data goes, and the counts that prove it. */
   app.get("/dashboard/compliance", async (req, reply) => {
     const viewer = await resolveViewer(req);
-    if (!viewer.isCeo) return forbid(req, reply, "Only the CEO can open the compliance record");
+    if (!can(viewer, "compliance.read")) return forbid(req, reply, "Only the CEO or an Admin can open the compliance record");
     const forwarded = req.headers["x-forwarded-host"];
     const host = (Array.isArray(forwarded) ? forwarded[0] : forwarded) ?? req.headers.host ?? null;
     return complianceEvidence({ days: 30, requestHost: host, viaCloudflare: typeof req.headers["cf-ray"] === "string" });
@@ -40,7 +40,7 @@ export function registerComplianceRoutes(app: FastifyInstance): void {
   app.get("/dashboard/people/:id/export", async (req, reply) => {
     const { id } = IdParams.parse(req.params);
     const viewer = await resolveViewer(req);
-    if (!viewer.isCeo) return forbid(req, reply, "Only the CEO can export another person's data");
+    if (!can(viewer, "people.manage")) return forbid(req, reply, "Only the CEO or an Admin can export another person's data");
     try {
       const data = await exportPersonData({ employeeId: id, requestedBy: viewer.employeeId, correlationId: req.correlationId });
       return sendAsFile(reply, data, `freshnow-data-${id.slice(0, 8)}-${companyToday()}.json`);

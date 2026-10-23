@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import { getServiceSql } from "./db.js";
 import { replyToAddress } from "./email-config.js";
 import { emailAddressOf, formatTaskKey } from "./email-reply.js";
+import { mayGiveWork } from "./permissions.js";
 
 /**
  * Composing an outbound email so its reply can find its way back.
@@ -82,7 +83,7 @@ export async function composeOutboundEmail(p: {
     footer = "";
   } else if (replyTo && task && key && task.employee_id === p.recipientEmployeeId) {
     footer = `\n\n— Reply to this email to update ${key}: write "done", a percentage like "40%", or what is stopping you. Your reply goes straight into FreshNow.`;
-  } else if (replyTo && role !== "employee" && !p.payload.inReplyTo) {
+  } else if (replyTo && mayGiveWork({ accessRole: role }) && !p.payload.inReplyTo) {
     footer =
       `\n\n— To give work by email, write to ${replyTo} (or copy it on an email to the person), one line per job, naming the person` +
       ` ("Rashid: restock the Marina machine"). When every job names exactly one person you may assign to, it is assigned at once` +

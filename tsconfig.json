@@ -8,6 +8,8 @@
     "packages/api/src",
     "packages/bot/src",
     "packages/worker/src",
+    "packages/mcp-televend/src",
+    "packages/televend/src",
     "vitest.config.ts",
     "vitest.setup.ts",
     "vitest.global-setup.ts",
@@ -19,6 +21,9 @@
     "scripts/compliance.ts",
     "scripts/backup.ts",
     "scripts/security-scan.ts",
-    "scripts/email-setup.ts"
+    "scripts/email-setup.ts",
+    "scripts/televend-probe.ts",
+    "scripts/televend-verify.ts",
+    "scripts/televend-sync.ts"
   ]
 }

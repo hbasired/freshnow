@@ -1,5 +1,6 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { DEMO_CEO_ID, loadViewer, type ViewerOrg } from "@freshnow/core";
+import { AuthError, authEnabled } from "./auth.js";
 
 /**
  * Who is asking, and what they are allowed to do.
@@ -23,6 +24,10 @@ import { DEMO_CEO_ID, loadViewer, type ViewerOrg } from "@freshnow/core";
  */
 export function viewerOf(req: { query: unknown; viewerId?: string }): string {
   if (req.viewerId) return req.viewerId;
+  // Under real sign-in only the auth hook names the viewer. A request that reached a route without
+  // it went round the hook — refused here too, never answered as ?viewer= or the CEO (TASK-058
+  // review: a guard that read the raw URL could be walked round by spelling the path differently).
+  if (authEnabled()) throw new AuthError("Sign in first.", 401);
   return String((req.query as { viewer?: string }).viewer ?? "ceo");
 }
 

@@ -239,19 +239,206 @@ They can be given work immediately; anything but the app inbox waits for their c
 So their reply to that email lands on the task. Confirm/refute: watch whether staff find two notifications (Telegram + email)
 noisy. Affects: `assignFromEmail`.
 
+## A-T55.1 — Portal export times are Asia/Dubai local time [believed]
+Every minute-level match between exports and the API's UTC timestamps worked with +04:00, but Televend does not document it.
+Confirm/refute: Televend documentation, or an export taken at a known moment. Affects: `parseDubaiLocal` (files.ts).
 
-## A-T70.1 — Handoffs are not weighed and signed into a system today [assumed]
+## A-T55.2 — Refill fill_type 2 means "Removed" and source 3 means "Televend" [assumed]
+The CSV shows Removed/Televend rows; the live codes for them were not seen. Until seen, they map to "unknown". Confirm/refute: a
+live refill row whose CSV twin says Removed. Affects: REFILL_FILL_TYPE / REFILL_SOURCE (types.ts).
+
+## A-T55.3 — `api.televendcloud.com` is the official API's production gateway [assumed]
+Inferred from DNS; only the UAT gateway is documented. Confirm/refute: Televend IT at onboarding. Affects: allowlist HOSTS.
+
+## A-T55.4 — Televend's cash-collection records carry the machine's own cash figures [believed]
+The spec's CashCollection has cashIncome, cashLeftInMachine and denominations; never seen live (403 for this account).
+Confirm/refute: the official API's demo mode, or a user with cash-centre view. Affects: expected cash in TASK-062.
+
+## A-T55.5 — Reading Televend through a web user is acceptable under FreshNow's Televend contract [assumed]
+No terms of use are published; the bridge uses the web app's own read endpoints, paced. Confirm/refute: FreshNow's Televend
+contract or Televend. Removed entirely by the official API.
+
+## A-T56.1 — A 30-minute vend overlap and 60-minute event overlap catch late telemetry [assumed]
+Machines that lose connection upload later with original timestamps; anything older than the overlap is caught by the daily check of
+yesterday, not by the 10-minute sync. Confirm/refute: compare a day's incremental rows with its daily-check rows over a few weeks.
+Affects: VEND_OVERLAP_MS, EVENT_OVERLAP_MS (televend-sync.ts).
+
+## A-T56.2 — Staff names from Televend are personal data FreshNow may process for operations [assumed]
+tv_refill.filled_by and names inside `raw` (who filled, who resolved an alarm) are employees' names copied from Televend. Lawful basis,
+notice and retention for them are not yet set; erasure cannot target them until Televend users are mapped to employees (TASK-057).
+Confirm/refute: the company's lawyer with the notice update (plan §0.7). Affects: tv_refill, tv_event.raw, retention.ts.
+
+## A-T57.1 — A Supervisor's team is their direct reports [assumed]
+There are no teams yet (TASK-061). Until then Supervisor and Ops Head see and assign to the people who report to them, like a manager.
+Confirm/refute: FreshNow's actual team structure (shift teams × machines). Affects: permissions.ts, app_can_view_employee.
+
+## A-T57.2 — The question box is safe for Admin because Admin already sees everything [believed]
+`data.ask` is granted only to roles with `data.read_all` (a test enforces it). The role map found that a crafted SQL identifier may slip
+`set_config` past query/guard.ts — not verified; if it can, the asker could change their RLS identity within a read-only statement, which
+only matters for a role that does not already see everything. Confirm/refute before granting data.ask to any other role.
+
+## A-T58.1 — Media retention periods [assumed]
+Evidence photos 180 days, short videos 30, receipts and invoices 1825 (UAE record-keeping period not verified), chat media 365.
+Deletion is off until MEDIA_RETENTION=on. Confirm/refute: FreshNow's data controller. Affects: media.ts, .env.example.
+
+## A-T58.2 — On erasure a person's photos stay, as evidence of the work [assumed]
+Erasure anonymises (CLAUDE.md); the photos show machines, stock and receipts, so they are kept and point at the anonymised row.
+If a photo shows a person, it is not found automatically. Confirm/refute: the company's lawyer with notice v3. Affects:
+retention.ts (eraseEmployee), media_object.
+
+## A-T58.3 — The laptop's load numbers say little about the VPS [assumed]
+Measured on an Intel Core Ultra 5 125H (18 logical cores, 16 GB, Windows 11, Node 22.19) with Postgres on the same machine. The VPS
+has 8 shared vCPU that Postgres competes for. Confirm/refute: `pnpm live:load` on the VPS (TASK-064) before raising either limit.
+Affects: LIVE_MAX_STREAMS, LIVE_MAX_STREAMS_PER_PERSON (D209).
+
+## A-T58.4 — Shifts hand over at 07:30 and 15:00 [assumed]
+Read from the WhatsApp lists (a night shift's list posted at 07:12; night ≈ 15:00 → 07:30). A company phone's session ends at the
+next handover at least 2 h away, plus 30 min. Confirm/refute: FreshNow's shift times. Affects: APP_SHIFT_HANDOVERS (.env),
+device-auth.ts companySessionEnd.
+
+## A-T58.5 — Televend's servers are outside the UAE [assumed]
+INTIS d.o.o. is Croatian; its API addresses resolve to AWS ranges, region not published (compliance/processors.json). Notice 3.0
+says "not yet confirmed: take it that they are outside the UAE". Confirm/refute: Televend, with the data processing agreement.
+Affects: consent.ts, processors.json.
+
+## A-T58.6 — A content-free FCM wake-up delivers the app's notifications reliably [believed]
+Firebase's Android message-priority page (updated 2026-10-15): several seconds in onMessageReceived; an expedited WorkManager job
+for the fetch; deprioritised if wake-ups do not lead to user-facing notifications (D213). Not tried on a phone. Confirm/refute:
+TASK-063 on a real Android phone, Doze and battery saver included. Affects: D213, notice 3.0.
+
+## A-T62.1 — A cash vend is AED 10 on every machine, whatever its name says [assumed]
+18 of 29 reported collections equal Televend's cash vends × 10 exactly (VF75), including machines named "AED 12" (789: 11 vends,
+AED 110) — so the name's price is not the cash price. Confirm/refute: FreshNow's price list per machine (cash and card).
+Affects: the cash reconciliation (TASK-062).
+
+## A-T58.7 — Notice 3.0's cash and stock lines describe what the app will record [assumed]
+Named now so staff are asked once (plan §0.7), before field operations exist (TASK-061, TASK-065). If what is recorded turns out
+different, the notice changes first. Affects: consent.ts.
+
+## A-T60.1 — "LALA" on the delivery photo is the orange variety, and 17.15 kg a carton's weight [assumed]
+Read from the Warehouse group, 16 Oct ("159 / 17.15 kg / LALA" with an FVC International citrus carton on a scale) — possibly
+Lane Late. Confirm/refute: the warehouse keeper. Affects: inv_lot (variety, carton weight) in TASK-060.
+
+## A-T61.1 — Part Cash on the machine counter is reset before the photo is taken [assumed]
+Every counter photo shows Part Cash 0.00 while Part Cashless carries the period's card sales (G190). Confirm/refute: a VMO or
+Oranfresh (what "ENTER = PARTIAL RESET" resets, and when the cash part resets). Affects: the cash design (TASK-061/062).
+
+## A-T61.2 — The cash-deposit machine's operator is not always the person depositing [assumed]
+David's 860 (his own list, 16 Oct) went in under operator "NOEL" (operator 4); Yakup's under his own name (operator 47).
+Confirm/refute: how FreshNow's CDM operator accounts are assigned. Affects: matching deposits to drivers (TASK-061/062).
+
+
+## A-T60.2 — The units of the warehouse list's items [assumed]
+The WhatsApp list says "1 box" for 5-dirham cups, "1 gallon" for handwash and "Salt box" — the rest are numbers only. Assumed:
+sleeved cups in packs, sealer in pieces, glass bottles in cartons (half steps), garbage bags in rolls (half steps), straws in
+boxes (half steps), detergents and D1/D4 in cans, engine oil in bottles, oil filter and trolley belt in pieces. Confirm or
+correct: the warehouse keeper, in Stock → Items, before the first count (a unit is fixed once an item moves).
+
+## A-T60.3 — 30 minutes before a reminder [assumed]
+A handover still waiting after 30 minutes reminds whoever must confirm it; 30 minutes after stock goes out with no count since,
+the keepers are asked to count (INVENTORY_HANDOVER_REMIND_MINUTES, INVENTORY_COUNT_REMIND_MINUTES; 0 switches each off).
+Confirm: the Ops Head — how long a team stays at the warehouse after it is given stock.
+
+## A-T60.4 — One warehouse [assumed]
+Every count, delivery and hand-out is the one "Warehouse". Confirm: is there a second store (a site cold room, a van that stays
+loaded overnight)? A second warehouse is a new place, not a change.
+
+## A-T60.5 — "Shorting 🍊" on the list is oranges set aside at sorting [assumed]
+Seeded as "Sorting oranges", in cartons. Confirm: the warehouse keeper — sorting waste, small fruit, or oranges waiting to be
+sorted? Damaged oranges are recorded with the reason "sorted out" either way.
+
+## A-T60.6 — D1 and D4 are cleaning products [assumed]
+Listed between the oil filter and the liquid detergent, with no unit. Confirm: the warehouse keeper.
+
+## A-T61.3 — Which cash entries need a photo: collections, expenses and deposits [assumed]
+As the CASH COLLECTION group does today (a photo per machine's cash, the fuel receipt, the deposit machine's receipt) and as the
+user decided for field work (photos mandatory, 2026-10-15). A test note needs none. Confirm: FreshNow (the Ops Head, the auditor).
+
+## A-T61.4 — Televend's collection is the one within 90 minutes of the entry [assumed]
+A collection is matched to the Televend "Cash Collection" event on the same machine nearest the entry's time (the phone's time when
+it is within 12 hours of the server's), within 90 minutes; the cash sales since the event before it, times the machine's price
+(AED 10 where none is set, D221). If drivers stop recording the collection in the Televend Staff App, nothing matches.
+
+## A-T61.5 — The machines give no change [assumed]
+No entry exists for putting change into a machine. A vending guide names change-fund refills as a common cause of over/short.
+Confirm: do FreshNow's machines pay out change, and who refills it from what cash?
+
+## A-T61.6 — Cash records are kept at least as long as the tax law asks [assumed]
+The notice says "kept as the company's financial record" without a period. Commercial summaries of Federal Decree-Law 47 of 2022
+(corporate tax) say seven years after the tax period (one names Article 56). Confirm: FreshNow's accountant.
+
+## A-T61.7 — The sheet's "crates" are an instruction, not a stock figure [assumed]
+A stop's crates ("Mina 793 (2 crates)") add up to what the team takes from the warehouse, and the plan says so; what actually goes
+into a machine is recorded from the person's stock in the item's own unit (cartons). Whether a crate is a carton is not known.
+Confirm: the warehouse keeper — is one crate one carton of the stock list?
+
+## A-T61.8 — The dispenser video is asked only where the planner ticks it [assumed]
+Ticking tasks suggests proof (full or half service → normal pic; resort → re-sorting pic; a check, cleaning or other task → other
+pic), and the planner changes it. The video is never suggested: the 13 Oct sheet asked for it at some machines only.
+Confirm: the Supervisor — which machines need the dispenser video every time?
+
+## A-T61.9 — Last night's plan stays on a driver's round until 12:00 the next day [assumed]
+Night shifts run ≈15:00 → ≈07:30 (Kiran's 14/10 list posted 15 Oct 07:12). Until noon gives the end of the shift and the drive back.
+Confirm: the Ops Head — when does the latest night shift end?
+
+## A-T61.10 — A team is the people on one plan, made again each day [assumed]
+The sheet pairs people differently from day to day ("Team Kiran / Ananthu", "Team Majid"), so there is no standing team table; a
+plan names its team. Copying yesterday's plans keeps yesterday's pairs. Confirm: the Supervisor.
+
+## A-T61.11 — The visit is the one person's; a teammate's work at the same machine is their own visit [assumed]
+Two people at one machine each start a visit there; the stop shows both. Confirm: the Supervisor — does only one of the pair record?
+
+## A-T61.12 — Televend's refill "belongs" to a visit when it is between 60 minutes before and 120 minutes after the visit began [assumed]
+The Staff App entry is often made before the photos, sometimes after the drive. The window is a guess from the refill log's times,
+not measured against visits (there are none yet). Revisit after a week of real visits.
+
+## A-T70.1 — A token sale brings no money at the machine [assumed]
+Income is estimated as (cups − token cups) × price. Televend lists 777 token sales since 3 Oct. If tokens are sold beforehand (to a
+company, say), their income is real but arrives elsewhere. Confirm: the CEO — what is a token, and who pays for it?
+
+## A-T70.2 — "card" in a machine's name means it takes no cash; "Cashless 1 only" / "Cashless 3 only" / "c3 only" do not [believed]
+The Expo machines, Sharjah Police, Prime Motor and RTA HQ carry "Card only" or "card"; the nightly lists call two of them "cashless".
+Machines named "Cashless 3 only" or "c3 only" had cash collected (Ibn Battuta 395, Rashid 857, Sahara 359 in the 15–17 Oct chats), so
+those words name the card reader, not "no cash". Confirm: the Ops Head. The observed cash share per machine is shown beside it either way.
+
+## A-T70.3 — The price in a machine's name is the price of every cup there, whatever the payment [refuted in part, 20 Oct → D258]
+"AED15", "AED12", "AED8", "AED5" are read from the names; others use the AED 10 default (D221, A-T62.1). Replaced: cash collected at
+machines named "AED 12" came in tens (VF89), so the name's price is taken as the card price and cash is priced at the set price or AED 10
+(D258) [believed]. Confirm: the Ops Head — is cash AED 10 at every machine, and the name's price what a card pays?
+
+## A-T70.4 — The thresholds: tiers at 125 % and 75 % of the average; a sharp drop is −40 % from ≥ 10 cups a day; a category move is 15 % [assumed]
+The user chose three tiers against the fleet average (D248); the numbers are defaults in `core/analytics.ts`. Confirm or change: the
+Ops Head, after a few weeks of use.
+
+## A-T70.5 — "WAREHOUSE-1168" and "Oranfresh-ITALY" are not machines in public [assumed]
+Both are enabled in Televend; one is named after the warehouse, the other after the maker and has no asset number. They are counted
+until the Ops Head sets them "Not counted" in Analytics. Confirm: the Ops Head.
+
+## A-T61.13 — A visit belongs to the shift the handovers put it in (07:30 and 15:00) [assumed]
+Which plan a visit carries out, and under which day an off-plan visit is listed, follow APP_SHIFT_HANDOVERS (A-T58.4): before 07:30 is
+last night's shift, then the day shift, from 15:00 the night. A night team still at a machine after 07:30 that is also on the day plan
+gets the day plan's stop. Confirm with A-T58.4: FreshNow's real shift times.
+
+## A-T72.1 — "Low on stock" is under 25 % of capacity by Televend's figure [assumed]
+The Operations tile and its list use 25 % (`LOW_STOCK` in ops-drill.tsx). Televend's own figure is only as good as the fills logged in the
+Staff App (it goes below zero). Confirm: the Ops Head — at what level is a machine sent a refill?
+
+## A-T61.14 — Supervisors collect cash (they hold cash.hold) [assumed — to confirm]
+The role table of TASK-061 gave Supervisors cash.hold. With D254 they no longer see Televend's expected figure, but they still see every
+sale's payment type. Confirm: does a Supervisor ever collect cash? If not, take cash.hold from the role (D254).
+
+## A-T74.1 — Handoffs are not weighed and signed into a system today [assumed]
 Confirm/refute: the warehouse team describes how stock, sorting and loading are recorded now. Affects: the pilot baseline and slide 4 of the deck.
 
-## A-T70.2 — 24 crates per van; crates weigh 5–30 kg filled [assumed]
+## A-T74.2 — 24 crates per van; crates weigh 5–30 kg filled [assumed]
 Used only for arithmetic (49 vs 25 scans) and the station's plausibility check. Confirm/refute: dispatch lead and the crate specification.
 
-## A-T70.3 — One orange ≈ 131 g; moisture loss 0.5–1.3 % a day at ambient temperature [assumed]
+## A-T74.3 — One orange ≈ 131 g; moisture loss 0.5–1.3 % a day at ambient temperature [assumed]
 USDA "medium" orange via a secondary source; three storage studies under different conditions. Confirm/refute: weigh 20 of
 FreshNow's oranges; weigh control crates twice a day during the pilot. Affects: the theft-detection tolerance (deck slide 15).
 
-## A-T70.4 — Alarm thresholds (2 % short delivery, 48 h ageing, 1.5 days of cover, +5 points yield, 15 min for unexplained loss) [assumed]
+## A-T74.4 — Alarm thresholds (2 % short delivery, 48 h ageing, 1.5 days of cover, +5 points yield, 15 min for unexplained loss) [assumed]
 Placeholders so the design can be discussed. Confirm/refute: management sets each threshold and owner (deck decision 5).
 
-## A-T70.5 — SIRA rules: licensed installer, approved devices, 31-day retention, 4 MP minimum [assumed — installers' guides only]
+## A-T74.5 — SIRA rules: licensed installer, approved devices, 31-day retention, 4 MP minimum [assumed — installers' guides only]
 Confirm/refute: SIRA's own published requirements or a SIRA-licensed installer's written statement before buying cameras.

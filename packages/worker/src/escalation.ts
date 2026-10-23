@@ -1,16 +1,16 @@
 import { Queue, Worker } from "bullmq";
 import { escalateBlocker, getServiceSql } from "@freshnow/core";
+import { redisConnection } from "./redis.js";
 
 const QUEUE = "escalation";
 
-function connection(): { host: string; port: number; maxRetriesPerRequest: null } {
-  const url = new URL(process.env.REDIS_URL ?? "redis://localhost:6379");
-  return { host: url.hostname, port: Number(url.port || 6379), maxRetriesPerRequest: null };
-}
-
 let queue: Queue | undefined;
 export function escalationQueue(): Queue {
-  queue ??= new Queue(QUEUE, { connection: connection() });
+  if (!queue) {
+    queue = new Queue(QUEUE, { connection: redisConnection() });
+    // A lost Redis connection is an "error" event; unheard, Node would exit (G174).
+    queue.on("error", (err) => console.error(`[worker] escalation queue: ${err.message}`));
+  }
   return queue;
 }
 
@@ -35,7 +35,7 @@ export async function cancelEscalation(blockerId: string): Promise<void> {
 
 /** Worker that, when a timer fires, escalates only if the blocker is still open. */
 export function startEscalationWorker(): Worker {
-  return new Worker(
+  const worker = new Worker(
     QUEUE,
     async (job) => {
       const { blockerId } = job.data as { blockerId: string };
@@ -52,8 +52,10 @@ export function startEscalationWorker(): Worker {
         await escalateBlocker(blockerId, "SLA breach (timer)");
       }
     },
-    { connection: connection() },
+    { connection: redisConnection() },
   );
+  worker.on("error", (err) => console.error(`[worker] escalation worker: ${err.message}`));
+  return worker;
 }
 
 export async function closeEscalation(): Promise<void> {

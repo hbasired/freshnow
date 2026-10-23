@@ -17,10 +17,15 @@ interface Harness {
 
 function harness(over: Partial<FreshCtx> = {}): Harness {
   const replies: string[] = [];
+  // The middleware always sets the viewer beside the employee, from the same row; checks read it
+  // (TASK-057). A harness for another role gets that role's viewer.
+  const role = (over as { role?: string }).role ?? "ceo";
+  const accessRole = role === "ceo" ? "ceo" : "employee";
   const ctx = {
     session: { step: { kind: "idle" }, stepAt: Date.now() },
-    role: "ceo",
-    employee: { id: CEO_ID, display_name: "FLOW CEO", status: "active", language: "en" },
+    role,
+    employee: { id: CEO_ID, display_name: "FLOW CEO", status: "active", language: "en", access_role: accessRole },
+    viewer: { employeeId: CEO_ID, isCeo: role === "ceo", accessRole, department: null, displayName: "FLOW CEO", status: "active" },
     message: { message_id: 1 },
     reply: async (text: string) => {
       replies.push(text);

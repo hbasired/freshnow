@@ -1429,12 +1429,663 @@ sent by the account owner (core still requires From = owner). Dedup by Message-I
 Reading Sent means FreshNow's own outgoing mail is visible to the poller. Two guards: an inbound message whose Message-ID is one
 we sent is ignored ("a message FreshNow sent itself"), and the inbox alias can never be stored as a person's address.
 
+## D179 — The user directed the Operations + Inventory expansion now (TASK-055) [verified — user decision 2026-10-15]
+Operations and Inventory portals, a read-only Televend connector (MCP + pipeline), a Flutter Android staff app, a built-in chat that
+replaces the WhatsApp groups, and eight new roles — ahead of the Phase 3/4 table in CLAUDE.md. This supersedes CHANNELS-GUIDE's
+"drivers stay on Telegram" and the Driver-PWA plan (TASK-BOARD 042); the messaging-resilience report's objection to a separate chat
+server still holds (chat is built inside our own API and database). Telegram and email stay. The task sequence (055–069) is in
+TASK-BOARD.md § "Operations + Inventory expansion"; each task after 056 starts with a short plan the user confirms.
 
-## Task-scoped numbering from TASK-070 on
-The 20 Oct local build (not on GitHub) already uses D179–D192, G147–G158 and VF54–VF63 for TASK-055/056. Entries written
-outside that build use task-scoped IDs (D-T70.1, G-T70.1, VF-T70.1) so the two can be merged without renumbering.
+## D180 — One Televend client, one egress gate: an allow-list of host + method + path (TASK-055) [verified — tests + live runs]
+Every request to Televend goes through `TelevendClient`, which calls `decide()` (packages/televend/src/allowlist.ts) before
+asking for a token or touching the network. A method check alone is not enough: Televend's web app has GET endpoints that START
+export jobs. Widening the list takes a code change and a test, never a setting. Rejected: trusting the account's permissions (the
+account given to us can edit machines, prices and events).
 
-## D-T70.1 — Orange tracking is built inside the platform as the warehouse tasks of the TASK-055 plan (TASK-070) [believed — proposal, awaiting management decision]
+## D181 — A refused Televend credential latches; the password is never retried (TASK-055) [verified — tests]
+Keycloak counts failed passwords. `PasswordSession` signs in once, lives on the refresh token, and after a refused password (or a
+refused API client) throws `TelevendAuthError` for every later call until the process restarts with new settings. A 5xx from the
+token endpoint is not a refusal and does not latch.
+
+## D182 — Three Televend transports behind one interface; the bridge until the official API exists (TASK-055) [verified — user choice + tests]
+`TelevendSource` = bridge (the web app's own GETs, chosen by the user 2026-10-15), official (documented Data-Streaming API, fetch →
+persist → commit), files (portal exports). Downstream code sees normalised `Tv*` rows only, so switching transports changes nothing
+downstream. The bridge is to be replaced by the official API as soon as Televend IT issues a read-only client.
+
+## D183 — Windowed reads with adaptive slicing instead of offset paging (TASK-055) [verified — live re-read]
+Televend's paging drifts on large windows (G148). Vends and events are read as time slices that each fit one page; a full page splits
+the slice in half. Bounded (600 requests, 1-second minimum slice) and honest (`complete: false` when a bound is hit).
+
+## D184 — MCP over the v2 SDK, answers computed in code, names as initials (TASK-055) [verified — stdio run]
+`@modelcontextprotocol/server` 2.3.1 (v2 "stable release line": two dependencies) over v1 `@modelcontextprotocol/sdk` 1.32.1
+(express, hono, ajv…). zod 4 is installed for the MCP package only; the rest of the repo stays on zod 3. Every tool returns totals
+computed in TypeScript plus at most 50 rows; filler names default to initials because the model's context processes whatever we
+put in it (CLAUDE.md rules 2 and 4; minimum-necessary prompts).
+
+## D185 — SheetJS 0.20.3 from the vendor CDN, pinned by sha512 (TASK-055) [verified — install + parse of 11 real exports]
+Needed for the portal's legacy `.xls` event exports. The npm registry copy is stuck at 0.18.5 (affected by CVE-2023-30533 and
+CVE-2024-22363); 0.20.3 is past both fixes. Installed from `https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz`; the lockfile's
+integrity hash makes a changed tarball fail the install rather than slip in.
+
+## D186 — Company data never enters the public repository (TASK-055) [verified — git check-ignore]
+WhatsApp exports, Televend exports, screenshots and analysis outputs live in git-ignored folders (`private-data/` for everything new).
+Tests use synthetic files generated in memory with the real layouts. Committed write-ups give methods and match rates, not sales
+figures or names; detailed reports go to `private-data/reports/`.
+
+## D187 — A local, read-only Televend mirror in Postgres (TASK-056) [verified — tests + live runs]
+Migration 0023: tv_machine (+ tv_machine_caption name history), tv_vend, tv_event, tv_refill, tv_sync_run, tv_sync_cursor, and our own
+machine registry (machine + machine_placement). The portals, reconciliation and the app read OUR database — joinable with stock and
+cash, and still there when Televend is down. Natural unique keys + ON CONFLICT make every re-read harmless; every row keeps Televend's
+JSON (`raw`) for replay. Readable by the CEO only until TASK-057's operations roles.
+
+## D188 — Per-row raw JSON and tv_sync_run instead of a raw-page table (TASK-056) [verified — schema]
+The plan named a `tv_raw_page` table. Keeping each record's own JSON on its row replays the normalisation of that record directly, and
+tv_sync_run records the window, requests and completeness of every run — the same replay/audit value without storing every page
+twice. Superseded plan detail, recorded here.
+
+## D189 — Sync shape: overlapping incremental windows + a bounded daily check (TASK-056) [verified — tests + live]
+Every ~10 min: machines (refill detection from last_refill_at), vends since the cursor minus 30 min, events since the cursor minus
+60 min (late telemetry keeps its original time), refills only for machines whose last refill moved — read for the business day of that
+refill. The cursor moves only after a complete read. Once a day after 04:00 Asia/Dubai: yesterday re-read whole, vends compared with
+Televend's own whole-day count; at most 3 attempts per day. Backfill: newest day first, skips complete days, request budget per run.
+
+## D190 — Physical machine = asset number; Televend records are placements (TASK-056) [verified — tests]
+`machine` has one row per asset number (created on first sight of an enabled machine) with a QR token for the visit sticker; a
+Televend record whose asset number changes is closed and re-placed; a disabled record has no open placement; the label follows
+Televend's name unless set by hand (`label_manual`).
+
+## D191 — Tables are created by the task that uses them (TASK-056) [verified — plan deviation recorded]
+The plan listed vehicle, team, shift_window, site and a "FreshNow system" actor in TASK-056. None is used by the ingestion, so each
+moves to the task that first needs it (system actor → TASK-059 alarms→blockers; vehicle/team/shift → TASK-061 field operations):
+unused tables add test, reset and erasure surface for nothing.
+
+## D192 — No live-sync triggers on the Televend tables yet (TASK-056) [believed]
+The current SSE stream is a doorbell that makes every open dashboard re-fetch its 12 task endpoints on any watched-table change; a
+sync every 10 minutes would ring it for screens that show no Televend data. Triggers come with the scoped realtime topics (TASK-058).
+
+## D193 — A past day's refills ask every Televend machine record (TASK-056) [verified — tests + measured]
+Complete by construction rather than pruned by a guess: Televend's machines list cannot tell which disabled record was live on a
+past day (G160), and a broken machine can sit unsold for weeks before it is emptied and disabled. Cost: one request per record —
+221 instead of 87 per day at ≤ 1 request/second; the daily check stays inside the 10-minute schedule (the worker runs one job at a
+time). For a long history backfill, refills become the largest stream; the backfill's request budget bounds each run.
+
+## D194 — The test suite gets its own Redis database, not a mocked queue (TASK-056) [verified — MONITOR]
+Tests keep using real BullMQ against a real Redis (same rule as Postgres: never mocked), in a logical database of their own so they
+can never touch a running worker's schedules or timers (G163). Chosen over a separate Redis container for tests because the same
+server with another database index needs no new service on the laptop or in CI; TEST_REDIS_URL overrides it where a dedicated
+test server exists.
+
+## D195 — Each stream of a sync run on its own; a failed refill read is never "consumed" (TASK-056 review) [verified — tests]
+A run reads refills first and saves the machines' new state after, keeping a record's old state when its read failed; vends,
+events and the daily check's streams each run whatever the others did; the run then fails as a whole (TelevendSyncError) so the
+failure is seen in job_run and the worker log. Chosen over a per-record "pending read" column: it needs no schema change and keeps
+the rule the cursors already follow — state moves only after the read it stands for succeeded.
+
+## D196 — Permissions are capabilities, in one table with a database twin (TASK-057) [verified — tests]
+`core/permissions.ts` holds ROLE_CAPABILITIES (11 roles × 19 capabilities); every check in the API, bot, worker and dashboard asks
+`can()`. Postgres holds the same table as `role_capability` (0025), read by `app_has_capability()` inside the read policies; a test asks
+Postgres every role × capability and fails on any difference. Changing what a role may do = edit the TS table + a new migration. Deny
+by default: unknown role or inactive account → nothing. Chosen over role-name checks because 14 "refuse if employee" checks would have
+let any new role through (G169).
+
+## D197 — Admin reads everything but is not the CEO (TASK-057, user decision 2026-10-15) [verified — tests]
+`app_reads_all()` (CEO and Admin) replaces `app_is_ceo()` in the 22 read policies; `app_is_ceo()` itself is unchanged, so the CEO-only
+INSERT/UPDATE policies and the 0014 guard on privileged employee columns still mean the CEO alone. Admin's writes go through core on the
+service role with capability checks. Admin cannot: make or remove Admins, change the CEO's own row (role, manager, department, status),
+erase an Admin, or act in the CEO's name (R30). The CEO role is handed over, never granted.
+
+## D198 — Only a role that leads people may be someone's manager (TASK-057) [verified — tests]
+Escalation level 1 sends a raiser's own words to their manager; RLS must let that manager see them. Core refuses a new manager whose
+role lacks people.view_reports or data.read_all, and the dashboard's "Reports to" offers only those roles. Before, the picker offered
+anyone who was not an employee — any new role.
+
+## D199 — The bot's document planning stays the CEO's (and Admin's) (TASK-057) [believed — kept as it was]
+`documents.plan_tasks` (dashboard) is held by everyone who leads people, as the old deny-list allowed; `documents.plan_in_bot` only by
+the CEO and Admin, as the bot allowed. Two capabilities state the existing difference honestly instead of silently widening the bot.
+Open question for the user whether to unify.
+
+## D200 — Department, site and shift are self-filled once, then changed on the People page (TASK-057) [verified — tests]
+They decide what a department lead sees and who resolves a person's blockers. "Update my details" rewrote them at will through the
+service role, past the 0014 guard (G170). Now core writes them only while blank (first onboarding keeps working); role title and
+language stay the person's own.
+
+## D201 — An email address is an identity: the CEO's and Admins' are the CEO's to change (TASK-057 review) [verified — tests]
+Inbound email decides who is speaking by the sender's address. With Admin now allowed to set addresses, an Admin could have pointed the
+CEO's row at a mailbox they control and given work by email in the CEO's name (R30). Core `setEmployeeEmail` refuses a change to the
+CEO's or an Admin's address unless the CEO makes it (a person may still change their own); the People page shows those addresses
+read-only to an Admin. Found by reviewing the change myself — the independent review could not run (weekly limit).
+
+## D202 — The CEO still hands the CEO role over through the API (TASK-057 review) [verified — tests]
+The first version refused any change to or from "ceo", which removed the CEO's existing (API-only) handover that the erase route's
+rule depends on ("the CEO role changes hands through updateOrg first"). Restored for the CEO alone; the seeded CEO row keeps the role;
+nobody else may grant or take it; the People page still never offers it.
+
+## D203 — Photos and videos live in Supabase Storage, reached only through the API (TASK-058, user decision) [verified — tests + live]
+One private bucket "media" (JPEG and MP4 only, 50 MiB), files named by the sha256 of their CLEANED bytes, the record in
+media_object/media_link in the same Supabase database (Storage keeps its own index there too, in the `storage` schema). Every read
+is checked under the viewer's RLS before a byte is fetched; a file one may not see answers like one that does not exist. The API
+holds SUPABASE_SECRET_KEY for this, confined to a client that calls only /storage/v1 object and bucket endpoints, in that bucket,
+for the two content-addressed path shapes. Chosen by the user over a plain folder ("one Supabase for everything"); measured cost
+of the extra service: storage-api ≈ 83 MiB RAM, ~0% CPU idle (2026-10-15, laptop).
+
+## D204 — Nothing a phone writes about where or how a picture was taken is kept (TASK-058) [verified — tests + live]
+Photos are decoded and re-encoded (sharp keeps no metadata by default: EXIF incl. GPS, ICC, XMP, IPTC), turned upright first,
+shrunk to 2048 px on the long edge, with a 320 px thumbnail. Videos are not re-encoded (no ffmpeg on a shared server): every
+udta and meta box (and XMP) at the top level, in moov and in each trak is renamed "free" and zeroed in place — same length, every
+offset valid. ≤ 15 s per video. The type is decided by the file's first bytes; HEIC is refused (the app sends JPEG).
+
+## D205 — Deleting media waits for the company's decision, like text retention (TASK-058) [believed]
+Each file records its due date from its class (evidence 180 days, video 30, receipt 1825, chat 365 — the plan's proposals), but the
+sweep deletes nothing until MEDIA_RETENTION=on, and says so hourly — the same rule as RETENTION_DAYS: how long evidence is kept is
+the data controller's call, not a developer default.
+
+## D206 — A live update reaches only the people it concerns (TASK-058, amends D92) [verified — tests + load test]
+The NOTIFY payload now carries a scope worked out in the trigger: `e:<employee>` (rows anyone who may see that person may see),
+`s:<employee>` (rows only that person sees — their inbox, a blocker they are to resolve, work they gave), `p:<project>`, `org` (who
+sees whom changed) and `*` (only those who read everything). The API matches it against
+each open stream's picture of what its viewer may see; the browser still receives exactly `{table, op, at}` and never the scope
+(D92's rule). Fail-open everywhere: a scope the trigger cannot compute becomes `*` + `org`, more than 100 topics collapse to `*`,
+and a picture still loading hears everything — a missed doorbell leaves a board stale, an extra one only costs a refetch.
+Migration 0027, on 19 tables.
+
+## D207 — A viewer's picture: candidates by plain SQL, then the same RLS that guards every read (TASK-058) [verified — twin test]
+Asking RLS for "everyone I may see" ran app_can_view_employee on every row: 46 ms per picture at 300 people, 8.95 s to bring 300
+pictures up to date after an org change. Now the service connection lists candidates (me, my reports, my department) and the
+viewer's own context keeps those RLS allows, with `id = any(candidates)` — leakproof, so the planner applies it before the
+policy: 1.9 ms, 1.27 s for 300 (G179, VF68). Candidates can only narrow what RLS decides; a test compares each role's picture
+with what RLS returns (live-audience.test.ts). Projects are read whole under RLS.
+
+## D208 — Portals are a registry; each loads only its own data and code (TASK-058) [verified — browser + build]
+portals.ts names each portal and the capability it needs (Operations: televend.read). The picker and the switcher show only what
+the viewer may open, and a link to one they may not lands on one they may, without a Back trap. The tasks board's lists load
+only on the tasks portal. Operations and the chart library — Recharts 3.10.1 (MIT; the user's choice) — are one chunk fetched
+when Operations opens (VF69); a chunk that cannot be downloaded shows "could not be opened · Reload", and a tab left open across a
+deploy reloads itself once.
+
+## D209 — How many live streams one API process carries is configuration, sized by measurement (TASK-058) [verified — load test]
+LIVE_MAX_STREAMS (500) and LIVE_MAX_STREAMS_PER_PERSON (8) replace the fixed 50. Past either, a board polls instead — nothing is
+lost, it is slower. A stream that falls 64 KiB behind is closed. Measured on the laptop (VF68); the VPS is re-measured before
+the limits are raised (A-T58.3).
+
+## D210 — Phone sign-in: a PIN the server checks, short opaque tokens, sessions that end with the shift (TASK-058) [verified — tests; deviation]
+The user's decision (2026-10-15): shared company phones and bound personal phones, a 4–6 digit PIN, no SMS. The design review
+rejected a key unlocked on the phone — an insider holding a shared phone could test PINs offline against it — so only the API
+checks the PIN: scrypt N=2^14, r=8, p=5 (one of OWASP's equivalent minimums) over an HMAC of the PIN with a pepper kept outside
+the database (APP_PIN_PEPPER). The phone keeps a device secret and, for each person set up on it, a person secret (both stored as
+sha256). Sign-in returns opaque tokens — access `fna_` (15 min), refresh `fnr_` — stored hashed and checked in the database on
+every request. Refresh rotates; a refresh token presented twice ends its whole family (RFC 9700 §4.14), except within 60 s, before
+its successor was used (a lost response). Wrong PINs: from the 5th in a row a wait of 1, 5, 15, 30, 60 min, disabled at the 10th;
+20 in 30 days across phones (counted since the person was last set up) disables them everywhere; 15 on one phone in an hour lock
+the phone for an hour, as do 5 wrong set-up codes. A company phone holds one person at a time; its session ends at the next
+handover (07:30, 15:00 — A-T58.4) at least 2 h away, plus 30 min, or after 60 idle minutes; a personal phone after 30 days or 7
+idle. CEO and Admin cannot use a shared phone. Until the app's routes exist a phone's token opens GET /dashboard/me only.
+Deviation (DEVIATIONS.md): NIST SP 800-63B-4 asks 8+ characters of a memorised secret used with a second factor (§3.1.1.2) — the
+enrolled phone is that factor — and 4–6 digits is below it. Recommended: require 6.
+
+## D211 — Functions that run as their owner have a fixed search path; the live-update trigger runs for nobody else (TASK-058) [verified — test]
+Migration 0029: every SECURITY DEFINER function in public owned by the migrating role gets `search_path = pg_catalog, public,
+pg_temp` (else a caller's temporary schema could shadow a table it names); notify_change() is executable by its owner only — a
+trigger needs no EXECUTE when it fires (G182); Supabase's default grant of EXECUTE on new public functions to service_role is
+revoked (G183); the triggers name public.task and public.assignment in full. A test checks the ACL and every search path.
+
+## D212 — One media record per uploader per content; the server decides how long it is kept (TASK-058 review) [verified — tests]
+Migration 0030 replaces one record per sha256 — a second person sending the same bytes (a forwarded photo) was given the first
+person's record — with one per (uploaded_by, sha256); the bytes are shared and removed only when no record needs them. Videos
+are always class "video", photos "evidence" or "receipt", chat media "chat"; the sweep re-dates every record from the current
+periods, so a changed period applies to files already stored. Refusals and duplicates count towards the upload limit, at most
+two photo decodes run at once, linking a file to a task is audited, and a video whose length cannot be read is refused.
+
+## D213 — The phone app's push is a wake-up with no content (TASK-058, binding on TASK-063) [believed — Firebase docs]
+Notice 3.0 tells people Google's Firebase sees only that a signal went to their phone, and when. So an FCM message carries no
+text, name or record id; the app fetches what is new from the API and shows the notification itself — D92's rule, on the phone.
+Firebase's Android guidance (updated 2026-10-15): a high-priority message gives several seconds in onMessageReceived, enough to
+show a notification; a fetch needs an expedited WorkManager job (briefly exempt from quota after a high-priority message); and
+high-priority messages that do not lead to user-facing notifications are deprioritised. So: high priority only for what the
+person is told about, a generic notification first if the fetch may be slow. If TASK-063 cannot keep this, the notice changes first.
+
+## D214 — An Operations figure is shown only for time the mirror read to the end (TASK-058 review) [verified — tests + browser]
+"In the mirror" is measured, not inferred from the first read: the complete vends runs, as one set of time ranges (range_agg),
+must contain the span — the day shown up to its cut, the earlier day whole. Otherwise that side is null, never 0, and the page
+says why: before the mirror, a gap (a sync stopped for longer than its 48-hour look-back, or a read that did not finish), or
+nothing read yet today. The cut (horizon, clock or day end, whichever is first) is computed in Postgres and never falls before
+the day began — just after midnight it fell on yesterday and drew 23 hours of nothing sold. The hour in progress is compared
+with the same minutes a week earlier.
+
+## D215 — Privacy notice 3.0: the operations work in one change, each part named only when it is switched on (TASK-058) [believed — a draft for the lawyer]
+Adds Televend's records that carry staff names (FreshNow reads them and sends Televend nothing; its server region is not
+claimed); photos and videos (location removed; periods once MEDIA_RETENTION=on); phone sign-in (account safety only, never
+attendance; three wrong PINs tell the person and their lead; sessions deleted 30 days after they end; the audit trail keeps each
+sign-in); the app's wake-up through Firebase (D213); the cash and stock recorded in the app (a difference is a fact about what is
+held, looked at by a person); and who sees what since TASK-057 (Admins; the machine records: Ops Head and Supervisors). One rule
+per part, shared with the compliance check where there is one (televendReachable). Version 3.0-draft: everyone is asked again
+and their messages are held meanwhile (D139/D140). On Telegram the request arrives in two messages (G187).
+
+## D216 — The question box reads only the tables it documents; the activity feed leaves sign-ins out (TASK-058) [verified — tests]
+The notice's "never used to check when you work" was not yet true: query/guard.ts checked keywords and schemas, not tables, and
+the CEO's RLS reads app_session and audit_log — "when did X sign in each day?" could have been answered. Now each query is planned
+first (EXPLAIN, verbose, nothing executed) and refused — and audited as query.scope_refused — if it reads any relation besides
+the eight documented ones (schema-prune.ts): CTEs, subqueries and joins included, because Postgres names them, not a parser of
+ours. CLAUDE.md's "pre-approved views" is now enforced, not only shown to the model. /dashboard/activity leaves out
+app.signed_in and app.signed_out (they stay in the audit trail; wrong PINs still show). A person's own data export still lists
+their sign-ins — their right of access.
+
+## D217 — The FreshNow app is the main channel; Telegram is an option, not the first one (user, 2026-10-16) [decided]
+"Can we not make telegram the first option and app the main one and implement accordingly" — with the app's own chat (TASK-066)
+as the WhatsApp replacement. What follows from it, from TASK-059 on: every confirmation and handshake (a driver accepting stock,
+an auditor approving cash) happens in the app — the web app now, the Flutter app from TASK-063 — never only in Telegram; the app
+is listed first and is the default wherever a channel is chosen; Telegram stays for people who link it, as an extra or a
+fallback, and the bot keeps working. Today's state: the in-app inbox is always on and push is used where a phone is set up, but
+NOTIFY_CHOICES lists Telegram first and a linked Telegram account is added by default (alerts.ts usualChannels) — to change with
+tests in TASK-059's first step.
+
+## D219 — Phone sign-in after its independent review: ten findings, all fixed (TASK-058 review) [verified — tests]
+The reviewer's findings, each confirmed by reading the code first: the counted row of a wrong PIN or code is written in the SAME
+transaction as the count, and each phone's attempts are serialised by a lock on its row (a malformed correlation id used to make
+the post-commit audit write fail, so failures went uncounted and unreported); refresh, sign-in and sign-out lock the phone too,
+so a revoke never misses the pair a refresh is inserting; a voided refresh pair presented later ends the family and is
+recorded (RFC 9700 §4.14 — the phone that lost the answer never had that pair); CEO and Admin are refused on a shared phone at
+every sign-in, refresh and token check, not only at set-up; set-up checks the phone and code before the slow PIN hash; the
+30-day limit counts failures against the person's live credentials and, when reached, revokes them all (recovery is a fresh
+set-up); a PIN changed during a check refuses the old one; housekeeping keeps used codes a credential still points at, in its
+own try; and someone else's export of a person — and the phone list — carry no sign-in times.
+
+## D220 — Machine alarms reach people through rules, as problems, behind a switch (TASK-059) [verified — tests]
+Migration 0031: alarm_rule (per Televend alarm name: actionable | noise | info, an on-delay, the category that routing_rule
+uses, severity, advice — seeded from the measured classes) and machine_alarm (each alarm linked to the problem it raised or
+joined). An alarm still open after its on-delay becomes a blocker raised by a system actor (a disabled employee row, never
+assignable or messaged), routed, timed and escalated like any other; repeats join the open one per machine and alarm name;
+it closes itself ("Cleared in Televend") when every alarm behind it clears. An unknown alarm name needs someone after 30
+minutes — hiding it is the worse failure. Off (OPS_ALARM_PROBLEMS) until routing rules name who handles machine, stock and
+cash problems: with today's catch-all every one of ~30 a day would page the CEO. The command centre lists them either way.
+Ops Head and Supervisors see the system's problems through a new clause in blocker_select.
+
+## D221 — The cash a collection should have found is Televend's cash vends between collections × the cash price (TASK-059) [believed — 18/29 matched]
+Televend gives each collection's time (the Staff App's "Cash Collection" event) but not its amount without the cash-centre
+permission; it does give every cash vend (payment_type 0). Window [previous collection + 1 min, this one + 1 min): a vend in
+the minute of a collection belongs to it and none is counted twice. Price per machine (machine.cash_price_fils), default
+AED 10 (A-T62.1). Never the machine counter's photo (G190). Shown as "should have found", with "a difference is a fact to
+look into, never an accusation" — the driver's own count arrives with the app (TASK-061).
+
+## D222 — The Operations command centre (TASK-059) [verified — tests + browser]
+Now: tiles (need someone, offline, cups today, cash in the machines, collections, refills), the alarms that need someone
+(blips held back by their on-delay, counted but not listed), every machine by Televend region with its state in a word, an
+icon and a colour, cups today and the cash waiting; a machine panel (today by hour, alarms, collections with what each
+should have found, refills with who filled). Day report: one Dubai day per machine. Views in the hash (#operations,
+#operations/sales, #operations/day). A morning report at 07:30 to everyone with televend.read — app first, Telegram only
+where the app cannot reach a phone (notifyPeople telegram: "fallback", D217); once a day, marked in the audit log.
+
+## D218 — Stock differences and corrections are approved by the Ops Head, the CEO or an Admin (user, 2026-10-16) [decided]
+For TASK-060: the warehouse keeper never approves their own count; a difference beyond a small tolerance is recounted by someone
+else first; an approval carries a reason and posts an adjustment — the original entries are never edited (a reversal, as
+ERPNext keeps its ledger; dated when it is made — our choice: ERPNext's page does not say which date its reversal rows carry,
+corrected 2026-10-18). Kept order (user): TASK-059 Operations command centre, then TASK-060 inventory. Built as D223–D225.
+
+## D223 — One stock ledger: moves are never changed, the balance follows them, a real place never goes below zero (TASK-060) [verified — tests]
+Migration 0032. Every change of stock is a document (stock_doc) with moves (stock_move: an amount of one item from one place
+to another). Places: the warehouse, each person who holds stock, in transit, and four bookkeeping places (suppliers, used,
+damaged, count adjustments) that may go negative. stock_balance is kept by a trigger in the same transaction as each move and
+can never disagree with the moves; its CHECK refuses any move that would take a real place below zero, whoever writes it.
+Moves and document lines are never updated or deleted (triggers), a document's content never changes and its state only moves
+forward; the app role has SELECT only (revoked insert/update/delete, G197). A mistake is a reversal: the opposite moves, posted
+when the reversal is made (our choice — ERPNext's own page says it keeps the original rows and adds opposite ones, not which
+date they carry; read 2026-10-17). Concurrent postings take one advisory lock per item, in id order, so two documents never
+wait on each other in a circle; the balance row's own lock would keep the numbers right without it (PostgreSQL 17 §13.2.1,
+read 2026-10-17). Every document id is made by the client: the same request twice posts once (request_hash tells a repeat
+from a different request under the same id). Tested: Σ moves = balance for every place after 80 random postings; every item
+sums to zero over all places; two hand-outs of the last carton — exactly one succeeds.
+
+## D224 — A handover is confirmed by the other side; what did not arrive waits in transit for an approver (TASK-060) [verified — tests + browser]
+Warehouse → person (the person confirms), person → warehouse (someone at the warehouse who is not the giver confirms — or the
+keeper takes it back at the desk and the person confirms), person → person (from one's own stock; the receiver confirms).
+The stock leaves the giver at once, into "in transit"; it is the receiver's only when they confirm. Nobody confirms their own
+handover; nobody gives stock to themself; only roles that hold stock (inventory.hold) can be given any. A receiver who counts
+less accepts what they counted (with a reason); the rest stays in transit, visible, until the Ops Head, the CEO or an Admin
+who was not a party settles it — back to the giver (they miscounted) or written off with a reason. Refused or cancelled
+handovers put the stock back where it was.
+
+## D225 — Counts: the screen hides the record, a second person recounts big differences, an approver who did not count decides (TASK-060, implements D218) [verified — tests + browser]
+Opening, after the team left, closing, or a spot check. A full count needs a number for every item (a line starts empty, not
+at 0); a spot count any. Each line is compared with the ledger when the count is handed in; an item that moved while it was
+being counted is never "accepted as counted". Differences beyond the item's tolerance go to a recount by someone else, who sees
+neither the record nor the first count; an approver may let the recount go with a reason (one keeper on shift). The decision is
+per line: the count is right (an adjustment document is posted, with a reason) or the record is right (nothing moves). The
+database itself refuses a decision by the person who counted or recounted. A shortage that the warehouse no longer holds (stock
+handed out since the count) is refused: count again.
+
+## D226 — Stock is held per place and item; a delivery's lot details are kept on the delivery (TASK-060) [decided]
+Oranges' variety and carton weight (A-T60.1) are recorded on each delivery line, but balances are not split by lot: the keeper
+counts cartons, not deliveries, and the warehouse does not keep deliveries apart physically (no evidence that it does). Per-lot
+stock (food traceability, a recall) waits for a named need — complexity is earned by a failure mode (CLAUDE.md).
+
+## D227 — One unit per item, fixed once it has moved (TASK-060) [decided]
+The WhatsApp list counts each item in one unit; nothing yet needs a carton→kg conversion (cups per carton is a calibration for
+reconciliation, TASK-062, not a unit). An item's unit and step can be corrected until its first movement, then never — "10"
+must keep meaning what it meant. The count tolerance is the approvers' to set (it decides when a second person looks).
+
+## D228 — "Blind" is the count screen; the control is the second person (TASK-060) [decided]
+The count screen never shows the record's figure, but anyone who may open the stock screen — the keeper included — can look at
+it first. Hiding the warehouse's figures from the keeper would make the job impossible (giving out needs them). So a copied
+count is caught by the recount by someone else, spot checks by the Ops Head, and the record of who counted what and when —
+not by the screen. Stated in the task page so nobody believes the screen is the control.
+
+## D229 — Ledger rows are deleted only through inv_purge_docs, for practice runs (TASK-060) [verified — tests]
+The demo reset and the tests' clean-up delete stock documents (and their reversals) through one function that rebuilds the
+affected items' balances afterwards: deleting moves one by one passes through states that never existed (G196). A purge that
+would leave a real place below zero is refused whole. The switch it sets is a guard against accidents, not against the service
+role on purpose; against the app role the boundary is its missing write grants.
+
+## D230 — No stock is seeded: the first approved count is the opening stock (TASK-060) [decided]
+The nineteen items of the warehouse's WhatsApp list are seeded with their units (some assumed, A-T60.2), with no quantities —
+the list is copied forward, not counted (VF74). The first count, approved with the reason "opening stock", sets the warehouse.
+
+## D231 — Who is told about stock, and when (TASK-060) [verified — tests]
+App first, Telegram only where the app cannot reach a phone (D217). A handover waiting: whoever must confirm it (for a return,
+the warehouse keepers; with none, the Ops Head; then the CEO). Less arrived: the giver, and the Ops Head to settle. Refused: the
+giver. Below an item's minimum in the warehouse: the keepers and the Ops Head, once a day per item. A count that differs: a
+second person to recount, then the approvers; closed: the stock list from the record, the WhatsApp list's replacement. The
+worker reminds once: a handover still waiting after 30 minutes, and a count of the warehouse 30 minutes after stock went out
+with no count since (A-T60.3) — the CEO asks for "the stock after the first team" every morning (VF74). Every notice is best
+effort: one that fails never undoes the stock that moved.
+
+## D232 — The Stock portal: for everyone who holds or sees stock, made for the warehouse's phone (TASK-060) [verified — browser]
+portals.ts: a portal may need any one of several capabilities; Stock needs inventory.read or inventory.hold. A driver sees what
+waits for them (one tap: "All here"; or "Something is different"), what they hold, and the buttons to give it back, hand it on
+or record it used; the keeper sees today's counts (opening / after the team / closing), big action tiles, the stock list as
+tiles (🚨 when low), and the movements; approvers see what needs them. Targets 48 px or more (Android guidance, checked
+2026-10-17), steppers instead of typing, icons before words, one thing per sheet. Its own code chunk (12 KB gzipped), loaded by
+those who open it. The page refreshes on the database's doorbell (0032 scopes: c:inventory.read and the people concerned).
+
+## D233 — The independent review of TASK-059 and TASK-058's last parts: 27 findings, 25 confirmed, all but four fixed (2026-10-17/18) [verified — tests]
+Fixed: long alarms never mirrored as cleared — an open-alarm refresh re-reads their start windows (G201, VF81); machine problems
+folded by category into one alert — every system-raised problem is its own alert; a repeat inside its on-delay now joins the open
+problem and a problem stays open while any repeat is; a switched-off Televend record raises nothing and closes its problems; an
+unrelated failing stream no longer stops the alarm sync; info alarms never linked; the day report counts alarms by what
+happened (stayed open past their wait, or cleared within it), not by rule class; the question box refused functions that read
+tables by name (query_to_xml …) and Unicode-escaped names, in the text and in the plan; a third party's data export no longer
+shows a count of a person's sessions, and the person's own includes their wrong PINs; voice transcripts age out and are erased;
+media: bytes and records under one lock per picture, bytes taken back when the record fails, a believable taken-at time, the
+retention clock restarts when a picture is attached again, two uploads at a time per person, a capped decode queue, a storage
+error no longer reads as "no such file"; live updates: a failed LISTEN starts again on a fresh connection, capability scope keys,
+the machines' problems ring everyone who runs the machines, a stalled stream is destroyed, semaphores re-check, rate-limit audit
+rows at most once per five minutes. Refuted by the skeptic: a duplicated Telegram part on a partial failure (deliberate), the
+MP4 header's duration (any self-declared length can lie). Not fixed (low, written down): expected cash across a machine move
+without a collection; a re-pointed Televend record mixing two assets' history on the machine page; with no vends cursor every
+day reads as "not in the mirror" (lasts until the first complete read).
+
+## D234 — The notice names stock for everyone, who can see it and how long it stays; its words follow the person's (TASK-060) [verified — tests]
+Notice 3.0-draft gains three lines that are always there (stock is recorded on every installation): what is recorded (stock a
+person is given, hands back, uses or counts), who can see it (the warehouse keepers, the Ops Head, Supervisors, the CEO, Admins),
+and how long (the records stay as the company's stock record; the words typed on them go with the person's other words —
+migration 0034 lets only the words be redacted). The text changed, so everyone is asked again; nobody had agreed to 3.0 yet.
+
+## D235 — The morning report waits, until 10:00, for Televend to have read yesterday in full (2026-10-18) [verified — test]
+On 18 Oct the worker started after a night off and sent the report minutes before the catch-up read landed — honest ("not read
+in full") but useless. Until 10:00 it now waits while the sync is stale or yesterday is incomplete; after that it goes as it is.
+
+## D236 — The TASK-060 review: a count's difference is not posted twice, in-transit stock is not counted twice (2026-10-19) [verified — tests]
+Two read-only reviewers reported 17 findings on the stock ledger and portal; the skeptic pass did not run (usage limit), so each
+was checked by hand against the code — all 17 real, all fixed with a test. The rules that changed:
+- Accepting a count posts (count − ledger) as it was at the moment of counting. That stays right when stock was merely handed out
+  or delivered since (both sides move alike), but not when the books were CORRECTED since: another count's decision, or an undone
+  document. Accepting is then refused ("changed since") — checked under the item locks, so two decisions cannot both pass.
+- A counted line that differs while the item is on a waiting or partly accepted handover from or to the warehouse is "unclear"
+  (like moving during the count): counted again, never accepted as counted. A line that matches is clear (the stock has left).
+- While a person counts (their count open, or a recount they took), their stock screen hides the warehouse's figures and the day
+  sheet is closed to them; until a recount is taken, nobody who may still take it sees the first count or the ledger. A count
+  copied from the screen would always "match" and nobody would look again — D228's "the control is the second person" only
+  works if the figures are not on the counter's screen. They could still look before starting: spot counts by someone else stay
+  the real control.
+- An item's unit and step are fixed by a document line, by a count waiting for its decision, or by a count that found some of it;
+  the editor takes the ledger's item lock, and every posting locks its items before reading them.
+- A take-back from someone whose account is no longer active is confirmed by someone else at the warehouse, never the taker.
+  A receiver whose role no longer holds stock may refuse a handover, not take it in.
+- A repeat of a posted document is answered before anything else is checked; a different hand-in, recount or decision under a
+  closed count is refused ("already handed in / decided"), never reported as done; a recount handed in after it was let go is
+  refused in words. JSON numbers are read exactly (2.4996 refused, as the text is).
+- Screens: the number box keeps what is typed until it loses focus ("2.5" had become 25); take-back amounts are set once per person
+  chosen; a sheet sends only the items still on its list and names any that dropped off; a resumed count shows its own kind and
+  offers to cancel it; the day sheet's person rows gain "undone"; Movements pages by (time to the microsecond, id).
+
+## D237 — A driver never sees Televend's "should have found" — the auditor does (TASK-061, 2026-10-19) [believed — research + reasoning]
+The driver counts the cash and types the figure. A figure on their screen — before, or after while they may still undo and type
+again — invites matching it: under-reporting when the box held more than Televend counted (failed vends, notes put in without a
+sale), and over-reporting nothing. That is the blind-count situation (POS vendors' "count before you see the expected total";
+an internal-audit flash report's surprise counts and separated duties). So the server leaves Televend's figure, and the count of
+collections that differ, out of every answer to anyone without cash.read; the cash auditor, the Ops Head, the CEO and Admins see
+both. Against it, honestly: some vending software shows drivers the expected collection (a vendor blueprint; Cantaloupe's
+"expected collection ticket") — in those operations the bags are counted in a counting room, not by the driver. If FreshNow moves
+to sealed bags counted elsewhere, revisit.
+
+## D238 — Cash is its own ledger, with the stock ledger's rules; a shift is what the auditor checks (TASK-061) [verified — tests]
+Migration 0035: accounts (a person's hands; a machine's cash box; fuel, other expenses, the cash-deposit machine, bank, over/short),
+entries (collection, test note, expense, deposit, reversal) and moves in whole fils, a balance kept by a trigger and never below
+zero for a person, moves never changed, entries' content never changed (words only removed), reversals for mistakes. Its own
+tables, not stock's: the warehouse keeper sees all stock and must see no cash, and money is never a decimal.
+- A shift is one person's working period; its business date is the Dubai date it started (a night shift belongs to the day it
+  began). One open shift per person; the first entry opens one. Cash still held at the end carries to the next shift (shown as
+  "carried in") and the person is told to deposit it.
+- Every entry carries a photo except a test note (A-T61.3); deposits check that the notes add up to the amount.
+- Undo: the person, for their own entry while the shift is open and unchecked; an auditor, for anyone else's entry. Undoing a
+  collection whose cash was spent or deposited since is refused until those are undone.
+- The auditor checks an ended shift: ok, or a question in words that goes to the person and the Ops Head (the CEO when there is
+  none); the person answers in the app; ok settles it. Nobody checks their own shift — the database refuses it too.
+- Notices are the app's (D217): a question, an answer, a settled check, cash still held at a shift's end.
+
+## D239 — The Cash portal: "My cash" for whoever handles it, "To check" and "All shifts" for whoever checks it (TASK-061) [verified — tests, typecheck]
+One portal (`#cash`), for every role with cash.hold or cash.read: a driver's page is what they hold, their shift, five big tiles
+(collected, fuel, test note, deposited, other), the shift's sums in the order the WhatsApp list wrote them, and any question to
+answer; the auditor's is the ended shifts not yet ok, each opening to its entries, photos and Televend's figure per collection,
+with "All ok" or "Ask". The warehouse keeper and the technician do not see it; the cash auditor sees no Stock portal.
+
+## D240 — The notice names cash always: what, why, who sees it, how long its words stay (TASK-061) [verified — tests]
+Cash is recorded through the web app now, not only by the phone app, so its lines no longer depend on phone sign-in. The words on
+cash records (a note, the auditor's question, the answer) follow the person's other words: aged by the retention sweep, removed on
+erasure, listed in their own download with the checks they made as an auditor. The amounts stay as the company's financial record.
+The text changed, so everyone is asked again (notice 3.0 is still a draft).
+
+## D241 — A team's shift is a plan in the app: the instruction sheet's machines, tasks, crates and proof (TASK-061 part 2) [verified — tests]
+Migration 0036. A Supervisor, the Ops Head, the CEO or an Admin (routes.plan) makes one plan per team per day and shift: the team's
+name as the sheet writes it ("Team Kiran / Ananthu"), its people (1–6, each active with visits.record), and the machines in order —
+each with the sheet's tasks (full service, half service, resort, cash, water remove, kachara remove, clean with hot water, deep
+clean, make free vend, check 🚨, other), crates of oranges (0–20), instructions (required for check and other) and the proof the
+stop needs (normal pic, re-sorting pic, video of the white fruit dispenser, other). Every id comes from the browser, so the same
+plan saved twice is one plan. A plan keeps its day and shift; a stop taken off is kept, marked removed (a visit may point at it); a
+visited stop's machine is not changed. "Copy yesterday's plans" copies teams, machines, crates and instructions, skipping a plan
+whose name already exists for that shift. The team is told once, when the plan is first made, with the crates to take. Why a
+table, not a chat sheet: the sheet's red NO cells were filled in by hand from photos in the group (13 and 18 Oct sheets).
+- A machine may be marked "served at night only" or "by day only" with a reason ("Schedule rashid always Night", 18 Oct). Putting
+  it on the other shift is said as a warning, never refused — the planner may know better that day.
+
+## D242 — A visit starts at the machine: its sticker's link or its typed number — never the phone's location (TASK-061 part 2) [verified — tests]
+The user decided "no GPS" (2026-10-15). A machine's sticker is a link (`#visit/<qr_token>`) the phone's own camera opens — a page's
+camera scanner (BarcodeDetector) needs HTTPS, which the laptop setup does not have; the typed number ("Machine ID" on the sticker)
+is the fallback, and the visit records which of the two started it. One open visit per person: the same machine resumes it,
+another is refused until it ends. The visit carries out the stop for that machine on the person's current round (unvisited first);
+a machine off the plan is still a visit, off the plan. Nothing about a visit changes once it has ended (the database refuses it),
+except its note's words being removed.
+
+## D243 — Proof is the person's own photos and videos, one kind each; missing proof is said, not refused (TASK-061 part 2) [verified — tests]
+A photo for the photo kinds, an MP4 video (15 s at most, TASK-058's limit) for the dispenser — checked by the stored file's type,
+not its name. Only photos the person took themselves. A piece of proof is taken off, never deleted; when the photo rules remove the
+file, the record that proof was given stays (media_id becomes empty). Ending a visit with proof missing is allowed and answered
+with what is missing — the planner sees it as the sheet's NO. A planner may end a visit someone forgot to end.
+
+## D244 — A visit's fill and cash go on the ledgers that already exist, linked to it (TASK-061 part 2) [verified — tests]
+The fill is "used, put into a machine" from the person's own stock (TASK-060); the cash is a collection on their shift (D238), with
+its photo. visit_doc links each to the visit. The cash ticks "Cash" by itself; the fill ticks nothing — it is part of a full or half
+service the person ticks. No third ledger, and the auditor's view of cash is unchanged.
+
+## D245 — The sheet's OK / NO is worked out from the visits, with Televend's refill beside it (TASK-061 part 2) [verified — tests]
+For each stop on a day's plans: whether it was visited (by whom, when, by sticker or number), each proof column OK or NO, the fill,
+whether cash was recorded, and — for planners — Televend's refill in cups and its Cash Collection event within 60 minutes before to
+120 minutes after the visit started (A-T61.12). Visits off the plans are listed apart. A driver sees the plans they are on and how
+far the team has got (who visited each machine, when, which proof is missing) — never another team's plans, and never the photos of
+a teammate; Televend's "should have found" stays away from them (D237).
+
+## D246 — The Route portal; the portal switcher wraps at three (TASK-061 part 2) [verified — typecheck, tests]
+`#route` (Today: the person's round and "start a visit"; Plans and Proof for planners), opened from the switcher and the phone's
+More menu, for every role with routes.plan or visits.record (Supervisor, Ops Head, CEO, Admin, VMO, Technician). A sticker's link
+opens it with that machine's visit offered; the token is read once at load, because the shell rewrites the address to `#route`.
+With six portals the switcher's labels collided in the 248 px sidebar (the user's point 9, 19 Oct): it now shows three per row and
+wraps.
+
+## D247 — The notice names visits always, and says plainly what "no location tracking" means (TASK-061 part 2) [verified — tests]
+What is recorded (the machine named, when, what was ticked, the proof, the stock and cash recorded there, the plans a person is on),
+why (it replaces the sheet and the photo group; a missing photo is a fact a person looks at), who sees it (planners; teammates see
+progress but not photos), how long (an operations record; the words go with the person's other words). "No location tracking" now
+reads: the app never reads where the phone is — a visit records only the machine named and the time. Visit notes, plan notes and
+instructions are aged by the retention sweep, removed on erasure, and listed in the person's own download. The text changed, so
+everyone is asked again (still the 3.0 draft).
+
+## D248 — The 19 Oct request is planned in five phases, easiest first; 16 choices made by the user [verified — user's answers, 19 Oct]
+Request recorded verbatim (`docs/requirements/REQ-2026-10-19.md`, 115 requirements, every one with a row in the plan's table —
+checked by a script). Plan: `docs/reports/plan-2026-10-19-analytics-routing-cash.html`. Phases: 1 analytics on the data we have
+(070–075) → 2 money and stock balanced (062, 076, 077, 061 part 3) → 3 the Televend switch and audits (082, 084; 083 writes) → 4 one
+app after the server (064, 066, 063, 065, 067, 068, 069) → 5 forecasts and routes (078–081). The user's answers:
+- Categories: Televend's regions with FreshNow's corrections. Tiers: three against the fleet average of cups per machine per day
+  (≥ 125 %, 75–125 %, < 75 %) plus "no sales". Income: cups × the price in the machine's name, labelled estimated. Sales history:
+  copied back as far as Televend returns.
+- A deposit that differs needs a reason; the person and their manager are alerted. Fuel needs its receipt; food and other need the
+  manager's approval in the app; "juice try" is its own kind. The bank statement comes as CSV/Excel. OCR runs on our server.
+- Locations: a pin on an OpenStreetMap map **and** a pasted Google Maps link (both). Solver: VROOM on OSRM, OR-Tools as a cross-check,
+  ant colony a benchmark. Routes: computed at 00:00, reviewed, else sent marked "automatic" one hour before the shift. Shifts assumed
+  day 07:00–16:00, night 16:00–07:30 until confirmed.
+- Televend writes: one operation at a time, each with the user's yes, after Televend confirms the endpoint; the bridge account never
+  writes (the 15 Oct read-only rule holds until then). The MCP ↔ API switch lives in Settings (CEO/Admin), audited, with a live test,
+  a shadow week and automatic fall-back. The server is bought before Phase 4.
+- The earlier plan (TASK-055–069) checked item by item at the user's request (plan §10): 90 deliverables, 38 built, 52 open, each with
+  a task. Six had no place in the first draft and were added: Televend's people matched to employees (062 — also so erasure reaches
+  Televend's copies of names, A-T56 note), sites and vans (078), Televend's history log (072), period close (062), the missing MCP
+  tools (082), and alarms → routed problems once FreshNow names the resolvers (074).
+
+## D249 — Machine performance is cups per day read, against the average of the machines that sold (TASK-070) [verified — tests]
+`core/analytics.ts`. Whole days only, up to yesterday, at most 92 (today is Operations → Now). A day counts only when the sync read it to
+its end (tv_sync_run.complete) — a day not read is named and left out, never counted as zero, and per-day figures divide by the days
+read. The fleet average is over counted machines that sold at least once; a machine that sold nothing is "no sales", apart, so a broken
+machine does not drag the average down. Tiers: top ≥ 125 %, below < 75 %, about average between (D248, A-T70.4). The "80 % set" is the
+fewest machines whose cups reach 80 % of all (ties by asset number, so the set is the same every run). The period before is the same
+days of the week, shifted by whole weeks (7 × ⌈days ÷ 7⌉): yesterday against the same weekday a week before, ten days against the ten
+days two weeks before — a weekday pattern never reads as a change. Each machine's days sit beside the same weekday 7 days before (R8.3).
+Insights are fixed sentences filled from the figures, each carrying the numbers it states (tested: no number in a sentence that is not
+in its list); actions name the machines. A LEVEL is per machine that sold; a CHANGE is on volume — cups per day read, for the same
+machines in both periods — never on a per-machine average whose denominator can move (G210). The page draws; it computes nothing (each machine's cash share and the cash share's move come
+from the server too).
+
+## D250 — A machine's category is FreshNow's correction, else Televend's region; "Not counted" leaves it out (TASK-070) [verified — tests]
+Migration 0037: `machine.category_override`, `category_note`, `category_set_by`, `category_set_at`, and the capability `machines.manage`
+(Ops Head, CEO, Admin). Choosing Televend's own region clears the correction. Each change is audited — without the reason's words, which
+stay on the machine row where the retention sweep, erasure, the person's download and the reset script reach them. Categories compare
+per machine per day so 19 machines and 2 compare fairly.
+
+## D251 — Income is an estimate: (cups − token cups) × the price set, else the "AED n" in the name, else AED 10 (TASK-070) [verified — tests; prices believed, A-T70.1, A-T70.3]
+Televend's sales list carries no amount (VF82), so every income figure says "estimated" and how its price was found (set, name,
+default). "card" in the name marks a card-only machine (A-T70.2). Replaced by Televend's amounts when the API key arrives (082).
+
+## D252 — The Analytics portal, for whoever reads Televend's data (TASK-070) [verified — typecheck, tests]
+`#analytics` (Machines) and `#analytics/categories`, for televend.read (CEO, Admin, Ops Head, Supervisor). Charts per the data-viz
+method: above / about / below the average is a diverging scale — the accent blue, the base gray, and a new orange token
+(`--color-mark-below`, validated in both themes 19 Oct) — and every tier is also said in words; category bars are one series in one
+hue with the fleet line; categories' days are small multiples, not a 9-colour legend (the categorical palette stops at 8). Figures
+reload when the range changes, after a correction, or on Refresh — not on every live update (whole days do not change by the minute).
+
+## D253 — The analytics store: per machine record and Dubai day, built only from checked days, replayable (TASK-071) [verified — tests, live]
+Migration 0038: `sales_day` (cups by payment — cash, cashless, cashless 3, token, wallet, other — first and last sale, and the
+machine's Televend name and region at the day's last sale), `sales_hour`, `analytics_run` (each build: the sales read, the newest
+stored, the cups and machines written, Televend's own count and whether they agree), `tv_day_total` (Televend's fleet count per day for
+the months its sales list no longer holds). A day is built only when a daily check or a backfill read it to its end and matched
+Televend's count; building it again replaces its rows in one transaction and keeps the earlier run. The input is measured inside
+Postgres (G202). The worker builds it every hour (at most 31 days a run); `pnpm analytics:store` builds by hand; `/health` reports the
+newest day built and any day that differs or failed. Each sale carries the machine's name and region at that moment, so a machine that
+moved is counted where it stood (asset 796 has had four Televend records). No personal data — no card ids, no people.
+
+## D254 — Televend's expected cash goes only to cash.read — in Operations too (independent review, 20 Oct) [verified — tests]
+D237 kept Televend's "should have found" from anyone without cash.read, but the Operations reads (TASK-059, built before D237) gave it to
+every televend.read holder — so a Supervisor, who handles cash (cash.hold) without cash.read, saw "AED 140 cash waiting" before a
+collection. Now `seesExpectedCash(viewer)` gates it everywhere it leaves the server: the fleet (each machine's and the total cash waiting),
+a machine's collections (old machine panel and the machine page), the day report (each collection and the total), and the morning
+message (two texts: with the figure for cash.read holders, "N cash collections logged in Televend" for the rest). The screens hide the
+"Cash in the machines" tile and show collections' times only. Honestly, what stays: a televend.read holder still sees every sale's payment
+type (Recent sales, Sales by hour, Analytics' cash share), so a Supervisor who wants to can count cash sales since a collection. The
+server no longer hands them the figure; a strict blind count for Supervisors needs FreshNow's choice — take cash.hold from the
+Supervisor role (Supervisors then do not collect), or hide payment types from them. Recommended: if Supervisors do not collect cash in
+practice, remove cash.hold from the role (open question in TASK-061's page).
+
+## D255 — The words on a cash check stay on the shift: never in the audit trail, never quoted in a notice (review, 20 Oct) [verified — tests]
+The auditor's question and the person's answer were copied into audit_log (kept for good) and into the notices' text (the outbox), where
+the retention sweep and erasure never reach — breaking the notice's promise that those words go with the person's other words. The audit
+rows now record only that a note was written (`hasNote`), the notices say "open Cash to read it", and the words live only on the shift
+row, aged and erased with the person's other words — as the stock module already did (D234).
+
+## D256 — A visit belongs to the shift the clock is in; a stop keeps what was visited; proof is one visit's (review, 20 Oct) [verified — tests]
+- Which stop a visit carries out: the plans of the shift being worked come first — by the handovers (APP_SHIFT_HANDOVERS, 07:30 and
+  15:00, A-T58.4): before 07:30 last night's, then the day, from 15:00 tonight's — then a stop nobody visited, then plan order. "Unvisited
+  first" over the whole round had sent a second visit at 02:00 to tomorrow night's plan made in advance. Off-plan visits are listed under
+  the day of their shift, once.
+- A visited stop keeps its machine, also when taken off and sent again — refused in core and by a trigger (migration 0039); the stop a visit
+  picks is locked (FOR SHARE) until the visit is in, so a planner's save and a visit cannot cross.
+- A photo or video proves one visit and must be sent after it began (5 minutes allowed; the phone's start time when it queued offline,
+  at most 12 h earlier). The same for cash: one photo, one cash entry.
+- A fill or a cash entry at a visit is posted on its ledger and linked to the visit in one transaction (`opts.within`), or not at all.
+- A plan's note and a stop's instructions keep their author (`note_by`, `instructions_by`, migration 0039), copies too; erasure and the
+  person's download follow the author, not the plan's creator. A planner ending someone's visit writes no words on it.
+- Copying a day says which plans it left out and why; a plan cannot be renamed to a name its shift already has.
+
+## D257 — Analytics reads the store, compares day for day, and counts FreshNow's machines (review, 20 Oct) [verified — tests]
+Rewritten on the TASK-071 store (sales_day): a day counts only when its latest build is good and agrees with Televend's own count (an
+incremental read, or a day whose check failed, is "not read" — yesterday arrives after its morning check). A change compares only days read
+on both sides — each day with the same weekday `shiftDays` earlier — from the totals (never from rounded rates); the page says how many
+days were compared. Each Televend record's sales count for the FreshNow machine it stood in that day (the placement in force at the day's
+end; a record's first placement reaches back to its first sale, its last forward; a record never placed counts by its number; one with
+no number stays itself): a machine re-registered in Televend is one machine, one switched off keeps its category and price, a record
+moved between machines is split at the move. Machines switched off since count in "before" (a sentence names them). Ranks and the tier
+lines come from the server; "% of the average" is cut down to the whole %, so it never crosses its tier's line. Per-machine calls
+(day by day, correct the category) name FreshNow's machine id — two machines can share their current Televend record.
+
+## D258 — Income: cash cups at the cash price, card cups at the price in the name (supersedes D251's formula) [believed — VF89; A-T70.3 replaced]
+Estimated income = cash cups × the cash price (set on the machine, else the default AED 10) + the other paid cups × the card price (the
+"AED n" in the machine's Televend name, else the cash price); token cups are not paid. The machine page (TASK-072) already priced this
+way; Analytics now agrees with it. Evidence: cash collected at machines named "AED 12" came in tens (VF89). Replaced by Televend's own
+amounts when the API key arrives (082).
+
+## D259 — Stock: the database's clock under the item lock; figures hidden from counters everywhere (review, 20 Oct) [verified — tests]
+- A move's time (`stock_move.posted_at`, now `clock_timestamp()`, migration 0040) and a count's start, hand-in and recount are the
+  database's clock, read under the item lock, and compared in SQL — so "was it corrected after it was counted?" follows the lock's order,
+  and no time loses its microseconds in JavaScript (G213).
+- On a partly accepted handover only the item still on its way is in transit for a count. A reversal stops a decision only when what it
+  undoes was posted by the count's moment. An item's unit stays while the warehouse is being counted.
+- Someone counting, who took a recount, or who may take one waiting gets stock notices without figures, and a refusal for asking too
+  much names no number (D236 extended to the push channel and the refusals).
+- A photo on a stock document is seen by whoever may read the document (migration 0040's app_media_on_stock_doc, mirroring
+  stock_doc_select). The document's machine is named for every reader of the document (service role, for documents already visible).
+- Someone who left, or whose role no longer holds stock, is offered for "Take back" only; movers who hold stock can write off their own.
+
+## D260 — Alarms: open is open until now; old problems re-read; a failing window waits its turn (review of the 059 fixes, 20 Oct) [verified — tests]
+The day report measures an alarm still open to the time the report is made (one from 23:45 still open in the morning needed someone).
+The open-alarm re-check also reads, at any age, an alarm behind a problem still open; one window that fails every run goes to the back of
+the queue and the others are read — the run still ends in an error naming it. An info alarm's repeat never holds a problem open. A
+problem closed because its record was switched off releases its still-open alarms (machine_alarm.released_at, migration 0041), so the
+record switched back on raises them again.
+
+## D261 — A role that does not lead people cannot keep reports; escalation skips a "manager" who cannot (review, 20 Oct) [verified — tests]
+updateOrg refuses moving someone people report to into a role without data.read_all or people.view_reports ("move them to another
+manager first"); the escalation's manager rung takes the raiser's manager only while active and in a role that leads people. Acknowledging
+already went by capability (canAssignTo).
+
+## D262 — Media uploads: two at a time, each storage call with a deadline; a missing bucket is an outage (review, 20 Oct) [verified — tests]
+An upload writes the file to Storage inside the bytes' lock, in a transaction on the API's pool of five connections; `mediaStoreSemaphore`
+lets two run at once (queue 50) and each storage write and read has a deadline (60 s, 30 s). Reading, only a missing OBJECT is
+"no such file"; anything naming the bucket raises.
+
+## D263 — The independent review of 20 Oct: two passes, a skeptic for every finding; one choice left to FreshNow [verified — tests, browser checks]
+The review owed for TASK-057, the TASK-059 and TASK-060 fixes, TASK-061 (Cash, Route) and TASK-070 ran once the usage limit reset. For
+each area read-only reviewers looked for defects, and a skeptic tried to refute each finding before it counted: 57 raised, 53 confirmed,
+4 refuted. All 53 were fixed with tests (D254–D262; migrations 0039–0041). A second pass checked every fix — 33 fixed, 17 partly fixed,
+3 fixed but breaking something — and raised 25 problems, 24 confirmed by their skeptics. 23 are fixed, most with a test (the few screen
+or script changes without one are named on the task pages); 1 is FreshNow's choice: a Supervisor can still count a machine's cash sales
+from the sales list (D254, A-T61.14). Each task page has an "Independent review, 20 Oct" section. Lesson kept: 20 of the 53 first fixes
+needed a second look, so a fix gets its own review, not only a re-run of its test.
+
+## D264 — Orange tracking is built inside the platform as the warehouse tasks of the TASK-055 plan (TASK-074) [believed — proposal, awaiting management decision]
 Receiving, sorting, crates, weigh-and-load, trips and machine delivery are proposed as modules on the existing Postgres, RLS,
 audit log, alarm engine and staff app, on top of the Televend mirror and machine registry of TASK-056. Adopting OpenWMS.org,
 Odoo Community, ERPNext, OpenBoxes, InvenTree or GreaterWMS was rejected: each is a second system of record (ERPNext a second
@@ -1442,27 +2093,27 @@ database engine — MariaDB; OpenWMS a Java/RabbitMQ/Kubernetes stack for automa
 Manhattan's LPN, ASN, reason codes, cycle counts and perpetual inventory transactions; Odoo's double-entry moves through virtual
 locations; ERPNext's quality-inspection gate; OpenBoxes' lot, expiry and FEFO. Deck: `docs/reports/warehouse-traceability-deck.html`.
 
-## D-T70.2 — Recommended capture: weigh at the tailgate; cameras are evidence, not the record (TASK-070) [believed — proposal]
+## D265 — Recommended capture: weigh at the tailgate; cameras are evidence, not the record (TASK-074) [believed — proposal]
 Option 1b puts the networked scale at the van door: the van is scanned once, each crate once, so weighing and loading are one
 record and there is no waiting area where fruit can be taken. Two zones (Option 1) need a numbered seal per crate. Computer vision
 reads plates at the gate and bookmarks video per scan; reading crate numbers by camera misses hidden crates silently, so it is an
 audit layer only. Face recognition of staff or drivers is not proposed (biometric data; disproportionate).
 
-## D-T70.3 — Devices reach the platform over HTTPS (REST); MCP is never in a device's data path (TASK-070) [believed — reasoning from CLAUDE.md rule 2]
+## D266 — Devices reach the platform over HTTPS (REST); MCP is never in a device's data path (TASK-074) [believed — reasoning from CLAUDE.md rule 2]
 Affordable scales speak RS232/USB; a serial-to-network bridge with an HTTP client (USR-W610 class) or a Raspberry Pi gateway
 posts stable readings to the API with a device key. MCP lets an AI assistant call tools; placing it between a scale and the record
 would put a model in the data path. MCP stays where the local build put it (D184): read-only tools over computed totals.
 
-## D-T70.4 — Weights in whole grams; one ledger row per movement (TASK-070) [believed — design, not built]
+## D267 — Weights in whole grams; one ledger row per movement (TASK-074) [believed — design, not built]
 Integer grams avoid rounding drift in totals; every movement of fruit is one append-only row (from, to, grams, who, when,
 evidence), with virtual places for garbage, charity, staff, sold, cups sold, expected moisture loss and "unexplained".
 
-## D-T70.5 — Voice entry prototype: Groq Whisper for speech, fixed rules for fields, a model only for grounded gaps (TASK-070) [verified — 16/16 parser cases, mocked end-to-end run]
+## D268 — Voice entry prototype: Groq Whisper for speech, fixed rules for fields, a model only for grounded gaps (TASK-074) [verified — 16/16 parser cases, mocked end-to-end run]
 `docs/prototypes/voice-crate-capture.html` is a standalone page: the user's Groq key, a 15-second recording cap, Whisper with a
 format-biasing prompt, a deterministic parser (number words, decimals, spelled plates), and a model call only for a missing field
 whose value must appear in the transcript or it is ignored and flagged. Not for staff data while Groq is the provider (D121).
 
-## D-T70.6 — CopilotKit OpenIntelligentUI and OpenDots not adopted (TASK-070) [believed — their GitHub READMEs, 23 Oct 2026]
+## D269 — CopilotKit OpenIntelligentUI and OpenDots not adopted (TASK-074) [believed — their GitHub READMEs, 23 Oct 2026]
 OpenIntelligentUI (MIT; Next.js + Python FastAPI agent; OpenAI default; Jev router needing a TypeSafe key) would add a runtime,
 send data to two more US AI services (against D121) and let model-written UI show numbers no query produced. Borrowed idea: the
 assistant picks one of our registered chart components and fills it with SQL rows. OpenDots (MIT, alpha; agents with their own

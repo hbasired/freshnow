@@ -1,38 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import {
-  PREF_EVENT_TYPES,
-  CHANNELS,
-  ConsentNoticeChangedError,
-  DELIVERY_MODES,
-  DeliveryModeError,
-  PREF_MODES,
-  addTaskWatcher,
-  consentNotice,
-  channelStates,
-  consentStatus,
-  deletePushSubscription,
-  deliveryModeOf,
-  enqueueNotification,
-  isChannelLive,
-  noticeHash,
-  pushSubscriptionsFor,
-  recordConsent,
-  setDeliveryMode,
-  withdrawConsent,
-  listMyDevices,
-  loadEscalationLadder,
-  markNotificationsRead,
-  removeTaskWatcher,
-  savePushSubscription,
-  setChannelEnabled,
-  setNotificationPref,
-  withContext,
-  type AlertEventType,
-  type PrefEventType,
-  type Channel,
-  type DeliveryMode,
-} from "@freshnow/core";
+import { PREF_EVENT_TYPES, CHANNELS, ConsentNoticeChangedError, DELIVERY_MODES, DeliveryModeError, PREF_MODES, addTaskWatcher, consentNotice, channelStates, consentStatus, deletePushSubscription, deliveryModeOf, enqueueNotification, isChannelLive, noticeHash, pushSubscriptionsFor, recordConsent, setDeliveryMode, withdrawConsent, listMyDevices, loadEscalationLadder, markNotificationsRead, removeTaskWatcher, savePushSubscription, setChannelEnabled, setNotificationPref, withContext, type AlertEventType, type PrefEventType, type Channel, type DeliveryMode, can } from "@freshnow/core";
 import { forbid, resolveViewer } from "../viewer.js";
 
 /**
@@ -206,7 +174,7 @@ export function registerAlertRoutes(app: FastifyInstance): void {
    */
   app.put("/dashboard/channels/mode", async (req, reply) => {
     const viewer = await resolveViewer(req);
-    if (!viewer.isCeo) return forbid(req, reply, "Only the CEO can change how the company sends messages");
+    if (!can(viewer, "settings.manage")) return forbid(req, reply, "Only the CEO or an Admin can change how the company sends messages");
     const body = ModeBody.parse(req.body);
     try {
       return await setDeliveryMode({ mode: body.mode, by: viewer.employeeId, correlationId: req.correlationId });
@@ -224,7 +192,7 @@ export function registerAlertRoutes(app: FastifyInstance): void {
    */
   app.put("/dashboard/channels", async (req, reply) => {
     const viewer = await resolveViewer(req);
-    if (!viewer.isCeo) return forbid(req, reply, "Only the CEO can switch a channel on or off");
+    if (!can(viewer, "settings.manage")) return forbid(req, reply, "Only the CEO or an Admin can switch a channel on or off");
     const body = ChannelBody.parse(req.body);
     const state = await setChannelEnabled({
       channel: body.channel,

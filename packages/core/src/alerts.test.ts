@@ -111,6 +111,20 @@ describe("who is told (one rule at a time)", () => {
     expect(await resolveAlertRecipients({ type: "blocker.raised", blockerId: b })).toEqual([]);
   });
 
+  it("an escalation never tells a 'manager' whose role no longer leads people, or who left (review 20 Oct, roles#2)", async () => {
+    const manager = await person({ name: "manager", role: "manager" });
+    const raiser = await person({ name: "raiser", manager });
+    const resolver = await person({ name: "resolver" });
+    const b = await blocker({ raisedBy: raiser, resolver });
+    // Moved to a role that cannot see their reports (a row written before the rule, or by hand): skipped.
+    await getServiceSql()`update employee set access_role = 'vmo' where id = ${manager}`;
+    const l1 = await resolveAlertRecipients({ type: "blocker.escalated", blockerId: b, level: 1 });
+    expect(l1.map((x) => x.employeeId)).not.toContain(manager);
+    // Back to a manager, but switched off: skipped too.
+    await getServiceSql()`update employee set access_role = 'manager', status = 'disabled' where id = ${manager}`;
+    expect((await resolveAlertRecipients({ type: "blocker.escalated", blockerId: b, level: 1 })).map((x) => x.employeeId)).not.toContain(manager);
+  });
+
   it("blocker.escalated L1 → resolver and the raiser's manager; L2 → the CEO", async () => {
     const manager = await person({ name: "manager", role: "manager" });
     const raiser = await person({ name: "raiser", manager });

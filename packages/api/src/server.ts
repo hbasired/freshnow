@@ -20,6 +20,15 @@ import { registerSecurityHeaders } from "./security-headers.js";
 import { registerComplianceRoutes } from "./routes/compliance.js";
 import { registerEmailRoutes } from "./routes/email.js";
 import { registerPeopleRoutes } from "./routes/people.js";
+import { registerMediaRoutes } from "./routes/media.js";
+import { registerOpsRoutes } from "./routes/ops.js";
+import { registerInventoryRoutes } from "./routes/inventory.js";
+import { registerCashRoutes } from "./routes/cash.js";
+import { registerRouteRoutes } from "./routes/route.js";
+import { registerAnalyticsRoutes } from "./routes/analytics.js";
+import { registerDeviceRoutes } from "./routes/devices.js";
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 declare module "fastify" {
   interface FastifyRequest {
@@ -45,8 +54,10 @@ export function buildServer(logger = true): FastifyInstance {
   app.decorateRequest("correlationId", "");
   app.addHook("onRequest", async (req, reply) => {
     const incoming = req.headers["x-correlation-id"];
-    req.correlationId =
-      typeof incoming === "string" && incoming.length > 0 ? incoming : randomUUID();
+    // Only a UUID is taken: audit_log.correlation_id is a uuid column, and anything else made every
+    // audit write of the request fail after its work was done — on phone sign-in, a wrong PIN went
+    // uncounted (TASK-058 review).
+    req.correlationId = typeof incoming === "string" && UUID.test(incoming) ? incoming.toLowerCase() : randomUUID();
     reply.header("x-correlation-id", req.correlationId);
   });
 
@@ -107,6 +118,13 @@ export function buildServer(logger = true): FastifyInstance {
   registerComplianceRoutes(app);
   registerEmailRoutes(app);
   registerPeopleRoutes(app);
+  registerMediaRoutes(app);
+  registerOpsRoutes(app);
+  registerInventoryRoutes(app);
+  registerCashRoutes(app);
+  registerRouteRoutes(app);
+  registerAnalyticsRoutes(app);
+  registerDeviceRoutes(app);
   registerProjectRoutes(app);
   registerEventRoutes(app);
   // Outside /dashboard/* on purpose: a mail edge is a machine and cannot hold a JWT. It

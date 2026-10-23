@@ -1,29 +1,183 @@
 # FreshNow — demo runbook
 
-Everything for today's demo, in order: get ready, rehearse, wipe your practice data, then run
-the demo start to finish and register a colleague live at the end.
+Everything for a demo, in order. **Start with "Demo today"** — it is the current system (17 Oct 2026):
+the Operations portal on live Televend data, roles, privacy. The older parts below (Part 0 onwards) are
+the task-and-Telegram demo, still valid for that side of the system.
 
-**Read this once before you start.** Commands live in **`COMMANDS.md`**; logins live in
-**`CREDENTIALS.local.md`**.
-
-> **The dashboard opens on a portal picker.** Two cards — *Task & logging* (the daily
-> operation) and *Projects* (work with a plan and an end). Choose one, then sign in; the same
-> account opens both and the header switches between them at any time. Signing out returns to
-> the picker.
-
-> **Rehearse before you present.** The dashboard, sign-in, the model chain and 321 automated
-> tests are verified. What has *never* been done end to end is a person tapping through the bot
-> on a phone — that is exactly what Part 1 is for. Leave 30 minutes.
+**Read this once before you start.** Commands live in **`COMMANDS.md`** (the whole sequence is its first
+section, "Start to end"); logins and today's addresses live in **`CREDENTIALS.local.md`** ("Demo today").
 
 ---
 
+## Demo — current (updated 18 Oct 2026; start here)
+
+### A · Before anyone arrives (15 minutes)
+
+1. **Start the system** — `COMMANDS.md` → "Start to end", steps 1–11. *(This morning they are already running:
+   started 10:39. Check with `pnpm urls`: Dashboard `HTTP 200`, `@freshnow1bot reachable`.)*
+2. **Sign in on the laptop as the CEO** — http://localhost:3001/app/ → the **Operations** card → the CEO account
+   from `CREDENTIALS.local.md`. It first shows **privacy notice 3.0**: read it once (it is part of the demo, Act 8)
+   and tap **I agree**. *(It changed on 18 Oct — it now names stock — so it is asked again even if you saw it before.)*
+3. **Sign in as Hemanth too** — on your phone (`http://10.255.254.11:3001/app/` today; `pnpm urls` has the current
+   address) or in a private browser window — and agree to the notice. *On Telegram both accounts already received
+   the same notice, in two messages; agreeing there counts too.*
+4. **Pick the theme** (☀️ 🌙 🖥️, top right) and keep the service terminals off screen.
+
+### B · The demo, act by act (about 20 minutes)
+
+**Act 1 — One system, six portals (1 min).** Sign out to the picker, or point at the switcher in the sidebar:
+*Tasks*, *Projects*, *Operations*, *Stock*, *Cash*, *Route*. *"Each portal opens only for the roles that need it — the CEO sees all
+six; a driver sees Tasks, Projects, Stock, Cash and Route; the warehouse keeper never sees cash."*
+
+**Act 2 — Operations → Now: the machines at a glance (4 min).** The tiles across the top — on 17 Oct at 10:40 they read
+**87 machines · 27 need someone · 4 offline · 176 cups so far · AED 1,680 in the machines · 29 collections ·
+28 refills**. Then **Needs someone now**: each line is a Televend alarm that stayed open past its own delay, with
+what to do (*"Bill / Cash Box Full — collect the cash"*). *"Televend raises about 70 alarms a day and over half
+clear themselves within minutes. Each kind of alarm has a rule — how long to wait, how serious, who handles
+it — so only the ones that need a person reach this list. Nobody owned an alarm before: the Assigned column was
+empty on every one."* Scroll to **Every machine**: grouped by place (Metro, hospitals, malls …), each with its
+state in words and colour, cups today and the cash waiting in it. Tap **Needs someone**, then type a machine
+number in the search box (e.g. `399`).
+
+**Act 3 — One machine: the cash check (4 min).** Tap a machine. The panel shows today hour by hour, its alarms,
+its refills (with who filled), and **Cash collections — "Should have found"**: Televend's own cash sales
+between two collections × the cash price. *"Yesterday the drivers reported 29 collections in WhatsApp. For 18 the
+amount equals Televend's cash sales × AED 10 exactly. The other 11 reported **more** cash than Televend recorded —
+AED 205 in all, mostly one AED 10 note, which fits the 'cash test' habit. Today the auditor writes 'audit ok ✅'
+without this check. Here it is automatic — and a difference is a fact to look into, never an accusation."*
+
+**Act 4 — Sales by hour (2 min).** Today against the same weekday last week (176 against 194 by 10:40); the hour
+still running is dashed and compared with the same minutes last week; **Show as a table** for every number. Pick a
+day before 4 Oct: it says *not in the Televend mirror* instead of showing zero.
+
+**Act 5 — Day report (3 min).** Yesterday, 16 Oct: **1,474 cups** (306 cash, 1,120 card) · **34 collections that
+should have found AED 2,430** · **37 refills** · **52 alarms that needed someone, 41 blips** · **8 machines with no
+sale**. *"This is the yesterday-report that used to be assembled by hand from the WhatsApp groups — every number
+counted by the database from Televend, read every 10 minutes."*
+
+**Act 5b — Stock: the warehouse without the WhatsApp list (8 min).** *Before the demo, once:* **People** → Hemanth →
+role **VMO / driver** (so he can be given stock), and have his phone signed in. Then:
+1. **Stock → Items** — the 19 items of the warehouse's own WhatsApp list. *"No numbers yet, on purpose: that list is copied
+   forward from the day before. The first count, approved, is the opening stock."*
+2. **Delivery in** — Oranges 20 (variety `LALA`, carton `17.15` kg), Straws 3, supplier `FVC` → **Save delivery**. The tiles
+   show 20 cartons.
+3. **Give out** → tap **Hemanth** → Oranges **4** → **Send — they confirm**. *"It has left the warehouse, but it is not his
+   until he says it arrived."* (Bottom of the page: *Sent by you — not confirmed yet*.)
+4. **On Hemanth's phone** (a notification arrives in the app): **Stock → Waiting for you → ✓ All here**. *You hold: 4 cartons.*
+   *"One tap. If one carton were missing he would press 'Something is different', type 3 — and the missing one would wait,
+   visible, for the Ops Head to settle. Nobody can quietly lose a carton between two people any more."*
+5. Hemanth: **Give back** → Oranges 1 → back on the laptop: **Waiting for you → ✓ All here**.
+6. **Count → Spot check** → Oranges **17** → **Hand in** → *"It matches the record."* *"The count screen never shows the
+   system's figure. A difference goes to a second person, then to the Ops Head, the CEO or an Admin — never the one who counted."*
+7. **Day sheet** — Oranges: start 0, in 20, given out 4, back 1, end 17; *People*: Hemanth still holds 3. **Movements** — every
+   step with who and when; open the delivery for the variety and the carton weight. *"Nothing here can be edited — a mistake is
+   reversed, and both stay in the list."*
+
+**Act 5c — Cash: the CASH COLLECTION group, in the app (6 min).** Hemanth (VMO / driver) on his phone; the CEO on the laptop as
+the auditor. On Hemanth's phone: **Cash → Start shift** (van `Van 4`), then
+1. **Collected** → machine number (its name appears) → `60` → photo of the cash → **Save**. *"The WhatsApp photo and caption, as
+   one entry — added to what he holds at once."*
+2. **Fuel** → `20` → photo of the receipt. **Test note** → the same machine, `10`. **Deposited** → tap `+` on the notes from the
+   receipt (one 20, one 10) → photo → **Save AED 30**. *This shift* reads: collected 60 − test 10 − fuel 20 − deposited 30 =
+   **in hand AED 0** — the nightly list, added up by itself. **End shift**.
+3. On the laptop: **Cash → To check** → Hemanth's shift → under the collection, Televend's side. In a demo it reads *"Televend has
+   no collection near this time"* — nobody recorded this one in the Televend Staff App. *"In the field the driver records it there
+   too, and this line becomes Televend's own figure: '3 cash sales = AED 30 — less by AED 5'. Hemanth never sees it — a figure on
+   his screen could be typed again to match. The auditor sees it, with the photos."* → **Ask** a question → on the phone it appears
+   at the top of **Cash**; Hemanth answers → back on the laptop: **All ok**. *"That is 'audit ok ✅' — with the question and the
+   answer kept."*
+
+**Act 5d — Route: the instruction sheet, in the app (5 min).** The CEO on the laptop as the planner; Hemanth (VMO / driver) on his
+phone, holding a couple of cartons from Act 5b. On the laptop: **Route → Plans → + New team plan** → *Night shift*, team `Team
+Hemanth`, tap Hemanth, machine `793` (its name appears) → **Full service**, **Resort** (the proof chips fill in themselves) → crates
+`2` → **+ Add a machine** → another number → **Check 🚨** → *"check the cup sensor"* → **Make the plan · 2 crates**. *"The sheet the
+Supervisor typed every evening — and the team is told the crates to take."*
+1. On Hemanth's phone: **Route** shows the round. Type the first machine's number → **Start visit**. *"In the field he scans the
+   sticker on the machine and this opens by itself — no location is read, ever."*
+2. Tick **Full service**, **Take a photo** for the normal pic; skip the re-sorting pic. **Put stock in** → `+` `+` → **Save what went
+   in**. **Cash taken out** → `40` → photo → **Save AED 40**. **End the visit** → *"proof still missing: Re-sorting pic; not ticked:
+   Resort"*. *"It does not stop him — it tells the Supervisor."*
+3. On the laptop: **Route → Proof** → the stop reads **OK** under *Normal pic* and a red **NO** under *Re-sorting pic*, with who, when,
+   "number typed", 2 cartons and the cash. *"That red NO used to be found by scrolling through the group's photos."*
+
+**Act 6 — Read-only, by construction (1 min).** *"We read Televend; we cannot change it. Every request passes an
+allow-list of read-only addresses before it leaves this server — tested against every write Televend has. The
+account in use today is an admin account; that is exactly why the list, not the account, is the guarantee."*
+
+**Act 7 — Who sees what (2 min).** Sign in as **Hemanth** (role: employee): his picker has **no Operations card**,
+and the API refuses the data even if the address is typed. *"Admin, Ops Head and Supervisors see the machines;
+drivers, the warehouse and technicians see only their own work. The database enforces it, not the screen."*
+
+**Act 8 — Privacy (2 min).** Open the notice (Tasks portal → **Alerts** → *Your consent* → **Read the notice**): it names Televend (records that carry staff
+names), photos and videos (location removed), phone sign-in (*only* to keep an account safe — never to check when
+anyone works), the phone app's notifications (no message content goes to Google), and the cash and stock the app
+will record. *"Because it changed, everyone was asked again, and nothing about them was sent until they agreed."*
+
+**Act 9 — The task side (optional, 10 min).** Daily status, blockers, assignments, a document split into tasks,
+end of day, the Ask box: Part 3 below, Acts 2–8.
+
+### C · Say plainly what is not built yet
+
+- **No staff app yet.** The phone sign-in behind it is built and tested; the Android app is TASK-063.
+- **Alarms are not yet sent to anyone as problems.** It is built and switched off (`OPS_ALARM_PROBLEMS`) until the
+  company names who handles machine, stock and cash problems — otherwise all ~30 a day would go to the CEO.
+- **The cash is compared collection by collection, not yet added up for the company.** The auditor sees Televend's figure
+  beside each collection; the automatic balancing of every shift, over/short, and the bank's statement come with TASK-062.
+- **Stock is the warehouse and people only.** Loading into a machine is recorded as "used — into a machine"; the machine as a
+  place, and the oranges-to-cups check against Televend, come with TASK-061 and TASK-062. Counting a driver's van is done by
+  giving the stock back.
+
+### D · What comes next, in order
+
+| Task | What it brings |
+|---|---|
+| 059 ✓ | The command centre; alarms become routed problems once switched on; yesterday's report every morning |
+| 060 ✓ **Stock** | Deliveries, hand-outs confirmed by the driver in the app, returns, used and damaged, blind counts with a second person and an approver, low-stock alerts, the stock list after every count, the day sheet |
+| 061 part 1 ✓ **Cash** | Collections with their photo, test notes, fuel and other expenses with receipts, deposits with the CDM receipt; the auditor's check with Televend beside every collection, questions answered in the app |
+| 061 part 2 ✓ **Route** | Each team's plan for the shift; a visit starts at the machine (sticker or number); photos and the dispenser video as proof; the fill and the cash on their ledgers; the sheet's OK / NO worked out |
+| 061 part 3 | Part swaps and tickets: a part taken from stock into a machine, the old one back; a technician's job from an alarm |
+| 062 Reconciliation | Every shift's cash and stock balanced automatically; "who did not report"; the auditor approves in the app instead of "audit ok ✅" |
+| 063 App foundation | The Android app (one app, a home screen per role), offline, English/Hindi/Urdu |
+| 064 Deploy | The server (VPS), a domain with HTTPS, backups, phones managed |
+| 065 App for drivers and the warehouse | The real shift on a phone: take stock, visit, fill, collect, return, deposit |
+| 066 Chat | The WhatsApp groups move into the app — photos, voice notes, cards that post themselves |
+| 067–069 | The other roles in the app; reading receipts and counters (OCR); a pilot with one team, then everyone |
+
+### E · What to ask for now
+
+| From | Ask for | Why |
+|---|---|---|
+| **Televend (INTIS d.o.o.)** | A **read-only API client** for Data Streaming + Master Data (client id and secret, production URLs) — and whether it costs extra | The supported way in; today we use the web app's own read endpoints |
+| Televend | The **data processing agreement** under FreshNow's subscription, and **where their servers are** | The privacy notice must say it; compliance blocks production without it |
+| Televend | A **one-off export of history older than 7 days** | Their data streams keep 7 days |
+| FreshNow's Televend admin | A **view-only Televend user** for the integration, **with the cash-centre (collections) view** | Replaces the admin account; with cash-centre access we read each collection's counted amount, not only its time |
+| FreshNow management | The **cash price of each machine** (cash and card) | "Should have found" assumes AED 10; names saying "AED 12" did not match the cash |
+| FreshNow management | **Who handles what**: machine faults, stock, cash — names and phones; and everyone's **role** (Ops Head, Supervisors and their teams, Cash auditor, Warehouse keeper, Technicians, drivers) | Routing rules, then switch alarms → problems on; roles decide what each person sees |
+| FreshNow management | **Shift times** (07:30 and 15:00?), **count times** in the warehouse, **tolerances** for stock and cash differences, the **CDM deadline** after a shift | The shared-phone sign-in, the inventory counts and the reconciliation all run on them |
+| FreshNow management | **Minimum stock** per item, **cups per carton**, carton weights and varieties (is "LALA" the variety?) | Low-stock alerts and the oranges-to-cups check |
+| FreshNow management | The **PIN length** for the app (6 digits recommended) and **how long** words, photos, videos and receipts are kept | Security standard; data-protection law |
+| FreshNow management | How many **company phones** (Android), and whether they are managed (MDM); **buy the VPS and a domain** when ready | The app and the deploy (TASK-063/064) |
+| Drivers / Oranfresh | What the counter's **"ENTER = PARTIAL RESET"** resets — every counter photo shows Part Cash 0.00 | If the photo is taken before the reset, it confirms the cash too |
+| Cash deposits | Why a driver's deposit shows **another person's CDM operator name** (David's 860 under "NOEL"), and the bank's or cash-in-transit company's **deposit statements** (portal access or a daily file) | Matching every deposit to the right driver and to the bank |
+| Oranfresh | The **parts catalogue** and each machine's **model** | Spare-parts custody and repairs |
+| A lawyer | Review **privacy notice 3.0**; native speakers for Hindi and Urdu | It is a developer's draft |
+
+---
+
+## The task & Telegram demo (earlier, still valid)
+
+> **The dashboard opens on a portal picker** — *Task & logging*, *Projects*, and for the people who run the
+> machines *Operations*. Choose one, then sign in; the same account opens all it may and the sidebar switches between
+> them. Signing out returns to the picker. The automated tests number about 990 (17 Oct). The app is the main channel
+> for staff from now on (company decision, 16 Oct); Telegram stays as an option for people who link it.
+
 ## Part 0 · Get the system up (10 minutes)
 
-1. **Start it** — three terminals, in this order (full commands in `COMMANDS.md` §1):
+1. **Start it** — three terminals, in this order (full commands in `COMMANDS.md` → "Start to end"):
 
    ```bash
    docker compose up -d
-   npx supabase start -x realtime,storage-api,imgproxy,edge-runtime,logflare,vector,supavisor,mailpit,postgrest
+   npx supabase start -x realtime,imgproxy,edge-runtime,logflare,vector,supavisor,mailpit,postgrest
    pnpm start:api      # terminal 1
    pnpm start:worker   # terminal 2
    pnpm start:bot      # terminal 3
@@ -51,11 +205,12 @@ the demo start to finish and register a colleague live at the end.
      device. *Auto* follows the phone's or laptop's own setting.
    - Open Telegram on **both** accounts and send `/start` to **@freshnow1bot**. The CEO account
      should see a menu including **➕ Create invite code**.
-   - **First start after the 28 Sept update (consent notice 2.0):** within a minute of the worker
-     starting, each account gets *"📄 FreshNow's privacy notice has changed"* with the full notice.
-     Tap **✅ I agree** on both. Until an account agrees, the bot answers everything with the notice
-     and records nothing, and messages *to* that account wait in the outbox (they arrive the moment
-     it agrees). One agreement covers Telegram and the dashboard.
+   - **Whenever the privacy notice changes (now notice 3.0, 16 Oct):** within a minute of the worker
+     starting, each account gets *"📄 FreshNow's privacy notice has changed"* with the full notice —
+     on Telegram in **two messages**, the **✅ I agree** button under the second. Tap it on both.
+     Until an account agrees, the bot answers everything with the notice and records nothing, and
+     messages *to* that account wait in the outbox (they arrive the moment it agrees). One agreement
+     covers Telegram and the dashboard.
 
 4. **Screen setup for the demo:** laptop showing the dashboard (signed in as CEO), your phone
    mirrored or held up for the Telegram side. Keep the three service terminals off-screen.
@@ -265,8 +420,8 @@ first, then open FreshNow from the Home Screen.
 5. Switch back to **Telegram** at the end. Every switch is in **Activity** as `channel.mode_set`, with
    who and when.
 
-> "Telegram stays the default. The app is built, wired and switched off until you decide — and when you
-> do, it is one choice, it is recorded, and it cannot be made in a way that leaves people unreachable."
+> "The app is FreshNow's main channel from now on; Telegram stays for whoever links it. The switch is one
+> choice, it is recorded, and it cannot be made in a way that leaves people unreachable."
 
 ---
 

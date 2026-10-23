@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   api,
   companyToday,
@@ -23,13 +23,16 @@ import {
   type PersonReach,
   type Summary,
   type WeekDay,
+  type RoleChoice,
+  type AccessRole,
 } from "./lib/api";
 import { Age, Card, DataTable, Demo, Empty, Pill, Severity, Spinner, Words, type Column } from "./components/ui";
 import { Button, PersonPicker, TextArea, TextField, Toast, useAction } from "./components/form";
 import { TaskDetailPanel } from "./components/task-detail";
 import { AlertsTab, ConsentGate, InboxBell, InstallApp } from "./components/alerts";
-import { ProjectsPortal } from "./components/projects";
 import { useLiveUpdates } from "./lib/live";
+import { isAnalyticsView, isCashView, isInventoryView, isOperationsView, isPortalId, isRouteView, landingPortal, machineOfSub, machineSub, PORTALS, portalsFor, stickerOf, type PortalId } from "./portals";
+import { PortalBoundary } from "./components/portal-boundary";
 import { ThemeToggle } from "./components/theme-toggle";
 import { Icon, type IconName } from "./components/icons";
 import { WeekChart } from "./components/week-chart";
@@ -54,10 +57,20 @@ import {
   type ProblemFilter,
 } from "./components/work-views";
 
+// Each portal beyond the tasks board is its own chunk, fetched the first time someone opens it —
+// so the chart library, which only Operations uses, is never downloaded by anyone else (TASK-058).
+const ProjectsPortal = lazy(() => import("./components/projects").then((m) => ({ default: m.ProjectsPortal })));
+const OperationsPortal = lazy(() => import("./portals/operations"));
+const InventoryPortal = lazy(() => import("./portals/inventory"));
+const CashPortal = lazy(() => import("./portals/cash"));
+const RoutePortal = lazy(() => import("./portals/route"));
+const AnalyticsPortal = lazy(() => import("./portals/analytics"));
+
 type TabId = "today" | "pending" | "done" | "problems" | "mine" | "carry" | "assign" | "alerts" | "eod" | "people" | "activity" | "compliance" | "email" | "ask" | "more";
 
-/** Pages that only the CEO can open — the API refuses them to anyone else anyway. */
-const CEO_ONLY = new Set<TabId>(["ask", "compliance", "email"]);
+/** The permission each restricted page needs (permissions.ts) — the API refuses it to anyone else anyway. */
+const TAB_NEEDS: Partial<Record<TabId, string>> = { ask: "data.ask", compliance: "compliance.read", email: "settings.manage" };
+const GIVES_WORK = ["work.give_to_anyone", "work.give_to_reports", "work.give_to_department"];
 
 /** Present only when sign-in is real; the viewer is then fixed by who you are. */
 export interface Identity {
@@ -127,15 +140,26 @@ function tickOf(loadedAt: Date | null): number {
   return loadedAt ? loadedAt.getTime() : 0;
 }
 
-export type Portal = "tasks" | "projects";
+export type Portal = PortalId;
 
 /**
- * One hash, two portals: `#tasks/<tab>` and `#projects[/<project id>]`. A bare `#<tab>` is
- * still understood, so links shared before the project portal existed keep working.
+ * One hash, every portal: `#tasks/<tab>`, `#projects[/<project id>]`, `#operations`, `#inventory`, `#cash`, `#route`.
+ * A bare `#<tab>` is still understood, so links shared before the project portal existed keep working. A machine
+ * sticker's link, `#visit/<token>`, opens the Route portal (the token is read by stickerOf).
  */
 function readHash(): { portal: Portal; tab: TabId; projectId: string | null; sub: string | null } {
   const [head = "", rest = "", more = ""] = location.hash.slice(1).split("/", 3);
   if (head === "projects") return { portal: "projects", tab: "today", projectId: rest || null, sub: null };
+  if (head === "operations") {
+    // One machine as a page: #operations/machine/<asset number> (TASK-072).
+    if (rest === "machine" && /^\d{1,5}$/.test(more)) return { portal: "operations", tab: "today", projectId: null, sub: machineSub(Number(more)) };
+    return { portal: "operations", tab: "today", projectId: null, sub: isOperationsView(rest) && rest !== "now" ? rest : null };
+  }
+  if (head === "inventory") return { portal: "inventory", tab: "today", projectId: null, sub: isInventoryView(rest) && rest !== "stock" ? rest : null };
+  if (head === "cash") return { portal: "cash", tab: "today", projectId: null, sub: isCashView(rest) && rest !== "mine" ? rest : null };
+  if (head === "route") return { portal: "route", tab: "today", projectId: null, sub: isRouteView(rest) && rest !== "today" ? rest : null };
+  if (head === "analytics") return { portal: "analytics", tab: "today", projectId: null, sub: isAnalyticsView(rest) && rest !== "machines" ? rest : null };
+  if (head === "visit") return { portal: "route", tab: "today", projectId: null, sub: null };
   const tab = (head === "tasks" ? rest : head) as TabId;
   // The third part is a page's own filter — `#tasks/pending/blocked` — so a tile on the Overview
   // opens exactly the list it counted, and that list can be bookmarked, shared and gone Back to.
@@ -168,9 +192,11 @@ export default function App({
   // The hash wins (a shared link is explicit); otherwise the portal the picker chose.
   const [portal, setPortalState] = useState<Portal>(() => {
     const fromHash = location.hash.slice(1).split("/", 1)[0];
-    if (fromHash === "projects" || fromHash === "tasks") return readHash().portal;
+    if (isPortalId(fromHash) || fromHash === "visit") return readHash().portal;
     return initialPortal ?? readHash().portal;
   });
+  // The sticker a phone's camera opened this page with — kept here, because the URL is rewritten to #route at once.
+  const [sticker, setSticker] = useState<string | null>(() => stickerOf(location.hash));
   const setPortal = useCallback(
     (p: Portal) => {
       setPortalState(p);
@@ -182,6 +208,33 @@ export default function App({
   const [projectId, setProjectId] = useState<string | null>(() => readHash().projectId);
   const [sub, setSub] = useState<string | null>(() => readHash().sub);
   const [data, setData] = useState<Data | null>(null);
+  // What this person may do, from the server (permissions.ts, TASK-057) — never worked out here
+  // from role names. Until /dashboard/me has loaded, the CEO flag stands in, as before.
+  const caps = data?.me?.capabilities;
+  const may = (cap: string): boolean => (caps ? caps.includes(cap) : ceoTools);
+  const tabAllowed = (t: TabId): boolean => {
+    const need = TAB_NEEDS[t];
+    return !need || may(need);
+  };
+  // A portal this person's role does not open — a shared link, a role that changed, the demo
+  // viewer switched — is left as soon as what they may do is known (portals.ts). The API refuses
+  // its data either way; this only spares them a page that can say nothing but "not for you".
+  // A move made because of permissions REPLACES the history entry: pushing one trapped Back between
+  // the refused portal and the one the person was moved to (TASK-058 review).
+  const replaceNext = useRef(false);
+  const capsRef = useRef(caps);
+  capsRef.current = caps;
+  useEffect(() => {
+    if (!caps) return;
+    const to = landingPortal(portal, caps);
+    if (to !== portal) {
+      replaceNext.current = true;
+      setPortal(to);
+    }
+  }, [caps, portal, setPortal]);
+  /** The portals this person may open, plus the one they are on while that is not yet known. */
+  const openPortals = portalsFor(caps);
+  const shownPortals = PORTALS.filter((p) => openPortals.some((q) => q.id === p.id) || (!caps && p.id === portal));
   const [health, setHealth] = useState<Health | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [loadedAt, setLoadedAt] = useState<Date | null>(null);
@@ -211,27 +264,64 @@ export default function App({
     if (identity) onConsentRequired(() => setConsented(false));
   }, [identity]);
 
+  // What every portal's frame shows — who this is, whether the system is up, the people (search,
+  // the demo viewer menu, the Projects portal's pickers) and what needs a human — is read in every
+  // portal. The tasks board's own lists only while the tasks portal is open (TASK-058): Projects and
+  // Operations used to pay for twelve requests to show five.
+  const onBoard = portal === "tasks";
+  /** Whose board the lists in `data` are, so another viewer's are never kept (demo viewer menu). */
+  const boardOf = useRef<string | null>(null);
+  /**
+   * Whose board lists are on screen and loaded during this visit to the board — null until then. A
+   * list never loaded is not an empty list: until this matches the viewer the board shows a spinner
+   * and its count badges are hidden, rather than reading "0" (TASK-058 review).
+   */
+  const [boardFor, setBoardFor] = useState<string | null>(null);
   const load = useCallback(async () => {
     // Nothing is fetched for a signed-in person until they have consented (or the check is
     // still running) — their board is data about them and their colleagues.
     if (consented !== true) return;
     setBusy(true);
     try {
-      const [day, open, assignments, eod, people, activity, review, blockers, h, me, week, summary] = await Promise.all([
-        api.day(viewer, date),
-        api.openTasks(viewer),
-        api.assignments(viewer),
-        api.eod(viewer, date).catch(() => [] as EodReport[]),
-        api.employees(viewer),
-        api.activity(viewer).catch(() => [] as ActivityRow[]),
-        api.needsReview(viewer).catch(() => [] as NeedsReview[]),
-        api.blockers(viewer).catch(() => [] as Blocker[]),
-        api.health().catch(() => null),
-        api.me(viewer).catch(() => null),
-        api.week(viewer, date).catch(() => [] as WeekDay[]),
-        api.summary(viewer, date).catch(() => null),
+      const [[people, review, blockers, h, me, open], lists] = await Promise.all([
+        Promise.all([
+          api.employees(viewer),
+          api.needsReview(viewer).catch(() => [] as NeedsReview[]),
+          api.blockers(viewer).catch(() => [] as Blocker[]),
+          api.health().catch(() => null),
+          api.me(viewer).catch(() => null),
+          // Open tasks in every portal: search, the bell and the task panel find tasks through it.
+          api.openTasks(viewer),
+        ]),
+        onBoard
+          ? Promise.all([
+              api.day(viewer, date),
+              api.assignments(viewer),
+              api.eod(viewer, date).catch(() => [] as EodReport[]),
+              api.activity(viewer).catch(() => [] as ActivityRow[]),
+              api.week(viewer, date).catch(() => [] as WeekDay[]),
+              api.summary(viewer, date).catch(() => null),
+            ])
+          : null,
       ]);
-      setData({ day, open, assignments, eod, people, activity, review, blockers, week, me, summary });
+      // Off the board its lists keep their last reading — coming back shows them at once and then
+      // refreshes — unless they were another viewer's.
+      const keep = boardOf.current === viewer;
+      if (lists) boardOf.current = viewer;
+      setData((prev) => ({
+        people,
+        review,
+        blockers,
+        me,
+        open,
+        day: lists ? lists[0] : keep ? (prev?.day ?? []) : [],
+        assignments: lists ? lists[1] : keep ? (prev?.assignments ?? []) : [],
+        eod: lists ? lists[2] : keep ? (prev?.eod ?? []) : [],
+        activity: lists ? lists[3] : keep ? (prev?.activity ?? []) : [],
+        week: lists ? lists[4] : keep ? (prev?.week ?? []) : [],
+        summary: lists ? lists[5] : keep ? (prev?.summary ?? null) : null,
+      }));
+      if (lists) setBoardFor(viewer);
       setHealth(h);
       setLoadedAt(new Date());
       setErr(null);
@@ -240,11 +330,15 @@ export default function App({
     } finally {
       setBusy(false);
     }
-  }, [viewer, date, consented]);
+  }, [viewer, date, consented, onBoard]);
 
   useEffect(() => {
     void load();
   }, [load]);
+  // Leaving the board: its lists stop being current, so coming back waits for fresh ones.
+  useEffect(() => {
+    if (!onBoard) setBoardFor(null);
+  }, [onBoard]);
 
   // A notification tap lands on `/app/?task=<id>#tasks/<tab>` (see presentationOf in
   // core/alerts.ts). Open that task's panel once the board has loaded, then drop the
@@ -262,13 +356,19 @@ export default function App({
 
   // Postgres says when something changed; the poll inside this hook stays as the fallback,
   // so losing the stream degrades to the old 20-second refresh rather than to a dead board.
-  const live = useLiveUpdates(() => void load());
+  // The Stock portal refreshes on the same doorbell (a handover meant for you appears at once): one
+  // stream per tab, its ring passed down as a counter.
+  const [liveTick, setLiveTick] = useState(0);
+  const live = useLiveUpdates(() => {
+    void load();
+    setLiveTick((n) => n + 1);
+  });
 
   // A shared `#tasks/ask` link opened by a non-CEO used to render the "Ask" heading over an
   // empty pane with no nav item highlighted: the tab is real but its content is CEO-only.
   // Resolve it once, here, to something the viewer can actually see — the nav highlight,
   // the rendered pane and the URL all follow this rather than the raw hash.
-  const visibleTab: TabId = CEO_ONLY.has(tab) && !ceoTools ? "today" : tab;
+  const visibleTab: TabId = tabAllowed(tab) ? tab : "today";
   // Changing page clears the page's filter; `go` sets both, for links that open a filtered list.
   const setTab = useCallback((t: TabId) => {
     setTabState(t);
@@ -289,11 +389,27 @@ export default function App({
   // closing the app. The first sync replaces rather than pushes: opening a link adds no entry.
   const synced = useRef(false);
   useEffect(() => {
-    const want = portal === "projects" ? `#projects${projectId ? `/${projectId}` : ""}` : `#tasks/${visibleTab}${sub ? `/${sub}` : ""}`;
+    const want =
+      portal === "projects"
+        ? `#projects${projectId ? `/${projectId}` : ""}`
+        : portal === "operations"
+          ? machineOfSub(sub) !== null
+            ? `#operations/machine/${machineOfSub(sub)}`
+            : `#operations${isOperationsView(sub) && sub !== "now" ? `/${sub}` : ""}`
+          : portal === "inventory"
+            ? `#inventory${isInventoryView(sub) && sub !== "stock" ? `/${sub}` : ""}`
+            : portal === "cash"
+              ? `#cash${isCashView(sub) && sub !== "mine" ? `/${sub}` : ""}`
+              : portal === "route"
+                ? `#route${isRouteView(sub) && sub !== "today" ? `/${sub}` : ""}`
+                : portal === "analytics"
+                  ? `#analytics${isAnalyticsView(sub) && sub !== "machines" ? `/${sub}` : ""}`
+                  : `#tasks/${visibleTab}${sub ? `/${sub}` : ""}`;
     if (location.hash !== want) {
-      if (synced.current) history.pushState(null, "", want);
+      if (synced.current && !replaceNext.current) history.pushState(null, "", want);
       else history.replaceState(null, "", want);
     }
+    replaceNext.current = false;
     synced.current = true;
   }, [portal, visibleTab, projectId, sub]);
 
@@ -312,8 +428,15 @@ export default function App({
   useEffect(() => {
     const onPop = () => {
       setOpenTask(null);
+      // Another sticker's link opened in this tab: its visit is offered on the Route portal.
+      const s = stickerOf(location.hash);
+      if (s) setSticker(s);
       const h = readHash();
-      setPortal(h.portal);
+      // Back onto a portal this person may not open goes to one they may, in place.
+      const known = capsRef.current;
+      const to = known ? landingPortal(h.portal, known) : h.portal;
+      if (to !== h.portal) replaceNext.current = true;
+      setPortal(to);
       setTabState(h.tab);
       setProjectId(h.projectId);
       setSub(h.sub);
@@ -334,22 +457,25 @@ export default function App({
     return { done, pending, blocked, openBlockers, urgent, overdue, mine };
   }, [data]);
 
-  // A manager or lead gets the assign tools; the API refuses everyone else anyway.
-  const canGiveWork = data?.me ? data.me.accessRole !== "employee" : ceoTools;
+  // Whoever may give work gets the assign tools; the API refuses everyone else anyway.
+  const canGiveWork = caps ? GIVES_WORK.some((c) => caps.includes(c)) : ceoTools;
 
-  const sum = data?.summary ?? null;
+  // The board's own counts only while its lists are this viewer's and loaded on this visit; the
+  // frame's (open tasks, people) everywhere. A list not loaded shows no badge, never "0".
+  const boardReady = onBoard && boardFor === viewer;
+  const sum = boardReady ? (data?.summary ?? null) : null;
   const counts: Record<TabId, number | null> = {
-    today: data?.day.length ?? null,
+    today: boardReady ? (data?.day.length ?? null) : null,
     pending: sum?.open_tasks ?? null,
     done: sum?.completed ?? null,
     problems: sum?.open_blockers ?? null,
     mine: derived?.mine.length ?? null,
     carry: derived?.overdue.length ?? null,
-    assign: data?.assignments.length ?? null,
+    assign: boardReady ? (data?.assignments.length ?? null) : null,
     alerts: null,
-    eod: data?.eod.length ?? null,
+    eod: boardReady ? (data?.eod.length ?? null) : null,
     people: data?.people.length ?? null,
-    activity: data?.activity.length ?? null,
+    activity: boardReady ? (data?.activity.length ?? null) : null,
     compliance: null,
     email: null,
     ask: null,
@@ -369,10 +495,15 @@ export default function App({
   const onPhoneTab = portal === "tasks" && phoneTabs.some((p) => p.id === visibleTab);
   // A page reached from More gets a Back arrow to More; a project gets one to the list.
   const phoneBack: (() => void) | null =
-    portal === "projects" ? (projectId ? () => setProjectId(null) : null) : onPhoneTab ? null : () => setTab("more");
-  const phoneTitle = portal === "projects" ? "Projects" : visibleTab === "today" ? "FreshNow" : (TABS.find((t) => t.id === visibleTab)?.label ?? "");
-  const goPhoneTab = (id: TabId | "projects") => {
-    if (id === "projects") setPortal("projects");
+    portal === "projects"
+      ? (projectId ? () => setProjectId(null) : null)
+      : portal === "operations" || portal === "inventory" || portal === "cash" || portal === "route" || portal === "analytics"
+        ? () => { setPortal("tasks"); setTab("more"); } // they are opened from More
+        : onPhoneTab ? null : () => setTab("more");
+  const phoneTitle =
+    portal === "projects" ? "Projects" : portal === "operations" ? "Operations" : portal === "inventory" ? "Stock" : portal === "cash" ? "Cash" : portal === "route" ? "Route" : portal === "analytics" ? "Analytics" : visibleTab === "today" ? "FreshNow" : (TABS.find((t) => t.id === visibleTab)?.label ?? "");
+  const goPhoneTab = (id: TabId | "projects" | "operations" | "inventory" | "cash" | "route" | "analytics") => {
+    if (id === "projects" || id === "operations" || id === "inventory" || id === "cash" || id === "route" || id === "analytics") setPortal(id);
     else { setPortal("tasks"); setTab(id); }
     window.scrollTo({ top: 0 });
   };
@@ -393,7 +524,7 @@ export default function App({
   };
 
   const displayName = identity?.name ?? data?.me?.displayName ?? "there";
-  const roleLabel = data?.me?.isCeo ? "CEO" : data?.me?.accessRole === "manager" ? "Manager" : data?.me?.accessRole === "lead" ? "Dept lead" : identity ? "Employee" : "Viewer";
+  const roleLabel = data?.me?.isCeo ? "CEO" : data?.me?.roleLabel ?? (identity ? "Employee" : "Viewer");
   const attention = (derived?.urgent.length ?? 0) + (data?.review.length ?? 0);
   const hour = Number(new Intl.DateTimeFormat("en-GB", { hour: "numeric", hour12: false, timeZone: "Asia/Dubai" }).format(new Date()));
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
@@ -447,18 +578,23 @@ export default function App({
           {isDemo ? <span className="ml-auto rounded bg-warn px-1.5 py-0.5 text-[10px] font-bold text-on-accent">DEMO</span> : null}
         </div>
 
-        {/* Two portals, one shell: day-to-day work, and work that has a plan and an end. */}
-        <div className="mx-4 mb-4 grid grid-cols-2 rounded-xl border border-edge bg-sunken p-1 text-xs">
-          {([["tasks", "clipboardCheck", "Tasks"], ["projects", "folder", "Projects"]] as [Portal, IconName, string][]).map(([id, ic, label]) => {
-            const I = Icon[ic];
+        {/* Every portal this person's role opens (portals.ts), one shell around them. Three to a row at most:
+            six labels side by side collided in 248px, so the rest wrap to a second row. */}
+        <div
+          className="mx-4 mb-4 grid gap-0.5 rounded-xl border border-edge bg-sunken p-1 text-xs"
+          style={{ gridTemplateColumns: `repeat(${Math.min(shownPortals.length, 3)}, minmax(0, 1fr))` }}
+        >
+          {shownPortals.map((p) => {
+            const I = Icon[p.icon];
+            const many = shownPortals.length > 2; // three labels side by side do not fit 248px
             return (
               <button
-                key={id}
-                onClick={() => setPortal(id)}
-                aria-pressed={portal === id}
-                className={`flex items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 ${portal === id ? "bg-panel font-semibold text-ink shadow-sm" : "text-mut hover:text-ink"}`}
+                key={p.id}
+                onClick={() => setPortal(p.id)}
+                aria-pressed={portal === p.id}
+                className={`flex items-center justify-center gap-1.5 rounded-lg px-1.5 py-1.5 ${many ? "flex-col gap-0.5 text-[11px]" : ""} ${portal === p.id ? "bg-panel font-semibold text-ink shadow-sm" : "text-mut hover:text-ink"}`}
               >
-                <I size={14} /> {label}
+                <I size={14} /> {p.label}
               </button>
             );
           })}
@@ -466,7 +602,7 @@ export default function App({
 
         <nav className="flex-1 overflow-y-auto px-3" aria-label="Sections">
           {["Today", "Work", "Records", "Tools"].map((group) => {
-            const items = TABS.filter((t) => t.group === group && (ceoTools || !CEO_ONLY.has(t.id)));
+            const items = TABS.filter((t) => t.group === group && tabAllowed(t.id));
             if (items.length === 0) return null;
             return (
               <div key={group} className="mb-4">
@@ -619,7 +755,7 @@ export default function App({
                 <span className={live === "live" ? "text-ok" : "text-warn"} title={live === "live" ? "Updating the moment anything changes" : "Live stream unavailable — refreshing every 20 seconds instead"}>
                   ● {live === "live" ? "live" : "refreshing every 20 s"}
                 </span>{" "}
-                · {date} · updated {loadedAt ? hhmm(loadedAt.toISOString()) : "…"}
+                {onBoard ? <> · {date}</> : null} · updated {loadedAt ? hhmm(loadedAt.toISOString()) : "…"}
                 {health && Object.values(health.load).some((l) => l.waiting > 0) ? (
                   <span className="text-warn"> · busy, requests queuing</span>
                 ) : null}
@@ -633,20 +769,102 @@ export default function App({
         {/* On a phone the bottom padding clears the tab bar and the home indicator. */}
         <main className={`mx-auto max-w-7xl px-4 pt-4 ${wide ? "pb-20" : "pb-[calc(6rem+env(safe-area-inset-bottom))]"}`}>
           {portal === "projects" ? (
-            <ProjectsPortal
-              viewer={viewer}
-              people={data?.people ?? []}
-              canStart={canGiveWork}
-              projectId={projectId}
-              onOpen={setProjectId}
-            />
+            <PortalBoundary name="Projects">
+              <Suspense fallback={<Spinner label="Opening Projects…" />}>
+                <ProjectsPortal
+                  viewer={viewer}
+                  people={data?.people ?? []}
+                  canStart={may("projects.create")}
+                  projectId={projectId}
+                  onOpen={setProjectId}
+                />
+              </Suspense>
+            </PortalBoundary>
+          ) : portal === "operations" ? (
+            // Not mounted until it is known whether this person may open it: otherwise a role without
+            // it downloads the chart library and sees a refusal flash before being moved on.
+            caps ? (
+              <PortalBoundary name="Operations">
+                <Suspense fallback={<Spinner label="Opening Operations…" />}>
+                  <OperationsPortal
+                    viewer={viewer}
+                    view={isOperationsView(sub) ? sub : "now"}
+                    machine={machineOfSub(sub)}
+                    onView={(v) => setSub(v === "now" ? null : v)}
+                    onMachine={(asset) => setSub(machineSub(asset))}
+                  />
+                </Suspense>
+              </PortalBoundary>
+            ) : (
+              <Spinner label="Checking what you may open…" />
+            )
+          ) : portal === "inventory" ? (
+            caps ? (
+              <PortalBoundary name="Stock">
+                <Suspense fallback={<Spinner label="Opening Stock…" />}>
+                  <InventoryPortal
+                    viewer={viewer}
+                    me={data?.me?.employeeId ?? ""}
+                    view={isInventoryView(sub) ? sub : "stock"}
+                    onView={(v) => setSub(v === "stock" ? null : v)}
+                    liveTick={liveTick}
+                  />
+                </Suspense>
+              </PortalBoundary>
+            ) : (
+              <Spinner label="Checking what you may open…" />
+            )
+          ) : portal === "cash" ? (
+            caps ? (
+              <PortalBoundary name="Cash">
+                <Suspense fallback={<Spinner label="Opening Cash…" />}>
+                  <CashPortal viewer={viewer} view={isCashView(sub) ? sub : "mine"} onView={(v) => setSub(v === "mine" ? null : v)} liveTick={liveTick} />
+                </Suspense>
+              </PortalBoundary>
+            ) : (
+              <Spinner label="Checking what you may open…" />
+            )
+          ) : portal === "analytics" ? (
+            caps ? (
+              <PortalBoundary name="Analytics">
+                <Suspense fallback={<Spinner label="Opening Analytics…" />}>
+                  <AnalyticsPortal
+                    viewer={viewer}
+                    view={isAnalyticsView(sub) ? sub : "machines"}
+                    onView={(v) => setSub(v === "machines" ? null : v)}
+                    liveTick={liveTick}
+                    canCorrect={may("machines.manage")}
+                  />
+                </Suspense>
+              </PortalBoundary>
+            ) : (
+              <Spinner label="Checking what you may open…" />
+            )
+          ) : portal === "route" ? (
+            caps ? (
+              <PortalBoundary name="Route">
+                <Suspense fallback={<Spinner label="Opening Route…" />}>
+                  <RoutePortal
+                    viewer={viewer}
+                    view={isRouteView(sub) ? sub : "today"}
+                    onView={(v) => setSub(v === "today" ? null : v)}
+                    liveTick={liveTick}
+                    sticker={sticker}
+                    onStickerUsed={() => setSticker(null)}
+                  />
+                </Suspense>
+              </PortalBoundary>
+            ) : (
+              <Spinner label="Checking what you may open…" />
+            )
           ) : (
             <>
               {/* The header's date picker, for a phone: the day, a step either way, and a way back to today. */}
               {!wide && (visibleTab === "today" || visibleTab === "eod" || visibleTab === "done") ? <DaySwitcher date={date} onDate={setDate} /> : null}
               {/* The install offer (TASK-048) — it renders only while the browser is offering it. */}
               {!wide && visibleTab === "today" ? <div className="mb-3 flex justify-end empty:hidden"><InstallApp compact /></div> : null}
-              {visibleTab === "today" ? (
+              {/* Counted on the board's own lists: drawn once they are loaded, never from placeholders. */}
+              {visibleTab === "today" && boardReady ? (
                 <Hero
                   greeting={greeting}
                   name={displayName.split(" ")[0]!}
@@ -662,14 +880,14 @@ export default function App({
                     ...(canGiveWork ? [{ label: "Assign work", icon: "pin" as const, onClick: () => go("assign"), primary: true }] : []),
                     { label: "Pending work", icon: "hourglass" as const, onClick: () => go("pending") },
                     { label: "My work", icon: "user" as const, onClick: () => go("mine") },
-                    ...(ceoTools ? [{ label: "Ask the data", icon: "search" as const, onClick: () => go("ask") }] : []),
+                    ...(may("data.ask") ? [{ label: "Ask the data", icon: "search" as const, onClick: () => go("ask") }] : []),
                   ]}
                 />
               ) : null}
 
               {/* On a phone the counts live on Home only: every page repeating them is what made
                   the app read as a squeezed dashboard. */}
-              {wide || visibleTab === "today" ? (
+              {(wide || visibleTab === "today") && boardReady ? (
                 <Kpis s={sum} isToday={date === companyToday()} at={{ tab: visibleTab, sub }} onGo={go} />
               ) : null}
 
@@ -686,8 +904,8 @@ export default function App({
                   )
                 ) : null}
 
-                {!data ? (
-                  <Spinner label="Loading…" />
+                {!data || !boardReady ? (
+                  <Spinner label={data ? "Loading the board…" : "Loading…"} />
                 ) : (
                   <>
                     {visibleTab === "today" && (
@@ -748,9 +966,14 @@ export default function App({
                     )}
                     {visibleTab === "more" && (
                       <MorePage
-                        tabs={TABS.filter((t) => t.id !== "more" && (ceoTools || !CEO_ONLY.has(t.id)) && !phoneTabs.some((p) => p.id === t.id))}
+                        tabs={TABS.filter((t) => t.id !== "more" && tabAllowed(t.id) && !phoneTabs.some((p) => p.id === t.id))}
                         counts={counts}
                         showProjects={thirdTab !== "projects"}
+                        showOperations={openPortals.some((p) => p.id === "operations")}
+                        showInventory={openPortals.some((p) => p.id === "inventory")}
+                        showCash={openPortals.some((p) => p.id === "cash")}
+                        showRoute={openPortals.some((p) => p.id === "route")}
+                        showAnalytics={openPortals.some((p) => p.id === "analytics")}
                         onGo={(id) => goPhoneTab(id)}
                         name={displayName}
                         role={roleLabel}
@@ -790,23 +1013,35 @@ export default function App({
                         people={data.people}
                         viewer={viewer}
                         canAssign={canGiveWork}
-                        canAddPeople={!!data.me?.isCeo}
+                        canAddPeople={may("people.manage")}
+                        roles={data.me?.grantableRoles}
+                        leading={data.me?.leadingRoles}
                         tick={tickOf(loadedAt)}
                         onChanged={() => void load()}
                         onOpenTask={(id, owner) => setOpenTask({ id, ownerId: owner })}
                       />
                     )}
                     {visibleTab === "alerts" && (
-                      <AlertsTab viewer={viewer} canAck={canGiveWork} isCeo={!!data.me?.isCeo} onChanged={() => void load()} tick={tickOf(loadedAt)} />
+                      <AlertsTab viewer={viewer} canAck={canGiveWork} isCeo={!!data.me?.isCeo} canManageSettings={may("settings.manage")} onChanged={() => void load()} tick={tickOf(loadedAt)} />
                     )}
-                    {visibleTab === "eod" && <EodTab canGenerate={ceoTools} rows={data.eod} onGenerated={() => void load()} busy={busy} />}
+                    {visibleTab === "eod" && <EodTab canGenerate={may("reports.generate_all")} rows={data.eod} onGenerated={() => void load()} busy={busy} />}
                     {visibleTab === "people" && (
-                      <PeopleTab rows={data.people} viewer={viewer} canEditOrg={!!data.me?.isCeo} tick={tickOf(loadedAt)} onChanged={() => void load()} />
+                      <PeopleTab
+                        rows={data.people}
+                        viewer={viewer}
+                        canEditOrg={may("people.manage")}
+                        mayGrantAdmin={may("people.grant_admin")}
+                        roles={data.me?.grantableRoles ?? []}
+                        allRoles={data.me?.allRoles ?? []}
+                        leading={data.me?.leadingRoles}
+                        tick={tickOf(loadedAt)}
+                        onChanged={() => void load()}
+                      />
                     )}
                     {visibleTab === "activity" && <ActivityTab rows={data.activity} />}
-                    {visibleTab === "compliance" && ceoTools && <ComplianceTab viewer={viewer} tick={tickOf(loadedAt)} />}
-                    {visibleTab === "email" && ceoTools && <EmailTab viewer={viewer} tick={tickOf(loadedAt)} />}
-                    {visibleTab === "ask" && ceoTools && <AskTab />}
+                    {visibleTab === "compliance" && tabAllowed("compliance") && <ComplianceTab viewer={viewer} tick={tickOf(loadedAt)} />}
+                    {visibleTab === "email" && tabAllowed("email") && <EmailTab viewer={viewer} tick={tickOf(loadedAt)} />}
+                    {visibleTab === "ask" && tabAllowed("ask") && <AskTab />}
                   </>
                 )}
               </div>
@@ -823,7 +1058,9 @@ export default function App({
           <div className="mx-auto grid max-w-xl grid-cols-5">
             {phoneTabs.map((p) => {
               const I = Icon[p.icon];
-              const on = p.id === "projects" ? portal === "projects" : portal === "tasks" && visibleTab === p.id;
+              // Operations is opened from More, so More stays lit while it is open.
+              const on =
+                p.id === "projects" ? portal === "projects" : p.id === "more" && portal === "operations" ? true : portal === "tasks" && visibleTab === p.id;
               return (
                 <button
                   key={p.id}
@@ -1438,6 +1675,11 @@ function MorePage({
   tabs,
   counts,
   showProjects,
+  showOperations,
+  showInventory,
+  showCash,
+  showRoute,
+  showAnalytics,
   onGo,
   name,
   role,
@@ -1450,7 +1692,17 @@ function MorePage({
   tabs: (typeof TABS)[number][];
   counts: Record<TabId, number | null>;
   showProjects: boolean;
-  onGo: (id: TabId | "projects") => void;
+  /** Only for roles that open it (portals.ts). */
+  showOperations: boolean;
+  /** Only for roles that hold or see stock (portals.ts). */
+  showInventory: boolean;
+  /** Only for roles that handle or see cash (portals.ts). */
+  showCash: boolean;
+  /** Only for roles that plan routes or visit machines (portals.ts). */
+  showRoute: boolean;
+  /** Only for roles that read Televend's data (portals.ts). */
+  showAnalytics: boolean;
+  onGo: (id: TabId | "projects" | "operations" | "inventory" | "cash" | "route" | "analytics") => void;
   name: string;
   role: string;
   onSignOut: (() => void) | undefined;
@@ -1459,7 +1711,7 @@ function MorePage({
   onRefresh: () => void;
   busy: boolean;
 }) {
-  const row = (id: TabId | "projects", icon: IconName, label: string, blurb: string, count: number | null) => {
+  const row = (id: TabId | "projects" | "operations" | "inventory" | "cash" | "route" | "analytics", icon: IconName, label: string, blurb: string, count: number | null) => {
     const I = Icon[icon];
     return (
       <li key={id}>
@@ -1477,7 +1729,7 @@ function MorePage({
   };
   const groups = ["Today", "Work", "Records", "Tools"]
     .map((g) => ({ g, items: tabs.filter((t) => t.group === g) }))
-    .filter((x) => x.items.length > 0 || (x.g === "Work" && showProjects));
+    .filter((x) => x.items.length > 0 || (x.g === "Work" && (showProjects || showOperations || showInventory || showCash || showRoute || showAnalytics)));
 
   return (
     <div className="space-y-4">
@@ -1505,6 +1757,11 @@ function MorePage({
           <ul className="divide-y divide-edge overflow-hidden rounded-2xl border border-edge bg-panel">
             {items.map((t) => row(t.id, t.icon, t.label, t.blurb, counts[t.id]))}
             {g === "Work" && showProjects ? row("projects", "folder", "Projects", "work with a plan and an end — milestones, risks, progress", null) : null}
+            {g === "Work" && showOperations ? row("operations", "gauge", "Operations", "the machines, hour by hour — cups sold against last week", null) : null}
+            {g === "Work" && showAnalytics ? row("analytics", "barChart", "Analytics", "which machines and places sell — against the average, day by day", null) : null}
+            {g === "Work" && showInventory ? row("inventory", "box", "Stock", "what you hold, what waits for you, the warehouse's stock and counts", null) : null}
+            {g === "Work" && showCash ? row("cash", "banknote", "Cash", "what you collect, spend and deposit — and the auditor's checks", null) : null}
+            {g === "Work" && showRoute ? row("route", "map", "Route", "today's machines, what to do at each, and the proof", null) : null}
           </ul>
         </div>
       ))}
@@ -1551,6 +1808,8 @@ function AssignTab({
   viewer,
   canAssign,
   canAddPeople,
+  roles,
+  leading,
   tick,
   onChanged,
   onOpenTask,
@@ -1560,6 +1819,8 @@ function AssignTab({
   viewer: string;
   canAssign: boolean;
   canAddPeople: boolean;
+  roles?: RoleChoice[] | undefined;
+  leading?: AccessRole[] | undefined;
   tick: number;
   onChanged: () => void;
   onOpenTask: (taskId: string, owner: string) => void;
@@ -1660,7 +1921,7 @@ function AssignTab({
         </Card>
       ) : null}
 
-      {canAddPeople && adding ? <AddPersonCard viewer={viewer} people={people} onAdded={onChanged} onClose={() => setAdding(false)} /> : null}
+      {canAddPeople && adding ? <AddPersonCard viewer={viewer} people={people} roles={roles} leading={leading} onAdded={onChanged} onClose={() => setAdding(false)} /> : null}
       {canAssign ? <EmailProposalsCard viewer={viewer} people={people} onChanged={onChanged} /> : null}
       {canAssign ? <DocumentCard people={people} viewer={viewer} onChanged={onChanged} /> : null}
 
@@ -1915,12 +2176,24 @@ function PeopleTab({
   rows,
   viewer,
   canEditOrg,
+  mayGrantAdmin,
+  roles,
+  allRoles,
+  leading,
   tick,
   onChanged,
 }: {
   rows: Employee[];
   viewer: string;
   canEditOrg: boolean;
+  /** people.grant_admin — the CEO: an Admin's role and account are the CEO's to change. */
+  mayGrantAdmin: boolean;
+  /** The roles this person may give. */
+  roles: RoleChoice[];
+  /** Every role, for labels. */
+  allRoles: RoleChoice[];
+  /** Roles that lead people. */
+  leading?: AccessRole[] | undefined;
   tick: number;
   onChanged: () => void;
 }) {
@@ -1936,8 +2209,12 @@ function PeopleTab({
     );
     return () => { off = true; };
   }, [viewer, tick]);
-  const roleLabel: Record<string, string> = { ceo: "CEO", manager: "Manager", lead: "Dept lead", employee: "Employee" };
-  const managers = rows.filter((e) => e.status === "active" && e.access_role !== "employee");
+  const roleLabel = (r: string): string => allRoles.find((x) => x.role === r)?.label ?? ({ ceo: "CEO", manager: "Manager", lead: "Dept lead", employee: "Employee" } as Record<string, string>)[r] ?? r;
+  // Only a role that sees its reports may be someone's manager: escalation sends a raiser's own
+  // words to their manager (TASK-057).
+  const managers = rows.filter((e) => e.status === "active" && (leading ? leading.includes(e.access_role) : e.access_role !== "employee"));
+  // A role is changed here only by someone who may give both the old role and the new one.
+  const mayChangeRoleOf = (e: Employee): boolean => canEditOrg && e.access_role !== "ceo" && roles.some((r) => r.role === e.access_role);
   // Erasure is a two-step, per-row confirmation: first "has left", then a reason and the
   // irreversible button. Nothing happens on the first click.
   const [erasing, setErasing] = useState<{ id: string; reason: EraseReason } | null>(null);
@@ -1977,20 +2254,20 @@ function PeopleTab({
     {
       head: "Access",
       cell: (e) =>
-        canEditOrg && e.access_role !== "ceo" ? (
+        mayChangeRoleOf(e) ? (
           <select
             value={e.access_role}
             disabled={act.busy}
             onChange={(ev) => void change(e, { accessRole: ev.target.value })}
-            title="What this person may do: employee (own work), manager (their reports), dept lead (their department)"
+            title={roles.find((r) => r.role === e.access_role)?.describe ?? "What this person may do"}
             className="rounded-lg border border-edge bg-sunken px-2 py-1 text-sm"
           >
-            {(["employee", "manager", "lead"] as const).map((r) => (
-              <option key={r} value={r}>{roleLabel[r]}</option>
+            {roles.map((r) => (
+              <option key={r.role} value={r.role} title={r.describe}>{r.label}</option>
             ))}
           </select>
         ) : (
-          <Pill tone={e.access_role === "employee" ? "mut" : "ok"}>{roleLabel[e.access_role] ?? e.access_role}</Pill>
+          <Pill tone={e.access_role === "employee" ? "mut" : "ok"}>{roleLabel(e.access_role)}</Pill>
         ),
       tight: true,
     },
@@ -2034,7 +2311,16 @@ function PeopleTab({
         );
       },
     },
-    ...(canEditOrg ? [{ head: "Email", cell: (e: Employee) => <EmailCell viewer={viewer} person={e} onSaved={onChanged} /> }] : []),
+    ...(canEditOrg
+      ? [
+          {
+            head: "Email",
+            // The CEO's and an Admin's address are the CEO's to change: inbound email trusts them.
+            cell: (e: Employee) =>
+              (e.access_role === "ceo" || e.access_role === "admin") && !mayGrantAdmin ? (e.email ?? "—") : <EmailCell viewer={viewer} person={e} onSaved={onChanged} />,
+          },
+        ]
+      : []),
     { head: "State", cell: (e) => <Pill>{e.status}</Pill>, tight: true },
   ];
   if (canEditOrg) {
@@ -2053,6 +2339,7 @@ function PeopleTab({
       head: "Leaving",
       cell: (e) => {
         if (e.access_role === "ceo" || e.status === "disabled") return "—";
+        if (e.access_role === "admin" && !mayGrantAdmin) return "—"; // an Admin's account is the CEO's to remove
         if (erasing?.id !== e.id) {
           return (
             <Button tone="quiet" disabled={act.busy} title="Anonymise this person: name, Telegram, login and every note. Tasks and counts stay." onClick={() => setErasing({ id: e.id, reason: "left" })}>
@@ -2092,12 +2379,13 @@ function PeopleTab({
           ) : null}
         </div>
       ) : null}
-      {canEditOrg && adding ? <AddPersonCard viewer={viewer} people={rows} onAdded={onChanged} onClose={() => setAdding(false)} /> : null}
+      {canEditOrg && adding ? <AddPersonCard viewer={viewer} people={rows} roles={roles} leading={leading} onAdded={onChanged} onClose={() => setAdding(false)} /> : null}
       {canEditOrg ? (
         <p className="text-xs text-mut">
-          <b className="text-ink">Access</b> is what a person may do; <b className="text-ink">Reports to</b> is who sees
-          their work. A manager sees and assigns to their reports; a department lead also sees everyone in their
-          department. Every change is recorded with who made it. <b className="text-ink">Has left</b> anonymises a
+          <b className="text-ink">Access</b> is what a person may do — hover a role to see what it allows;{" "}
+          <b className="text-ink">Reports to</b> is who sees their work. Ops Head, Supervisor and Manager see and assign to
+          their reports; a department lead also sees everyone in their department; Admin sees everyone. Only the CEO makes
+          someone Admin. Every change is recorded with who made it. <b className="text-ink">Has left</b> anonymises a
           person — their name, Telegram link, login and every note are replaced and cannot be recovered; their tasks,
           counts and history stay so nothing else in the system breaks.
         </p>

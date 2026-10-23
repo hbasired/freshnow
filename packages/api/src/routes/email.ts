@@ -1,16 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import {
-  assignTask,
-  canAssignTo,
-  checkRateLimit,
-  decideEmailProposal,
-  EmailAddressError,
-  emailOverview,
-  listPendingEmailProposals,
-  pendingEmailProposal,
-  setEmployeeEmail,
-} from "@freshnow/core";
+import { assignTask, canAssignTo, checkRateLimit, decideEmailProposal, EmailAddressError, emailOverview, listPendingEmailProposals, pendingEmailProposal, setEmployeeEmail, can, mayGiveWork, EmailChangeRefused } from "@freshnow/core";
 import { forbid, resolveViewer } from "../viewer.js";
 
 /**
@@ -31,19 +21,20 @@ export function registerEmailRoutes(app: FastifyInstance): void {
   /** The channel's state, addresses and the last 30 emails. The CEO's. */
   app.get("/dashboard/email", async (req, reply) => {
     const viewer = await resolveViewer(req);
-    if (!viewer.isCeo) return forbid(req, reply, "Only the CEO can open the email settings");
+    if (!can(viewer, "settings.manage")) return forbid(req, reply, "Only the CEO or an Admin can open the email settings");
     return emailOverview();
   });
 
   /** Set or clear one person's address. The CEO's; refused off the allow-list. */
   app.put("/dashboard/employees/:id/email", async (req, reply) => {
     const viewer = await resolveViewer(req);
-    if (!viewer.isCeo) return forbid(req, reply, "Only the CEO can change email addresses");
+    if (!can(viewer, "people.manage")) return forbid(req, reply, "Only the CEO or an Admin can change email addresses");
     const { id } = IdParams.parse(req.params);
     const { email } = EmailBody.parse(req.body);
     try {
       return await setEmployeeEmail({ employeeId: id, email, by: viewer.employeeId, correlationId: req.correlationId });
     } catch (err) {
+      if (err instanceof EmailChangeRefused) return forbid(req, reply, err.message);
       if (err instanceof EmailAddressError) {
         return reply.code(400).send({ error: { code: "bad_email", message: err.message, correlationId: req.correlationId } });
       }
@@ -54,8 +45,8 @@ export function registerEmailRoutes(app: FastifyInstance): void {
   /** Pending proposals: all of them for the CEO, a manager's own otherwise. */
   app.get("/dashboard/email/proposals", async (req) => {
     const viewer = await resolveViewer(req);
-    if (viewer.accessRole === "employee" && !viewer.isCeo) return { proposals: [] };
-    return { proposals: await listPendingEmailProposals(20, viewer.isCeo ? undefined : viewer.employeeId) };
+    if (!mayGiveWork(viewer)) return { proposals: [] };
+    return { proposals: await listPendingEmailProposals(20, can(viewer, "work.give_to_anyone") ? undefined : viewer.employeeId) };
   });
 
   /** Apply: assign the tasks as the person confirmed them — owners may have been changed. */
@@ -65,7 +56,7 @@ export function registerEmailRoutes(app: FastifyInstance): void {
     const body = ApplyBody.parse(req.body);
     const proposal = await pendingEmailProposal(id);
     if (!proposal) return reply.code(404).send({ error: { code: "not_found", message: "No pending proposal with that id", correlationId: req.correlationId } });
-    if (!viewer.isCeo && proposal.proposedBy !== viewer.employeeId) return forbid(req, reply, "Only the CEO or the sender can apply this");
+    if (!can(viewer, "work.give_to_anyone") && proposal.proposedBy !== viewer.employeeId) return forbid(req, reply, "Only the CEO, an Admin or the sender can apply this");
     // Every row checked before any is written: no half-applied email.
     for (const t of body.tasks) {
       if (!(await canAssignTo(viewer, t.assignedTo))) return forbid(req, reply, "One of these tasks is for somebody outside your team");
@@ -97,7 +88,7 @@ export function registerEmailRoutes(app: FastifyInstance): void {
     const { id } = IdParams.parse(req.params);
     const proposal = await pendingEmailProposal(id);
     if (!proposal) return reply.code(404).send({ error: { code: "not_found", message: "No pending proposal with that id", correlationId: req.correlationId } });
-    if (!viewer.isCeo && proposal.proposedBy !== viewer.employeeId) return forbid(req, reply, "Only the CEO or the sender can dismiss this");
+    if (!can(viewer, "work.give_to_anyone") && proposal.proposedBy !== viewer.employeeId) return forbid(req, reply, "Only the CEO, an Admin or the sender can dismiss this");
     await decideEmailProposal({ proposalId: id, by: viewer.employeeId, status: "dismissed", correlationId: req.correlationId });
     return { dismissed: true };
   });

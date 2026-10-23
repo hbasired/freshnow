@@ -52,6 +52,14 @@ export const LIMITS: Record<string, RateLimit> = {
     windowMinutes: 60,
     label: "invite codes",
   },
+  // A driver photographing every machine on a night route is far below this (TASK-058).
+  // Every attempt that costs a scan or a decode counts — a refusal or a re-send too (TASK-058 review).
+  media: {
+    actions: ["media.stored", "media.duplicate", "media.refused", "media.refused_infected"],
+    max: 120,
+    windowMinutes: 60,
+    label: "photos and videos",
+  },
 };
 
 export interface RateDecision {
@@ -68,6 +76,10 @@ export interface RateDecision {
  * so there is no separate increment to get out of step with reality — the thing being
  * measured and the record of it are the same event.
  */
+/** When each person's refusal under each limit was last written to the audit log. */
+const rateLimitNoted = new Map<string, number>();
+const RATE_LIMIT_NOTE_EVERY_MS = 5 * 60_000;
+
 export async function checkRateLimit(p: {
   key: keyof typeof LIMITS;
   employeeId: string;
@@ -92,8 +104,14 @@ export async function checkRateLimit(p: {
     retryAfterMinutes = Math.max(1, Math.ceil(limit.windowMinutes - elapsed));
   }
 
-  if (!allowed) {
-    // A limit being hit is a security-relevant event, not just a UX one.
+  // A limit being hit is a security-relevant event, not just a UX one — recorded once per person and
+  // limit every few minutes, not on every refused request: the audit log is append-only, and a client
+  // looping on a refusal would otherwise grow it without bound (review 2026-10-17, live-updates-media#10).
+  const noteKey = `${p.key}:${p.employeeId}`;
+  const lastNoted = rateLimitNoted.get(noteKey) ?? 0;
+  if (!allowed && Date.now() - lastNoted >= RATE_LIMIT_NOTE_EVERY_MS) {
+    rateLimitNoted.set(noteKey, Date.now());
+    if (rateLimitNoted.size > 10_000) rateLimitNoted.clear();
     await logAudit({
       actor: `employee:${p.employeeId}`,
       action: "security.rate_limited",

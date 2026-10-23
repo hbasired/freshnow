@@ -175,7 +175,22 @@ function NotificationRow({ n, onRead, onOpenTask }: { n: Notification; onRead: (
 }
 
 /** The Alerts tab: open problems (counted), the ladder, the SLA table, and this person's rules. */
-export function AlertsTab({ viewer, canAck, isCeo = false, onChanged, tick }: { viewer: string; canAck: boolean; isCeo?: boolean; onChanged: () => void; tick: number }) {
+export function AlertsTab({
+  viewer,
+  canAck,
+  isCeo = false,
+  canManageSettings = isCeo,
+  onChanged,
+  tick,
+}: {
+  viewer: string;
+  canAck: boolean;
+  isCeo?: boolean;
+  /** settings.manage — the CEO or an Admin (TASK-057). */
+  canManageSettings?: boolean;
+  onChanged: () => void;
+  tick: number;
+}) {
   const [alerts, setAlerts] = useState<AlertRow[] | null>(null);
   const [ladder, setLadder] = useState<LadderLevel[]>([]);
   const [sla, setSla] = useState<SlaRow[]>([]);
@@ -277,7 +292,7 @@ export function AlertsTab({ viewer, canAck, isCeo = false, onChanged, tick }: { 
         </Card>
       </div>
 
-      <ChannelsCard viewer={viewer} canEdit={isCeo} />
+      <ChannelsCard viewer={viewer} canEdit={canManageSettings} />
       <DeviceCard viewer={viewer} />
       <PrefsCard viewer={viewer} tick={tick} />
       <ConsentCard viewer={viewer} isCeo={isCeo} />

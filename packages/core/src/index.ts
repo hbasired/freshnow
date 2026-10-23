@@ -9,7 +9,22 @@ export type { Role } from "./roles.js";
 export { getAppSql, getServiceSql, withContext, closeDb } from "./db.js";
 export type { Db, Tx, AppContext, AccessRole } from "./db.js";
 
-export { ACCESS_ROLES, loadViewer, canAssignTo, updateOrg, ceoEmployeeId, listAssignable, listOpenBlockersFor } from "./org.js";
+export { ACCESS_ROLES, loadViewer, canAssignTo, updateOrg, OrgChangeRefused, ceoEmployeeId, listAssignable, listOpenBlockersFor } from "./org.js";
+export {
+  CAPABILITIES,
+  CAPABILITY_MEANING,
+  ROLE_CAPABILITIES,
+  ROLE_INFO,
+  can,
+  capabilitiesOf,
+  grantableRoles,
+  isAccessRole,
+  mayGiveWork,
+  mayLeadPeople,
+  maySeeOthersBlockers,
+  roleChangeRefusal,
+} from "./permissions.js";
+export type { Actor, Capability, RoleInfo } from "./permissions.js";
 export {
   addTaskStep,
   setStepDone,
@@ -98,8 +113,220 @@ export { retentionSweep, retentionDays, eraseEmployee } from "./retention.js";
 export type { RetentionResult, ErasureResult } from "./retention.js";
 export type { TraceStep } from "./trace.js";
 
-export { subscribeToChanges, changeSubscriberCount, closeChangeStream } from "./changes.js";
-export type { ChangeEvent, ChangeListener } from "./changes.js";
+export { subscribeToChanges, changeSubscriberCount, closeChangeStream, orgChangeCount } from "./changes.js";
+export type { ChangeEvent, ChangeListener, ChangeScope } from "./changes.js";
+export { openLiveAudience, liveAudienceCount, liveAudienceStats, type LiveAudience } from "./live-audience.js";
+export { salesByHour, OpsAccessRefused, OpsDayRefused, type HourlySales } from "./ops-sales.js";
+export {
+  SYSTEM_ACTOR_ID,
+  UNCLASSIFIED,
+  alarmDecision,
+  alarmsNow,
+  loadAlarmRules,
+  syncMachineAlarms,
+  OpsRefused,
+  type AlarmRule,
+  type AlarmSyncResult,
+  type AlarmsNow,
+  type NeedsAction,
+} from "./ops-alarms.js";
+export { sendMorningReport, type MorningResult } from "./ops-morning.js";
+export {
+  fleetNow,
+  machineDetail,
+  dayReport,
+  type FleetNow,
+  type FleetMachine,
+  type MachineState,
+  type MachineDetail,
+  type CashCollection,
+  type DayReport,
+  type DayReportMachine,
+} from "./ops-fleet.js";
+export { machinePage, type MachinePage, type MachinePlace } from "./ops-machine-page.js";
+export { refillsOn, salesList, type RefillRow, type SaleRow, type SalesList } from "./ops-activity.js";
+export {
+  PLACE,
+  USE_REASONS,
+  DAMAGE_REASONS,
+  REFUSE_REASONS,
+  REVERSE_REASONS,
+  WRITE_OFF_REASONS,
+  InventoryRefused,
+  receiveDelivery,
+  startHandover,
+  answerHandover,
+  cancelHandover,
+  settleHandover,
+  recordUse,
+  reverseDocument,
+  mayConfirm,
+  type LineIn,
+  type Posted,
+  type Side,
+} from "./inventory-ledger.js";
+export {
+  COUNT_KINDS,
+  COUNT_DECISION_REASONS,
+  startCount,
+  submitCount,
+  startRecount,
+  submitRecount,
+  waiveRecount,
+  decideCount,
+  cancelCount,
+  type CountKind,
+  type CountItem,
+  type CountOutcome,
+} from "./inventory-counts.js";
+export {
+  abilitiesOf,
+  inventoryHome,
+  inventoryDoc,
+  inventoryHolders,
+  inventoryMovements,
+  inventoryDay,
+  inventoryCount,
+  inventoryCounts,
+  type InventoryHome,
+  type InventoryAbilities,
+  type ItemNow,
+  type DocCard,
+  type CountCard,
+  type CountDetail,
+  type Holder,
+  type InventoryDay,
+  type MovementsQuery,
+} from "./inventory-read.js";
+export { ITEM_CATEGORIES, inventoryCatalogue, saveItem, type CatalogueItem, type ItemIn, type ItemCategory } from "./inventory-catalogue.js";
+export { inventoryReminders, stockList } from "./inventory-notify.js";
+export {
+  AED_NOTES,
+  CASH_ACCOUNT,
+  CASH_PHOTO_NEEDED,
+  CASH_REVERSE_REASONS,
+  CashRefused,
+  aed,
+  answerQuery,
+  auditShift,
+  cashAbilitiesOf,
+  cashHome,
+  cashMachines,
+  cashShift,
+  cashShifts,
+  endShift,
+  recordCollection,
+  recordDeposit,
+  recordExpense,
+  recordTestVend,
+  reverseCash,
+  startShift,
+  type CashAbilities,
+  type CashEntry,
+  type CashHome,
+  type CashMachine,
+  type CashPosted,
+  type CashReverseReason,
+  type ShiftDetail,
+  type ShiftSummary,
+} from "./cash.js";
+export {
+  EVIDENCE_KINDS,
+  EVIDENCE_WORDS,
+  RouteRefused,
+  SHIFT_WINDOWS,
+  STOP_TASKS,
+  TASK_WORDS,
+  cancelPlan,
+  copyPlans,
+  evidenceGrid,
+  myRound,
+  planById,
+  plansOn,
+  routeMachines,
+  routePeople,
+  savePlan,
+  setMachineServiceRule,
+  type EvidenceKind,
+  type GridRow,
+  type PlanCard,
+  type PlanIn,
+  type PlanStop,
+  type ShiftWindow,
+  type StopIn,
+  type StopTask,
+  type StopVisit,
+} from "./routes.js";
+export {
+  addEvidence,
+  endVisit,
+  machineByToken,
+  openVisitOf,
+  recordVisitCash,
+  recordVisitFill,
+  removeEvidence,
+  setTasksDone,
+  startVisit,
+  visitDetail,
+  type VisitDetail,
+  type VisitStarted,
+} from "./visits.js";
+export {
+  AnalyticsRefused,
+  BELOW_RATIO,
+  MAX_RANGE_DAYS,
+  NOT_COUNTED,
+  TOP_RATIO,
+  categoryChoices,
+  checkRange,
+  insightsOf,
+  machineDaily,
+  machinePerformance,
+  setMachineCategory,
+  type CategoryPerf,
+  type Insight,
+  type MachineDaily,
+  type MachinePerf,
+  type Performance,
+  type Tier,
+} from "./analytics.js";
+export {
+  PAYMENT,
+  STORE_DAYS_PER_RUN,
+  analyticsStoreHealth,
+  backfillDayTotals,
+  buildSalesDay,
+  daysToBuild,
+  runAnalyticsStore,
+  type DayTotalsSource,
+  type StoreBuild,
+  type StoreHealth,
+} from "./analytics-store.js";
+export {
+  DEVICE_AUTH,
+  DeviceAuthRefused,
+  appSessionFor,
+  bindCredential,
+  changePin,
+  companySessionEnd,
+  createEnrolment,
+  devicePeople,
+  enrolDevice,
+  isAppAccessToken,
+  issueSetupCode,
+  listDevices,
+  pinRefusal,
+  pruneAppAuth,
+  refreshSession,
+  revokeCredential,
+  revokeDevice,
+  shortName,
+  signIn,
+  signOut,
+  type AppTokens,
+  type DeviceSummary,
+  type EnrolledDevice,
+} from "./device-auth.js";
 
 export {
   PROJECT_STATUSES,
@@ -190,10 +417,13 @@ export {
   validateInvite,
   redeemInvite,
   PROFILE_STEPS,
+  SELF_FILL_ONCE,
   profilePrompt,
+  profileStepsFor,
   updateProfileField,
   ensureCeoLinked,
   withdrawConsent,
+  CeoWithdrawalRefused,
 } from "./onboarding.js";
 export type { InviteCheck, RedeemResult, ProfileStep, ProfileField } from "./onboarding.js";
 
@@ -211,8 +441,11 @@ export {
   consentKeyboard,
   requestConsentFromEveryone,
   ConsentNoticeChangedError,
+  televendReachable,
+  phoneAppOn,
 } from "./consent.js";
 export type { ConsentStatus } from "./consent.js";
+export { TELEGRAM_TEXT_LIMIT, telegramParts } from "./telegram-text.js";
 
 export {
   listOpenTasks,
@@ -223,6 +456,7 @@ export {
   listOpenBlockers,
   assignTask,
   NoReachableChannelError,
+  TaskNotYoursError,
 } from "./updates.js";
 export type {
   OpenTask,
@@ -336,7 +570,53 @@ export {
 export type { InboundEmailMessage, InboundEmailOutcome, EmailProposalRow } from "./email-inbound.js";
 export { relevantPeople, CONTEXT_LIMITS } from "./context-scope.js";
 export type { ScopedPeople } from "./context-scope.js";
-export { setEmployeeEmail, emailOverview, emailHealth, EmailAddressError, checkedEmployeeEmail } from "./email-people.js";
+export { setEmployeeEmail, emailOverview, emailHealth, EmailAddressError, EmailChangeRefused, checkedEmployeeEmail } from "./email-people.js";
 export { addPerson, AddPersonError } from "./people.js";
 export type { AddPersonInput, AddPersonResult } from "./people.js";
 export type { EmailOverview } from "./email-people.js";
+
+export {
+  syncMachines,
+  syncVendsWindow,
+  syncEventsWindow,
+  syncRefillsDay,
+  runIncrementalSync,
+  checkDay,
+  backfillDays,
+  describeDayCheck,
+  televendHealth,
+  remapUnknownRefills,
+  refillDays,
+  dubaiDate,
+  isWholeDubaiDays,
+  TelevendSyncError,
+  DAY_STREAMS,
+  DAILY_CHECK_HOUR,
+  DAILY_CHECK_MAX_ATTEMPTS,
+  MAX_REFILL_DAYS,
+} from "./televend-sync.js";
+export type {
+  SyncContext,
+  SyncResult,
+  WindowResult,
+  MachinesResult,
+  RefillRead,
+  DayCheck,
+  DayStream,
+  TelevendHealth,
+} from "./televend-sync.js";
+
+export {
+  storeMedia,
+  readMedia,
+  linkMediaToTask,
+  mediaRetentionSweep,
+  forgetMediaOf,
+  mediaRetentionDays,
+  MEDIA_RETENTION_DEFAULT_DAYS,
+  RETENTION_CLASSES,
+} from "./media.js";
+export type { StoredMedia, RetentionClass } from "./media.js";
+export { MediaError, MEDIA_LIMITS, sniff, cleanPhoto, cleanMp4 } from "./media-process.js";
+export { mediaStore, useMediaStoreForTests, MemoryMediaStore, SupabaseMediaStore, MEDIA_BUCKET } from "./media-store.js";
+export type { MediaStore } from "./media-store.js";

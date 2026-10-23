@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { createInvite, logAudit } from "@freshnow/core";
+import { createInvite, logAudit, can } from "@freshnow/core";
 import { authEnabled } from "../auth.js";
 
 const InviteBody = z.object({
@@ -12,8 +12,8 @@ export function registerEmployeeRoutes(app: FastifyInstance): void {
   // past the gate below; in demo mode the endpoint is open, exactly as the dashboard is.
   // Boundary validation is an explicit Zod parse; failures become a 400.
   app.post("/employees/invite", async (req, reply) => {
-    if (authEnabled() && !req.viewerIsCeo) {
-      return reply.code(403).send({ error: { code: "forbidden", message: "Only the CEO can create invites" } });
+    if (authEnabled() && !can({ isCeo: req.viewerIsCeo === true, accessRole: req.viewerRole ?? null }, "people.manage")) {
+      return reply.code(403).send({ error: { code: "forbidden", message: "Only the CEO or an Admin can create invites" } });
     }
     const body = InviteBody.parse(req.body);
     // The signed-in person, by their own id. "Was the CEO, so record the seeded CEO" was

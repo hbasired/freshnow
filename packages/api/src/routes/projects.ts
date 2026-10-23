@@ -1,30 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import {
-  HEALTHS,
-  ISSUE_KINDS,
-  MEMBER_ROLES,
-  MOSCOW,
-  PROJECT_STATUSES,
-  REQUIREMENT_KINDS,
-  addMilestone,
-  addProjectMember,
-  addProjectUpdate,
-  addRequirement,
-  canContributeToProject,
-  canManageProject,
-  createProject,
-  raiseProjectIssue,
-  removeProjectMember,
-  resolveProjectIssue,
-  setMilestoneStatus,
-  setProjectHealth,
-  setRequirementStatus,
-  setTaskProject,
-  updateProject,
-  withContext,
-  type ViewerOrg,
-} from "@freshnow/core";
+import { HEALTHS, ISSUE_KINDS, MEMBER_ROLES, MOSCOW, PROJECT_STATUSES, REQUIREMENT_KINDS, addMilestone, addProjectMember, addProjectUpdate, addRequirement, canContributeToProject, canManageProject, createProject, raiseProjectIssue, removeProjectMember, resolveProjectIssue, setMilestoneStatus, setProjectHealth, setRequirementStatus, setTaskProject, updateProject, withContext, type ViewerOrg, can } from "@freshnow/core";
 import { forbid, resolveViewer } from "../viewer.js";
 
 /**
@@ -224,8 +200,8 @@ export function registerProjectRoutes(app: FastifyInstance): void {
   app.post("/dashboard/projects", async (req, reply) => {
     const body = CreateBody.parse(req.body);
     const viewer = await resolveViewer(req);
-    if (viewer.accessRole === "employee" && !viewer.isCeo) {
-      return forbid(req, reply, "Only a manager, a lead or the CEO can start a project");
+    if (!can(viewer, "projects.create")) {
+      return forbid(req, reply, "Only the CEO, an Admin, the Ops Head, a manager or a lead can start a project");
     }
     const r = await createProject({
       name: body.name,

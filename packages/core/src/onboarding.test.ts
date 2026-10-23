@@ -4,12 +4,15 @@ import { createInvite } from "./invite.js";
 import { DEMO_CEO_ID } from "./meta.js";
 import {
   CONSENT_POLICY_VERSION,
+  CeoWithdrawalRefused,
   consentNotice,
   ensureCeoLinked,
   noticeHash,
+  profileStepsFor,
   redeemInvite,
   updateProfileField,
   validateInvite,
+  withdrawConsent,
 } from "./onboarding.js";
 
 // Distinct Telegram ids per test — the column is UNIQUE and the test DB is shared.
@@ -120,5 +123,33 @@ describe("self-filled profile and CEO linking", () => {
     const tg = nextTg();
     expect((await redeemInvite(inv.code, tg)).ok).toBe(true);
     expect(await ensureCeoLinked(tg)).toBe(false);
+  });
+});
+
+describe("what a person may change about themselves (role map, 2026-10-15)", () => {
+  it("fills department, site and shift once — a second answer changes nothing; role title and language stay theirs", async () => {
+    const inv = await createInvite({ displayName: "Self Filler" });
+    const id = (await redeemInvite(inv.code, nextTg())).employeeId!;
+    expect(await profileStepsFor(id)).toEqual(["department", "role_title", "site", "shift"]);
+    expect(await updateProfileField(id, "department", "production")).toEqual({ updated: true });
+    expect(await updateProfileField(id, "department", "finance")).toEqual({ updated: false });
+    expect(await updateProfileField(id, "site", "HQ")).toEqual({ updated: true });
+    expect(await updateProfileField(id, "site", "Deira")).toEqual({ updated: false });
+    expect(await updateProfileField(id, "role_title", "operator")).toEqual({ updated: true });
+    expect(await updateProfileField(id, "role_title", "senior operator")).toEqual({ updated: true });
+    expect(await updateProfileField(id, "language", "hi")).toEqual({ updated: true });
+    expect(await profileStepsFor(id)).toEqual(["role_title", "shift"]);
+    const rows = await getServiceSql()`select department, site, role_title, language from employee where id = ${id}`;
+    expect(rows[0]).toMatchObject({ department: "production", site: "HQ", role_title: "senior operator", language: "hi" });
+  });
+
+  it("the CEO cannot withdraw consent — refused in core, so on every channel", async () => {
+    await expect(withdrawConsent(DEMO_CEO_ID)).rejects.toThrow(CeoWithdrawalRefused);
+    const sql = getServiceSql();
+    expect((await sql`select status from employee where id = ${DEMO_CEO_ID}`)[0]?.status).toBe("active");
+    const inv = await createInvite({ displayName: "Leaving Person" });
+    const id = (await redeemInvite(inv.code, nextTg())).employeeId!;
+    await withdrawConsent(id);
+    expect((await sql`select status from employee where id = ${id}`)[0]?.status).toBe("disabled");
   });
 });

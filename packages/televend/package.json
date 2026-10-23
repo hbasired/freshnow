@@ -1,0 +1,14 @@
+{
+  "name": "@freshnow/televend",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Read-only Televend Cloud connector (TASK-055): one GET-only client behind an allow-list, three transports (bridge, official API, export files).",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
+    "zod": "^3.25.76"
+  }
+}

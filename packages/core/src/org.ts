@@ -1,6 +1,7 @@
 import { logAudit } from "./audit.js";
 import { getServiceSql, withContext, type AccessRole, type AppContext, type Tx } from "./db.js";
 import { DEMO_CEO_ID } from "./meta.js";
+import { can, mayLeadPeople, maySeeOthersBlockers, roleChangeRefusal } from "./permissions.js";
 import type { DirectoryEntry, OpenBlocker } from "./updates.js";
 
 /**
@@ -11,13 +12,15 @@ import type { DirectoryEntry, OpenBlocker } from "./updates.js";
  * app_can_view_employee() in migration 0009; this file is its TypeScript twin for the writes,
  * which run as the service role and therefore get no help from Postgres.
  *
- *   ceo       everyone
- *   manager   their direct reports
- *   lead      their direct reports, plus everyone in their department
- *   employee  themselves
+ * Since TASK-057 the branches are capabilities (permissions.ts), not role names:
+ *   work.give_to_anyone      the CEO, Admin
+ *   work.give_to_reports     their direct reports — manager, lead, Ops Head, Supervisor
+ *   work.give_to_department  everyone in their department — lead
+ *   everyone else            themselves
  */
 
-export const ACCESS_ROLES: readonly AccessRole[] = ["ceo", "manager", "lead", "employee"];
+// The role catalogue and its permissions: permissions.ts (TASK-057).
+export { ACCESS_ROLES } from "./permissions.js";
 
 export interface ViewerOrg extends AppContext {
   employeeId: string;
@@ -73,34 +76,48 @@ export async function loadViewer(employeeId: string): Promise<ViewerOrg | null> 
  * Otherwise the same three branches as the SQL predicate, evaluated against the target's row.
  */
 export async function canAssignTo(actor: ViewerOrg, target: string): Promise<boolean> {
-  if (actor.isCeo) return true;
+  if (can(actor, "work.give_to_anyone")) return true;
   if (target === actor.employeeId) return true;
-  if (actor.accessRole !== "manager" && actor.accessRole !== "lead") return false;
+  const toReports = can(actor, "work.give_to_reports");
+  const toDepartment = can(actor, "work.give_to_department");
+  if (!toReports && !toDepartment) return false;
 
   const sql = getServiceSql();
   const rows = await sql<{ manager_employee_id: string | null; department: string | null }[]>`
     select manager_employee_id, department from employee where id = ${target} and status <> 'disabled'`;
   const t = rows[0];
   if (!t) return false;
-  if (t.manager_employee_id === actor.employeeId) return true;
+  if (toReports && t.manager_employee_id === actor.employeeId) return true;
   // Same rule as the SQL predicate: departments compare case-insensitively, because they
   // are typed by people at onboarding.
   const same = (a: string | null, b: string | null) =>
     a != null && b != null && a.trim().toLowerCase() === b.trim().toLowerCase();
-  return actor.accessRole === "lead" && same(t.department, actor.department);
+  return toDepartment && same(t.department, actor.department);
+}
+
+/** A change to someone's place in the org that the rules refuse; the message says why, in words. */
+export class OrgChangeRefused extends Error {
+  constructor(reason: string) {
+    super(reason);
+    this.name = "OrgChangeRefused";
+  }
 }
 
 /**
- * Change somebody's place in the org. Only the CEO may (enforced by the caller); the audit
- * row records the before and after, because "who made X a manager" is a question that
- * gets asked.
+ * Change somebody's place in the org: their role, manager or department. The rules are checked
+ * HERE, for every caller (TASK-057): the actor must manage people; the CEO's own row is changed by
+ * the CEO alone; the CEO role is never granted, and Admin is granted or taken away by the CEO
+ * alone; a new manager must hold a role that sees its reports (escalation sends a raiser's own
+ * words to their manager). The audit row records the before and after, because "who made X a
+ * manager" is a question that gets asked.
  */
 export async function updateOrg(p: {
   employeeId: string;
   accessRole?: AccessRole;
   managerEmployeeId?: string | null;
   department?: string | null;
-  by: string;
+  /** Who is making the change, as loaded by loadViewer. */
+  actor: ViewerOrg;
   correlationId?: string;
 }): Promise<void> {
   const sql = getServiceSql();
@@ -108,8 +125,30 @@ export async function updateOrg(p: {
     select access_role, manager_employee_id, department from employee where id = ${p.employeeId}`;
   if (!before[0]) throw new Error("no such employee");
 
-  if (p.employeeId === DEMO_CEO_ID && p.accessRole && p.accessRole !== "ceo") {
-    throw new Error("the CEO row keeps the ceo role");
+  if (!can(p.actor, "people.manage")) throw new OrgChangeRefused("Only the CEO or an Admin changes people's places in the org.");
+  const targetIsCeo = p.employeeId === DEMO_CEO_ID || before[0].access_role === "ceo";
+  if (p.employeeId === DEMO_CEO_ID && p.accessRole !== undefined && p.accessRole !== "ceo") {
+    throw new OrgChangeRefused("The seeded CEO row keeps the CEO role.");
+  }
+  if (targetIsCeo && !p.actor.isCeo) throw new OrgChangeRefused("The CEO's own account is the CEO's to change.");
+  if (p.accessRole !== undefined && p.accessRole !== before[0].access_role) {
+    const refusal = roleChangeRefusal(p.actor, before[0].access_role, p.accessRole);
+    if (refusal) throw new OrgChangeRefused(refusal);
+    // A role that does not lead people cannot keep people reporting to it: they would vanish from this person's screens while
+    // escalations kept sending them their words (review, 20 Oct).
+    if (!mayLeadPeople(p.accessRole)) {
+      const [r] = await sql<{ n: number }[]>`select count(*)::int as n from employee where manager_employee_id = ${p.employeeId} and status <> 'disabled'`;
+      if ((r?.n ?? 0) > 0) {
+        throw new OrgChangeRefused(`${r!.n} ${r!.n === 1 ? "person reports" : "people report"} to them — move ${r!.n === 1 ? "them" : "those people"} to another manager first; this role does not lead people.`);
+      }
+    }
+  }
+  if (p.managerEmployeeId) {
+    if (p.managerEmployeeId === p.employeeId) throw new OrgChangeRefused("Nobody reports to themselves.");
+    const m = (await sql<{ access_role: string; status: string }[]>`
+      select access_role, status from employee where id = ${p.managerEmployeeId}`)[0];
+    if (!m || m.status !== "active") throw new OrgChangeRefused("The manager chosen is not an active person.");
+    if (!mayLeadPeople(m.access_role)) throw new OrgChangeRefused("That person's role does not lead people, so they cannot be someone's manager.");
   }
 
   // Each field only when supplied — an absent field means "leave it", never "clear it".
@@ -126,7 +165,7 @@ export async function updateOrg(p: {
 
   await logAudit({
     correlationId: p.correlationId,
-    actor: `employee:${p.by}`,
+    actor: `employee:${p.actor.employeeId}`,
     action: "employee.org_updated",
     entity: "employee",
     entityId: p.employeeId,
@@ -142,26 +181,27 @@ export async function updateOrg(p: {
 }
 
 /**
- * The people this viewer may give work to, for a directory keyboard. The CEO gets
- * everyone; a manager their reports; a lead their reports and their department — the SQL
+ * The people this viewer may give work to, for a directory keyboard. The CEO and Admin get
+ * everyone; a role that leads people its reports; a lead also their department — the SQL
  * form of `canAssignTo`, so the bot never lists a name the write would then refuse.
  * Self is left out: "Add a task" is the self path, and a directory with your own name in
  * it is how work gets assigned to the wrong person.
  */
 export async function listAssignable(viewer: ViewerOrg, limit = 25): Promise<DirectoryEntry[]> {
   const sql = getServiceSql();
-  const isLead = viewer.accessRole === "lead";
-  const rows = viewer.isCeo
+  const toReports = can(viewer, "work.give_to_reports");
+  const toDepartment = can(viewer, "work.give_to_department");
+  const rows = can(viewer, "work.give_to_anyone")
     ? await sql<{ id: string; display_name: string; department: string | null; telegram_user_id: string | null }[]>`
         select id, display_name, department, telegram_user_id from employee
         where status <> 'disabled' and id <> ${viewer.employeeId}
         order by is_synthetic, display_name limit ${limit}`
-    : viewer.accessRole === "manager" || isLead
+    : toReports || toDepartment
       ? await sql<{ id: string; display_name: string; department: string | null; telegram_user_id: string | null }[]>`
         select id, display_name, department, telegram_user_id from employee
         where status <> 'disabled' and id <> ${viewer.employeeId}
-          and (manager_employee_id = ${viewer.employeeId}
-               or (${isLead}::boolean and ${viewer.department}::text is not null
+          and ((${toReports}::boolean and manager_employee_id = ${viewer.employeeId})
+               or (${toDepartment}::boolean and ${viewer.department}::text is not null
                    and lower(trim(department)) = lower(trim(${viewer.department}::text))))
         order by is_synthetic, display_name limit ${limit}`
       : [];
@@ -187,7 +227,7 @@ export async function listOpenBlockersFor(viewer: ViewerOrg, limit = 10): Promis
     where b.status = 'open'
     order by b.raised_at desc
     limit ${limit}`;
-  if (viewer.isCeo) return [...(await query(getServiceSql()))];
-  if (viewer.accessRole !== "manager" && viewer.accessRole !== "lead") return [];
+  if (can(viewer, "data.read_all")) return [...(await query(getServiceSql()))];
+  if (!maySeeOthersBlockers(viewer)) return [];
   return [...(await withContext(viewer, (sql) => query(sql), { readOnly: true }))];
 }

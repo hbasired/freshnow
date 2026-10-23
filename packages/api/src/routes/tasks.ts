@@ -1,19 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import {
-  addTaskStep,
-  canAssignTo,
-  closeTask,
-  linkTasks,
-  PROGRESS_BANDS,
-  reportProgress,
-  resolveBlocker,
-  setStepDone,
-  updateTaskFields,
-  withContext,
-  type RelationKind,
-  type ViewerOrg,
-} from "@freshnow/core";
+import { addTaskStep, canAssignTo, closeTask, linkTasks, PROGRESS_BANDS, reportProgress, resolveBlocker, setStepDone, updateTaskFields, withContext, type RelationKind, type ViewerOrg, can } from "@freshnow/core";
 import { forbid, resolveViewer } from "../viewer.js";
 
 /**
@@ -210,8 +197,8 @@ export function registerTaskRoutes(app: FastifyInstance): void {
       select raised_by, assigned_resolver from blocker where id = ${id}`);
     const b = rows[0];
     if (!b) return forbid(req, reply, "That blocker is not visible to you");
-    const may = viewer.isCeo || b.assigned_resolver === viewer.employeeId || b.raised_by === viewer.employeeId || (await canAssignTo(viewer, b.raised_by));
-    if (!may) return forbid(req, reply, "Only the CEO, the resolver, the raiser or their manager can resolve this");
+    const may = can(viewer, "work.give_to_anyone") || b.assigned_resolver === viewer.employeeId || b.raised_by === viewer.employeeId || (await canAssignTo(viewer, b.raised_by));
+    if (!may) return forbid(req, reply, "Only the CEO, an Admin, the resolver, the raiser or their manager can resolve this");
     try {
       await resolveBlocker({ blockerId: id, resolvedBy: viewer.employeeId, note: body.note, correlationId: req.correlationId });
     } catch (err) {

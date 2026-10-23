@@ -125,6 +125,29 @@ describe("retention reaches the copies", () => {
     expect(o.output).toEqual({ redacted: true, is_blocker: true }); // the fact survives, the words do not
     expect((await traceOf(recent)).input["noteRaw"]).toBe("filler fixed");
   });
+
+  it("ages a voice note's transcript like typed words, and erasure removes it (review 2026-10-17, todays-fixes#4)", async () => {
+    process.env.RETENTION_DAYS = "90";
+    const sql = getServiceSql();
+    const emp = await person("spoken", 9_900_000_000_007);
+    const [oldV] = await sql<{ id: string }[]>`
+      insert into voice_asset (employee_id, transcript_raw, status, created_at, is_synthetic)
+      values (${emp}, 'machine 401 ka door kharab hai', 'transcribed', now() - interval '120 days', true) returning id`;
+    const [newV] = await sql<{ id: string }[]>`
+      insert into voice_asset (employee_id, transcript_raw, status, is_synthetic)
+      values (${emp}, 'sab theek', 'transcribed', true) returning id`;
+    try {
+      await retentionSweep();
+      const rows = await sql<{ id: string; transcript_raw: string }[]>`select id, transcript_raw from voice_asset where id in (${oldV!.id}, ${newV!.id})`;
+      expect(rows.find((r) => r.id === oldV!.id)!.transcript_raw).toMatch(/redacted/);
+      expect(rows.find((r) => r.id === newV!.id)!.transcript_raw).toBe("sab theek");
+      await eraseEmployee({ employeeId: emp, by: DEMO_CEO_ID, reason: "request" });
+      const [left] = await sql<{ transcript_raw: string }[]>`select transcript_raw from voice_asset where id = ${newV!.id}`;
+      expect(left!.transcript_raw).toBe("[erased]");
+    } finally {
+      await sql`delete from voice_asset where employee_id = ${emp}`;
+    }
+  });
 });
 
 describe("erasure", () => {

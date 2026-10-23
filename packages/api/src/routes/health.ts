@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { createConnection } from "node:net";
-import { antivirusStatus, concurrencyStats, emailHealth, getServiceSql, traceStats, tracingStats } from "@freshnow/core";
+import { analyticsStoreHealth, antivirusStatus, concurrencyStats, emailHealth, getServiceSql, televendHealth, traceStats, tracingStats } from "@freshnow/core";
+import { televendConfigured } from "@freshnow/televend";
 
 /**
  * Can we open a TCP connection to Redis? A full client would mean a dependency here just
@@ -64,6 +65,12 @@ export function registerHealthRoute(app: FastifyInstance): void {
     const antivirus = !av.configured ? "not_configured" : av.reachable ? "ok" : "down";
     // Email: whether it can send, whether the inbox is read, and when it last was (job_run).
     const email = await emailHealth();
+    // Televend (TASK-056): when it was last read, and `stale` once that is more than 30 minutes
+    // ago — a sync that silently stopped would otherwise leave every Televend number frozen.
+    const televend = await televendHealth(televendConfigured());
+    // The analytics store (TASK-071): the newest day built, and any day that differs from Televend's own count or failed —
+    // a store that silently stopped would leave every trend frozen at its last day. Null when the store cannot be read.
+    const analyticsStore = db === "ok" ? await analyticsStoreHealth().catch(() => null) : null;
 
     return {
       status: db === "ok" ? (saturated ? "busy" : "ok") : "degraded",
@@ -74,6 +81,8 @@ export function registerHealthRoute(app: FastifyInstance): void {
       redis,
       antivirus,
       email,
+      televend,
+      analyticsStore,
       load,
       tracing,
       trace,

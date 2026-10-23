@@ -5,7 +5,8 @@ import { getServiceSql } from "./db.js";
 import { checkedEmployeeEmail, EmailAddressError } from "./email-people.js";
 import { createInvite } from "./invite.js";
 import type { AccessRole } from "./db.js";
-import { ACCESS_ROLES, ceoEmployeeId } from "./org.js";
+import { ceoEmployeeId, loadViewer } from "./org.js";
+import { can, grantableRoles, mayLeadPeople } from "./permissions.js";
 
 /**
  * The CEO adds a person (TASK-054) — name, email, department, role, who they report to — and
@@ -66,14 +67,26 @@ export async function addPerson(p: AddPersonInput): Promise<AddPersonResult> {
   // Every check before any write: a person is added whole or not at all.
   const email = checkedEmployeeEmail(p.email);
   const accessRole = p.accessRole ?? "employee";
-  if (!(ACCESS_ROLES as readonly string[]).includes(accessRole) || accessRole === "ceo") {
-    throw new AddPersonError("A person can be added as employee, manager or department lead. The CEO role is handed over on the People page.");
+  // Checked here as well as in the route, for every caller (TASK-057): the actor must manage
+  // people, and the role must be one they may give — never CEO, and Admin only from the CEO.
+  const actor = await loadViewer(p.by);
+  if (!actor || !can(actor, "people.manage")) throw new AddPersonError("Only the CEO or an Admin adds people.");
+  if (!grantableRoles(actor).includes(accessRole)) {
+    throw new AddPersonError(
+      accessRole === "ceo"
+        ? "The CEO role is handed over on the People page, not given to someone new."
+        : accessRole === "admin"
+          ? "Only the CEO makes someone Admin."
+          : "That is not a role you can give.",
+    );
   }
   const sql = getServiceSql();
   let manager = p.managerEmployeeId ?? null;
   if (manager) {
-    const m = await sql<{ status: string }[]>`select status from employee where id = ${manager}`;
+    const m = await sql<{ status: string; access_role: string }[]>`select status, access_role from employee where id = ${manager}`;
     if (m[0]?.status !== "active") throw new AddPersonError("The manager chosen is not an active person.");
+    // Escalation sends a raiser's own words to their manager: only a role that sees its reports.
+    if (!mayLeadPeople(m[0].access_role)) throw new AddPersonError("That person's role does not lead people, so they cannot be someone's manager.");
   } else {
     manager = await ceoEmployeeId();
   }

@@ -1,6 +1,6 @@
 import { inboxConfig } from "./email-config.js";
 import { channelAvailability } from "./channels.js";
-import { consentNotice } from "./consent.js";
+import { consentNotice, televendReachable } from "./consent.js";
 import { retentionDays } from "./retention.js";
 import { isProduction, registry, type Finding, type PolicyReport, type readRegistry } from "./compliance-registry.js";
 
@@ -79,6 +79,18 @@ export const DETECTORS: readonly Detector[] = [
     noticeMentions: (e) => e.SMTP_HOST ?? e.EMAIL_IMAP_HOST ?? "SMTP",
   },
   { id: "chat", setting: "CHAT_WEBHOOK_URL", reachable: (e) => channelAvailability("chat", e).available, personal: () => true, noticeMentions: (e) => hostOf(e.CHAT_WEBHOOK_URL) ?? "chat" },
+  // TASK-055: the read-only Televend connector. It sends Televend only the integration account's
+  // sign-in, but it brings employees' names (who filled a machine, who resolved an alarm) INTO
+  // FreshNow — so the notice must name Televend as a source before real employees' data is
+  // processed (notice 3.0, TASK-058, plan §0.7). Files mode reads local exports and reaches
+  // nothing. One rule for both: the notice names Televend exactly when this says it is reached.
+  {
+    id: "televend",
+    setting: "TELEVEND_* (bridge or official mode)",
+    reachable: (e) => televendReachable(e),
+    personal: () => true,
+    noticeMentions: () => "Televend",
+  },
   {
     id: "langfuse",
     setting: "LANGFUSE_* keys",

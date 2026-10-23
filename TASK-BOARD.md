@@ -121,6 +121,61 @@ until both hold.**
 
 ---
 
+## Operations + Inventory expansion (user-directed, approved 2026-10-15 — D179)
+
+*Goal: one platform instead of Televend + WhatsApp groups — Operations and Inventory portals, a role-based Android
+app (Flutter), a chat inside our own system, read-only Televend data, and every carton, part and dirham balanced at
+the end of each shift. Numbers below are the `docs/tasks/TASK-NNN` numbers. Each task after 056 starts with a short
+task plan confirmed by the user.*
+
+| # | Layer | Delivers | Status |
+|---|---|---|---|
+| 055 | Televend read-only connector + MCP | allow-list egress gate, 3 transports, MCP server, data hygiene | **done** |
+| 056 | Ingestion pipeline | Televend mirror (0023), 10-min sync, daily check, backfill, machine registry | **done** |
+| 057 | RBAC v2 | admin, ops_head, supervisor, cash_auditor, warehouse_keeper, technician, vmo; capability matrix + SQL twin; RLS | **done** |
+| 058 | Platform plumbing | media store, scoped realtime, N-portal shell + charts, device/PIN auth, privacy notice v3 | **done** |
+| 059 | Operations portal v1 | command centre, machines, alarms → blockers, yesterday's report, recommendations | **done** (reviewed, fixed) |
+| 060 | Inventory core + portal | append-only stock ledger with handshakes, counts, receive/issue/return, EOD balance | **done** (reviewed: 17 fixed, D236) |
+| 061 | Field operations | route plans, QR visits, evidence, fills, cash, deposits, expenses, part swaps | **parts 1–2 done** — the cash ledger and the Cash portal (0035, D237–D240); route plans, visits by sticker or number, proof, fills and cash at a visit, the proof grid, the Route portal (0036, D241–D247); next: part 3 — part swaps, tickets |
+| 062 | Reconciliation + EOD | stock/cash/Televend rules, "who did not report", auditor approval | |
+| 063 | Flutter foundation | enrolment + PIN, offline store + command outbox, en/hi/ur, FCM | |
+| 064 | Deploy | VPS (bought here), Caddy/TLS, backups incl. media, MDM | |
+| 065 | App: VMO + warehouse keeper | shift, stock handshake, visit, fill, cash, return, deposit | |
+| 066 | Chat | rooms, DMs, media, voice, cards, WhatsApp history import | |
+| 067 | App: other roles | technician, supervisor, auditor, ops head, CEO | |
+| 068 | OCR assist (deferrable) | counter LCD / receipts as proposals | |
+| 069 | Pilot + cut-over | parallel run, then retire the WhatsApp groups | |
+
+### Analytics, money, routes and the Televend switch (requested 2026-10-19, plan final the same day — D248)
+
+*The request is recorded verbatim in `docs/requirements/REQ-2026-10-19.md` (115 requirements); the plan, with a row for every
+requirement and the user's 16 answers, is `docs/reports/plan-2026-10-19-analytics-routing-cash.html`. Order by ease, as the user
+asked: Phase 1 → 5. Existing tasks 062–069 and 061 part 3 sit in the phases below.*
+
+| # | Phase | Delivers | Status |
+|---|---|---|---|
+| 070 | 1 Analytics | Analytics portal: machine performance tiers vs the fleet average, the 80 % set, categories (Televend regions + our fixes) aggregated and plotted, each machine's daily line vs last week's same day, insights and actions, a date picker | **done** (0037 live, D249–D252); reviewed 20 Oct (D257, D258) |
+| 071 | 1 Analytics | sales history copied back as far as Televend returns; nightly analytics store; daily totals check; replayable runs | **done** (0038 live, D253; 26 Mar – 19 Oct in the store, VF91) |
+| 072 | 1 Analytics | machine as a full page (with Televend's history log of renames and moves, if readable); recent sales page; Operations tiles that explore (cash in machines, collections, refills, needs a refill) | **done** (no migration); history log not read — not on the allow-list |
+| 073 | 1 Analytics | each portal its own sidebar (the switcher wrap is done) | **next** |
+| 074 | 1 Analytics | alarms cleared by the next sale; false alarms learned per type and machine; time to clear by type, chronic machines; alarms → routed problems switched on once FreshNow names the resolvers | |
+| 075 | 1 Analytics | the business analytics portal: EDA for a day or a range, indicators, insights, actions | |
+| 062 | 2 Money & stock | tally and end of day; the deposit check with a reason and alerts (golden cases from the chats); Televend's "filled by" names matched to employees (also for erasure); cups per carton; over/short; period close | |
+| 076 | 2 Money & stock | finance view; food/other expenses approved by the manager; "juice try"; bank statement (CSV/Excel) matching; pop-ups | |
+| 077 | 2 Money & stock | "Other" material; return to the supplier; a fruit grade only at chosen machines | |
+| 061·3 | 2 Money & stock | part swaps, tickets (phones and SIMs too); spare parts with photos and the models they fit; each machine's parts history | |
+| 082 | 3 Televend | the MCP ↔ API switch in Settings: live test, shadow week, fall-back, audited; the API variables in `.env`; the MCP read tools still missing (machine detail, sales with filters and totals, history log, file import, FreshNow views) | |
+| — | before 069 | the independent reviews owed: 057, 059 fixes, 060 skeptic, 061 parts 1–2, 070 | **done** 20 Oct (D263): 53 + 24 confirmed, all fixed but one choice for FreshNow (A-T61.14) |
+| 084 | 3 Televend | periodic audit: data vs Televend, ledgers, config, access; monthly report | |
+| 083 | 3 Televend | writes to Televend, one operation at a time, each with the user's yes (only after Televend confirms the endpoint) | waits for Televend |
+| 064, 066, 063, 065, 067, 068, 069 | 4 One app | server (bought before this phase), chat, the Android app, OCR on our server, pilot | |
+| 078 | 5 Routes | machine and warehouse locations (map pin or Google Maps link), sites and vans with their capacity (from the earlier plan, never built), OSRM on OpenStreetMap, travel times | |
+| 079 | 5 Routes | demand and stock-out forecast, back-tested | |
+| 080 | 5 Routes | who usually goes where, learned nightly, a suggestion only | |
+| 081 | 5 Routes | tomorrow's routes at 00:00 with VROOM (OR-Tools cross-check), reviewed, sent one hour before each shift | |
+
+---
+
 ## Cross-cutting, every task
 
 - Read `HONESTY-AND-ACCURACY.md` first

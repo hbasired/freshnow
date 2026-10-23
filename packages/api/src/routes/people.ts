@@ -1,14 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import {
-  ACCESS_ROLES,
-  addPerson,
-  AddPersonError,
-  canAssignTo,
-  EmailAddressError,
-  reachOf,
-  withContext,
-} from "@freshnow/core";
+import { ACCESS_ROLES, addPerson, AddPersonError, canAssignTo, EmailAddressError, reachOf, withContext, can, grantableRoles, mayGiveWork } from "@freshnow/core";
 import { forbid, resolveViewer } from "../viewer.js";
 
 /**
@@ -28,7 +20,7 @@ const AddBody = z.object({
   roleTitle: z.string().trim().max(120).nullable().optional(),
   site: z.string().trim().max(120).nullable().optional(),
   shift: z.string().trim().max(60).nullable().optional(),
-  accessRole: z.enum(ACCESS_ROLES as [string, ...string[]]).optional(),
+  accessRole: z.enum(ACCESS_ROLES).optional(),
   managerEmployeeId: z.string().uuid().nullable().optional(),
   telegramInvite: z.boolean().optional(),
 });
@@ -37,11 +29,15 @@ const AddBody = z.object({
 const REACH_LIMIT = 500;
 
 export function registerPeopleRoutes(app: FastifyInstance): void {
-  /** Add a person. The CEO's: who exists in the company has one author, as roles do. */
+  /** Add a person: the CEO or an Admin, with a role they may give (core checks it again). */
   app.post("/dashboard/people", async (req, reply) => {
     const viewer = await resolveViewer(req);
-    if (!viewer.isCeo) return forbid(req, reply, "Only the CEO can add people");
+    if (!can(viewer, "people.manage")) return forbid(req, reply, "Only the CEO or an Admin can add people");
     const body = AddBody.parse(req.body);
+    // "ceo" is left to core, which answers it as a bad request (400) with its own words.
+    if (body.accessRole && body.accessRole !== "ceo" && !grantableRoles(viewer).includes(body.accessRole)) {
+      return forbid(req, reply, body.accessRole === "admin" ? "Only the CEO makes someone Admin" : "That role is not yours to give");
+    }
     try {
       const r = await addPerson({
         displayName: body.displayName,
@@ -73,7 +69,7 @@ export function registerPeopleRoutes(app: FastifyInstance): void {
    */
   app.get("/dashboard/people/reach", async (req) => {
     const viewer = await resolveViewer(req);
-    if (viewer.accessRole === "employee" && !viewer.isCeo) return { people: [] };
+    if (!mayGiveWork(viewer)) return { people: [] };
     // The people this viewer can SEE (RLS), then only those they may assign to (canAssignTo,
     // the same predicate the assignment route enforces).
     const visible = await withContext(viewer, (sql) => sql<{ id: string }[]>`

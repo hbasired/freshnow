@@ -2,6 +2,7 @@ import { logAudit } from "./audit.js";
 import { getServiceSql } from "./db.js";
 import { canAssignTo, type ViewerOrg } from "./org.js";
 import { notifyPeople } from "./alerts.js";
+import { can } from "./permissions.js";
 
 /**
  * Projects: work that has a plan, a shape and an end.
@@ -585,7 +586,7 @@ export async function projectSweep(correlationId?: string): Promise<ProjectSweep
  * run as the service role and get no help from Postgres.
  */
 export async function canManageProject(viewer: ViewerOrg, projectId: string): Promise<boolean> {
-  if (viewer.isCeo) return true;
+  if (can(viewer, "projects.manage_all")) return true; // the CEO, Admin
   const sql = getServiceSql();
   const rows = await sql<{ lead_employee_id: string | null; sponsor_employee_id: string | null }[]>`
     select lead_employee_id, sponsor_employee_id from project where id = ${projectId}`;

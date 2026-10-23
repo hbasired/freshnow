@@ -203,17 +203,30 @@ describe("canAssignTo — the write-side twin of the policy", () => {
 
 describe("the reporting line cannot loop", () => {
   it("refuses a manager change that would form a cycle, and self-management", async () => {
-    // MGR reports to the CEO; making the CEO... no. Make R1 the manager of MGR: MGR → R1 → MGR.
-    await expect(updateOrg({ employeeId: ids.MGR, managerEmployeeId: ids.R1, by: DEMO_CEO_ID })).rejects.toThrow(/cycle/);
-    await expect(updateOrg({ employeeId: ids.X, managerEmployeeId: ids.X, by: DEMO_CEO_ID })).rejects.toThrow(/own manager/);
+    const ceo = (await loadViewer(DEMO_CEO_ID))!;
+    // MGR reports to the CEO; making MGR the CEO's manager would loop: CEO → MGR → CEO. (Since
+    // TASK-057 the new manager must lead people, so the loop is made between two who do.)
+    await expect(updateOrg({ employeeId: DEMO_CEO_ID, managerEmployeeId: ids.MGR, actor: ceo })).rejects.toThrow(/cycle/);
+    await expect(updateOrg({ employeeId: ids.X, managerEmployeeId: ids.X, actor: ceo })).rejects.toThrow(/themselves|own manager/);
     // The rejected writes changed nothing.
     const [row] = await getServiceSql()<{ manager_employee_id: string }[]>`
       select manager_employee_id from employee where id = ${ids.MGR}`;
     expect(row?.manager_employee_id).toBe(DEMO_CEO_ID);
   });
 
+  it("refuses a role that does not lead people to someone people still report to (review 20 Oct, roles#2)", async () => {
+    const ceo = (await loadViewer(DEMO_CEO_ID))!;
+    // MGR has R1 and R2.
+    await expect(updateOrg({ employeeId: ids.MGR, accessRole: "vmo", actor: ceo })).rejects.toThrow(/report to them/);
+    const [row] = await getServiceSql()<{ access_role: string }[]>`select access_role from employee where id = ${ids.MGR}`;
+    expect(row?.access_role).toBe("manager");
+    // A role that does lead people is fine.
+    await updateOrg({ employeeId: ids.MGR, accessRole: "lead", actor: ceo });
+    await updateOrg({ employeeId: ids.MGR, accessRole: "manager", actor: ceo });
+  });
+
   it("records an org change with before and after", async () => {
-    await updateOrg({ employeeId: ids.X, accessRole: "manager", by: DEMO_CEO_ID });
+    await updateOrg({ employeeId: ids.X, accessRole: "manager", actor: (await loadViewer(DEMO_CEO_ID))! });
     const [audit] = await getServiceSql()<{ detail: { before: { access_role: string }; after: { access_role: string } } }[]>`
       select detail from audit_log where action = 'employee.org_updated' and entity_id = ${ids.X} order by created_at desc limit 1`;
     expect(audit?.detail.before.access_role).toBe("employee");

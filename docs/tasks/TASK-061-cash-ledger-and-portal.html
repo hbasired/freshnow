@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TASK-061 — Cash ledger and portal</title>
+<style>
+  :root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#3fb950;--warn:#d29922;--bad:#f85149;--card:#161b22;--bd:#30363d}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;max-width:980px;padding:48px 24px;margin-inline:auto}
+  h1{font-size:1.9rem;margin:0 0 4px} h2{margin-top:2.5rem;color:var(--acc);font-size:1.25rem} h3{font-size:1.05rem;margin-top:1.6rem}
+  .meta{color:var(--mut);font-size:.9rem;margin-bottom:2rem}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:18px;margin:14px 0}
+  .unverified{border-left:3px solid var(--warn)} .ok{border-left:3px solid var(--acc)}
+  code{background:#1f2630;padding:2px 6px;border-radius:4px;font-size:.9em}
+  pre{background:#1f2630;padding:12px;border-radius:8px;overflow-x:auto;font-size:.85rem;line-height:1.45}
+  .tw{overflow-x:auto} table{border-collapse:collapse;width:100%;margin:14px 0}
+  th,td{border:1px solid var(--bd);padding:7px 9px;text-align:left;font-size:.88rem;vertical-align:top} th{background:#1f2630}
+  ul{padding-left:1.1rem} li{margin:3px 0} a{color:#88c0f0}
+  .flow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0}
+  .flow span{background:#1f2630;border:1px solid var(--bd);border-radius:8px;padding:6px 10px;font-size:.85rem}
+  .flow b{color:var(--mut)}
+  @media (max-width:600px){body{padding:28px 16px}}
+</style></head><body>
+<h1>TASK-061 (part 1) — Cash ledger and portal</h1>
+<p class="meta">2026-10-18/19 · Operations + Inventory expansion, layer 7, first part · migration <code>0035_cash.sql</code> · new core:
+<code>cash.ts</code> · API <code>routes/cash.ts</code> · dashboard <code>portals/cash.tsx</code>, <code>cash-sheets.tsx</code>,
+<code>lib/cash-api.ts</code> · also: the TASK-060 review's 17 fixes (see that page) · no new dependency</p>
+
+<div class="card ok"><b>One-sentence summary:</b> every dirham a driver handles is now on a ledger nobody can edit — each machine's
+cash with its photo, a test note put back in, fuel and other expenses with their receipts, the deposit with the cash-deposit
+machine's receipt — added up as they go, and the cash auditor checks each ended shift with Televend's own "should have found" beside
+every collection (a figure the driver never sees), asking a question the driver answers in the app instead of the WhatsApp group.</div>
+
+<h2>What was asked</h2>
+<ul>
+  <li>The plan's TASK-061 (field operations): cash collections, deposits and expenses on a cash ledger — the rest (route plans,
+      visits by QR, evidence, fills, part swaps, tickets) follows in later parts. <b>Done when</b> the API flows are covered by
+      tests, including idempotent replays of the same command.</li>
+  <li>The user (16–18 Oct): automate the WhatsApp processes and make them "more user friendly and easy to use"; "continue until
+      inventory is done and beyond"; the FreshNow app is the main channel (D217).</li>
+  <li>What it replaces (VF73): the "CASH COLLECTION" group — a photo per machine ("Mina 793 / 60 dhs / David"), a nightly list
+      ("790 − fuel 185 − cash test 10 − juice try 10 = 585"), the deposit machine's receipt, and hours later "audit ok ✅".</li>
+</ul>
+
+<h2>What was done</h2>
+<div class="tw"><table>
+<tr><th>Part</th><th>What it does</th><th>Decisions</th></tr>
+<tr><td>The cash ledger</td><td>Accounts (a person's hands, a machine's cash box, fuel, other expenses, the cash-deposit machine, bank,
+  over/short), entries and moves in whole fils, a balance kept by a trigger and never below zero for a person, moves never changed,
+  entries' content never changed (only their words removed), the app role reads only. Every entry's id comes from the phone or
+  browser: sent twice, posted once.</td><td>D238</td></tr>
+<tr><td>Shifts</td><td>A shift opens with the first entry (or "Start shift", with the van); its business date is the Dubai date it
+  started. Ending it with cash still in hand is allowed — the person is told to deposit it, and the next shift shows it as
+  "carried in".</td><td>D238</td></tr>
+<tr><td>Entries</td><td>Collected (0 when the box was empty), test note, fuel (litres optional), other expense (what for), deposited
+  (the notes by face value — they must add up — and the receipt's transaction, operator, CDS and bag numbers). A photo on every
+  entry but a test note.</td><td>D238, A-T61.3</td></tr>
+<tr><td>Undo</td><td>The person, for their own entry while the shift is open and unchecked; an auditor, for anyone else's. The opposite
+  move is posted; the entry stays, struck through. A collection whose cash was spent or deposited since cannot be undone first.</td><td>D238</td></tr>
+<tr><td>The auditor's check</td><td>Ended shifts not yet ok, oldest first: the sums, each entry with its photos, Televend's figure beside
+  each collection. "All ok", or a question that reaches the person and the Ops Head; the person answers in the app; "ok" settles it.
+  Nobody checks their own shift — the database refuses it too.</td><td>D238</td></tr>
+<tr><td>Televend's side</td><td>For each collection: the Televend "Cash Collection" on the same machine within 90 minutes, and the cash
+  sales since the one before, times the machine's price. Shown to the auditor, the Ops Head, the CEO and Admins — never to the
+  driver.</td><td>D221, D237, A-T61.4</td></tr>
+<tr><td>Who sees what</td><td>A driver: their own shifts, entries and balance, no one else's account. The cash auditor: everyone's, with
+  the photos (a photo on a cash entry is readable by whoever sees all cash). The warehouse keeper and the technician: nothing.</td><td>D238</td></tr>
+<tr><td>The Cash portal</td><td>"My cash": what you hold, the shift, five big tiles, the shift's sums in the WhatsApp list's order, the
+  entries, any question to answer. "To check" and "All shifts" for whoever checks. Phone first; refreshes when cash moves.</td><td>D239</td></tr>
+<tr><td>Privacy</td><td>The notice names cash always — what, why, who sees it, how long; the words on cash records age out with the
+  person's other words, are removed on erasure, and are in their own download. The practice-run reset removes a person's cash.</td><td>D240</td></tr>
+<tr><td>The TASK-060 review</td><td>17 findings on the stock ledger and portal — all real, all fixed with a test (a count's difference
+  posted twice, in-transit stock counted twice, "2.5" typed as 25, …).</td><td>D236</td></tr>
+</table></div>
+
+<h2>Why it was done this way</h2>
+<h3>Its own tables, the stock ledger's rules</h3>
+<p>Cash moves like stock — from one place to another, never edited, mistakes reversed — so it follows the same rules, tested the same
+way. But it is not stock: the warehouse keeper sees all stock and must see no cash, and money is whole fils, never a decimal. Separate
+tables keep both promises in the database itself, not in a filter someone could forget.</p>
+<h3>The shift is the unit, as the WhatsApp list was</h3>
+<p>Kiran's "14/10" list was posted on 15 Oct at 07:12: a night shift's cash belongs to the day it began. A shift holds every entry of
+one person's working period, adds them up the way the list did (collected − fuel − test − deposited = left), and is what the auditor
+checks — once, as a whole, instead of message by message.</p>
+<h3>The driver never sees "should have found"</h3>
+<p>The driver counts the cash and types the figure. Showing them Televend's figure — before, or after while they may still undo and
+type again — invites matching it: reporting AED 30 when the box held 35 because Televend missed a sale. That is the blind-count
+situation, the same reason the stock count hides the ledger. The auditor, the Ops Head, the CEO and Admins see it beside every
+collection. Some vending software does show drivers the expected amount — where sealed bags are counted in a counting room, not
+by the driver (D237).</p>
+<h3>A photo on every entry, because that is today's practice</h3>
+<p>The group already carries a photo per machine, the fuel receipt and the deposit receipt, and the user decided photos are mandatory
+for field work. A test note (a 10-dirham note put back into the machine) needs none. Which entries need one is FreshNow's to confirm
+(A-T61.3).</p>
+<h3>What was deliberately not built</h3>
+<p>The reconciliation runs and over/short postings (TASK-062), the bank's or cash-in-transit company's statement, change refills for
+machines that give change (A-T61.5), reading receipts by OCR (TASK-068), the phone app's offline queue (TASK-063), and the rest of
+TASK-061 (route plans, visits by QR, fills, part swaps, tickets).</p>
+
+<h2>How it works</h2>
+<div class="flow"><span>Phone / browser makes the id</span><b>→</b><span>core: cash.hold? enough in hand? (one lock per person)</span><b>→</b>
+<span>shift (opened if none) + entry + move + photo links + audit, one transaction</span><b>→</b><span>trigger: balances (CHECK ≥ 0 for a person)</span><b>→</b><span>doorbell → screens refresh</span></div>
+<pre>collected   machine:871 ──────▶ Kiran          (0 when the box was empty: no move)
+test note   Kiran ────────────▶ machine:871    (goes back into the box)
+fuel        Kiran ────────────▶ fuel           (receipt photo, litres)
+deposited   Kiran ────────────▶ cdm            (receipt photo, notes, txn no.)
+undo        the opposite move, once; the entry stays, marked undone
+
+shift       carried in + collected − test notes − fuel − other − deposited = left in hand
+auditor     beside each collection: Televend's cash sales since the last collection × the machine's price</pre>
+
+<h2>Research findings</h2>
+<div class="tw"><table>
+<tr><th>Source</th><th>What it says</th><th>Effect here</th></tr>
+<tr><td>POS vendors on blind cash counts (plumpos glossary, SalesPlay help, Shopify's drawer guide); a university internal-audit
+  flash report</td><td>Count before seeing the expected total, so the figure cannot be adjusted to match; surprise counts and separated
+  duties detect cash larceny. Mostly vendor material, not measured studies.</td><td>The driver never sees Televend's figure (D237); the
+  auditor never checks their own shift.</td></tr>
+<tr><td>Vending operators' guidance (365 Retail Markets help; a Cantaloupe article; a field-service blueprint)</td><td>Compare expected and
+  collected per machine after each service; watch machines and routes that are regularly short or over; change-fund refills cause
+  over/short. Some give drivers the expected collection — where bags are counted elsewhere.</td><td>Expected vs collected per collection
+  now; patterns are TASK-062's; change refills an open question (A-T61.5).</td></tr>
+<tr><td>Summaries of the UAE corporate-tax law (Federal Decree-Law 47 of 2022; commercial compliance blogs, one naming Article 56)</td>
+  <td>Records kept seven years after the tax period.</td><td>The notice says "kept as the company's financial record", without a period,
+  until FreshNow's accountant confirms (A-T61.6).</td></tr>
+</table></div>
+
+<h2>Verification</h2>
+<div class="card ok"><ul>
+  <li>Tests against a throwaway Postgres: cash (19 — Kiran's list of 14 Oct as a golden case, replays, never below zero, photos, notes
+      adding up, carry-over, undo rules, the auditor's check with question and answer, Televend's figure for the auditor and not the
+      driver, who sees what, the books balancing, words aged and erased), the API (3), live scope (the cash entry rings the shift's
+      owner even when an auditor made it), semantic layer, consent (the notice's cash lines), permissions and portals.</li>
+  <li>Full suite on 19 Oct, typecheck included: <b>1,108 passed, 5 skipped</b> (the opt-in suites), <b>0 failed</b>. The run before it
+      failed 2 tests in the bot's consent test, which compared the notice as one message; the longer notice now arrives in two
+      (Telegram's 4,096 characters), so the test now checks every word arrives in order and each part fits.</li>
+  <li>Browser, on the test database with its own API: <b>35 checks, 0 console errors</b> — a driver's whole shift on a phone (start, collect
+      with a real photo upload, fuel, test note, deposit, undo, end with cash in hand), the auditor's check (Televend "less by AED 5",
+      the photos loading for the auditor, a question), the driver's answer, "all ok"; the keeper refused cash; and the TASK-060 screen
+      fixes (typing 2.5, take back after a refresh, the count kind, figures hidden while counting).</li>
+  <li>Live: 0035 applied 19 Oct (five bookkeeping accounts, the capabilities, six live triggers); the API, worker and bot restarted on the
+      new code; no cash posted to the live ledger by the developer.</li>
+</ul></div>
+
+<h2>What we have not verified</h2>
+<div class="card unverified"><ul>
+  <li><b>A real driver or auditor has not used it.</b> Nobody at FreshNow has recorded a shift's cash or checked one with it yet.</li>
+  <li><b>Televend's figure on real data.</b> The matching (the collection within 90 minutes, the price, A-T61.4) is tested on made-up
+      rows; it depends on drivers still recording each collection in the Televend Staff App — if they stop, nothing matches.</li>
+  <li><b>Photos on a real phone's camera</b>: the browser check uploaded a generated JPEG through the real upload route into a store kept
+      in memory; Supabase Storage itself was not used in the check.</li>
+  <li><b>The receipt fields</b> are typed by hand; nothing reads the receipt (OCR is TASK-068), and nothing checks the deposit against the
+      bank yet (TASK-062).</li>
+  <li><b>Machines that give change</b> (A-T61.5) and <b>how long cash records are kept</b> (A-T61.6) are assumptions.</li>
+  <li><b>The notice's new lines</b> are a developer's draft, not FreshNow's or a lawyer's.</li>
+  <li><b>Speed at a year's volume</b> (thousands of shifts; Televend's figure is computed per collection when a shift is read) —
+      unmeasured.</li>
+  <li><b>Screen readers</b>, Hindi and Urdu, and working offline.</li>
+  <li><b>The TASK-060 review's skeptic pass</b> did not run on 18 Oct (usage limit); the independent review of 20 Oct checked those fixes
+      (TASK-060 page) and this task's (<a href="#review-20oct">below</a>).</li>
+  <li><b>A Supervisor's blind count</b> is not complete: from the sales list a Supervisor can still count a machine's cash sales since a
+      collection (second pass, cash #2). It waits on FreshNow's choice (D254, A-T61.14).</li>
+</ul></div>
+
+<h2>Open questions for FreshNow</h2>
+<ul>
+  <li>Which entries need a photo — collections, expenses and deposits, as today (A-T61.3)?</li>
+  <li>Do the machines give change? If so, who refills it, from what cash (A-T61.5)?</li>
+  <li>How long the company keeps cash and receipt records (A-T61.6).</li>
+  <li>Who besides the Ops Head should hear of an auditor's question?</li>
+  <li>Can FreshNow get the cash-deposit machine's statements (bank or cash-in-transit company) for TASK-062?</li>
+</ul>
+<h2 id="review-20oct">Independent review, 20 Oct</h2>
+<p>The review owed since 15 Oct ran on 20 Oct, once the usage limit reset (D263). For each area, read-only reviewers looked for defects and a skeptic tried to refute each finding before it counted. A second pass then checked every fix — fixed, partly fixed, or fixed but broke something — and looked for what the fixes themselves broke, again with a skeptic for each problem. Everything confirmed was fixed with a test unless the row says otherwise.</p>
+<p>For Cash, 10 findings were raised: 9 confirmed and fixed (D254, D255), 1 refuted (people who also read cash see Televend's figure on their own collections — they may read it anyway).</p>
+<div class="tw"><table>
+<tr><th>Finding</th><th>Severity</th><th>Fix</th></tr>
+<tr><td>A Supervisor, who holds cash but may not read Televend's cash figure, still received that figure from the Operations portal, the morning message and Analytics.</td><td>high</td><td>Televend's expected cash now leaves the server only for cash.read (CEO, Admin, Ops Head, cash auditor): a Supervisor's fleet, machine page, day report and morning message carry the collections' times, never the amount (D254). Tests: a Supervisor's fleet, machine and day report have no figure; the morning text differs by role.</td></tr>
+<tr><td>The auditor's question and the person's answer were copied into the audit trail and into notification texts, which retention and erasure never reach.</td><td>high</td><td>The question's and the answer's words stay on the shift only, where retention and erasure reach them: the audit row records that a note was written, and the notices say 'open Cash to read it' (D255). Test: no word of either in audit_log or the outbox.</td></tr>
+<tr><td>A question on a shift older than the person's 7 latest could not be answered in the app.</td><td>medium</td><td>Cash lists every shift with a question still standing, however old, and answers it from there. Test: a question on the 9th-newest shift is answered.</td></tr>
+<tr><td>After a second question, the earlier answer was shown as the answer.</td><td>medium</td><td>While a question stands, only an answer given after it is shown as its answer. Test: a second question shows 'not answered' until answered.</td></tr>
+<tr><td>A deposit's notes under two spellings of one face ("100" and "0100") passed the add-up check but were stored as a breakdown that did not add up.</td><td>low</td><td>A note's face is written one way only ('100', never '0100'), in the API and in core. Test: '100' and '0100' together refused.</td></tr>
+<tr><td>Undo checked the entry's and its shift's state from a read taken before the person's lock.</td><td>low</td><td>Undo takes the person's lock first and checks the entry and its shift on rows read under it. Test: two auditors undoing at once give one undo and 'already undone'.</td></tr>
+<tr><td>A time sent by the phone (up to 12 h either way) decided which Televend collection an entry was compared with.</td><td>low</td><td>The phone's time may only say 'earlier' (an offline queue delays, never hastens); the auditor's sheet shows the phone's and the server's time when they differ. Test: a time 3 h ahead is ignored, 3 h behind used, 13 h behind ignored.</td></tr>
+<tr><td>One photo satisfied the photo rule for any number of cash entries.</td><td>low</td><td>A photo proves one cash entry: the same picture on a second entry is refused. Test.</td></tr>
+<tr><td>The auditor's sheet showed only 2 of up to 4 photos on an entry.</td><td>low</td><td>The auditor's sheet shows every photo of an entry (up to four).</td></tr>
+</table></div>
+<h3>The second pass: checking the fixes</h3>
+<p>Of the 9 fixes, 5 were checked as fixed, 3 as partly fixed and 1 as fixed but breaking something. Its 5 problems were all confirmed; 4 are fixed and 1 waits on FreshNow:</p>
+<div class="tw"><table>
+<tr><th>Finding</th><th>Severity</th><th>Fix</th></tr>
+<tr><td>Making an undone entry again with its own photo was refused as "photo used" — the photo rule counted undone entries.</td><td>low</td><td>Only an entry that stands holds its photo: the entry made again after an undo may carry it; any other entry is still refused. Test.</td></tr>
+<tr><td>A Supervisor can still work out Televend's expected cash exactly from the sales list (one machine, one day, payment "Cash").</td><td>low</td><td>Not fixed. FreshNow's choice (D254, A-T61.14): if Supervisors do not collect cash, take cash.hold from the role; if they do, each sale's payment type would be hidden from anyone without cash.read.</td></tr>
+<tr><td>A phone time up to 12 h earlier still moved which Televend collection an entry was compared with.</td><td>low</td><td>Matching uses the server's time only; the auditor sees the phone's time beside it when they differ. Test.</td></tr>
+<tr><td>An answer written to the first question but arriving after a second was shown as the second one's answer.</td><td>low</td><td>An answer names the question it answers; a stale one is refused ("the question changed — read it again"). Test.</td></tr>
+<tr><td>"All ok" erased the question, so a settled shift showed an answer to no question.</td><td>low</td><td>"All ok" keeps the question it settles. Test.</td></tr>
+</table></div>
+<p>The Cash browser check (with the stock screen fixes), run again on the final code of 20 Oct: 35 of 35, no console errors.</p>
+</body></html>

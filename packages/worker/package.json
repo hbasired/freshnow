@@ -8,6 +8,7 @@
   },
   "dependencies": {
     "@freshnow/core": "workspace:*",
+    "@freshnow/televend": "workspace:*",
     "bullmq": "^6.3.4",
     "dotenv": "^17.4.2",
     "imapflow": "^2.2.4",

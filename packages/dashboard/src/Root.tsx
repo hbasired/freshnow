@@ -5,6 +5,8 @@ import { api } from "./lib/api";
 import { applySession, loadAppConfig, onUnauthorized, supabase, type AppConfig } from "./lib/auth";
 import { Card, Spinner } from "./components/ui";
 import { ThemeToggle } from "./components/theme-toggle";
+import { Icon } from "./components/icons";
+import { isPortalId, landingPortal, PORTALS, portalsFor, type PortalDef } from "./portals";
 
 /**
  * What happens before the dashboard.
@@ -31,18 +33,19 @@ type Auth =
   | { kind: "demo" }
   | { kind: "error"; message: string; cfg: AppConfig | null }
   | { kind: "signedOut"; cfg: AppConfig }
-  | { kind: "ready"; cfg: AppConfig; name: string; isCeo: boolean };
+  | { kind: "ready"; cfg: AppConfig; name: string; isCeo: boolean; capabilities: string[] | null };
 
 const PORTAL_KEY = "fn.portal";
 
 /** The portal from the URL, else the one chosen last time, else none (show the picker). */
 function initialPortal(): Portal | null {
   const head = location.hash.slice(1).split("/", 1)[0];
-  if (head === "projects") return "projects";
-  if (head === "tasks") return "tasks";
+  if (isPortalId(head)) return head;
+  // A machine sticker's link (#visit/<token>) opens the Route portal, which offers that machine's visit.
+  if (head === "visit") return "route";
   try {
     const v = sessionStorage.getItem(PORTAL_KEY);
-    if (v === "tasks" || v === "projects") return v;
+    if (isPortalId(v)) return v;
   } catch {
     /* private mode — the picker is a fine place to start */
   }
@@ -72,7 +75,7 @@ export default function Root() {
     }
     try {
       const me = await api.me();
-      setAuth({ kind: "ready", cfg, name: me.displayName ?? "Signed in", isCeo: me.isCeo });
+      setAuth({ kind: "ready", cfg, name: me.displayName ?? "Signed in", isCeo: me.isCeo, capabilities: me.capabilities ?? null });
     } catch (e) {
       setAuth({ kind: "error", cfg, message: e instanceof Error ? e.message : "Could not load your account" });
     }
@@ -152,6 +155,9 @@ export default function Root() {
   if (!portal) {
     return (
       <PortalPicker
+        // Signed in, the picker offers what this person's role opens; before that nobody is known
+        // yet, so it shows every portal (choosing one is not access — the API decides that).
+        portals={auth.kind === "ready" && auth.capabilities ? portalsFor(auth.capabilities) : [...PORTALS]}
         onPick={choosePortal}
         signedIn={auth.kind === "ready"}
         isDemo={auth.kind === "demo" ? true : auth.kind === "ready" || auth.kind === "signedOut" ? auth.cfg.isDemo : false}
@@ -167,7 +173,8 @@ export default function Root() {
   // 3 — Work.
   return (
     <App
-      initialPortal={portal}
+      // Signed in, a portal this person's role does not open is never even mounted.
+      initialPortal={auth.kind === "ready" && auth.capabilities ? landingPortal(portal, auth.capabilities) : portal}
       onPortalChange={choosePortal}
       isDemo={auth.kind === "demo" ? true : auth.cfg.isDemo}
       {...(auth.kind === "ready"
@@ -217,38 +224,17 @@ function Entry({ children, isDemo = false }: { children: React.ReactNode; isDemo
   );
 }
 
-const PORTALS: {
-  id: Portal;
-  icon: string;
-  name: string;
-  tagline: string;
-  points: string[];
-}[] = [
-  {
-    id: "tasks",
-    icon: "tasks",
-    name: "Task & logging",
-    tagline: "What is happening today",
-    points: [
-      "Daily status from the Telegram bot and the web, in one place",
-      "Problems routed, escalated and acknowledged",
-      "Assignments, end-of-day reports, the audit trail",
-    ],
-  },
-  {
-    id: "projects",
-    icon: "projects",
-    name: "Projects",
-    tagline: "Work with a plan and an end",
-    points: [
-      "Purpose, requirements and weighted milestones",
-      "Progress computed from the work, never typed in",
-      "Risks, the status log, and flow metrics",
-    ],
-  },
-];
-
-function PortalPicker({ onPick, signedIn, isDemo }: { onPick: (p: Portal) => void; signedIn: boolean; isDemo: boolean }) {
+function PortalPicker({
+  portals,
+  onPick,
+  signedIn,
+  isDemo,
+}: {
+  portals: PortalDef[];
+  onPick: (p: Portal) => void;
+  signedIn: boolean;
+  isDemo: boolean;
+}) {
   return (
     <Entry isDemo={isDemo}>
       <div className="w-full max-w-4xl">
@@ -257,11 +243,14 @@ function PortalPicker({ onPick, signedIn, isDemo }: { onPick: (p: Portal) => voi
           <p className="mt-1 text-sm text-mut">
             {signedIn
               ? "You are already signed in — pick one to carry on."
-              : "Pick one, then sign in. The same account opens both, and you can switch at any time."}
+              : "Pick one, then sign in. One account opens every portal your role includes, and you can switch at any time."}
           </p>
         </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          {PORTALS.map((p) => (
+        <div className={`grid gap-4 sm:grid-cols-2 ${portals.length > 2 ? "lg:grid-cols-3" : ""}`}>
+          {portals.map((p) => {
+            const I = Icon[p.icon];
+            const fill = p.id === "tasks" ? "var(--color-brand)" : "var(--color-accent)";
+            return (
             <button
               key={p.id}
               onClick={() => onPick(p.id)}
@@ -270,20 +259,8 @@ function PortalPicker({ onPick, signedIn, isDemo }: { onPick: (p: Portal) => voi
               {/* A brand stripe down the left edge, filled on hover. */}
               <span className="absolute inset-y-0 left-0 w-1.5" style={{ background: p.id === "tasks" ? "linear-gradient(180deg, var(--color-brand), var(--color-brand-b))" : "linear-gradient(180deg, var(--color-accent), var(--color-brand-2))" }} />
               <div className="flex items-center gap-3">
-                <span
-                  className="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-on-brand"
-                  style={{ background: p.id === "tasks" ? "var(--color-brand)" : "var(--color-accent)" }}
-                  aria-hidden="true"
-                >
-                  {p.id === "tasks" ? (
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-                      <rect x="8" y="2" width="8" height="4" rx="1" /><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" /><path d="m9 14 2 2 4-4" />
-                    </svg>
-                  ) : (
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />
-                    </svg>
-                  )}
+                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-on-brand" style={{ background: fill }} aria-hidden="true">
+                  <I size={22} />
                 </span>
                 <span className="text-base font-bold">{p.name}</span>
               </div>
@@ -300,7 +277,8 @@ function PortalPicker({ onPick, signedIn, isDemo }: { onPick: (p: Portal) => voi
                 {signedIn ? "Open" : "Continue"} →
               </span>
             </button>
-          ))}
+            );
+          })}
         </div>
       </div>
     </Entry>
@@ -312,7 +290,8 @@ function Login({ cfg, portal, onBack }: { cfg: AppConfig; portal: Portal; onBack
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const chosen = PORTALS.find((p) => p.id === portal)!;
+  const chosen = PORTALS.find((p) => p.id === portal) ?? PORTALS[0]!;
+  const ChosenIcon = Icon[chosen.icon];
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -334,11 +313,11 @@ function Login({ cfg, portal, onBack }: { cfg: AppConfig; portal: Portal; onBack
     <Entry isDemo={cfg.isDemo}>
       <Card className="w-full max-w-sm">
         <div className="mb-1 flex items-center gap-2 text-sm">
-          <span className="text-lg" aria-hidden="true">{chosen.icon}</span>
+          <span className="text-mut" aria-hidden="true"><ChosenIcon size={18} /></span>
           <span className="font-semibold">{chosen.name}</span>
         </div>
         <p className="mb-4 text-xs text-mut">
-          Sign in to continue. One account opens both portals — what you can see and do is set by your role.
+          Sign in to continue. One account opens every portal your role includes — what you can see and do is set by your role.
         </p>
         <form onSubmit={(e) => void submit(e)} className="space-y-3">
           <label className="block text-sm">

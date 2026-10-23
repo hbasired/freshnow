@@ -1,12 +1,62 @@
 import { z } from "zod";
-import { withContext, type AppContext } from "../db.js";
+import { logAudit } from "../audit.js";
+import { withContext, type AppContext, type Tx } from "../db.js";
 import { DEMO_CEO_ID } from "../meta.js";
 import { llmComplete } from "../llm/client.js";
 import { groundingGate, numericSanityGate } from "./gates.js";
-import { validateReadOnlySql } from "./guard.js";
-import { pruneSchema } from "./schema-prune.js";
+import { FUNCTIONS_THAT_READ, validateReadOnlySql } from "./guard.js";
+import { pruneSchema, TABLE_DOCS } from "./schema-prune.js";
 
 export const MAX_ROWS = 50;
+
+/**
+ * The only tables the question box may read: the ones documented for it (schema-prune.ts) — the
+ * "pre-approved" set CLAUDE.md asks for. The model is shown no others, but being shown is not a
+ * lock: a guessed `app_session` or `audit_log` ran under the CEO's row-level security, which reads
+ * them, and would have turned phone sign-ins into an attendance report (TASK-058 review, notice 3.0).
+ */
+const QUERYABLE: ReadonlySet<string> = new Set(Object.keys(TABLE_DOCS).map((t) => `public.${t}`));
+
+/** A query that would read beyond the approved tables — refused before it runs. */
+export class QueryScopeRefused extends Error {
+  constructor(readonly outside: readonly string[]) {
+    super(`reads beyond the approved tables: ${outside.join(", ")}`);
+    this.name = "QueryScopeRefused";
+  }
+}
+
+/**
+ * Every table a statement reads, as Postgres itself plans it — CTEs, subqueries, joins and views all
+ * resolved — without running it. Reading table names out of the SQL text instead would be a parser
+ * of our own, and the first one that missed a `join lateral` or a comma join would be the hole.
+ *
+ * A function that reads a table by name or runs SQL text hides what it reads from the plan's tables
+ * (review 2026-10-17, todays-fixes#1), so the plan's own text — deparsed by Postgres, whatever spelling
+ * the query used — is searched for those functions as well. No plan, no answer: this fails closed.
+ */
+export async function planReach(tx: Tx, sqlText: string): Promise<{ tables: string[]; functions: string[] }> {
+  const rows = await tx.unsafe(`explain (format json, verbose, costs off) ${sqlText}`);
+  const raw = (rows[0] as Record<string, unknown> | undefined)?.["QUERY PLAN"];
+  let plan: unknown;
+  try {
+    plan = typeof raw === "string" ? JSON.parse(raw) : raw;
+  } catch {
+    plan = undefined;
+  }
+  if (!Array.isArray(plan) || plan.length === 0) return { tables: [], functions: ["(no plan to check)"] };
+  const out = new Set<string>();
+  const walk = (n: unknown): void => {
+    if (Array.isArray(n)) return n.forEach(walk);
+    if (n === null || typeof n !== "object") return;
+    const o = n as Record<string, unknown>;
+    if (typeof o["Relation Name"] === "string") out.add(`${typeof o["Schema"] === "string" ? o["Schema"] : "?"}.${o["Relation Name"]}`);
+    for (const v of Object.values(o)) walk(v);
+  };
+  walk(plan);
+  const text = JSON.stringify(plan);
+  const functions = [...new Set([...text.matchAll(new RegExp(FUNCTIONS_THAT_READ.source, "gi"))].map((m) => m[0].toLowerCase()))];
+  return { tables: [...out], functions };
+}
 
 // Curated schema for NL→SQL, derived by hand from semantic/schema.yaml — and PRUNED per question
 // (schema-prune.ts): the model sees only the tables the question needs, plus the tables they join
@@ -54,11 +104,17 @@ export interface QueryResult {
  * a superuser, so the worst a wrong or injected query can now reach is what the ASKER could
  * already see in the dashboard. The question box is CEO-only, and a CEO's RLS context sees
  * every business row, so nothing legitimate is lost.
+ *
+ * And only the approved tables (QUERYABLE): what the CEO may see is wider than what the question
+ * box is for — sign-in records, the audit trail, consent and messages are not questions to answer.
  */
 async function runReadOnly(sqlText: string, asker: AppContext): Promise<Record<string, unknown>[]> {
   return withContext(
     asker,
     async (tx) => {
+      const reach = await planReach(tx, sqlText);
+      const outside = [...reach.tables.filter((t) => !QUERYABLE.has(t)), ...reach.functions.map((f) => `function ${f}`)];
+      if (outside.length > 0) throw new QueryScopeRefused(outside);
       const rows = await tx.unsafe(sqlText);
       return (rows as unknown as Record<string, unknown>[]).slice(0, MAX_ROWS);
     },
@@ -126,7 +182,18 @@ export async function answerQuestion(
   let rows: Record<string, unknown>[];
   try {
     rows = await runReadOnly(sqlText, asker);
-  } catch {
+  } catch (e) {
+    if (e instanceof QueryScopeRefused) {
+      // A gate decision, so it is on the record — with which tables, never with any of their rows.
+      await logAudit({
+        correlationId,
+        actor: asker.employeeId ? `employee:${asker.employeeId}` : "system",
+        action: "query.scope_refused",
+        entity: "query",
+        detail: { tables: e.outside },
+      }).catch(() => undefined);
+      return abstain("That would need records the question box is not allowed to read, so I won't answer it.", sqlText);
+    }
     return abstain("The query could not run, so I won't guess.", sqlText);
   }
   const truncated = rows.length >= MAX_ROWS;

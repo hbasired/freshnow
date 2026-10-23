@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TASK-059 — Operations command centre</title>
+<style>
+  :root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#3fb950;--warn:#d29922;--bad:#f85149;--card:#161b22;--bd:#30363d}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;max-width:980px;padding:48px 24px;margin-inline:auto}
+  h1{font-size:1.9rem;margin:0 0 4px} h2{margin-top:2.5rem;color:var(--acc);font-size:1.25rem} h3{font-size:1.05rem;margin-top:1.6rem}
+  .meta{color:var(--mut);font-size:.9rem;margin-bottom:2rem}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:18px;margin:14px 0}
+  .unverified{border-left:3px solid var(--warn)} .ok{border-left:3px solid var(--acc)}
+  code{background:#1f2630;padding:2px 6px;border-radius:4px;font-size:.9em}
+  pre{background:#1f2630;padding:12px;border-radius:8px;overflow-x:auto;font-size:.85rem;line-height:1.45}
+  .tw{overflow-x:auto} table{border-collapse:collapse;width:100%;margin:14px 0}
+  th,td{border:1px solid var(--bd);padding:7px 9px;text-align:left;font-size:.88rem;vertical-align:top} th{background:#1f2630}
+  ul{padding-left:1.1rem} li{margin:3px 0} a{color:#88c0f0}
+  .flow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0}
+  .flow span{background:#1f2630;border:1px solid var(--bd);border-radius:8px;padding:6px 10px;font-size:.85rem}
+  .flow b{color:var(--mut)}
+  @media (max-width:600px){body{padding:28px 16px}}
+</style></head><body>
+<h1>TASK-059 — Operations command centre</h1>
+<p class="meta">2026-10-17 · Operations + Inventory expansion, layer 5 · migration <code>0031_machine_alarms.sql</code> · new:
+core <code>ops-alarms.ts</code>, <code>ops-fleet.ts</code>, <code>ops-morning.ts</code>; dashboard <code>portals/ops-now.tsx</code>,
+<code>ops-machine.tsx</code>, <code>ops-day.tsx</code> · changed: <code>routes/ops.ts</code>, <code>operations.tsx</code>, <code>App.tsx</code>,
+<code>portals.ts</code>, <code>alerts.ts</code> (app first), the worker's Televend job and minute loop · no new dependency</p>
+
+<div class="card ok"><b>One-sentence summary:</b> the Operations portal now shows every machine's state, the Televend alarms
+that actually need someone (the blips that clear themselves held back by rules), the cash each collection should have found
+according to Televend's own sales, and yesterday's report — sent to the people who run the machines every morning — while
+alarms can become routed, escalating problems the moment someone is named to handle them.</div>
+
+<h2>What was asked</h2>
+<ul>
+  <li>The plan's TASK-059: a command centre (KPIs, a fleet grid, "needs action now"), machines, alarms with debounce and
+      classification, yesterday's report, recommendations; actionable alarms → system problems → routing, SLA, escalation.
+      <b>Done when</b> numbers on screen trace to SQL and alarm noise is suppressed per the measured classes.</li>
+  <li>The user (16 Oct): keep the plan's order — this, then inventory; the app is the main channel, Telegram an option (D217);
+      check today's WhatsApp screenshots and chats and automate that process.</li>
+</ul>
+
+<h2>What was done</h2>
+<div class="tw"><table>
+<tr><th>Part</th><th>What it does</th><th>Decisions</th></tr>
+<tr><td>Alarm rules</td><td><code>alarm_rule</code>: 13 Televend alarm names classified from the measured data (e.g. "Cashless device"
+  is noise with a 30-minute on-delay, 95 % clear in under 5 minutes; "Product level low" actionable, high). An alarm with no rule
+  needs someone after 30 minutes.</td><td>D220</td></tr>
+<tr><td>Alarms → problems</td><td>The worker, after every Televend read, raises one problem per machine and alarm name past its
+  on-delay (raised by a system actor), routes it, folds repeats into it, and closes it when Televend clears every alarm behind it.
+  Behind <code>OPS_ALARM_PROBLEMS</code> — off until the company names who handles machine, stock and cash problems.</td><td>D220</td></tr>
+<tr><td>Now</td><td>Tiles; "Needs someone now" with what to do; every machine by region with its state, cups today and the cash waiting;
+  filters and search; a machine panel.</td><td>D222</td></tr>
+<tr><td>Cash</td><td>Each collection's "should have found": Televend's cash vends since the previous collection × the machine's price.</td><td>D221</td></tr>
+<tr><td>Day report</td><td>One Dubai day per machine: cups by payment, collections with expected cash, refills, alarms, silent machines;
+  "not read in full" said first when it was not.</td><td>D222</td></tr>
+<tr><td>Morning report</td><td>07:30, once, to everyone who runs the machines: yesterday in five lines, app first, Telegram only where
+  the app cannot reach a phone.</td><td>D222, D217</td></tr>
+<tr><td>App first</td><td>Wherever a channel is chosen the app is listed first; <code>notifyPeople</code> gained a Telegram-as-fallback mode.</td><td>D217</td></tr>
+<tr><td>From the review of TASK-058 (fixed before this task)</td><td>A critical sign-in bypass (encoded paths) and nine phone sign-in
+  findings; correlation ids must be UUIDs.</td><td>D219, G191, G192</td></tr>
+</table></div>
+
+<h2>Why it was done this way</h2>
+<h3>Rules decide which alarms matter — and the data decided the rules</h3>
+<p>Measured on the live mirror (4–16 Oct): 932 alarms; "Cashless device" 20 a day, 95 % gone in under 5 minutes; "Communication
+Interrupted" 20 a day, 90 %; while "No cash sales" lingers a median 455 minutes and "Product level low" 305. ISA-18.2's on-delay is the
+standard tool: wait a set time before calling an alarm a problem. Nothing about who or whether is left to a model.</p>
+<h3>Names lie; the data does not</h3>
+<p>The obvious refinement — ignore cash alarms on machines named "card only" — would have hidden real faults: those machines sold
+2,619 cash cups in 14 days, and every open cash alarm was on a machine that had taken cash (G193). The rules stay per alarm, not per name.</p>
+<h3>Switched off until someone is named</h3>
+<p>With the demo's catch-all routing every problem goes to the CEO. Thirty pages a day to the CEO is how alerting gets ignored, so the
+pipeline is built, tested, and off; the command centre lists the same alarms meanwhile.</p>
+<h3>"Should have found", not "is missing"</h3>
+<p>Televend's own cash sales say what a collection should find; on 16 Oct 18 of 29 reported collections matched exactly and 11
+reported more (VF75). The system states the expectation and leaves the judgement to a person — a custody fact, never a score.</p>
+
+<h2>How it works</h2>
+<div class="flow"><span>Televend read (every 10 min)</span><b>→</b><span>tv_event</span><b>→</b><span>alarm_rule: wait · raise · ignore</span><b>→</b>
+<span>machine_alarm → blocker (system actor)</span><b>→</b><span>routeAndAlert: resolver, SLA, page</span><b>→</b><span>sla_sweep → escalation</span></div>
+<pre>expected cash (collection c) = count(vends: payment_type = 0, at ∈ [previous collection + 1 min, c + 1 min)) × coalesce(machine.cash_price_fils, AED 10)
+state = offline (connection 0) › needs someone (an alarm past its on-delay) › Televend warning › OK</pre>
+
+<h2>Research findings</h2>
+<div class="tw"><table>
+<tr><th>Source</th><th>What it says</th><th>Effect here</th></tr>
+<tr><td>ISA-18.2 (via secondary sources)</td><td>On-delay/off-delay and deadband for chattering alarms; ~6 alarms per hour per operator,
+  12 the maximum; a flood is &gt; 10 in 10 minutes; chattering should be zero.</td><td>on_delay_minutes per alarm; noise class</td></tr>
+<tr><td>Vending telemetry practice (Cantaloupe / Nayax)</td><td>Uptime, cash levels and inventory drive route planning; pick lists from cash and stock.</td>
+  <td>Cash waiting per machine; route suggestions are TASK-061</td></tr>
+<tr><td>Firebase Android message priority (2026-10-15)</td><td>High-priority messages must lead to user-visible notifications.</td><td>The app's wake-up rule (D213), used by the morning report later</td></tr>
+</table></div>
+
+<h2>Verification</h2>
+<div class="card ok"><ul>
+  <li>Tests against a throwaway Postgres: ops-alarms (7: the decision's boundaries, the sync raising, joining, waiting, idempotent,
+      RLS, auto-resolve, the off switch), ops-fleet (5), ops-morning (3), ops over HTTP (4), semantic layer and grants.</li>
+  <li>Browser: 17 checks (VF77).</li>
+  <li>Live, read-only (VF76): the command centre's numbers on the real fleet at 10:40; the morning report for 16 Oct sent to the one
+      person who runs the machines today.</li>
+</ul></div>
+
+<h2>What we have not verified</h2>
+<div class="card unverified"><ul>
+  <li><b>Alarms → problems on the live system</b>: tested end to end on the test database; off live (D220).</li>
+  <li><b>The rules' delays and severities</b> come from 13 days of data and a standard, not from the people who fix the machines.</li>
+  <li><b>AED 10 per cash vend</b> (A-T62.1) — 18 of 29 collections fit it; prices per machine are not known.</li>
+  <li><b>Which driver collected</b>: Televend's event does not say (VF75); the app will (TASK-061).</li>
+  <li><b>The fixes for the independent review</b> (below) are tested against the throwaway database; the open-alarm refresh is also seen
+      working live (VF81). Two low findings are written down, not fixed: expected cash across a machine move made without a collection,
+      and a re-pointed Televend record mixing two machines' history on the machine page.</li>
+  <li><b>The fixes' own review</b> (20 Oct, <a href="#review-20oct">below</a>) is tested against the throwaway database. Alarms → problems are
+      still off live, so the problem-closing fixes have not run on real alarms. A full upload queue's 503 is not tested; the media
+      queue was seen on the live <code>/health</code>.</li>
+  <li><b>Screen readers</b> on the fleet grid and the panel's chart.</li>
+</ul></div>
+
+<h2>Open questions</h2>
+<ul>
+  <li>Who handles machine faults, stock and cash — so alarms can be switched on as problems?</li>
+  <li>Each machine's cash price.</li>
+</ul>
+
+<h2>Review</h2>
+<p>An independent review (three read-only reviewers and a skeptic, 17–18 Oct) confirmed 9 findings in this task — all fixed with tests (D233):</p>
+<div class="tw"><table>
+<tr><th>Finding</th><th>Severity</th><th>Fix</th></tr>
+<tr><td>A long alarm's clearance was never read: the incremental read re-reads only the last hour of starts, the daily check yesterday once.
+  The machine kept showing "needs someone" and its problem never closed.</td><td>high</td><td>Each sync re-reads the short windows around the
+  starts of the alarms still open, longest unchecked first (Televend has no "open alarms" list, G199). Live: 50 open → 8 (VF81).</td></tr>
+<tr><td>Different alarms on one machine were folded into one alert by category: "Bill / Cash Box Full" behind "No cash sales" paged nobody
+  and was acknowledged with it.</td><td>high</td><td>A system-raised problem is always its own alert.</td></tr>
+<tr><td>A repeat inside its on-delay did not join the open problem, so the problem closed while the alarm was still open and was raised
+  again.</td><td>medium</td><td>Repeats join first; a problem closes only when no repeat is open.</td></tr>
+<tr><td>Any failing stream (one machine's refill log) stopped the alarm sync.</td><td>medium</td><td>The alarm sync runs whenever the events
+  were read.</td></tr>
+<tr><td>A switched-off Televend record raised problems nobody could see, which never closed.</td><td>medium</td><td>Excluded; their problems
+  close, saying why.</td></tr>
+<tr><td>The day report counted alarms by rule class: a three-hour "blip" was reported as having cleared itself.</td><td>medium</td><td>Counted by
+  what happened: stayed open past its wait, or cleared within it.</td></tr>
+<tr><td>Info alarms could crowd newer alarms out of the batch.</td><td>low</td><td>Excluded from the batch.</td></tr>
+<tr><td>Expected cash across a machine move made without a collection; a re-pointed record mixing two machines' history.</td><td>low</td>
+  <td>Written down, not fixed (rare).</td></tr>
+</table></div>
+<p>The same review covered TASK-058's live updates, media store and question box; those findings and fixes are on the TASK-058 page.</p>
+<h2 id="review-20oct">Independent review, 20 Oct</h2>
+<p>The review owed since 15 Oct ran on 20 Oct, once the usage limit reset (D263). For each area, read-only reviewers looked for defects and a skeptic tried to refute each finding before it counted. A second pass then checked every fix — fixed, partly fixed, or fixed but broke something — and looked for what the fixes themselves broke, again with a skeptic for each problem. Everything confirmed was fixed with a test unless the row says otherwise.</p>
+<p>This round reviewed the fixes made after the 17–18 Oct review: 7 findings, all 7 confirmed and fixed. Two of them (#3, #4 below) and two follow-ups are about the media store built in TASK-058.</p>
+<div class="tw"><table>
+<tr><th>Finding</th><th>Severity</th><th>Fix</th></tr>
+<tr><td>The day report and the morning report counted none of yesterday's late alarms that were still open.</td><td>medium</td><td>An alarm still open is measured to the time the report is made: one from 23:45 still open the next morning 'needed someone'. Test.</td></tr>
+<tr><td>A problem behind an alarm open for more than 14 days never closed, even after Televend cleared it.</td><td>medium</td><td>An alarm behind a problem still open is re-read whatever its age, so the problem closes when Televend clears it. Test: 24 days old.</td></tr>
+<tr><td>Each photo or video upload held one of the API's 5 database connections for the whole Storage upload, which had no timeout.</td><td>low</td><td>At most two uploads at once hold a database connection, and every storage call has a deadline (60 s write, 30 s read). Test: every call carries its deadline.</td></tr>
+<tr><td>Storage's "Bucket not found" was still read as "no such file".</td><td>low</td><td>A missing bucket is reported as the outage it is; only a missing object reads as 'no such file'. Test.</td></tr>
+<tr><td>An info alarm's repeat, which is never linked, still held a problem open.</td><td>low</td><td>An info alarm's repeat never holds a problem open. Test.</td></tr>
+<tr><td>A machine record switched off and back on: its problems closed while their alarms were still open, and those alarms were never raised again.</td><td>low</td><td>A problem closed because its record was switched off lets its open alarms go (migration 0041); the record switched back on raises them again. Test.</td></tr>
+<tr><td>A window that failed on every run blocked the whole open-alarm re-check queue.</td><td>low</td><td>A window Televend fails on goes to the back of the queue and the others are still read; the run still reports the failure. Test.</td></tr>
+</table></div>
+<h3>The second pass: checking the fixes</h3>
+<p>Of the 7 fixes, 4 were checked as fixed and 3 as partly fixed. The 5 problems it found were all confirmed and are all fixed (D260, D262):</p>
+<div class="tw"><table>
+<tr><th>Finding</th><th>Severity</th><th>Fix</th></tr>
+<tr><td>An upload's storage-bucket call had no deadline, and one failure broke every later upload until the API restarted.</td><td>medium</td><td>The bucket call has a 30-second deadline, and any failure is tried again on the next upload, never remembered. Test.</td></tr>
+<tr><td>The command centre dropped an alarm older than 14 days while the problem behind it was open and escalating.</td><td>low</td><td>The command centre, the machine panel and the machine page list an alarm behind an open problem at any age, as the re-check reads it. Test.</td></tr>
+<tr><td>A problem whose own alarm is reclassified as info never closed while that alarm stayed open (info alarms stay open in Televend).</td><td>low</td><td>A linked alarm whose rule is now info counts as done; the problem closes, saying "its alarm is now classified as information only". Test.</td></tr>
+<tr><td>A switched-off record's alarms were not released when closing their problem failed half-way.</td><td>low</td><td>Released in the same transaction that picks the problems, before any is closed. The existing release test still passes; the failure path itself is not tested.</td></tr>
+<tr><td>A full upload queue answered with a bare HTTP 500 and did not show on /health.</td><td>low</td><td>It answers 503 "Too many photos and videos are being sent right now. Please send it again in a minute.", and /health shows the media queue. The 503 is not tested; /health was seen live.</td></tr>
+</table></div>
+<p>The Operations browser check (TASK-072's), run again on the final code of 20 Oct: 19 of 19, no console errors. It does not exercise the alarm fixes, which have no screen of their own beyond the alarm list.</p>
+</body></html>

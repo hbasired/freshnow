@@ -112,7 +112,7 @@ git checkout claude/elegant-curie-bgpzqh     # this update's branch (or main, on
 git pull origin claude/elegant-curie-bgpzqh
 
 docker compose up -d                         # Redis (the worker's email jobs need it) + Adminer
-npx supabase start -x realtime,storage-api,imgproxy,edge-runtime,logflare,vector,supavisor,mailpit,postgrest
+npx supabase start -x realtime,imgproxy,edge-runtime,logflare,vector,supavisor,mailpit,postgrest
 
 pnpm install                                 # adds the two email libraries (imapflow, mailparser)
 pnpm migrate                                 # adds 0020_email.sql and 0021_task_number.sql

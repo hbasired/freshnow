@@ -735,21 +735,240 @@ Read in `dist/esm/search-compiler.js` (OR builds a binary IMAP OR tree; TO and C
 Dovecot's `\Sent` mailbox with the alias in Cc was found and assigned. The same test against the TASK-053 poller found nothing
 (`outcomes: {}`) — the failure reproduced before the fix.
 
+## VF54 (2026-10-15) — Televend has an official API [verified — devportal.televendcloud.com + its OpenAPI specs]
+Gravitee + Keycloak; JWT via OAuth2 client credentials (2 h, no refresh token), issued by Televend IT at onboarding (UAT token URL
+`uat-auth…/realms/gravitee3/…`, production URLs given at onboarding). Data-Streaming: vends, vending-events, fill-events,
+cash-collections, cashbag-countings and more; `GET …/records` returns `{partition, offset, dataType, data}`; commit is
+`POST …/offsets` with no body (204); streams keep 7 days; ≥ 1 request/second for near-real-time APIs. Master Data reads are
+`GET /importer/{type}/api/v1`; upsert/delete are writes. Price not published.
 
-## VF-T70.1 (2026-10-23) — Chromium treats a file:// page as a secure context; microphone recording works there [verified — Playwright, fake media device]
+## VF55 (2026-10-15) — Programmatic sign-in to the Televend web app works [verified — one sign-in, read-only calls]
+Keycloak `auth.televendcloud.com`, realm `televend`, public client `cwa-route-fe`, password grant: access token 600 s, refresh
+900 s. The token carries no app roles; Televend checks permissions server-side (`/warden/televendcloud/access-control-list`).
+Tenant id for this company: 5.
+
+## VF56 (2026-10-15) — What the account we were given can and cannot do in Televend [verified — its access-control list]
+Role CompanyManager with EDIT rights on machines, events, products, prices, routes and more — hence the code-level allow-list.
+Cash-centre views are all off (cash collections → 403), vend revenue is hidden (`value: null`), and it cannot view or create users.
+
+## VF57 (2026-10-15) — A live read matches the portal's own exports [verified — pnpm televend:verify, 12 Oct and 5 Oct]
+Machines: same total and enabled count (9 renamed, matched by asset number). Refills: 0 per-machine mismatches in rows or cups on
+both days. Alarms/warnings: every exported row matched a live event on the same machine and minute (65/65 and 87/87). Vends: the
+windowed list equals Televend's whole-day count on both days.
+
+## VF58 (2026-10-15) — Televend code meanings seen in live data [verified — matched against exports]
+Event level 3 = alarm, 2 = warning (every exported row), 1 = everything else (info: ORF_* machine codes, "Power OFF", "Cash has
+been collected from the machine."). Refill `fill_type` 0 = Filled, 1 = Corrected; `source` 2 = Mobile app, 1 = Web app.
+
+## VF59 (2026-10-15) — Televend's "cash collected" events line up with the WhatsApp cash posts [verified — one night shift]
+14 Oct 12:00 → 15 Oct 11:00: 38 of 41 WhatsApp machine posts matched a Televend "Cash has been collected from the machine." event
+on the same asset number within 90 minutes (median 1 minute). The one real mismatch was a mistyped machine number in the post;
+the two others were a fuel receipt and a deposit photo. Per-person matched totals equal the people's own posted totals. Detailed
+analysis (with names) kept in private-data/reports/.
+
+## VF60 (2026-10-15) — MCP TypeScript SDK v2 [verified — npm + package source + stdio run]
+`@modelcontextprotocol/server` 2.3.1 calls itself the stable release line; depends on its core and zod ≥ 4.2; its core lists
+protocol versions back to 2024-10-07 (negotiated 2025-06-18 with our probe); tools via `registerTool(name, {inputSchema:
+z.object(…), annotations}, handler)`; stdio via `serveStdio(factory)` from `@modelcontextprotocol/server/stdio`.
+
+## VF61 (2026-10-15) — Oranfresh OJ-130 published capacity [believed — vendor catalogue 2025, through research]
+55 kg ≈ 440 oranges per load; 100–130 cups at 200–300 ml; serving 30–35 s; automatic cleaning. Not FreshNow's numbers — the cups
+per carton used by reconciliation is calibrated from FreshNow's own data later (A-T55.x).
+
+## VF62 (2026-10-15) — Televend history depth through the web endpoints [verified — live reads]
+Whole-day vend counts were returned for 15 Oct 2025, 15 Jan, 15 Apr, 15 Jun and 1 Sep 2026; events were returned for April 2026 and
+later (none in a January 2026 half hour). The earliest date served was not searched for.
+
+## VF63 (2026-10-15) — First live syncs into the mirror [verified — pnpm televend:sync, twice]
+First run: 243 requests, one password sign-in — machines, a 6.5-hour window of vends and events, today's refills of machines refilled
+today, and a complete daily check of 14 Oct (vends equal to Televend's own count; every enabled machine's refill log read). Second run
+straight after: 5 requests; only rows that were genuinely new since the first run were stored.
+
+## VF64 (2026-10-15) — The mirror equals the portal exports for 4–13 Oct [verified — per-row comparison]
+After the G159/G160 fixes and a re-read of 4–14 Oct asking every machine record (2,464 requests, one sign-in): refills identical
+to the CSV export refill for refill on 4–12 Oct (68 · 52 · 38 · 39 · 49 · 49 · 53 · 65 · 54); on 13 Oct the export ends at 11:03
+Dubai and all 29 of its refills are in the mirror (plus 19 later). Every exported alarm row is in the mirror (111 · 87 · 74 · 63 ·
+75 · 98 · 96 · 71 · 65 · 15). Vends: every day complete and equal to Televend's own whole-day count (2,479 · 1,456 · 1,563 · 1,567 ·
+1,621 · 1,645 · 2,146 · 2,039 · 1,570 · 1,612). Scripts: private-data/scratch/refill-diff-all.ts, backfill-vs-exports.ts.
+
+## VF65 (2026-10-15) — The worker keeps the mirror within 15 minutes [verified — tv_sync_run + /health, 90 minutes]
+15:01–16:31 Dubai, after the G163 fix: 10 incremental runs, all ok, each exactly 10.0 minutes after the previous, ≈ 6 requests per
+run (machines 3, vends 1, events 1, refills only when a machine was refilled). At the end: /health lag 6 min, newest stored vend
+8 min old (2-min settle window + time since the last run).
+
+## VF66 (2026-10-15) — The roles hold in Postgres and over every channel [verified — tests]
+The twin: Postgres (role_capability through app_has_capability) answers all 11 roles × 19 capabilities exactly as permissions.ts. An
+org of nine people across seven roles: CEO and Admin see all nine; Ops Head their two direct reports (not their report's report);
+Supervisor theirs; the lead their department; VMO, technician, cash auditor, warehouse keeper and employee only themselves — in people,
+tasks, projects, the audit log and the Televend mirror (CEO, Admin, Ops Head, Supervisor only). Over HTTP and through the real bot the
+new roles do exactly their capabilities and are refused the rest, forged taps included. Full suite after TASK-057: 869 pass, 5 skipped.
+
+## VF67 (2026-10-15) — A photo with a GPS block comes back from Supabase Storage without it [verified — live]
+Through core storeMedia/readMedia against the local Supabase Storage (storage-api v1.82.1): a 1200×900 JPEG carrying a GPS IFD
+and a device name was stored (3,533 bytes) and read back with no EXIF and no device string; the bucket is private, JPEG/MP4
+only, 50 MiB; the public key alone is refused (400). The check removed its own file and record.
+
+## VF68 (2026-10-15) — One API process carries 1,000 live streams on the laptop [verified — scripts/live-load.ts, freshnow_test]
+300 people (CEO, Admin, 19 supervisors, 279 VMOs) at 5 writes/s for 60 s: 16.8 KB RSS per stream, 0.9 % of one core during the
+burst, commit to browser p50 2 / p95 3 / max 5 ms, 1,200 doorbells where everyone-hears-everything would have rung 90,000; after
+an org change every picture was current in 1.27 s. 1,000 people at 20 writes/s for 30 s: 23 KB per stream, 3.1 %, p95 4 ms, 2,400
+doorbells instead of 600,000; org change 4.5 s, peaking at 107 % CPU. Before the candidate shortcut (G179) 300 people took 8.95 s.
+The scoped trigger costs ≈ 0.31 ms per statement against 0.15 ms for the old one. Reports: scratchpad live-load-300b.json, -1000.json.
+
+## VF69 (2026-10-16) — The Operations portal and its chart library download only when it is opened [verified — build + Chromium]
+`pnpm build:web`: operations chunk 372.66 kB (110.06 kB gzip), main bundle 600.79 kB (174.36 kB gzip). In Chromium
+(playwright-core 1.63.0) the tasks board requests no operations chunk and opening Operations requests exactly one; a blocked
+chunk shows the Reload card and the rest of the app stays usable.
+
+## VF70 (2026-10-16) — The Operations page shows only what the mirror read [verified — 31 browser checks, freshnow_test]
+Today's cups equal SQL's count up to the horizon; three lines (today, a week earlier, the dashed hour in progress) and the table
+marks "(so far)"; yesterday, read whole, against a day before the mirror draws one line, "—" and "not in the mirror"; a gap day
+and a day before the mirror say so in words with no number; a VMO is moved off Operations without a Back trap; dark, light and a
+390 px phone without sideways scroll.
+
+## VF71 (2026-10-16) — The live mirror has read every minute since 4 Oct 00:00 Dubai [verified — read-only query]
+The complete vends runs (10 backfills, 2 daily checks, 79 incremental) form one unbroken range from 2026-10-03 20:00 UTC to the
+latest read. One backfill of 10 Oct stayed 'partial' (never finished, G188); another complete run covers that day.
+
+## VF72 (2026-10-16) — Notice 3.0 under the live settings is 4,568 characters [verified — measured, no value printed]
+Every part on (Telegram, AI services, push, email out and in, Televend, photos, phone app): 49 lines; the Telegram request
+4,688 characters, over Telegram's 4,096 (G187). It goes in two messages.
+
+## VF76 (2026-10-17) — The command centre on live data [verified — core functions, read-only, 10:40 Dubai]
+87 enabled machines: 54 OK, 27 needing someone (35 alarm lines past their on-delay), 2 with a Televend warning, 4 offline;
+176 cups so far against 194 by the same time last week; AED 1,680 waiting in the machines since their last collections; 29
+collections and 28 refills since midnight. Yesterday (16 Oct): 1,474 cups (306 cash, 1,120 card), 34 collections that should
+have found AED 2,430, 37 refills, 52 alarms that needed someone and 41 blips, 8 enabled machines with no sale.
+
+## VF77 (2026-10-17) — The command centre in a browser [verified — 17 Chromium checks, freshnow_test]
+Synthetic fleet: a machine in each state; the alarm past its on-delay listed with its advice, the blip inside it not; machines
+grouped by region; the "Needs someone" filter; the machine panel (AED 60 should have been found from 6 cash vends; the refill
+and who filled it; Escape closes it); the day report's figures equal the API's for the same day; #operations/day in the hash;
+a 390 px phone without sideways scroll and the panel full-screen.
+
+## VF73 (2026-10-16) — The cash process on 15/16 Oct, as the WhatsApp group shows it [verified — 16-10 folder, 59 photos read]
+Each machine visit is posted as two photos: the Televend Staff App screen (Scan a barcode ✓, Cash collection ✓, "Cash collection
+done") and the machine's own counter display. Every one of the 29 counter photos shows Part Cash 0.00, also where cash was
+reported (Saudi German 314: AED 140; Mall of Emirates 310: AED 240) — see G190. Cash-deposit-machine receipts print time,
+transaction no., operator id and name, CDS id, bag no., denominations and total: Yakup 585 (58 × 10 + 1 × 5) at 06:36; David's
+860 (8 × 100 + 50 + 10) at 20:29 under operator "NOEL" (A-T61.2); both CDS 1001285, bag 150001331617. Fuel is paid in cash with
+a printed receipt (Emarat: 43.25 L × 4.28 = 185.11, vehicle and odometer printed). The nightly lists balance: Yakup 790 − fuel
+185 − a "cash test" 10 − a "juice try" 10 = 585 = his receipt; Kamran 850 − 200 = 650; David (15 Oct) 1,085 − 170 = 915; Newton
+660 − 170 = 490; David (16 Oct) 860 = his receipt. The auditor marks each list "audit ok ✅" by quoting it, hours later. In the
+mirror, cash vends are payment_type 0 (≈ 19 % of vends 14–16 Oct), but the bridge gives no vend value (raw.value is null).
+
+## VF74 (2026-10-16) — The warehouse list is copied forward, not counted [verified — WhatsApp, 15 and 16 Oct]
+The consumable lines are the same both days (gloves 31, sleeved cups 42, salt box 19, sealer 64, garbage bag 4.5, engine oil 9,
+oil filter 6, D1 2, D4 1, handwash 1 gallon, floor cleaner 1; liquid detergent and trolley belt 🚨 on both) except straw (1.5 →
+2). Oranges: "~84" after the first team on 15 Oct, "54" after the first team on 16 Oct, "159" at 16:32 with a 17.15 kg carton
+on a scale (FVC International citrus, "LALA" — A-T60.1). Nothing records who took or returned how many, or what arrived. The CEO
+asks in the groups for the opening stock and the stock after the first team, for "how many oranges you took and how many you
+brought back", and "who took company phone from warehouse".
+
+## VF75 (2026-10-16) — Televend can check every reported cash collection, and 11 of 29 did not match [verified — read-only query]
+For the 29 collections the drivers reported on 16 Oct, Televend's events give each machine's collection times ("Cash has been
+collected from the machine", read by the connector — amounts need Televend's cash-centre permission) and the mirror its cash
+vends (payment_type 0) between the previous collection and this one. At AED 10 a cash vend, 18 reports match exactly (all four
+AED 0 among them) and 11 report MORE cash than Televend recorded: +10 at 314, 310, 402, 545, 864, 397; +15 at 389, 861; +20 at
+398; +40 at 318; +55 at 368 — AED 205 in all. One extra AED 10 note fits the "cash test 10 aed" practice in Yakup's list; the
+rest is unexplained (failed vends, no change, a cash price other than 10 — A-T62.1). Query: scratchpad cash-check.sql.
+
+## VF78 (2026-10-18) — The stock ledger's guarantees hold under test [verified — freshnow_test]
+inventory-ledger (29), inventory-counts (9), inventory-notify (5), the API (7), RLS/live scope and grants: after 80 seeded random
+postings every place's balance equals its moves, every item sums to zero over all places, no real place is below zero, and the
+generator did run out of stock (refusals happened); two simultaneous hand-outs of the last carton — one succeeds, one is refused
+in words; UPDATE/DELETE of a move refused; the app role holds SELECT only on all eight stock tables.
+
+## VF79 (2026-10-18) — The Stock portal in a browser [verified — 22 Chromium checks, freshnow_test]
+As a keeper (wide, dark): 16 cartons after 20 in and 4 out; the hand-out waits for the driver; give out half a box of straws.
+As a driver (phone, 390 px): two handovers wait; "All here" is 48 px or more; no sideways scroll; accept one, count the other
+short. As the Ops Head (light): settle it back — the warehouse has its 3 boxes again. A blind count shows no record figure; it
+matches; movements, the day sheet (start + in − out = end) and the item list. No console errors.
+
+## VF80 (2026-10-18) — Live: inventory switched on, Televend caught up [verified — read-only queries, worker log]
+Migrations 0032–0033 applied 13:10; 19 items and 6 places, no stock. The worker, off since 17 Oct ~17:00, read 1,175 vends,
+1,279 events and 54 refills on its first run; the daily check of 17 Oct completed all three streams; lag 1 minute.
+
+## VF81 (2026-10-18) — The open-alarm refresh on the live mirror [verified — read-only query]
+Alarms open in the mirror over 14 days: 50 on 17 Oct, 8 on 18 Oct after the refresh's first runs; all 8 re-checked; 20 alarms
+were re-read and found cleared by Televend.
+
+## VF82 (2026-10-19) — Every sale in the Televend mirror is one cup, with no amount [verified — read-only query]
+26,136 vends: cash 4,655, cashless 8,164, cashless 3 12,458, token 750, wallet 109 — quantity 1 on every row, `value` empty on every
+row (the bridge's list carries no amount). So "should have found" stays cash sales × price (D221).
+
+## VF83 (2026-10-19) — Supabase unreachable after a reboot: Windows had reserved its ports [verified — netsh, docker inspect]
+The containers ran but published no ports; `netsh interface ipv4 show excludedportrange protocol=tcp` listed 54306–54405 (a
+dynamic WinNAT/Hyper-V reservation) over 54321–54323. Fixed with the user's approval: WinNAT stopped, 54321–54323 reserved as an
+administered exclusion, WinNAT started, the containers restarted — health back to db ok, sign-in answering (G204).
+
+## VF84 (2026-10-19) — Live: routes and visits switched on [verified — read-only query, health, logs]
+Migration 0036 applied 23:19. route_plan, route_plan_member, route_stop, visit, visit_evidence and visit_doc have row security
+enabled and forced; role_capability lists routes.plan for admin, ceo, ops_head, supervisor and visits.record for those plus
+technician and vmo; 86 machines, all numbered and active, none with a day/night rule; 0 plans, 0 visits. After the restart: health
+ok, Televend lag 1 minute, `/dashboard/route/home` answers 401 without sign-in, and the worker asked 2 people to agree to the
+changed notice (3.0-draft).
+
+## VF85 (2026-10-19) — Televend's regions, prices and payment types in the live mirror [verified — read-only queries]
+87 enabled machines by region: Hospital / Clinics 19, Metro 19, Shopping Mall / Complex 18, Events 8, Office Buildings 7, Tram 6,
+Shopping Centers 5, Other stations 3, Parks 2 (221 records in all; Cluster8–10 have none enabled). Prices appear in names as "AED 15",
+"AED15", "AED12", "aed12", "AED8", "AED5"; no machine has a price set by hand. Sales since 3 Oct by payment: Cashless 3 12,734,
+Cashless 8,400, Cash 4,665, Token 777, Wallet 109. Every region's "location" is one shared address (G207).
+
+## VF86 (2026-10-20) — The first live Analytics figures: 13–19 Oct against 6–12 Oct [verified — core's machinePerformance on the live mirror, read-only, 96 ms]
+All 7 days read in both weeks. 10,607 cups — 1,515.3 a day against 1,734.9 (−12.7 %). 83 of 87 machines sold; nothing at Gift market
+367, Hamriya Beach 792, WAREHOUSE 1168 and Oranfresh-ITALY. 48 machines (57.8 % of those that sold) made 80 % of the cups. Fleet
+average 18.3 cups per machine a day; tiers: top 27 machines (54.7 % of cups), about average 25 (29.9 %), below 31 (15.4 %). Per machine a
+day: Metro 22.2 (volume −19.9 %), Shopping Mall / Complex 21.1, Hospital / Clinics 20.4, Events 15.1 (+16.6 %), Office Buildings 7.1
+(lowest). Sharp drops: NMC DIP Pediatrics 863 (14.4 → 3.6 a day), Expo 403 (10.4 → 3.7), Metro Business Bay 387 (33.4 → 14.6). Cash
+fell from 20.8 % to 13.4 % of cups. Estimated income AED 109,547 (from the prices in the names — D251). Just after midnight the day
+before shows "not read in full" for one sync cycle: at 00:08 the newest window ended at 23:59 (verified 20 Oct; closed at 00:11).
+
+## VF87 (2026-10-20) — How far back Televend keeps sales [verified — read-only probes through the MCP tool]
+The itemised sales list returns sales on 31 Mar 2026 (863, equal to Televend's own count), 1 Apr (1,028), 5 Apr (1,354) and 15 Apr
+(975), and none on 20 Mar 2026, 15 Feb 2026 or 15 Dec 2025 — although Televend's own count for those days is 1,290, 2,347 and 1,830.
+So the list holds about 200 days (its first day is between 21 and 31 Mar as of 20 Oct) while the daily totals go back further.
+Whether that is a rolling window (a day lost each day) is not known; the backfill was started the same night. In April, asset 796 was
+"Union Coop-Al Nahda" — it has had four Televend records as it moved.
+
+## VF88 (2026-10-20) — The analytics store on live data [verified — read-only checks]
+First build: 26 checked days, 23 Sep – 18 Oct; every day's sales equal Televend's own count (26 of 26 agree, none failed); for every
+built day the store's cups and its hourly cups equal the raw mirror's; every row's payment parts add up to its cups. Cups by region as
+sold at the time: Metro 12,445, Shopping Mall / Complex 10,673, Hospital / Clinics 10,368, Events 3,758, Tram 2,309, Shopping Centers
+1,478, Office Buildings 1,337, Other Stations 677, Parks 317.
+
+## VF89 (2026-10-20) — Cash at machines named "AED 12" is collected in tens [verified — the 15–17 Oct WhatsApp cash lists; inference believed]
+Nad Al Hammar 789 (named AED 12): AED 110 and 160; Wasl 864: AED 10, 20 and 40 — amounts that are not multiples of 12. With cash at AED 12
+a collection would be a multiple of 12 unless notes were fed without a sale. Taken as: the name's price is the card price; cash is AED 10
+(D258). Not verified against Televend's own amounts (the sales list has none, VF82) — the API key (082) settles it.
+
+## VF90 (2026-10-20) — Televend's stock share in the live mirror [verified — read-only query]
+All 87 enabled machine records carry `stock_percent`. It ranges from −0.22 to 1.00; one record is below zero and eight are under 0.25
+(20 Oct, about 11:40 Dubai). Below zero means sales outran the fills logged in the Staff App, so the figure is an estimate — the machine
+page (TASK-072) says "about".
+
+## VF91 (2026-10-20) — The sales history on live data: the store and Televend's day totals [verified — read-only queries]
+The store holds every day from 26 Mar to 19 Oct 2026 (208 days), each equal to Televend's own count; 25 Mar is not built (the list begins
+part-way through it: 719 sales). Cups by month in the store: Apr 36,199 · May 48,004 · Jun 50,076 · Jul 49,338 · Aug 48,808 · Sep 44,855 ·
+Oct 1–19 32,693. Televend's own day totals for 1 Oct 2025 – 31 Mar 2026 (182 days, 364,161 sales): Oct 88,283 · Nov 76,167 · Dec 60,957 ·
+Jan 57,797 · Feb 47,291 · Mar 33,666. On 26–31 Mar, the six days both hold, the day total, the store's check, the sales read and the cups
+are equal (644, 621, 985, 1,088, 992, 863). The fall from October to March is a fact; its cause (fleet size, Ramadan, something else) is
+not known.
+
+## VF92 (2026-10-23) — Chromium treats a file:// page as a secure context; microphone recording works there [verified — Playwright, fake media device]
 `isSecureContext` true; `getUserMedia` and `MediaRecorder` available; three clips of ~18–19 KB WebM/Opus were recorded and posted
 as multipart to a mocked Groq endpoint with file, model, language and prompt fields.
 
-## VF-T70.2 (2026-10-23) — Groq speech-to-text facts used by the voice page [believed — Groq docs and pricing pages via search]
+## VF93 (2026-10-23) — Groq speech-to-text facts used by the voice page [believed — Groq docs and pricing pages via search]
 `whisper-large-v3-turbo` at $0.04 per audio hour, each request billed at least 10 s (≈ $0.11 per 1,000 short entries);
 `whisper-large-v3` $0.111/h; uploads up to 25 MB on the free tier, 100 MB on dev; formats include webm and ogg;
-`openai/gpt-oss-20b` supports strict structured outputs. Not read on console.groq.com itself (G-T70.2).
+`openai/gpt-oss-20b` supports strict structured outputs. Not read on console.groq.com itself (G218).
 
-## VF-T70.3 (2026-10-23) — Hardware prices seen in search results [believed — snapshots, VAT treatment varies]
+## VF94 (2026-10-23) — Hardware prices seen in search results [believed — snapshots, VAT treatment varies]
 Ohaus Ranger 3000 30 kg × 1 g (RS232 standard) AED 2,875.76; Tera HW0002 scanner AED 246–292; Hikvision DS-2CD1643G2-LIZU AED 399,
 DS-2CD2043G2-I AED 420; DS-7608NXI-K2/8P recorder AED 505–759; Raspberry Pi AI HAT+ AED 420; Jetson Orin Nano Super AED 3,499
 (all Amazon.ae); Hikvision ANPR AED 2,040–7,200 (Dubai retailers); Zebra DS2278 AED 2,279–2,879 (NEOTECH). Re-check before buying.
 
-## VF-T70.4 (2026-10-23) — Option 1 demo video [verified — ffprobe]
+## VF95 (2026-10-23) — Option 1 demo video [verified — ffprobe]
 `docs/reports/media/option1-weigh-scan-load.mp4`: H.264, 1920×1080, 30 fps, 72.03 s, 2.95 MB, rendered frame by frame from the
 deck's demo slide (`?record#s12`), so the slide and the video show the same frames.

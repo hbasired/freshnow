@@ -12,16 +12,19 @@ import {
   recordConsent,
   requestConsentFromEveryone,
 } from "./consent.js";
+import { DETECTORS } from "./compliance.js";
 import { closeDb, getServiceSql } from "./db.js";
 import { savePushSubscription } from "./push.js";
 
 /**
- * Consent notice 2.0 — one notice for Telegram and the app, asked again whenever it changes.
+ * Consent notice 3.0 — one notice for Telegram and the app, asked again whenever it changes.
  *
  * What must be true:
  *   - The notice names every service outside our database that the system is CONFIGURED to
  *     use — the AI providers with a key, Telegram when there is a bot token, the push relays
- *     when push is set up — and nothing it is not configured to use.
+ *     when push is set up, Televend when the connector reaches it — and nothing it is not
+ *     configured to use. The same goes for what it records: photos only with a file store, phone
+ *     sign-in only with phone sign-in switched on (3.0); stock and cash always (TASK-060, TASK-061).
  *   - Changing what is used changes the words, and changing the words makes everyone's earlier
  *     consent out of date. Re-ordering the same providers does not.
  *   - Consent is only "current" for this version AND these exact words; agreement sent back
@@ -41,7 +44,20 @@ const ENV_KEYS = [
   "VAPID_PRIVATE_KEY",
   "VAPID_SUBJECT",
   "RETENTION_DAYS",
+  // Notice 3.0's parts: off unless a test switches them on.
+  "TELEVEND_MODE",
+  "TELEVEND_USERNAME",
+  "TELEVEND_CLIENT_ID",
+  "SUPABASE_URL",
+  "SUPABASE_SECRET_KEY",
+  "APP_PIN_PEPPER",
+  "MEDIA_RETENTION",
+  "MEDIA_RETENTION_EVIDENCE_DAYS",
+  "MEDIA_RETENTION_VIDEO_DAYS",
+  "MEDIA_RETENTION_RECEIPT_DAYS",
+  "MEDIA_RETENTION_CHAT_DAYS",
 ];
+const SWITCHED_OFF = ENV_KEYS.slice(ENV_KEYS.indexOf("TELEVEND_MODE"));
 const saved: Record<string, string | undefined> = {};
 
 async function person(p: { name: string; telegram?: boolean; app?: boolean; status?: string }): Promise<string> {
@@ -72,6 +88,7 @@ beforeEach(() => {
   delete process.env.VAPID_PRIVATE_KEY;
   delete process.env.VAPID_SUBJECT;
   delete process.env.RETENTION_DAYS;
+  for (const k of SWITCHED_OFF) delete process.env[k];
 });
 
 afterEach(async () => {
@@ -144,6 +161,95 @@ describe("the notice names what the system is configured to use — and only tha
   it("shows English, not an unreviewed translation, in every language", () => {
     expect(consentNotice("hi")).toBe(consentNotice("en"));
     expect(consentNotice("ml")).toBe(consentNotice("en"));
+  });
+
+  it("says who can see what since the new roles: Admins, and for the machines the operations managers", () => {
+    expect(consentNotice("en", env({}))).toMatch(/the CEO and the company's Admins/);
+    // Without Televend there are no machine records — the Ops Head is named only for stock (TASK-060).
+    expect(consentNotice("en", env({}))).not.toMatch(/machine records from Televend/);
+    expect(consentNotice("en", env({ TELEVEND_USERNAME: "u" }))).toMatch(/the CEO, Admins, the Ops Head and Supervisors/);
+  });
+});
+
+describe("notice 3.0 — the operations work, each part named only when it is switched on", () => {
+  const env = (e: Record<string, string>): NodeJS.ProcessEnv => ({ ...e }) as NodeJS.ProcessEnv;
+  const hash = (e: Record<string, string>) => noticeHash(consentNotice("en", env(e)));
+
+  it("names Televend exactly when the connector reaches it — the compliance rule's own test", () => {
+    const notReached: Record<string, string>[] = [{}, { TELEVEND_MODE: "files", TELEVEND_USERNAME: "u" }];
+    const reached: Record<string, string>[] = [{ TELEVEND_USERNAME: "u" }, { TELEVEND_MODE: "official", TELEVEND_CLIENT_ID: "c" }];
+    for (const e of notReached) {
+      expect(consentNotice("en", env(e))).not.toMatch(/Televend/);
+      expect(DETECTORS.find((d) => d.id === "televend")!.reachable(env(e))).toBe(false);
+    }
+    for (const e of reached) {
+      const n = consentNotice("en", env(e));
+      expect(n).toMatch(/Televend — the vending machines' own system, run by INTIS d\.o\.o\./);
+      expect(n).toMatch(/refills and machine alarms that Televend, the machines' own system, records against your name/);
+      expect(n).toMatch(/FreshNow only reads from Televend and sends it nothing about you/);
+      // Its hosting region is not published, so the notice claims none (compliance/processors.json).
+      expect(n).toMatch(/not yet confirmed/);
+      expect(DETECTORS.find((d) => d.id === "televend")!.reachable(env(e))).toBe(true);
+    }
+  });
+
+  it("names photos and videos only when there is a store for them, with the periods only once they are switched on", () => {
+    const store = { SUPABASE_URL: "http://127.0.0.1:54321", SUPABASE_SECRET_KEY: "s" };
+    expect(consentNotice("en", env({}))).not.toMatch(/Photos/);
+    const off = consentNotice("en", env(store));
+    expect(off).toMatch(/Photos and short videos you send as proof of work/);
+    expect(off).toMatch(/Location and device details are removed before they are stored/);
+    expect(off).toMatch(/not yet set how long photos and videos are kept/);
+    const on = consentNotice("en", env({ ...store, MEDIA_RETENTION: "on" }));
+    expect(on).toMatch(/proof-of-work photos 180 days, videos 30 days, receipts 5 years, photos in chat 1 year/);
+    expect(consentNotice("en", env({ ...store, MEDIA_RETENTION: "on", MEDIA_RETENTION_VIDEO_DAYS: "14" }))).toMatch(/videos 14 days/);
+  });
+
+  it("names phone sign-in and the app's wake-up only with phone sign-in on — and says what they are not for", () => {
+    expect(consentNotice("en", env({}))).not.toMatch(/phone app/);
+    // device-auth.ts refuses a pepper under 32 characters, so the notice does not count one either.
+    expect(consentNotice("en", env({ APP_PIN_PEPPER: "x".repeat(31) }))).not.toMatch(/phone app/);
+    const n = consentNotice("en", env({ APP_PIN_PEPPER: "x".repeat(32) }));
+    expect(n).toMatch(/when you sign in and out, and wrong PINs/);
+    expect(n).toMatch(/never used to check when or how much you work/);
+    expect(n).toMatch(/No attendance tracking from phone sign-ins/);
+    expect(n).toMatch(/after three wrong PINs in a row you and your lead are told/);
+    expect(n).toMatch(/A difference is a fact about what is held, and a person looks at it before anything follows/);
+    expect(n).toMatch(/Google's Firebase service wakes the app .* The signal carries no message/);
+    expect(n).toMatch(/sessions are deleted 30 days after they end/);
+  });
+
+  it("names the stock everyone may be given, who sees it and how long it is kept — with or without the phone app (TASK-060)", () => {
+    for (const n of [consentNotice("en", env({})), consentNotice("en", env({ APP_PIN_PEPPER: "x".repeat(32) }))]) {
+      expect(n).toMatch(/Company stock you are given, hand back, use or count/);
+      expect(n).toMatch(/The stock you hold and hand over: the warehouse keepers, the Ops Head, Supervisors, the CEO and Admins/);
+      expect(n).toMatch(/every carton has one holder .* A difference is a fact about what is held/);
+      expect(n).toMatch(/Stock records .* are kept as the company's stock record; the words you type on them go with your other words/);
+    }
+  });
+
+  it("names the cash everyone who handles it records, who sees it and how long it is kept — with or without the phone app (TASK-061)", () => {
+    for (const n of [consentNotice("en", env({})), consentNotice("en", env({ APP_PIN_PEPPER: "x".repeat(32) }))]) {
+      expect(n).toMatch(/Cash you handle for the company: what you collect from each machine, put back to test it, spend .* and deposit/);
+      expect(n).toMatch(/Cash is balanced the same way, shift by shift, and a cash auditor checks each shift/);
+      expect(n).toMatch(/The cash you record, and its receipts: the cash auditor, the Ops Head, the CEO and Admins/);
+      expect(n).toMatch(/Cash records are kept as the company's financial record/);
+    }
+    // The machines' own records are named only where Televend is read.
+    expect(consentNotice("en", env({}))).not.toMatch(/the machines' own records say they took/);
+    expect(consentNotice("en", env({ TELEVEND_USERNAME: "u" }))).toMatch(/beside the cash the machines' own records say they took/);
+  });
+
+  it("switching any part on or off changes the words — and so asks everyone again", () => {
+    const base = hash({});
+    const variants: Record<string, string>[] = [
+      { TELEVEND_USERNAME: "u" },
+      { SUPABASE_URL: "http://127.0.0.1:54321", SUPABASE_SECRET_KEY: "s" },
+      { SUPABASE_URL: "http://127.0.0.1:54321", SUPABASE_SECRET_KEY: "s", MEDIA_RETENTION: "on" },
+      { APP_PIN_PEPPER: "x".repeat(40) },
+    ];
+    const hashes = variants.map(hash);
+    expect(new Set([base, ...hashes]).size).toBe(variants.length + 1);
   });
 });
 

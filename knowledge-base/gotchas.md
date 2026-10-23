@@ -1023,30 +1023,391 @@ The pattern appeared in the bash command line itself, so pkill matched the shell
 The new FK made email-inbound.test's `afterAll` fail midway; its pending email outbox rows survived and filled the relay's batch
 of 5 in email-chat-sender.test, which then reported "sent 0" — a failure in an unrelated file. Read the first failing suite, not
 the loudest one.
+**Again 2026-10-15 (TASK-056):** api/inbound.test.ts deleted its employees before their email_message rows (FK) — "INBOUND Worker"
+survived, and email-inbound.test.ts's emails naming "Worker" matched two people, so two of its tests made proposals instead of
+assignments. Fixed by deleting proposals, outbox rows and email rows first; the suite is green again.
 
 ## G146 — Playwright `getByLabel("Email")` matched the sidebar's Email page link [verified 2026-10-07]
 A browser check tapped "Email" in the channel picker and navigated to Records → Email instead. Scope locators to the form
 (`main fieldset`) or use placeholders when a label is also a navigation word.
 
+## G147 — Televend's vend count ignores the time of day and includes the end date [verified 2026-10-15]
+`/vends/aggregates` and the vends list's `number_of_items` treat the window as whole dates, inclusive: "12 Oct 06:00–07:00" returned
+the whole of 12 Oct; "12 Oct 00:00 → 13 Oct 00:00" returned 12 + 13 Oct (exactly double). The vends LIST respects timestamps. Use
+the count only for whole days, with the end sent as the last second of the last day (`BridgeSource.vendTotals`).
 
-## G-T70.1 — Pushing from an old copy of the repository rewound main and published company data [verified 2026-10-23 — GitHub activity API]
+## G148 — Televend's offset paging drifts on large windows [verified 2026-10-15]
+The same 23-hour event window (≈ 17 pages) read twice: the second read returned 95 duplicate rows and silently skipped 95 events,
+including two cash collections. A 3-hour window (2 pages) read identically. Never page across a big window — slice it (D183).
+
+## G149 — Televend request shapes that are not obvious [verified 2026-10-15]
+The FastAPI host (`cloud-cloud-web-app…`) answers 400 "Header: x-tenant-id is missing." without the tenant headers. The refill
+log is per MACHINE (`refill-log-list/{machine id}/details`), and its `date` must carry a time zone ("Input should have timezone
+info"). The access-control list needs the tenant headers too. `machine_search` is a vends filter, not a machines filter.
+
+## G150 — Machine names change; never key on them [verified 2026-10-15]
+Between the 13 Oct export and a live read on 15 Oct, 9 of the 87 enabled machines had been renamed ("…-543-DXB" →
+"…-543-Cashless 1-DXB"). Match by Televend id, or by the asset number in the name (`assetNumber()`), never by caption.
+
+## G151 — dotenv 17 writes to stdout by default — fatal for a stdio MCP server [verified 2026-10-15]
+Any byte on stdout that is not protocol corrupts the MCP stream. Load `.env` with `config({ quiet: true })` and log to stderr only.
+
+## G152 — Scanners flag SheetJS "xlsx" at every version [verified 2026-10-15]
+OSV records GHSA-4r6h-8v6p-xvw6 and GHSA-5pgg-2g8v-p4x9 for npm "xlsx" with "introduced: 0" and no fixed version, because the
+fixed releases exist only on the vendor CDN. The advisory texts say fixed in 0.19.3 and 0.20.2; we use 0.20.3 (D185). Expect
+OSV-Scanner to report it; `pnpm audit` does not (it skips tarball dependencies).
+
+## G153 — SheetJS `blankrows: false` shifts row positions [verified 2026-10-15]
+The event export has a blank row above its header; skipping it moved the header into the first nine rows that were read as
+metadata, so TYPE became "Name". Locate the header by its column names and read metadata only above it. Caught by files.test.ts.
+
+## G154 — The laptop's real email settings leaked into the test suite [verified 2026-10-15]
+`vitest.setup.ts` cleared SUPABASE_* but not SMTP_*/EMAIL_*; with the live Gmail settings (and a two-address EMAIL_ALLOWLIST) in
+`.env`, the email suites refused their own test addresses — 5 of the 7 baseline failures. The setup now removes SMTP_*, EMAIL_* and
+TELEVEND_* (no test may reach the real Televend).
+**Addendum (same day):** the first version also removed EMAIL_TEST_*, the opt-in switches of the real-mailbox suite, so that suite
+was skipped for good whatever was set — a fix that silently disabled a test. EMAIL_TEST_* are now kept; checked both ways (switch
+unset: 3 skipped; switch set with no mail server: the 3 tests run and fail to connect).
+
+## G155 — Televend reports some alarms "resolved" before their latest start [verified 2026-10-15]
+Repeating alarms (counter > 1): start 23:54, resolved 23:45. Never print a negative duration; show a note instead.
+
+## G156 — Info events are never "resolved" [verified 2026-10-15]
+Televend's level-1 events (machine codes, power, cash collected) have no resolution, so `resolved_at IS NULL` on 1,729 of 1,779 info rows
+after the first sync. "Open" must only ever count alarms and warnings (`kind in ('alarm','warning')`).
+
+## G157 — Root scripts cannot import workspace packages by name [verified 2026-10-15]
+`scripts/*.ts` run from the root package, which does not depend on the workspace packages: `@freshnow/core` fails to resolve there.
+Import `../packages/<pkg>/src/index.js`, as scripts/email-setup.ts does.
+
+## G158 — `xmax = 0` tells an upsert's insert from its update [believed — Postgres implementation detail, widely used]
+`INSERT … ON CONFLICT DO UPDATE … RETURNING (xmax = 0) AS inserted` is true for a fresh row. It is an implementation detail, not
+documented API; the sync uses it only to COUNT new vs changed events (tv_sync_run), never to decide anything.
+
+## G159 — A refill's identity needs the machine column [verified 2026-10-15]
+The first refill key (asset number + second + action + quantity) dropped a genuine refill: a two-column machine logged two fills
+in the same second with the same quantity, one per product (11 Oct: columns 511 and 767, 3 cups each). Found by comparing the
+backfill's "65 read, 64 new" with the CSV export. The key now includes the column (`refillKey`, keys.ts); stored rows were re-keyed
+and the affected days re-read (the dropped row came back). A test covers two columns in one second.
+
+## G160 — A disabled Televend record keeps its refill log but loses `last_refill` [verified 2026-10-15]
+A machine moved to a new site gets a new Televend record and the old one is disabled. The old record's refill log stays readable —
+including the row of the machine being emptied before the move ("Removed", 42 cups) — but the machines list returns no
+`last_refill` for it (only 10 of 134 disabled records still show one; this one did not). The first refill reads asked enabled
+records only, so a moved machine's three rows of 4 and 6 Oct never reached the mirror. Found by listing, per day, the rows that
+were only in the CSV export. Now a whole past day asks every record, enabled or not (D193), and a record that flips enabled →
+disabled between two syncs has today's log read once, so the emptying row arrives with that sync.
+
+## G161 — Refill code 4 = "Removed", source 3 = "Televend"; a code learned later changes stored keys [verified 2026-10-15]
+One API row (fill_type 4, source 3, 30 cups, 0 left) is the CSV's "Removed / Televend" row of the same machine and second (8 Oct).
+Codes 2 and 3 have not been seen and stay "unknown". The action is part of a refill's identity, so a row stored as "unknown" gets a
+different key once its code is mapped: re-normalise stored "unknown" rows from `raw` and re-key them BEFORE re-reading, or the
+re-read stores the refill twice (done for the one 8 Oct row).
+**Addendum (same day):** no longer a manual step — `remapUnknownRefills` runs before every refill read, and Televend's own
+identity of an API row (0024) stops a twin whatever the key says (G167).
+
+## G162 — A machine without a number in its name has two refill identities [verified 2026-10-15 — by reading the key]
+`refillKey` uses the asset number; without one it falls back to the Televend id (API rows) or the name (export rows, which carry
+no id), so the same refill read from both sources would be stored twice. Keying API rows by name instead would duplicate them after
+every rename. Exposure measured: 3 such records (1 enabled), no refills stored for them; exports are used for verification only.
+Revisit if exports are ever imported for days the API also covers. (API re-reads of the same refill are safe either way since
+0024 — G167; this limit is only between an export and the API.)
+
+## G163 — The test suite shared the live worker's Redis database [verified 2026-10-15 — Redis MONITOR]
+`vitest.setup.ts` moved Postgres to a throwaway database but left REDIS_URL alone, and both queue modules read only host and
+port from it — so tests and the developer's running worker used the same Redis database. The opt-in real-mailbox scheduler test
+starts the background jobs: under tests the TELEVEND_* settings are cleared, so `startBackgroundJobs()` removed the live
+`televend-sync` scheduler, and its teardown removed the live email schedulers. The running worker only registers schedules at
+start-up, so its Televend sync and email polling stopped silently until restarted (seen 10:50 UTC, right after an opt-in run).
+`escalation.test.ts` also obliterates the `escalation` queue on every run (harmless today only because nothing arms those
+timers — `slaSweep` is the live path). Now `redisConnection()` (worker/redis.ts) reads the whole URL incl. the database number,
+and the suite runs in its own database (TEST_REDIS_URL, else 15 — 14 if the live one is 15); the setup refuses to run in the
+live one. Checked with Redis MONITOR: the same opt-in run sent its 263 commands to database 15; database 0 saw only the live
+worker's polling, and its three schedules survived.
+
+## G164 — Only two of the six specs CLAUDE.md lists exist [verified 2026-10-15]
+CLAUDE.md's layout shows `specs/SPEC-000…005`; the repository has `SPEC-000-system-overview.md` and
+`SPEC-003-semantic-layer-and-query.md` at its root, and no `specs/` folder. Schema, bot, jobs and observability rules live in
+CLAUDE.md, the skills and the knowledge base instead. A task plan cites SPEC-000 sections (actors §2, R1–R30) and the approved
+expansion plan, not specs that are not there.
+
+## G165 — A sync run that fails part-way must not lose what it was asked to read [verified 2026-10-15 — review + tests]
+An independent review (13 of 14 findings confirmed by a skeptic) found three ways a partial failure lost data for good: the daily
+check was gated on vends alone, so a refills or events re-read of yesterday that failed was never retried; the machines' new state
+(enabled, last refill) was saved before the refill reads it called for, so a failure later in the run erased the signal; and a
+read covered only one business day, so an emptying at 23:57 seen by the 00:05 sync was looked up under the wrong day. Now: refill
+reads run first and a record whose read failed keeps its previous state (asked again next run); each stream runs on its own and the
+run ends with a TelevendSyncError naming what failed; the daily check is gated per stream (≤ 3 attempts each); reads span the
+previous sync's day to today (≤ 2 days); `last_seen_at` comes from the sync's clock; /health shows yesterday's incomplete streams
+after 05:00. Each case has a test.
+
+## G166 — A "Removed" refill's quantity is cups TAKEN OUT, as a positive number [verified 2026-10-15]
+Televend's quantity_change for a removal is positive (42 out, 0 left), so summing quantity_change across actions counts a removal as
+cups added — the MCP tool's net change said +106 for a machine that lost 42 and gained 64 (true: +22). Use `refillCupsDelta`
+(removed → minus; unknown → no direction, counted separately); the semantic layer's note now says so.
+
+## G167 — A refill has two identities: the one shared with exports, and Televend's own [verified 2026-10-15 — tests]
+natural_key (asset number from the CURRENT name + second + column + action word + quantity) changes when a record's name changes
+number or a code gets its meaning — and every re-read then stored a twin. Migration 0024 adds a unique index on Televend's identity
+of an API row (record id, exact time, column, raw code, quantity); the upsert's `on conflict do nothing` has no target, so either
+identity stops a twin. Checked before adding: no stored row violated it.
+
+## G168 — The test setup could reach live data in three more ways [verified 2026-10-15 — review]
+The global setup DROPPED the schema of whatever TEST_DATABASE_URL_SERVICE named, unchecked; a missing TEST_DATABASE_URL left every
+RLS query in tests on the live database; and test model calls sent traces to the live Langfuse project. Now the setup refuses
+unless both test URLs name freshnow_test, differ from the live URLs and the server confirms the name; TEST_DATABASE_URL is required;
+LANGFUSE_* is cleared. Still open — a decision, not a defect: tests make REAL model calls with the live Groq/OpenRouter/NVIDIA keys
+(deliberate, per vitest.config.ts: "a mocked parser proves nothing"), which shares the live system's rate limits and is invisible to its
+daily budget cap.
+
+## G169 — A deny-list grants every new role everything it does not name [verified 2026-10-15 — role map]
+`if (accessRole === "employee") refuse` reads as a permission check, but a role the code has never heard of passes it. Fourteen such
+checks (documents, projects, email proposals and footers, people reach, the dashboard's assign tools, "Reports to") would have handed a
+VMO or technician manager powers the moment the CHECK constraint allowed the value. Write checks as allow-lists (`can(viewer, cap)`).
+
+## G170 — Rules enforced in one channel's route are skipped by the other channels [verified 2026-10-15 — code + tests]
+Three live defects had one cause: the dashboard route checked (task ownership, the CEO cannot withdraw) and the bot, a second channel
+into the same core, did not; and the bot's profile edit wrote department/site/shift through the service role, past the database guard.
+The bot's status buttons take a task id from callback data, which a modified client can send for any task. Put the rule in core.
+
+## G171 — The bot processed people whose account was not active [verified 2026-10-15 — code + test]
+The consent gate returned next() for any non-active account — the only status check in the bot — so after /withdraw a person's words
+were still stored and sent to the model (a PDPL problem). Inactive accounts are now refused before any handler.
+
+## G172 — RLS on UPDATE filters rows silently; it does not raise [verified 2026-10-15 — test]
+A USING clause that excludes the target row makes the UPDATE affect 0 rows without an error. A test of "X may not update Y through the
+app role" must assert the row count and the unchanged value, not `rejects.toThrow()`.
+
+## G173 — The dashboard compiles with exactOptionalPropertyTypes [verified 2026-10-15]
+An optional prop fed from `data.me?.x` must be typed `x?: T | undefined`; `x?: T` refuses an explicit undefined. Run `tsc -p
+packages/dashboard` — the root typecheck does not cover the dashboard.
+
+## G174 — An "error" event nobody listens to stops the whole worker [verified 2026-10-15 — outage + reproduced in a test]
+The IMAP client (imapflow) reports a dropped connection as an "error" EVENT as well as a rejected call. With no listener Node treats it
+as uncaught and exits: at about 19:28 Dubai on 15 Oct one Gmail connection drop stopped the worker — Telegram delivery, the SLA sweep,
+the Televend sync — for about two hours (the outbox happened to be empty; the Televend mirror caught up on restart: 275 vends, 164
+events, 6 refills). Now the IMAP client and the BullMQ queues and workers (jobs.ts, escalation.ts) have "error" listeners. A test with a
+fake IMAP server that hangs up on the first command reproduces the exact error (NoConnection, "Connection not available"): without the
+listener the run reports it unhandled; with it, the poll fails alone and is recorded in job_run.
+
+## G175 — A bot test that sends free text reaches the live model [verified 2026-10-15]
+Free text goes to the resolver, a real model call (the suites call models on purpose, G168); on a slow network it hangs to the 30 s
+test timeout. Role and permission tests should drive the bot with commands and button taps only — a forged tap is refused before any
+text is asked for, which is the point to assert.
+
+## G176 — An MP4's location is in its udta/meta boxes, and removing them breaks the video [verified 2026-10-15 — tests]
+Phones write the place a video was shot into moov/udta (©xyz), meta or an XMP uuid box. Cutting those boxes out shifts every
+later byte, and the sample offsets in stco/co64 then point at the wrong data. Neutralise in place instead: rename the box "free"
+(players skip it) and zero its payload — the length and every offset stay as they were.
+
+## G177 — Fixtures: sharp's withExif cannot set Orientation; withMetadata({ orientation }) can [verified 2026-10-15]
+An Orientation key passed through withExif is overridden by libvips' own orientation field (it read back as 1). A test of
+"turned upright before the tag is dropped" must build its input with withMetadata({ orientation: 6 }) and assert it read back as 6.
+
+## G178 — The local Supabase ran without Storage; turning it on means a stop and start [verified 2026-10-15]
+The start command excluded storage-api (-x …). Enabling it needs `npx supabase stop` (data kept: "backup": true — never
+--no-backup) and a start without it in -x. Pull the image first (`docker pull public.ecr.aws/supabase/storage-api:<version>`,
+version from `npx supabase services`) and the database is down ≈ 45 s; the worker logs connection errors and recovers.
+
+## G179 — "Everyone I may see" under RLS runs the policy function on every row [verified 2026-10-15 — measured]
+`select id from employee` in a viewer's context evaluated app_can_view_employee for all rows: 46 ms per viewer at 300 people,
+8.95 s to reload 300 viewers. Give the planner a leakproof filter it may apply before the policy — `id = any($candidates)` —
+and only the candidates pay: 1.9 ms. A function call or a non-leakproof operator in the WHERE is not moved ahead of the policy.
+
+## G180 — A CSP hash must be of the inline script as the browser parses it: LF line endings [verified 2026-10-15 — live]
+HTML parsing turns CRLF into LF before the browser hashes an inline script. index.html checked out on Windows had CRLF, the
+hash was computed over the file as read, never matched, and the theme script was blocked. security-headers.ts normalises
+`\r\n?` to `\n` before hashing; a test covers a CRLF file.
+
+## G181 — A statement trigger with transition tables can have only one event [verified 2026-10-15]
+`REFERENCING NEW TABLE … FOR EACH STATEMENT` refuses `INSERT OR UPDATE OR DELETE` in one trigger, hence three triggers per
+table in 0027 (`_ins`, `_upd`, `_del`). A statement trigger also fires when no row changed — the function returns early on an
+empty transition table.
+
+## G182 — EXECUTE on a trigger function is checked when the trigger is created, not when it fires [verified 2026-10-15 — test]
+So 0029 can revoke EXECUTE on notify_change() from everyone but its owner: writes still fire it, and nobody can call it
+directly to send a forged notification.
+
+## G183 — Supabase grants EXECUTE on every new public function to its API roles by default [verified 2026-10-15]
+The local stack's default privileges for role postgres in schema public include EXECUTE for service_role (and anon,
+authenticated). `revoke … from public` does not remove those; 0029 revokes per role and alters the default for service_role. The
+test database copies the default (vitest.global-setup.ts) so tests see the same ACL as the live stack.
+
+## G184 — With a live (SSE) stream open, Playwright's "networkidle" never arrives [verified 2026-10-16]
+Wait for "load" plus a selector. A chart re-mounted after a table view (ResponsiveContainer) draws nothing until it has
+measured itself — wait for `.recharts-line` before a screenshot, or it shows an empty plot.
+
+## G185 — Recharts 3 typings under exactOptionalPropertyTypes [verified 2026-10-16]
+Custom `label` and `dot` render functions receive `x?: number | string | undefined`, `index?: number | undefined`: spell the
+`| undefined` out. A custom Tooltip `content` takes `TooltipContentProps` with its default type arguments.
+
+## G186 — This environment's bash heredocs turn `\\n` into a real newline and stop at an odd apostrophe [verified 2026-10-16]
+A test written through a heredoc got a literal line break inside a string. Write and edit files with the editor tools.
+
+## G187 — Telegram refuses a message longer than 4,096 characters, on every retry [verified — Bot API docs + measured]
+`text` is 1–4096 characters after entities are parsed. Notice 3.0 under the live settings is 4,568 characters, 4,688 with the
+request's first line: sent whole it could never be delivered, and nobody on Telegram could agree. core/telegram-text.ts cuts at
+paragraph breaks (never through an emoji); the worker's sender and the bot's notice replies use it, buttons under the last part.
+
+## G188 — A tv_sync_run row says 'partial' from the moment its run starts [verified 2026-10-16]
+The row is inserted as 'partial' and set at the end; a run killed midway stays 'partial' with finished_at null (one such row
+live). `status in ('ok','partial')` therefore includes reads that never finished — use `complete` for "this window was read".
+
+## G193 — A machine's name does not say how it is paid: "card only" machines sell for cash [verified 2026-10-17 — live]
+Machines whose Televend name says "card only", "Cashless … only" or "c3 only" had 2,619 cash vends of 13,056 in 14 days, and
+every open cash alarm (No cash sales, Banknote acceptor, its error) was on a machine that sold for cash in those 14 days. A
+rule that silenced cash alarms by name would have hidden real faults. Decide from the data, never from the caption.
+
+## G194 — "Open alarms in the last 14 days" needs `started_at <= now` as well [verified 2026-10-17 — test]
+Evaluated as of a moment (a test clock, a replay), a lower bound alone also takes alarms raised AFTER that moment. Every alarm
+query in ops-alarms.ts / ops-fleet.ts bounds both ends.
+
+## G191 — A route guard must test the route the router MATCHED, never req.url [verified 2026-10-17 — test, critical]
+find-my-way decodes the path before matching, so `GET /%64ashboard/blockers` reached /dashboard/blockers while the sign-in
+hook, testing `req.url.startsWith("/dashboard")`, let it through as ?viewer= or the CEO — every dashboard route, erase
+included, with no token. Present since sign-in existed; found by TASK-058's review. Guards now use `req.routeOptions.url`
+(api/auth.ts isGuardedRoute), and viewerOf() refuses when sign-in is on and the hook named nobody. A test sends encoded spellings.
+
+## G192 — A correlation id the client sends must be a UUID before anything stores it [verified 2026-10-17 — test]
+audit_log.correlation_id (and every table's) is a uuid column. The API accepted any non-empty `x-correlation-id`, so
+`x-correlation-id: x` made each audit write of that request fail AFTER its work was done — on phone sign-in, wrong PINs went
+uncounted. server.ts now takes only a UUID (else mints one); core's device-auth drops a malformed one.
+
+## G190 — The machine's counter photo cannot confirm the cash, as it is taken today [verified 2026-10-16 — 29 photos]
+Part Cash reads 0.00 on every counter photo of 15/16 Oct, including machines where cash was collected (A-T61.1: probably shot
+after the partial reset). The display also drops a leading digit past eight characters ("Tot Cashless 02602.00"; "Tot Sales
+36043" where cash + cashless = 136,043). Expected cash per collection must come from Televend — cash vends since the previous
+collection × the machine's price, or Televend's own cash-collection record — and lifetime totals read off the screen are not
+trusted. If the photo is to count, it must be taken before the reset.
+
+## G189 — A cut handed from Postgres to JavaScript and back can drop the row on the boundary [believed 2026-10-16]
+The Televend cursor is a microsecond timestamp; a JS Date keeps milliseconds. Today's cups came out one short now and then (437
+against SQL's 438) while the cut went through JS; computed and used inside one SQL statement, three runs in a row agreed.
+
+## G195 — INSERT … ON CONFLICT DO UPDATE checks a CHECK on the row it PROPOSES, before it finds the conflict [verified 2026-10-17 — test]
+The first stock_balance trigger upserted `(place, item, −qty)` for the giving side. Taking 4 cartons from a warehouse holding 20
+proposed a row of −4, which `CHECK (is_virtual or qty >= 0)` refused before Postgres looked for the existing row. Update first,
+insert only a place's first row (stock_balance_add, 0032). The tests found it on the first hand-out.
+
+## G196 — Deleting ledger moves one by one passes through states that never existed [verified 2026-10-17 — test]
+The tests' clean-up deleted a delivery's move before the hand-out that used it: the warehouse went "below zero" for a moment and
+the CHECK refused the delete. A purge deletes the documents and then rebuilds the affected balances once (inv_purge_docs, 0032).
+
+## G197 — 0005's default privileges hand every new table INSERT/UPDATE/DELETE to the app role [verified 2026-10-17 — test]
+`alter default privileges … grant select, insert, update, delete on tables to freshnow_app`. Row security without a write policy
+already refuses writes, but an append-only ledger must not carry the grants at all: 0032 revokes them per table, and a test
+checks that the app role holds SELECT only on every stock table.
+
+## G198 — A reminder under the first notice's delivery key is a "repeat", so it is never sent [verified 2026-10-18 — test]
+The outbox's idempotency key is unique; the handover reminder reused `stock.handover:<doc>` and the outbox took it for the first
+message again. Reminders have their own key (`stock.handover_reminder:<doc>`).
+
+## G199 — Televend has no list of the alarms still open [verified 2026-10-17 — two read-only GETs]
+`events?resolved=false` without a window: HTTP 400. With a 14-day window: 502 after three tries (the gateway timed out). So an
+alarm's clearance is learnt only by re-reading the window it STARTED in (events are listed by start time) — refreshOpenAlarms.
+
+## G200 — A single test file run while the full suite runs breaks the suite [verified 2026-10-18 — by design]
+Every vitest run's global setup DROPS and re-creates freshnow_test's schema. Run one at a time.
+
+## G201 — A long alarm's clearance arrived after every window that would read it [verified 2026-10-18 — live]
+The incremental read re-reads starts from the last hour; the daily check reads yesterday once. "No cash sales" (median 455 min)
+cleared after both had moved on and stayed open in the mirror: on 17 Oct 50 alarms were "open" over 14 days, after the refresh
+8 — 20 re-read and found cleared (VF81). The machines showed "needs someone" for alarms long gone.
+
+## G202 — postgres.js cuts a value bound as timestamptz to milliseconds [verified 2026-10-19 — test]
+When the server types a parameter as timestamptz (`${x}::timestamptz`), postgres.js serialises it through `new Date(x)` — a text
+time with microseconds ("…00.123456Z") arrives as "…00.123000". Two rows inserted that way tied, and a paging cursor built from
+Postgres's own microseconds skipped rows. Bind the text and convert in SQL: `${x}::text::timestamptz`. (JavaScript Dates are
+milliseconds anyway, so binding a Date loses nothing.)
+
+## G203 — A full count lists every active item, so any item counted 0 once has a count line [verified 2026-10-19 — test]
+The first rule "an item on any count line keeps its unit" froze every item after the first full count (they are all counted, most
+at 0). The rule that holds: a count waiting for its decision, or a count line with a figure that is not 0.
+
+## G204 — After a Windows reboot, Supabase may run with no ports: WinNAT reserved them [verified 2026-10-19]
+Docker Desktop restarts the containers but cannot bind 54321–54323 when Windows has reserved a block of the dynamic range
+(49152–65535) over them; nothing says so — the API's health shows db down, sign-in says "not reachable". Check
+`netsh interface ipv4 show excludedportrange protocol=tcp`. The fix needs administrator rights: stop winnat, add an administered
+exclusion for the ports, start winnat, restart the containers. 54321–54323 are now reserved on this laptop (VF83).
+
+## G205 — A video has no thumbnail: `?variant=thumb` answers 404 for it [verified 2026-10-19 — code read]
+storeMedia makes a thumbnail only for photos (media.ts); a video's thumb_path is empty and readMedia returns nothing for the thumb
+variant. A page that draws `<img src=…?variant=thumb>` for a video shows a broken image — draw a play link to the full file instead.
+
+## G206 — The shell rewrites the address at once, so a deep link's extra part must be read on the first render [verified 2026-10-19 — code read]
+App.tsx keeps the hash in step with the portal and view (replaceState on the first sync). `#visit/<token>` becomes `#route` before
+any effect of the Route portal runs; the sticker's token is read in App's first useState and on popstate, then passed down.
+
+## G207 — Televend's "location" is one address per region, not per machine [verified 2026-10-19 — live mirror]
+Every machine in the "Events" region carries location 82459 "Mirdif", including a clinic in Sharjah and Sharjah Police; every
+"Hospital / Clinics" machine carries "Dubai Marina". It is the region's address. Nothing in the mirror gives a machine's own place, so
+routing (078) needs each machine placed once by a person (D248: a map pin or a Google Maps link).
+
+## G208 — Televend's regions are kept by hand and some are wrong [verified 2026-10-19 — live mirror]
+"prime nahda clinic sharjah" (796) and "Sharjah Police-Rahmania Main Building" (392) are in "Events" with the Expo machines. Category
+figures use FreshNow's correction where one is set (0037, D250); Televend is not changed.
+
+## G209 — A shell heredoc with an odd apostrophe dies before Python starts [verified again 2026-10-19]
+`python - <<'EOF'` failed with "unexpected EOF while looking for matching `''" when the Python inside held f-strings and apostrophes in
+an order bash could not pair. Nothing ran, nothing was written. Write the script to a file (Write tool) and run the file.
+
+## G210 — A change measured on a per-machine average moves when the machines behind it move [verified 2026-10-20 — browser check, live data]
+TASK-070's first headline said "Sales rose 6.2 %" while cups fell from 476 to 420: one machine stopped selling, the average over the
+machines that sold rose, and the sentence read the average's change as sales. On the live mirror it said "fell 9 %" when the daily volume
+fell 7.8 %. Changes are now on volume (cups per day read, same machines both periods); the per-machine average is shown as a level with
+its value before, and no arrow. Found by looking at the screenshot, not by the tests — the tests had been written to the same rule.
+
+## G211 — Sale records spell a region differently from the machine list [verified 2026-10-20 — live store]
+`tv_vend.raw.location_caption` says "Other Stations"; `tv_machine.region_caption` says "Other stations" for the same region.
+Anything that matches a sale's region to a machine's (category totals from the store against Televend's regions) must compare
+case-insensitively, or one region reads as two.
+
+## G212 — A Python string inside a shell heredoc wrote a backspace into a regex [verified 2026-10-20]
+Writing `/\baed…/` into a TypeScript file from a bash heredoc running Python turned `\b` into the character 0x08: the file showed
+`/aed\s*…/` in the editor and the word boundary was gone (a test caught it). After any scripted edit of a regex, check the bytes
+(`od -c`, or `grep -rlP "\x08"`); prefer the Write/Edit tools for regexes (and G209 for apostrophes).
+
+## G213 — A JavaScript time and a database time cannot be compared at the microsecond [verified 2026-10-20 — a test that failed one run in a few]
+A count's start written from `new Date()` (milliseconds) against a move's `clock_timestamp()` (microseconds) made a delivery posted in the
+same millisecond just before the count read as "during the count". Stamp both sides in the database (`coalesce($testClock,
+clock_timestamp())`) and compare in SQL; never round-trip either through JavaScript (G202's cousin).
+
+## G214 — A workflow script cannot read files [verified 2026-10-20]
+The first verification run was given a file path in `args` and checked nothing: the script has no filesystem. Pass the data in `args`
+inline, or tell each agent to Read the file itself.
+
+## G215 — Televend's sales list includes both ends of a window [verified 2026-10-20 — two days, live]
+Reading 15 Sep as [00:00, next 00:00] also returned a sale stamped 16 Sep 00:00:00.000 — 1,406 against Televend's count of 1,405 — and
+11 Jul the same (1,964 against 1,963). The day check could never call those days complete, so the store left them out. The reader now keeps
+a window's rows inside [from, to); the sale is read in the window that starts at it. (Televend's day count is another matter: it ignores
+the time of day, G147.)
+
+## G216 — A busy state that starts after the upload lets "End" win the race [verified 2026-10-20 — browser check]
+The visit sheet set its busy state only once a photo had been uploaded, to attach it, so during the upload "End the visit" was enabled: a
+quick tap ended the visit, and the photo was then refused ("This visit has ended"). Seen once and not explained, then reproduced by the
+Route browser check. The upload and the attach are now one action under the busy state; the check slows the upload (route interception)
+and asserts the button waits.
+
+## G217 — Pushing from an old copy of the repository rewound main and published company data [verified 2026-10-23 — GitHub activity API]
 18:41:23Z: a force push moved `main` from aa00334 (7 Oct, TASK-054 merged) to 26666a5 (28 Sep). 19:28:22Z: a normal push on top
 (ef84b05) added WhatsApp exports, Televend exports and `private-data/` — the old copy's `.gitignore` predates D186, so nothing was
 ignored. aa00334's tree equals branch `claude/charming-hopper-tfg8v8` (f44bab1), so no code was lost. Prevention: push only from the
 folder that contains `packages/televend`, never with `-f`, and to a new branch when unsure. The repository is public.
+Recovered the same evening: `git push origin "HEAD@{2}:refs/heads/rescue-2"` from the laptop sent the pre-reset commit
+9ee207e (the reflog keeps it for 90 days), which was merged with main of 7 Oct and the proposal (TASK-075 branch).
 
-## G-T70.2 — This build environment cannot reach Groq or Amazon.ae [verified 2026-10-23]
+## G218 — This build environment cannot reach Groq or Amazon.ae [verified 2026-10-23]
 The proxy answers 403 to CONNECT for api.groq.com and www.amazon.ae, and the fetch tool cannot resolve console.groq.com. Groq's
 CORS behaviour for a browser page and Amazon.ae prices were therefore not checked directly; prices come from search snippets.
 
-## G-T70.3 — CSS transitions break frame-by-frame video capture [verified 2026-10-23]
+## G219 — CSS transitions break frame-by-frame video capture [verified 2026-10-23]
 A screenshot taken right after `seek(t)` catches a transition mid-way, in wall-clock time. The demo draws every property from t in
 script and sets `.dm *{transition:none}`; the deck's own slide transitions are switched off in `?record` mode.
 
-## G-T70.4 — The `hidden` attribute loses to an author `display` rule [verified 2026-10-23]
+## G220 — The `hidden` attribute loses to an author `display` rule [verified 2026-10-23]
 A `.stack{display:flex}` box with `hidden` stayed visible in the voice page. Add `[hidden]{display:none!important}`.
 
-## G-T70.5 — Speech-to-text writes plates and numbers many ways [verified 2026-10-23 — parser tests]
+## G221 — Speech-to-text writes plates and numbers many ways [verified 2026-10-23 — parser tests]
 "HN897", "HN 897", "H.N. 897", "HN-897", "H N eight nine seven", "A 54321"; "no 3" without a full stop; "18,5 kgs"; "seventeen
 and a half". The parser reads the plate after the LAST vehicle word ("truck with vehicle number …") and treats "a"/"an" as a
-plate letter only when digits follow. 16 cases in the TASK-070 write-up.
+plate letter only when digits follow. 16 cases in the TASK-074 write-up.

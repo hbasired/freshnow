@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "freshnow-televend": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["--import", "tsx", "packages/mcp-televend/src/index.ts"],
+      "env": {}
+    }
+  }
+}
