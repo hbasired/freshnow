@@ -1027,3 +1027,26 @@ the loudest one.
 ## G146 — Playwright `getByLabel("Email")` matched the sidebar's Email page link [verified 2026-10-07]
 A browser check tapped "Email" in the channel picker and navigated to Records → Email instead. Scope locators to the form
 (`main fieldset`) or use placeholders when a label is also a navigation word.
+
+
+## G-T70.1 — Pushing from an old copy of the repository rewound main and published company data [verified 2026-10-23 — GitHub activity API]
+18:41:23Z: a force push moved `main` from aa00334 (7 Oct, TASK-054 merged) to 26666a5 (28 Sep). 19:28:22Z: a normal push on top
+(ef84b05) added WhatsApp exports, Televend exports and `private-data/` — the old copy's `.gitignore` predates D186, so nothing was
+ignored. aa00334's tree equals branch `claude/charming-hopper-tfg8v8` (f44bab1), so no code was lost. Prevention: push only from the
+folder that contains `packages/televend`, never with `-f`, and to a new branch when unsure. The repository is public.
+
+## G-T70.2 — This build environment cannot reach Groq or Amazon.ae [verified 2026-10-23]
+The proxy answers 403 to CONNECT for api.groq.com and www.amazon.ae, and the fetch tool cannot resolve console.groq.com. Groq's
+CORS behaviour for a browser page and Amazon.ae prices were therefore not checked directly; prices come from search snippets.
+
+## G-T70.3 — CSS transitions break frame-by-frame video capture [verified 2026-10-23]
+A screenshot taken right after `seek(t)` catches a transition mid-way, in wall-clock time. The demo draws every property from t in
+script and sets `.dm *{transition:none}`; the deck's own slide transitions are switched off in `?record` mode.
+
+## G-T70.4 — The `hidden` attribute loses to an author `display` rule [verified 2026-10-23]
+A `.stack{display:flex}` box with `hidden` stayed visible in the voice page. Add `[hidden]{display:none!important}`.
+
+## G-T70.5 — Speech-to-text writes plates and numbers many ways [verified 2026-10-23 — parser tests]
+"HN897", "HN 897", "H.N. 897", "HN-897", "H N eight nine seven", "A 54321"; "no 3" without a full stop; "18,5 kgs"; "seventeen
+and a half". The parser reads the plate after the LAST vehicle word ("truck with vehicle number …") and treats "a"/"an" as a
+plate letter only when digits follow. 16 cases in the TASK-070 write-up.

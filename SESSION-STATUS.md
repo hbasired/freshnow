@@ -1,3 +1,20 @@
+# Session status — 2026-10-23 (cloud session, TASK-070)
+
+- **Proposal deck for the warehouse and orange tracking:** `docs/reports/warehouse-traceability-deck.html` — 36 slides, opens
+  offline, arrow keys to move, F for full screen. Options with prices and Amazon.ae links, Dubai suppliers, budget, computer
+  vision, the WMS design and eight decisions for management.
+- **Option 1 demo video:** `docs/reports/media/option1-weigh-scan-load.mp4` (72 s, 1080p) — also playing live on slide 12.
+- **Voice crate log:** `docs/prototypes/voice-crate-capture.html` — open in Chrome, paste the Groq key, press the button and say
+  "crate no. 1, weight is 18 kgs, loaded into truck HN897". Groq could not be reached from the build machine, so the first real
+  call is yours; if the browser blocks it, switch the engine to Chrome's built-in speech.
+- **⚠ Repository:** `main` was force-pushed back to 28 Sep at 18:41 UTC, then WhatsApp exports, Televend data and `private-data/`
+  were pushed on top — the repository is **public**. Make it private; then remove those folders from history (G-T70.1).
+- **The 20 Oct VS Code build is not on GitHub** (no `packages/televend`, no migrations 0023+). Push it from the folder that
+  contains `packages/televend` to a new branch: `git push origin HEAD:refs/heads/vscode-build-2026-10-20`.
+- This branch is based on `aa00334` (7 Oct main), not on the rewound main. No platform code changed; no tests affected.
+
+---
+
 # Session status — 2026-10-07 (cloud session, TASK-054)
 
 - **Assign & notify: choose Telegram · App · Email.** A choice that cannot reach the person is greyed out with the reason

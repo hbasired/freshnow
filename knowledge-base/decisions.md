@@ -1428,3 +1428,42 @@ sent by the account owner (core still requires From = owner). Dedup by Message-I
 ## D178 — Mail-loop guards (TASK-054) [verified — tests]
 Reading Sent means FreshNow's own outgoing mail is visible to the poller. Two guards: an inbound message whose Message-ID is one
 we sent is ignored ("a message FreshNow sent itself"), and the inbox alias can never be stored as a person's address.
+
+
+## Task-scoped numbering from TASK-070 on
+The 20 Oct local build (not on GitHub) already uses D179–D192, G147–G158 and VF54–VF63 for TASK-055/056. Entries written
+outside that build use task-scoped IDs (D-T70.1, G-T70.1, VF-T70.1) so the two can be merged without renumbering.
+
+## D-T70.1 — Orange tracking is built inside the platform as the warehouse tasks of the TASK-055 plan (TASK-070) [believed — proposal, awaiting management decision]
+Receiving, sorting, crates, weigh-and-load, trips and machine delivery are proposed as modules on the existing Postgres, RLS,
+audit log, alarm engine and staff app, on top of the Televend mirror and machine registry of TASK-056. Adopting OpenWMS.org,
+Odoo Community, ERPNext, OpenBoxes, InvenTree or GreaterWMS was rejected: each is a second system of record (ERPNext a second
+database engine — MariaDB; OpenWMS a Java/RabbitMQ/Kubernetes stack for automated warehouses). Their data models are borrowed:
+Manhattan's LPN, ASN, reason codes, cycle counts and perpetual inventory transactions; Odoo's double-entry moves through virtual
+locations; ERPNext's quality-inspection gate; OpenBoxes' lot, expiry and FEFO. Deck: `docs/reports/warehouse-traceability-deck.html`.
+
+## D-T70.2 — Recommended capture: weigh at the tailgate; cameras are evidence, not the record (TASK-070) [believed — proposal]
+Option 1b puts the networked scale at the van door: the van is scanned once, each crate once, so weighing and loading are one
+record and there is no waiting area where fruit can be taken. Two zones (Option 1) need a numbered seal per crate. Computer vision
+reads plates at the gate and bookmarks video per scan; reading crate numbers by camera misses hidden crates silently, so it is an
+audit layer only. Face recognition of staff or drivers is not proposed (biometric data; disproportionate).
+
+## D-T70.3 — Devices reach the platform over HTTPS (REST); MCP is never in a device's data path (TASK-070) [believed — reasoning from CLAUDE.md rule 2]
+Affordable scales speak RS232/USB; a serial-to-network bridge with an HTTP client (USR-W610 class) or a Raspberry Pi gateway
+posts stable readings to the API with a device key. MCP lets an AI assistant call tools; placing it between a scale and the record
+would put a model in the data path. MCP stays where the local build put it (D184): read-only tools over computed totals.
+
+## D-T70.4 — Weights in whole grams; one ledger row per movement (TASK-070) [believed — design, not built]
+Integer grams avoid rounding drift in totals; every movement of fruit is one append-only row (from, to, grams, who, when,
+evidence), with virtual places for garbage, charity, staff, sold, cups sold, expected moisture loss and "unexplained".
+
+## D-T70.5 — Voice entry prototype: Groq Whisper for speech, fixed rules for fields, a model only for grounded gaps (TASK-070) [verified — 16/16 parser cases, mocked end-to-end run]
+`docs/prototypes/voice-crate-capture.html` is a standalone page: the user's Groq key, a 15-second recording cap, Whisper with a
+format-biasing prompt, a deterministic parser (number words, decimals, spelled plates), and a model call only for a missing field
+whose value must appear in the transcript or it is ignored and flagged. Not for staff data while Groq is the provider (D121).
+
+## D-T70.6 — CopilotKit OpenIntelligentUI and OpenDots not adopted (TASK-070) [believed — their GitHub READMEs, 23 Oct 2026]
+OpenIntelligentUI (MIT; Next.js + Python FastAPI agent; OpenAI default; Jev router needing a TypeSafe key) would add a runtime,
+send data to two more US AI services (against D121) and let model-written UI show numbers no query produced. Borrowed idea: the
+assistant picks one of our registered chart components and fills it with SQL rows. OpenDots (MIT, alpha; agents with their own
+browser/shell; needs CopilotKit Intelligence) conflicts with "no model decides who or whether" and adds an outside service.

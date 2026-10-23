@@ -408,6 +408,16 @@ Routing goes to the **CEO only** for now (company routing data not yet supplied)
   rows (G143). 683 tests (VF50), 34/34 browser checks (VF51).
   -> `docs/tasks/TASK-054-assign-by-email-channels-people-overview.html` · `EMAIL-DEMO-GUIDE.md` · COMMANDS.md §7g
 
+- **T70 Orange traceability and warehouse proposal (document + prototype, no platform code)** (2026-10-23): a 36-slide deck
+  — the orange's eight handoffs, a double-entry weight ledger, six capture options (recommended: weigh at the tailgate, D-T70.2),
+  the theft window and how small a theft a re-weigh catches, computer vision where it pays, the employee-phone option, REST not MCP
+  for devices (D-T70.3), Amazon.ae shortlist, Dubai suppliers, budget AED 1,096–5,592 pilot / 12,535–40,957 rollout, Manhattan and
+  open-source WMS comparison (D-T70.1), alarms, chat, analytics redesign, CopilotKit verdicts (D-T70.6), roadmap, eight decisions.
+  A 72-second Option 1 demo video rendered from the deck (VF-T70.4) and a voice crate log prototype (D-T70.5, VF-T70.1). Found and
+  reported: main rewound and company data pushed to the public repo (G-T70.1). IDs are task-scoped because the 20 Oct local build
+  already uses D179+.
+  -> `docs/tasks/TASK-070-orange-traceability-proposal.html` · `docs/reports/warehouse-traceability-deck.html` · `docs/prototypes/voice-crate-capture.html`
+
 ## Blocked on the user
 - ~~`CEO_TELEGRAM_USER_ID` is empty.~~ **Resolved 2026-09-04:** CEO = 6051615734,
   employee = 8903000291. Both have run `/start`; the CEO is linked to the CEO employee row.

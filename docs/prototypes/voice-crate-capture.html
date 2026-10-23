@@ -1,0 +1,593 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Voice Crate Log</title>
+<meta name="description" content="Prototype: say the crate number, weight and vehicle; the page fills a structured row. Speech-to-text by Groq Whisper; fields by fixed rules.">
+<style>
+/* Layout: a working tool — controls on the left, the growing log on the right; one column on phones. */
+:root{
+  --bg:#f3f6ee; --paper:#ffffff; --panel:#f1f5ea; --line:#d6dfcd;
+  --ink:#132017; --ink-2:#344236; --muted:#5d6b60;
+  --leaf:#3d6b10; --lime:#97d700; --lime-soft:#eaf5d3;
+  --orange:#f39c12; --orange-ink:#9d5404; --orange-soft:#fff0db;
+  --red:#a40e26; --red-soft:#fde9eb; --blue:#0550ae; --blue-soft:#e4eefb;
+  --f-body:"IBM Plex Sans","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 var(--f-body);-webkit-font-smoothing:antialiased}
+.wrap{max-width:1360px;margin:0 auto;padding-block:20px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:18px}
+h1{margin:0;font-size:30px;line-height:1.1;letter-spacing:-.01em;text-wrap:balance}
+h1 small{display:block;font-size:15px;font-weight:500;color:var(--muted);margin-top:6px;letter-spacing:0}
+h2{margin:0 0 10px;font-size:15px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-2)}
+.grid{display:grid;grid-template-columns:400px 1fr;gap:18px;align-items:start}
+.grid>*{min-width:0}
+@media (max-width:980px){.grid{grid-template-columns:1fr}}
+.card{background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:16px 18px}
+.stack{display:flex;flex-direction:column;gap:14px}
+label{display:block;font-size:13px;font-weight:600;color:var(--ink-2);margin-bottom:5px}
+input[type=password],input[type=text],select{width:100%;font:15px/1.3 var(--f-body);padding:9px 11px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink)}
+input:focus-visible,select:focus-visible,button:focus-visible{outline:3px solid var(--blue);outline-offset:1px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.row>*{min-width:0}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+button{font:600 14px/1 var(--f-body);border:1px solid var(--line);background:#fff;color:var(--ink);padding:10px 13px;border-radius:10px;cursor:pointer}
+button:hover{background:var(--panel)}
+button:disabled{opacity:.5;cursor:not-allowed}
+button.primary{background:var(--ink);border-color:var(--ink);color:#fff}
+button.primary:hover{background:#26362a}
+button.danger{color:var(--red);border-color:#f0c4ca}
+.check{display:flex;gap:8px;align-items:flex-start;font-size:14px;color:var(--ink-2)}
+.check input{margin-top:3px}
+.pill{display:inline-flex;align-items:center;gap:7px;font:600 13px/1 var(--f-body);padding:7px 11px;border-radius:999px;white-space:nowrap}
+.pill i{width:8px;height:8px;border-radius:50%;background:currentColor}
+.ok{background:var(--lime-soft);color:var(--leaf)} .warn{background:var(--orange-soft);color:var(--orange-ink)} .bad{background:var(--red-soft);color:var(--red)} .info{background:var(--blue-soft);color:var(--blue)} .mute{background:#edf0ea;color:var(--muted)}
+.mic{display:flex;flex-direction:column;align-items:center;gap:12px;padding:8px 0 4px}
+#micBtn{width:132px;height:132px;border-radius:50%;border:0;background:var(--lime);color:var(--ink);font:700 15px/1.2 var(--f-body);display:grid;place-items:center;position:relative;box-shadow:0 14px 30px -14px #3d6b1099;transition:transform .12s}
+#micBtn:hover{background:#a6e21a}
+#micBtn.rec{background:#e5484d;color:#fff;box-shadow:0 0 0 calc(6px + var(--lvl,0) * 26px) #e5484d33}
+#micBtn svg{width:40px;height:40px;display:block;margin:0 auto 6px}
+#micBtn:active{transform:scale(.97)}
+.hint{font-size:13px;color:var(--muted);text-align:center}
+.meter{width:100%;height:8px;border-radius:5px;background:#e6ecdf;overflow:hidden}
+.meter i{display:block;height:100%;width:0;background:var(--leaf);transition:width .06s}
+.status{font-size:14px;min-height:20px;color:var(--ink-2)}
+.status.err{color:var(--red)}
+.said{font-family:var(--f-mono);font-size:14px;background:#0f1a12;color:#d9f7c4;border-radius:12px;padding:12px 14px;min-height:48px;white-space:pre-wrap}
+.preview{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.preview div{background:var(--panel);border-radius:10px;padding:9px 11px}
+.preview b{display:block;font:600 22px/1.15 var(--f-mono)}
+.preview span{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.tw{overflow-x:auto;border:1px solid var(--line);border-radius:14px;background:#fff}
+table{border-collapse:collapse;width:100%;min-width:760px;font-size:14.5px}
+th{background:var(--panel);text-align:left;font:600 12px/1.2 var(--f-body);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-2);padding:10px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:8px 10px;border-top:1px solid #e8ede2;vertical-align:top}
+tr.fresh td{background:#f4fbe7}
+td.n{text-align:right;font-variant-numeric:tabular-nums}
+td input{width:100%;min-width:70px;font:600 15px/1.2 var(--f-mono);border:1px solid transparent;border-radius:7px;padding:5px 7px;background:transparent;color:var(--ink)}
+td input:hover{border-color:var(--line)}
+td input:focus{border-color:var(--blue);background:#fff}
+td input.w{text-align:right}
+td .tr{font-size:12.5px;color:var(--muted);max-width:340px}
+td .when{font:500 13px/1.3 var(--f-mono);color:var(--ink-2);white-space:nowrap}
+.empty{padding:28px 18px;text-align:center;color:var(--muted)}
+.empty b{display:block;color:var(--ink);font-size:16px;margin-bottom:6px}
+.sum{display:flex;gap:18px;flex-wrap:wrap;font-size:14px;color:var(--ink-2)}
+.sum b{font:600 18px/1.2 var(--f-body);color:var(--ink);font-variant-numeric:tabular-nums}
+.note{border-left:5px solid var(--orange);background:var(--orange-soft);border-radius:0 12px 12px 0;padding:11px 14px;font-size:13.5px;color:var(--ink-2)}
+details summary{cursor:pointer;font-weight:600;font-size:14px}
+.confirm{display:none;gap:8px;align-items:center;font-size:14px}
+.confirm.show{display:flex}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+@media (prefers-reduced-motion:reduce){#micBtn,.meter i{transition:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Voice crate log<small>Say the crate, the weight and the vehicle. Each entry lands at the top of the list.</small></h1>
+    <div class="row"><span class="pill mute" id="keyPill"><i></i>No Groq key yet</span><span class="pill info"><i></i>Prototype · not the system of record</span></div>
+  </header>
+
+  <div class="grid">
+    <div class="stack">
+      <section class="card stack" aria-labelledby="setupH">
+        <h2 id="setupH">1 · Setup</h2>
+        <div>
+          <label for="engine">Speech engine</label>
+          <select id="engine">
+            <option value="groq" selected>Groq Whisper (needs your key)</option>
+            <option value="browser">Chrome's built-in speech (no key)</option>
+            <option value="typed">Typing only (no microphone)</option>
+          </select>
+        </div>
+        <div id="groqBox" class="stack">
+          <div>
+            <label for="key">Groq API key</label>
+            <input type="password" id="key" autocomplete="off" spellcheck="false" placeholder="gsk_…">
+          </div>
+          <label class="check"><input type="checkbox" id="remember"> Remember the key on this computer (stored in this browser only)</label>
+          <div class="row"><button type="button" id="testKey">Check key</button><span class="status" id="keyMsg" style="flex:1"></span></div>
+          <details>
+            <summary>Models and language</summary>
+            <div class="stack" style="margin-top:10px">
+              <div class="two">
+                <div><label for="sttModel">Speech-to-text model</label><select id="sttModel"><option>whisper-large-v3-turbo</option><option>whisper-large-v3</option></select></div>
+                <div><label for="lang">Language</label><select id="lang"><option value="en" selected>English</option><option value="">Detect automatically</option><option value="hi">Hindi</option><option value="ml">Malayalam</option><option value="ar">Arabic</option><option value="ur">Urdu</option></select></div>
+              </div>
+              <div><label for="llmModel">Fill missing fields with</label><select id="llmModel"><option value="openai/gpt-oss-20b" selected>openai/gpt-oss-20b</option><option value="openai/gpt-oss-120b">openai/gpt-oss-120b</option><option value="">Off — fixed rules only</option></select></div>
+              <div><label for="base">API address</label><input type="text" id="base" value="https://api.groq.com/openai/v1" spellcheck="false"></div>
+            </div>
+          </details>
+        </div>
+        <label class="check"><input type="checkbox" id="readback" checked> Read each entry back aloud</label>
+      </section>
+
+      <section class="card stack" aria-labelledby="speakH">
+        <h2 id="speakH">2 · Speak</h2>
+        <div class="mic" id="micArea">
+          <button type="button" id="micBtn" aria-pressed="false"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg><span id="micLbl">Tap to speak</span></span></button>
+          <div class="meter" aria-hidden="true"><i id="lvl"></i></div>
+          <div class="hint" id="micHint">Or hold the Space bar while you talk. Recording stops by itself after 15 seconds.</div>
+        </div>
+        <div id="typedBox" class="stack">
+          <label for="typed">Or type the sentence</label>
+          <div class="row"><input type="text" id="typed" placeholder="crate no. 1, weight is 18 kgs, truck HN897" style="flex:1"><button type="button" class="primary" id="typedGo">Add</button></div>
+        </div>
+        <div class="status" id="status" role="status" aria-live="polite">Example: "Crate no. 1, weight is 18 kgs, and it is loaded into truck with vehicle number HN897."</div>
+        <div>
+          <label>What was heard</label>
+          <div class="said" id="said">—</div>
+        </div>
+        <div class="preview" aria-label="Fields found">
+          <div><span>Crate</span><b id="pCrate">—</b></div>
+          <div><span>Weight</span><b id="pWeight">—</b></div>
+          <div><span>Vehicle</span><b id="pVeh">—</b></div>
+        </div>
+      </section>
+
+      <div class="note">Voice clips go to Groq's servers in the United States to be transcribed. That is fine for this test, but using it with staff needs the data-protection notice to say so, and a UAE-hosted speech service for real use. Numbers are filled by fixed rules; a language model only fills a missing field, and only with a value that appears in what was said.</div>
+    </div>
+
+    <section class="card stack" aria-labelledby="logH">
+      <div class="row" style="justify-content:space-between">
+        <h2 id="logH" style="margin:0">3 · Entries, newest first</h2>
+        <div class="row">
+          <button type="button" id="csv">Export CSV</button>
+          <button type="button" id="copy">Copy table</button>
+          <button type="button" class="danger" id="clear">Clear all</button>
+          <span class="confirm" id="confirm">Delete every entry? <button type="button" class="danger" id="clearYes">Delete</button><button type="button" id="clearNo">Keep</button></span>
+        </div>
+      </div>
+      <div class="sum" id="sum"></div>
+      <div class="tw">
+        <table>
+          <thead><tr><th>#</th><th>Time</th><th>Crate no.</th><th style="text-align:right">Weight (kg)</th><th>Vehicle no.</th><th>Check</th><th>What was said</th><th></th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+        <div class="empty" id="empty"><b>No entries yet</b>Press the green button and say: "crate no. 1, weight is 18 kgs, loaded into truck HN897". The row appears here.</div>
+      </div>
+      <label class="check"><input type="checkbox" id="keep" checked> Keep entries on this computer when the page is closed</label>
+    </section>
+  </div>
+</div>
+<span class="sr" id="sr" aria-live="assertive"></span>
+
+<script>
+"use strict";
+/* ── Parsing: fixed rules first. Numbers are never invented — every value must come from the words heard. ── */
+const UNITS = {zero:0,one:1,two:2,three:3,four:4,five:5,six:6,seven:7,eight:8,nine:9,ten:10,eleven:11,twelve:12,thirteen:13,fourteen:14,fifteen:15,sixteen:16,seventeen:17,eighteen:18,nineteen:19};
+const TENS = {twenty:20,thirty:30,forty:40,fourty:40,fifty:50,sixty:60,seventy:70,eighty:80,ninety:90};
+
+// "eighteen point five" → "18.5"; "one hundred twenty" → "120"; "eight nine seven" stays digit by digit → "8 9 7"
+function wordsToDigits(text) {
+  // a full stop splits a word only when no digit follows, so "18.5" stays whole
+  const toks = text.split(/(\s+|[,;:!?()]|\.(?!\d)|(?<=\w)-(?=\w))/).filter(t => t !== undefined && t !== "");
+  const out = [];
+  let i = 0;
+  while (i < toks.length) {
+    const w = toks[i].toLowerCase();
+    if (!(w in UNITS || w in TENS)) { out.push(toks[i]); i++; continue; }
+    // one compound number; a units word straight after another units word starts a new number (spelled plates)
+    let total = 0, cur = 0, j = i, last = null;
+    while (j < toks.length) {
+      const t = toks[j].toLowerCase();
+      if (/^\s+$/.test(t) || t === "-") { j++; continue; }
+      if (t in TENS && (last === null || last === "hundred")) { cur += TENS[t]; last = "tens"; j++; continue; }
+      if (t in UNITS && (last === null || last === "hundred" || (last === "tens" && UNITS[t] > 0 && UNITS[t] < 10))) { cur += UNITS[t]; last = "units"; j++; continue; }
+      if (t === "hundred" && last !== null && last !== "hundred") { cur = (cur || 1) * 100; last = "hundred"; j++; continue; }
+      if (t === "thousand" && last !== null) { total += (cur || 1) * 1000; cur = 0; last = "hundred"; j++; continue; }
+      if (t === "and" && last === "hundred") { j++; continue; }
+      break;
+    }
+    while (j > i && /^(\s+|-|and)$/i.test(toks[j - 1])) j--;   // leave trailing spaces for the next word
+    out.push(String(total + cur));
+    i = j;
+  }
+  return out.join("")
+    .replace(/(\d)\s+(?:point|dot)\s+(\d+)/gi, "$1.$2")
+    .replace(/(\d)\s+and\s+a\s+half\b/gi, (m, d) => d + ".5")
+    .replace(/\s+/g, " ");
+}
+
+function normalize(text) {
+  let s = " " + String(text || "").replace(/[“”"]/g, " ") + " ";
+  s = wordsToDigits(s);
+  s = s.replace(/(\d),(\d{1,2})(?!\d)/g, "$1.$2");      // "18,5 kg" said with a comma
+  s = s.replace(/\bnumber\b|\bno\b\.?(?=\s*\d)|\bno\.(?=\s)|\bnum\b|#/gi, " number ");
+  return s.replace(/\s+/g, " ").trim();
+}
+
+function parsePlate(after) {
+  // read letter and digit groups until a word that cannot be part of a plate
+  const skip = /^(number|no|num|is|plate|registration|reg|code|of|the|with|vehicle|truck|van|lorry|car)$/i;
+  const stop = /^(and|with|is|was|in|into|on|the|to|at|for|crate|weight|kg|kgs|kilos?|kilograms?|loaded|load|of|it|has|been|please|thanks|okay|ok)$/i;
+  const toks = after.replace(/[.,;:!?]/g, " ").split(/\s+/).filter(Boolean);
+  let out = "";
+  for (let i = 0; i < toks.length; i++) {
+    const t = toks[i];
+    if (!out) {
+      // "A 54321" is a plate letter; "a van" is an article
+      if (/^an?$/i.test(t) && !(toks[i + 1] && /\d/.test(toks[i + 1]))) continue;
+      if (skip.test(t)) continue;
+    } else if (stop.test(t)) break;
+    if (!/^[a-z0-9-]+$/i.test(t)) break;
+    const clean = t.replace(/-/g, "");
+    if (clean.length > 8) break;
+    out += clean;
+    if (out.length >= 9) break;
+  }
+  out = out.toUpperCase();
+  return /[0-9]/.test(out) && out.length >= 2 ? out : null;
+}
+
+function parseEntry(raw) {
+  const s = normalize(raw);
+  const lower = s.toLowerCase();
+  const r = { crate: null, weight: null, vehicle: null, flags: [] };
+  let m = lower.match(/\bcrates?\b(?:\s+number)?\s*(?:is\s+)?[:\-]?\s*((?:[a-z]{1,4}[\s-]?)?\d{1,6})\b/);
+  if (m) r.crate = m[1].replace(/[\s-]/g, "").toUpperCase();
+  m = lower.match(/(\d+(?:\.\d+)?)\s*(?:kgs?\b|kilo(?:gram)?s?\b|kilos?\b|k\.?g\.?(?=\W|$))/) ||
+      lower.match(/\bweigh(?:t|s|ing)?\b(?:\s+(?:is|was|of|about))?\s*[:=]?\s*(\d+(?:\.\d+)?)/);
+  if (m) r.weight = parseFloat(m[1]);
+  // the plate follows the LAST vehicle word: "truck with vehicle number HN897"
+  const kw = Array.from(lower.matchAll(/\b(?:vehicle|truck|van|lorry|car|plate)\b/g));
+  for (let k = kw.length - 1; k >= 0 && !r.vehicle; k--) r.vehicle = parsePlate(s.slice(kw[k].index + kw[k][0].length));
+  if (!r.vehicle) { const p = s.match(/\b([A-Z]{1,3}\s?-?\s?\d{2,5})\b/); if (p) r.vehicle = p[1].replace(/[\s-]/g, "").toUpperCase(); }
+  if (r.weight !== null && (r.weight <= 0 || r.weight > 60)) r.flags.push("weight outside 0–60 kg — check");
+  return { ...r, normalized: s };
+}
+
+// grounding gate: a value from the model is accepted only if it appears in what was heard
+function grounded(field, value, normalized) {
+  if (value === null || value === undefined || value === "") return false;
+  const compact = normalized.toUpperCase().replace(/[\s-]/g, "");
+  if (field === "weight") {
+    const n = Number(value); if (!isFinite(n)) return false;
+    const nums = (normalized.match(/\d+(?:\.\d+)?/g) || []).map(Number);
+    return nums.some(x => Math.abs(x - n) < 1e-9);
+  }
+  return compact.includes(String(value).toUpperCase().replace(/[\s-]/g, ""));
+}
+
+/* ── State and storage (browser only; wrapped because storage can be refused) ── */
+const $ = id => document.getElementById(id);
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* storage refused */ } },
+  del(k) { try { localStorage.removeItem(k); } catch (e) { /* storage refused */ } }
+};
+let entries = [];
+try { entries = JSON.parse(store.get("fn-voice-entries") || "[]"); if (!Array.isArray(entries)) entries = []; } catch (e) { entries = []; }
+const savedKey = store.get("fn-voice-groq-key");
+if (savedKey) { $("key").value = savedKey; $("remember").checked = true; }
+$("keep").checked = store.get("fn-voice-keep") !== "0";
+
+function persist() {
+  if ($("keep").checked) store.set("fn-voice-entries", JSON.stringify(entries)); else store.del("fn-voice-entries");
+}
+function setStatus(msg, err) { const el = $("status"); el.textContent = msg; el.classList.toggle("err", !!err); }
+function keyState() {
+  const k = $("key").value.trim(), pill = $("keyPill");
+  if ($("engine").value !== "groq") { pill.className = "pill mute"; pill.innerHTML = "<i></i>Groq not used"; return; }
+  pill.className = k ? "pill ok" : "pill mute";
+  pill.innerHTML = k ? "<i></i>Groq key entered" : "<i></i>No Groq key yet";
+}
+$("key").addEventListener("input", () => { keyState(); if ($("remember").checked) store.set("fn-voice-groq-key", $("key").value.trim()); });
+$("remember").addEventListener("change", () => { if ($("remember").checked) store.set("fn-voice-groq-key", $("key").value.trim()); else store.del("fn-voice-groq-key"); });
+$("keep").addEventListener("change", () => { store.set("fn-voice-keep", $("keep").checked ? "1" : "0"); persist(); });
+
+/* ── Groq calls: bounded (timeout, at most one retry), errors explained in plain words ── */
+async function groq(path, opts, timeoutMs) {
+  const ctl = new AbortController(); const tm = setTimeout(() => ctl.abort(), timeoutMs || 15000);
+  const base = $("base").value.trim().replace(/\/+$/, "");
+  let res;
+  try {
+    res = await fetch(base + path, { ...opts, signal: ctl.signal, headers: { ...(opts.headers || {}), Authorization: "Bearer " + $("key").value.trim() } });
+  } catch (e) {
+    clearTimeout(tm);
+    if (e.name === "AbortError") throw new Error("Groq took too long to answer. Try again.");
+    throw new Error("The browser could not reach Groq — no internet, or the browser blocked the request. Switch the speech engine to Chrome's built-in speech, or type the entry.");
+  }
+  clearTimeout(tm);
+  if (res.status === 401) throw new Error("Groq rejected the key. Check it at console.groq.com → API Keys.");
+  if (res.status === 429) { const ra = res.headers.get("retry-after"); throw new Error("Groq's rate limit was reached" + (ra ? ", try again in " + ra + " s." : ". Wait a moment and try again.")); }
+  const body = await res.text();
+  let json = null; try { json = JSON.parse(body); } catch (e) { /* not JSON */ }
+  if (!res.ok) { const msg = json && json.error && json.error.message ? json.error.message : body.slice(0, 200); const err = new Error("Groq error " + res.status + ": " + msg); err.status = res.status; throw err; }
+  return json;
+}
+
+$("testKey").addEventListener("click", async () => {
+  const msg = $("keyMsg"); msg.classList.remove("err");
+  if (!$("key").value.trim()) { msg.textContent = "Paste a key first."; msg.classList.add("err"); return; }
+  msg.textContent = "Checking…";
+  try {
+    const j = await groq("/models", { method: "GET" }, 10000);
+    const ids = (j && j.data || []).map(m => m.id).sort();
+    const stt = ids.filter(id => /whisper/i.test(id));
+    const chat = ids.filter(id => /gpt-oss|llama|qwen|kimi|mixtral|gemma/i.test(id) && !/whisper|guard|tts|playai|orpheus/i.test(id));
+    if (stt.length) fill($("sttModel"), stt, stt.includes("whisper-large-v3-turbo") ? "whisper-large-v3-turbo" : stt[0]);
+    if (chat.length) fill($("llmModel"), chat, chat.includes("openai/gpt-oss-20b") ? "openai/gpt-oss-20b" : chat[0], true);
+    msg.textContent = "Key works. " + stt.length + " speech model(s), " + chat.length + " text model(s) available.";
+  } catch (e) { msg.textContent = e.message; msg.classList.add("err"); }
+});
+function fill(sel, ids, pick, withOff) {
+  sel.innerHTML = "";
+  ids.forEach(id => { const o = document.createElement("option"); o.value = id; o.textContent = id; if (id === pick) o.selected = true; sel.appendChild(o); });
+  if (withOff) { const o = document.createElement("option"); o.value = ""; o.textContent = "Off — fixed rules only"; sel.appendChild(o); }
+}
+
+async function transcribe(blob) {
+  const fd = new FormData();
+  const ext = /mp4|m4a/.test(blob.type) ? "m4a" : /ogg/.test(blob.type) ? "ogg" : /wav/.test(blob.type) ? "wav" : "webm";
+  fd.append("file", blob, "clip." + ext);
+  fd.append("model", $("sttModel").value || "whisper-large-v3-turbo");
+  fd.append("response_format", "json");
+  fd.append("temperature", "0");
+  // a short example biases Whisper towards digits and plate-like spelling
+  fd.append("prompt", "Crate number 12, weight 18.5 kg, loaded into truck with vehicle number HN897.");
+  if ($("lang").value) fd.append("language", $("lang").value);
+  const j = await groq("/audio/transcriptions", { method: "POST", body: fd }, 20000);
+  return (j && j.text || "").trim();
+}
+
+const SCHEMA = { type: "object", additionalProperties: false, required: ["crate", "weight_kg", "vehicle"],
+  properties: { crate: { type: ["string", "null"] }, weight_kg: { type: ["number", "null"] }, vehicle: { type: ["string", "null"] } } };
+async function modelFill(transcript) {
+  const model = $("llmModel").value; if (!model) return null;
+  const messages = [
+    { role: "system", content: "You extract three fields from a warehouse worker's spoken sentence. Return JSON only: crate (the crate number as said), weight_kg (a number in kilograms), vehicle (the vehicle or truck number, letters and digits without spaces). Use only values that appear in the sentence. If a field is not in the sentence, return null for it. Never guess." },
+    { role: "user", content: transcript }
+  ];
+  const strict = { model, messages, temperature: 0, response_format: { type: "json_schema", json_schema: { name: "crate_entry", strict: true, schema: SCHEMA } } };
+  let j;
+  try { j = await groq("/chat/completions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(strict) }, 10000); }
+  catch (e) {
+    if (e.status !== 400) throw e;
+    // one retry, plain JSON mode, for models without strict schemas
+    j = await groq("/chat/completions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model, messages, temperature: 0, response_format: { type: "json_object" } }) }, 10000);
+  }
+  const txt = j && j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content || "";
+  try { return JSON.parse(txt); } catch (e) { return null; }
+}
+
+/* ── One utterance → one row ── */
+async function handleTranscript(transcript, source, timing) {
+  $("said").textContent = transcript || "(nothing heard)";
+  if (!transcript) { setStatus("Nothing was heard. Speak a little closer to the microphone and try again.", true); return; }
+  const p = parseEntry(transcript);
+  let how = "fixed rules";
+  const missing = ["crate", "weight", "vehicle"].filter(f => p[f] === null);
+  if (missing.length && source === "groq" && $("llmModel").value && $("key").value.trim()) {
+    setStatus("Fixed rules missed " + missing.join(" and ") + " — asking the model to point them out…");
+    try {
+      const m = await modelFill(transcript);
+      if (m) {
+        const map = { crate: m.crate, weight: m.weight_kg, vehicle: m.vehicle };
+        for (const f of missing) {
+          const v = map[f];
+          if (v === null || v === undefined || v === "") continue;
+          if (grounded(f, v, p.normalized)) { p[f] = f === "weight" ? Number(v) : String(v).toUpperCase().replace(/[\s-]/g, ""); how = "fixed rules + model"; }
+          else p.flags.push("model's " + f + " (" + v + ") is not in what was said — ignored");
+        }
+      }
+    } catch (e) { p.flags.push("model not used: " + e.message); }
+  }
+  const stillMissing = ["crate", "weight", "vehicle"].filter(f => p[f] === null);
+  stillMissing.forEach(f => p.flags.push(f + " not heard"));
+  const entry = { id: Date.now() + Math.random().toString(16).slice(2, 6), at: new Date().toISOString(), crate: p.crate, weight: p.weight, vehicle: p.vehicle, said: transcript, how, flags: p.flags, source, timing: timing || null };
+  entries.unshift(entry); persist(); render(entry.id);
+  $("pCrate").textContent = p.crate ?? "—"; $("pWeight").textContent = p.weight !== null ? p.weight + " kg" : "—"; $("pVeh").textContent = p.vehicle ?? "—";
+  const ok = !p.flags.length;
+  setStatus((ok ? "Added: " : "Added — please check: ") + summary(entry) + (timing ? " · heard in " + timing + " ms" : ""), !ok);
+  $("sr").textContent = "Added " + summary(entry);
+  if ($("readback").checked && "speechSynthesis" in window) {
+    try {
+      const say = "Crate " + (p.crate ?? "unknown") + ", " + (p.weight !== null ? p.weight + " kilograms" : "weight unknown") + ", vehicle " + (p.vehicle ? p.vehicle.split("").join(" ") : "unknown") + (ok ? "" : ". Please check.");
+      speechSynthesis.cancel(); speechSynthesis.speak(new SpeechSynthesisUtterance(say));
+    } catch (e) { /* speech output is optional */ }
+  }
+}
+function summary(e) { return "crate " + (e.crate ?? "?") + ", " + (e.weight !== null ? e.weight + " kg" : "? kg") + ", vehicle " + (e.vehicle ?? "?"); }
+
+/* ── Table ── */
+function esc(s) { return String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+function render(freshId) {
+  const tb = $("rows");
+  tb.innerHTML = entries.map((e, i) => {
+    const n = entries.length - i;
+    const t = new Date(e.at);
+    const when = t.toLocaleTimeString("en-GB", { timeZone: "Asia/Dubai", hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    const check = e.flags && e.flags.length
+      ? '<span class="pill warn" title="' + esc(e.flags.join("; ")) + '"><i></i>Check</span><div class="tr" style="margin-top:4px">' + esc(e.flags.join("; ")) + "</div>"
+      : '<span class="pill ok"><i></i>' + (e.edited ? "Edited by hand" : "All found in what was said") + "</span>";
+    return '<tr data-id="' + e.id + '"' + (e.id === freshId ? ' class="fresh"' : "") + ">" +
+      '<td class="n">' + n + "</td>" +
+      '<td><span class="when">' + esc(when) + "</span></td>" +
+      '<td><input aria-label="Crate number, entry ' + n + '" data-f="crate" value="' + esc(e.crate ?? "") + '"></td>' +
+      '<td><input class="w" aria-label="Weight in kilograms, entry ' + n + '" data-f="weight" inputmode="decimal" value="' + esc(e.weight ?? "") + '"></td>' +
+      '<td><input aria-label="Vehicle number, entry ' + n + '" data-f="vehicle" value="' + esc(e.vehicle ?? "") + '"></td>' +
+      "<td>" + check + "</td>" +
+      '<td><div class="tr">' + esc(e.said) + '<br><span style="opacity:.8">' + esc(e.how) + "</span></div></td>" +
+      '<td><button type="button" data-del="' + e.id + '" aria-label="Delete entry ' + n + '">Delete</button></td></tr>';
+  }).join("");
+  $("empty").hidden = entries.length > 0;
+  const w = entries.filter(e => typeof e.weight === "number");
+  const byV = {};
+  w.forEach(e => { const v = e.vehicle || "no vehicle"; byV[v] = (byV[v] || 0) + e.weight; });
+  $("sum").innerHTML = entries.length
+    ? "<span>Entries <b>" + entries.length + "</b></span><span>Total weight <b>" + w.reduce((a, e) => a + e.weight, 0).toFixed(2) + " kg</b></span>" +
+      Object.keys(byV).sort().map(v => "<span>" + esc(v) + " <b>" + byV[v].toFixed(2) + " kg</b></span>").join("")
+    : "";
+}
+$("rows").addEventListener("change", ev => {
+  const inp = ev.target.closest("input[data-f]"); if (!inp) return;
+  const id = inp.closest("tr").dataset.id, e = entries.find(x => x.id === id); if (!e) return;
+  const f = inp.dataset.f, v = inp.value.trim();
+  if (f === "weight") { const n = parseFloat(v.replace(",", ".")); e.weight = isFinite(n) ? n : null; }
+  else e[f] = v ? v.toUpperCase().replace(/\s+/g, "") : null;
+  e.edited = true; e.flags = ["crate", "weight", "vehicle"].filter(k => e[k] === null).map(k => k + " missing");
+  persist(); render();
+});
+$("rows").addEventListener("click", ev => {
+  const b = ev.target.closest("button[data-del]"); if (!b) return;
+  entries = entries.filter(x => x.id !== b.dataset.del); persist(); render();
+});
+function csv() {
+  const head = ["entry", "time_dubai", "crate_no", "weight_kg", "vehicle_no", "check", "transcript", "filled_by"];
+  const q = s => '"' + String(s ?? "").replace(/"/g, '""') + '"';
+  const lines = entries.slice().reverse().map((e, i) => [i + 1, new Date(e.at).toLocaleString("en-GB", { timeZone: "Asia/Dubai" }), e.crate, e.weight, e.vehicle, (e.flags || []).join("; ") || "ok", e.said, e.how].map(q).join(","));
+  return [head.join(",")].concat(lines).join("\r\n");
+}
+$("csv").addEventListener("click", () => {
+  const url = URL.createObjectURL(new Blob(["﻿" + csv()], { type: "text/csv" }));
+  const a = document.createElement("a"); a.href = url; a.download = "crate-voice-log-" + new Date().toISOString().slice(0, 10) + ".csv";
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 2000);
+});
+$("copy").addEventListener("click", async () => {
+  const tsv = csv().replace(/","/g, "\t").replace(/^"|"$/gm, "");
+  try { await navigator.clipboard.writeText(tsv); setStatus("Table copied — paste it into Excel or Google Sheets."); }
+  catch (e) { setStatus("The browser refused clipboard access. Use Export CSV instead.", true); }
+});
+$("clear").addEventListener("click", () => { if (entries.length) $("confirm").classList.add("show"); });
+$("clearNo").addEventListener("click", () => $("confirm").classList.remove("show"));
+$("clearYes").addEventListener("click", () => { entries = []; persist(); render(); $("confirm").classList.remove("show"); setStatus("All entries deleted."); });
+
+/* ── Engines: Groq Whisper (recorded clip), Chrome speech, typed ── */
+const MAX_MS = 15000;
+let rec = null, chunks = [], stream = null, timer = null, meterRaf = 0, started = 0, actx = null, recog = null, busy = false;
+function micUI(on, label) {
+  $("micBtn").classList.toggle("rec", on); $("micBtn").setAttribute("aria-pressed", on ? "true" : "false");
+  $("micLbl").textContent = label || (on ? "Listening… tap to stop" : "Tap to speak");
+  if (!on) { $("lvl").style.width = "0"; $("micBtn").style.setProperty("--lvl", 0); }
+}
+function pickType() {
+  const cands = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg;codecs=opus"];
+  for (const c of cands) if (window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(c)) return c;
+  return "";
+}
+async function startGroq() {
+  if (!$("key").value.trim()) { setStatus("Paste your Groq key in Setup first, or switch the engine to Chrome's built-in speech.", true); $("key").focus(); return; }
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { setStatus("This browser cannot record here. Open the page in Chrome on a laptop.", true); return; }
+  try { stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } }); }
+  catch (e) { setStatus("Microphone permission was refused. Allow it from the icon in the address bar and try again.", true); return; }
+  const type = pickType();
+  try { rec = new MediaRecorder(stream, type ? { mimeType: type } : undefined); } catch (e) { rec = new MediaRecorder(stream); }
+  chunks = [];
+  rec.ondataavailable = ev => { if (ev.data && ev.data.size) chunks.push(ev.data); };
+  rec.onstop = onStopGroq;
+  rec.start(250); started = performance.now();
+  micUI(true); setStatus("Listening… say crate, weight and vehicle, then tap again.");
+  meter(stream);
+  timer = setTimeout(stop, MAX_MS);
+}
+function meter(s) {
+  try {
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    const src = actx.createMediaStreamSource(s), an = actx.createAnalyser(); an.fftSize = 512; src.connect(an);
+    const buf = new Uint8Array(an.fftSize);
+    const tick = () => {
+      an.getByteTimeDomainData(buf); let sum = 0; for (const v of buf) { const d = (v - 128) / 128; sum += d * d; }
+      const rms = Math.min(1, Math.sqrt(sum / buf.length) * 4);
+      $("lvl").style.width = (rms * 100).toFixed(0) + "%"; $("micBtn").style.setProperty("--lvl", rms.toFixed(2));
+      const secs = Math.max(0, (MAX_MS - (performance.now() - started)) / 1000);
+      $("micHint").textContent = "Recording stops by itself in " + secs.toFixed(0) + " s.";
+      meterRaf = requestAnimationFrame(tick);
+    };
+    tick();
+  } catch (e) { /* the level meter is optional */ }
+}
+function stop() {
+  clearTimeout(timer); cancelAnimationFrame(meterRaf);
+  $("micHint").textContent = "Or hold the Space bar while you talk. Recording stops by itself after 15 seconds.";
+  if (rec && rec.state !== "inactive") rec.stop();
+  if (recog) { try { recog.stop(); } catch (e) { /* already stopped */ } }
+}
+async function onStopGroq() {
+  const ms = Math.round(performance.now() - started);
+  if (stream) stream.getTracks().forEach(t => t.stop());
+  micUI(false, "Working…"); busy = true; $("micBtn").disabled = true;
+  const blob = new Blob(chunks, { type: (rec && rec.mimeType) || "audio/webm" });
+  rec = null;
+  if (ms < 600 || blob.size < 1500) { setStatus("That was too short to understand. Hold the button a little longer.", true); done(); return; }
+  setStatus("Transcribing with Groq…");
+  const t0 = performance.now();
+  try { const text = await transcribe(blob); await handleTranscript(text, "groq", Math.round(performance.now() - t0)); }
+  catch (e) { setStatus(e.message, true); }
+  done();
+}
+function done() { busy = false; $("micBtn").disabled = false; micUI(false); }
+
+function startBrowser() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { setStatus("This browser has no built-in speech recognition. Use Chrome, or the Groq engine.", true); return; }
+  recog = new SR(); recog.lang = $("lang").value === "ar" ? "ar-AE" : $("lang").value === "hi" ? "hi-IN" : "en-US";
+  recog.interimResults = false; recog.maxAlternatives = 1;
+  let got = "";
+  recog.onresult = ev => { got = Array.from(ev.results).map(r => r[0].transcript).join(" "); };
+  recog.onerror = ev => { setStatus("Chrome's speech recognition stopped: " + ev.error + ". It needs an internet connection.", true); };
+  recog.onend = async () => { clearTimeout(timer); micUI(false); recog = null; if (got) await handleTranscript(got, "browser"); };
+  started = performance.now();
+  try { recog.start(); } catch (e) { setStatus("Could not start Chrome's speech recognition.", true); return; }
+  micUI(true); setStatus("Listening with Chrome's built-in speech…");
+  timer = setTimeout(stop, MAX_MS);
+}
+function toggle() {
+  if (busy) return;
+  const eng = $("engine").value;
+  if ((rec && rec.state === "recording") || recog) { stop(); return; }
+  if (eng === "groq") startGroq(); else if (eng === "browser") startBrowser();
+}
+$("micBtn").addEventListener("click", toggle);
+let spaceDown = false;
+document.addEventListener("keydown", e => {
+  if (e.code !== "Space" || e.repeat || spaceDown) return;
+  const t = e.target; if (t && (t.tagName === "INPUT" || t.tagName === "SELECT" || t.tagName === "TEXTAREA" || t.tagName === "BUTTON")) return;
+  if ($("engine").value === "typed") return;
+  e.preventDefault(); spaceDown = true; if (!((rec && rec.state === "recording") || recog)) toggle();
+});
+document.addEventListener("keyup", e => { if (e.code === "Space" && spaceDown) { spaceDown = false; if ((rec && rec.state === "recording") || recog) stop(); } });
+
+function engineUI() {
+  const eng = $("engine").value;
+  $("groqBox").hidden = eng !== "groq";
+  $("micArea").hidden = eng === "typed";
+  keyState();
+}
+$("engine").addEventListener("change", engineUI);
+async function addTyped() { const v = $("typed").value.trim(); if (!v) return; $("typed").value = ""; await handleTranscript(v, "typed"); }
+$("typedGo").addEventListener("click", addTyped);
+$("typed").addEventListener("keydown", e => { if (e.key === "Enter") addTyped(); });
+
+engineUI(); render();
+// self-check for the parser, visible in the browser console
+window.__parseEntry = parseEntry;
+</script>
+</body>
+</html>

@@ -238,3 +238,20 @@ They can be given work immediately; anything but the app inbox waits for their c
 ## A-T54.4 — Work given by email should reach the assignee by email as well as their usual channels [assumed]
 So their reply to that email lands on the task. Confirm/refute: watch whether staff find two notifications (Telegram + email)
 noisy. Affects: `assignFromEmail`.
+
+
+## A-T70.1 — Handoffs are not weighed and signed into a system today [assumed]
+Confirm/refute: the warehouse team describes how stock, sorting and loading are recorded now. Affects: the pilot baseline and slide 4 of the deck.
+
+## A-T70.2 — 24 crates per van; crates weigh 5–30 kg filled [assumed]
+Used only for arithmetic (49 vs 25 scans) and the station's plausibility check. Confirm/refute: dispatch lead and the crate specification.
+
+## A-T70.3 — One orange ≈ 131 g; moisture loss 0.5–1.3 % a day at ambient temperature [assumed]
+USDA "medium" orange via a secondary source; three storage studies under different conditions. Confirm/refute: weigh 20 of
+FreshNow's oranges; weigh control crates twice a day during the pilot. Affects: the theft-detection tolerance (deck slide 15).
+
+## A-T70.4 — Alarm thresholds (2 % short delivery, 48 h ageing, 1.5 days of cover, +5 points yield, 15 min for unexplained loss) [assumed]
+Placeholders so the design can be discussed. Confirm/refute: management sets each threshold and owner (deck decision 5).
+
+## A-T70.5 — SIRA rules: licensed installer, approved devices, 31-day retention, 4 MP minimum [assumed — installers' guides only]
+Confirm/refute: SIRA's own published requirements or a SIRA-licensed installer's written statement before buying cameras.

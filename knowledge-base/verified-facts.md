@@ -734,3 +734,22 @@ the `\Sent` special-use attribute.
 Read in `dist/esm/search-compiler.js` (OR builds a binary IMAP OR tree; TO and CC keys exist) and typechecked; a message only in
 Dovecot's `\Sent` mailbox with the alias in Cc was found and assigned. The same test against the TASK-053 poller found nothing
 (`outcomes: {}`) — the failure reproduced before the fix.
+
+
+## VF-T70.1 (2026-10-23) — Chromium treats a file:// page as a secure context; microphone recording works there [verified — Playwright, fake media device]
+`isSecureContext` true; `getUserMedia` and `MediaRecorder` available; three clips of ~18–19 KB WebM/Opus were recorded and posted
+as multipart to a mocked Groq endpoint with file, model, language and prompt fields.
+
+## VF-T70.2 (2026-10-23) — Groq speech-to-text facts used by the voice page [believed — Groq docs and pricing pages via search]
+`whisper-large-v3-turbo` at $0.04 per audio hour, each request billed at least 10 s (≈ $0.11 per 1,000 short entries);
+`whisper-large-v3` $0.111/h; uploads up to 25 MB on the free tier, 100 MB on dev; formats include webm and ogg;
+`openai/gpt-oss-20b` supports strict structured outputs. Not read on console.groq.com itself (G-T70.2).
+
+## VF-T70.3 (2026-10-23) — Hardware prices seen in search results [believed — snapshots, VAT treatment varies]
+Ohaus Ranger 3000 30 kg × 1 g (RS232 standard) AED 2,875.76; Tera HW0002 scanner AED 246–292; Hikvision DS-2CD1643G2-LIZU AED 399,
+DS-2CD2043G2-I AED 420; DS-7608NXI-K2/8P recorder AED 505–759; Raspberry Pi AI HAT+ AED 420; Jetson Orin Nano Super AED 3,499
+(all Amazon.ae); Hikvision ANPR AED 2,040–7,200 (Dubai retailers); Zebra DS2278 AED 2,279–2,879 (NEOTECH). Re-check before buying.
+
+## VF-T70.4 (2026-10-23) — Option 1 demo video [verified — ffprobe]
+`docs/reports/media/option1-weigh-scan-load.mp4`: H.264, 1920×1080, 30 fps, 72.03 s, 2.95 MB, rendered frame by frame from the
+deck's demo slide (`?record#s12`), so the slide and the video show the same frames.

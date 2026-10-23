@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TASK-070 — Orange traceability and warehouse proposal, Option 1 demo video, voice crate log</title>
+<style>
+  :root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#3fb950;--warn:#d29922;--bad:#f85149;--card:#161b22;--bd:#30363d}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;max-width:980px;padding:48px 24px;margin-inline:auto}
+  h1{font-size:1.9rem;margin:0 0 4px} h2{margin-top:2.5rem;color:var(--acc);font-size:1.25rem} h3{font-size:1.05rem;margin-top:1.6rem}
+  .meta{color:var(--mut);font-size:.9rem;margin-bottom:2rem}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:18px;margin:14px 0}
+  .unverified{border-left:3px solid var(--warn)} .ok{border-left:3px solid var(--acc)} .alert{border-left:3px solid var(--bad)}
+  code{background:#1f2630;padding:2px 6px;border-radius:4px;font-size:.9em}
+  pre{background:#1f2630;padding:12px;border-radius:8px;overflow-x:auto;font-size:.85rem;line-height:1.45}
+  .tw{overflow-x:auto} table{border-collapse:collapse;width:100%;margin:14px 0}
+  th,td{border:1px solid var(--bd);padding:7px 9px;text-align:left;font-size:.88rem;vertical-align:top} th{background:#1f2630}
+  .bad{color:var(--bad);font-weight:600}.good{color:var(--acc);font-weight:600}.warn{color:var(--warn);font-weight:600}
+  ul{padding-left:1.1rem} li{margin:3px 0} a{color:#88c0f0}
+  @media (max-width:600px){body{padding:28px 16px}}
+</style></head><body>
+<h1>TASK-070 — Orange traceability and warehouse proposal, Option 1 demo video, voice crate log</h1>
+<p class="meta">2026-10-23 · Phase 3 warehouse planning, under the 15 Oct decision to build Operations + Inventory now (D179, local build) ·
+new: <code>docs/reports/warehouse-traceability-deck.html</code>, <code>docs/reports/media/option1-weigh-scan-load.mp4</code>,
+<code>docs/prototypes/voice-crate-capture.html</code> · changed: <code>knowledge-base/*</code>, <code>SESSION-STATUS.md</code> ·
+no platform code, no migration, no dependency · branch based on <code>aa00334</code> (main of 7 Oct)</p>
+
+<div class="card ok"><b>One-sentence summary:</b> a researched, priced plan for tracking every orange from the vendor's truck to the
+vending machine — presented as a 36-slide deck with a recommended layout (weigh at the van door), an anti-theft tolerance worked out
+in grams, computer-vision placement and requirements, Amazon.ae links and Dubai suppliers, three budget levels, the warehouse-system
+design borrowed from Manhattan and the open-source WMSs, and eight decisions for management — plus a 72-second demo video of
+Option 1 and a working voice-entry page.</div>
+
+<div class="card alert"><b>Found while getting the context, reported to the user:</b> at 18:41:23Z a force push moved <code>main</code>
+from <code>aa00334</code> back to <code>26666a5</code> (28 Sep); at 19:28:22Z a normal push on top (<code>ef84b05</code>) added WhatsApp
+exports (≈1,800 phone-number matches), Televend exports and <code>private-data/</code> to the <b>public</b> repository. No passwords or
+API keys were found in it. <code>aa00334</code>'s tree equals <code>claude/charming-hopper-tfg8v8</code>, so no code was lost. The user's
+20 Oct build (Televend connector, MCP, analytics, inventory) is still only on their laptop. Advice given: make the repository private,
+let us clean the history, push the real build to a new branch (G-T70.1).</div>
+
+<h2>What was asked</h2>
+<ul>
+  <li>Plan the tracking of oranges from vendor delivery to the machines with no loss: vehicle and driver capture at arrival, sorting
+      into good / bad / unfit (and where unfit fruit goes), crating, weighing, loading, transit, machine loading — and stop staff,
+      drivers and loaders taking fruit after weighing.</li>
+  <li>Assess the brainstormed ideas: budget ("Tier 3") scanners with a vehicle-first state machine, a smart scale on Wi-Fi, two zones,
+      computer vision with dashcams or a rear camera, a voice module, RFID gateways; whether the scale can be HTTPS/REST, and whether
+      MCP can connect it.</li>
+  <li>Where computer vision helps in the warehouse; its requirements; the employee-phone app idea; inventory alarms; a chat system.</li>
+  <li>Study Manhattan's WMS and open-source WMSs (OpenWMS, Odoo CE, ERPNext, OpenBoxes, others) and CopilotKit's OpenIntelligentUI and
+      OpenDots; plan the whole warehouse system with inventory.</li>
+  <li>Plan the analytics changes: tappable category filters (e.g. drop Expo), charts that follow the selection, drill-down pages,
+      same-weekday-last-week change, a comparison page, short key insights.</li>
+  <li>Deliver a professional slide-by-slide HTML presentation in a light theme filling the screen, with prices, Amazon links and Dubai
+      suppliers; a demo video of Option 1 if possible; then a one-page voice system using the user's Groq key.</li>
+  <li>"Only do the plan and build the plan and HTML of it with all proposals"; the WMS build follows once management decides.</li>
+</ul>
+
+<h2>What was done</h2>
+<h3>1 · The deck — <code>docs/reports/warehouse-traceability-deck.html</code></h3>
+<p>36 slides on one 1920×1080 stage scaled to fill the window (arrow keys, click, swipe, F for full screen, a contents drawer,
+<code>#s12</code> links). On phones and portrait screens it becomes a scrolling document. Fonts (IBM Plex Sans/Mono, Archivo; OFL) are
+embedded, so it presents offline. Every fact carries a marker: listed price · estimate · quote · believed · assumed.</p>
+<div class="tw"><table>
+<tr><th>Slides</th><th>Content</th></tr>
+<tr><td>1–3</td><td>Title; the answer on one page; where this fits — the platform on GitHub, the TASK-055/056 local build, this proposal.</td></tr>
+<tr><td>4–8</td><td>The eight handoffs and their risks; the double-entry weight ledger ("every kilogram has a from and a to", an illustrative ledger that sums); the end-to-end flow with what each step records and alarms on; vendor arrival (guard app, gate ANPR, weighbridge; no face recognition); sorting mass balance and unfit-fruit outlets with reason, recipient and approver.</td></tr>
+<tr><td>9–13</td><td>Six capture options and their comparison; the station's state machine (vehicle first, stable-reading pairing, command QR codes); the Option 1 demo (live animation, also the MP4); the recommended tailgate variant (25 scans instead of 49 for 24 crates).</td></tr>
+<tr><td>14–15</td><td>Layered theft controls; how small a theft a re-weigh catches — chart of expected moisture loss for an 18 kg crate against one orange.</td></tr>
+<tr><td>16–20</td><td>Computer vision ranked by value and maturity, the rear-camera idea assessed; CV requirements; the employee phone as scanner; scale connection over HTTPS and where MCP fits; the voice prototype.</td></tr>
+<tr><td>21–24</td><td>Hardware shortlist with Amazon.ae links; Dubai suppliers; budget levels (range chart) and line items.</td></tr>
+<tr><td>25–31</td><td>What we borrow from Manhattan; build vs adopt the open-source WMSs; modules and records; inventory alarms; chat; the analytics redesign (wireframe); CopilotKit verdicts.</td></tr>
+<tr><td>32–36</td><td>Roadmap; eight decisions as cards with options; risks; what we have not verified; sources.</td></tr>
+</table></div>
+<h3>2 · The video — <code>docs/reports/media/option1-weigh-scan-load.mp4</code></h3>
+<p>72 seconds, 1920×1080, 30 fps, H.264, 2.95 MB. A crate goes on the scale, settles to a stable reading, its QR is scanned, the
+weight travels over Wi-Fi and is logged; four crates later the loader presses START, a crate scanned before the van is refused,
+the van is scanned once, each crate is scanned into the van and its recorded weight added; FINISH saves the manifest (72.73 kg on
+HN897). Captions on screen; illustrative data; time compressed.</p>
+<h3>3 · The voice crate log — <code>docs/prototypes/voice-crate-capture.html</code></h3>
+<p>One page: paste a Groq key, press the button (or hold Space), say "crate no. 1, weight is 18 kgs, and it is loaded into truck with
+vehicle number HN897". The row appears at the top with crate, weight and vehicle, editable, with a check column; totals per vehicle;
+CSV export; optional read-back. Engines: Groq Whisper, Chrome's built-in speech, or typing.</p>
+<h3>4 · Project memory</h3>
+<p>Knowledge base D-T70.1–6, G-T70.1–5, VF-T70.1–4, A-T70.1–5; index entry T70; session status. IDs are task-scoped because the
+unmerged 20 Oct build already uses D179–D192.</p>
+
+<h2>Why it was done this way</h2>
+<ul>
+  <li><b>Plan and prototypes only, no platform code.</b> The user asked for "only the plan … and HTML of it", and CLAUDE.md step 3
+      requires confirmation before multi-file work. More decisively, the real code base (TASK-055 → 069) is not on GitHub: building the
+      WMS on the 7 Oct main would create a third line of history. The deck's last decision is to push it first.</li>
+  <li><b>Weigh at the tailgate</b> instead of two zones: the theft window the user worried about exists only because weighed crates
+      wait. Moving the scale to the door removes the window and halves the scans with the same hardware.</li>
+  <li><b>Weights are the record; cameras are evidence.</b> Hidden crates, glare and occlusion make camera counts fail silently, the one
+      failure an audit system cannot afford. A camera that bookmarks each scan gives proof without being the count.</li>
+  <li><b>Build inside the platform, borrow the models.</b> One Postgres, one permission model (RLS), one audit log, one alarm engine and
+      one staff app beat a second ERP whose records would have to be kept in step with ours — and ERPNext would need MariaDB.</li>
+  <li><b>REST for devices, MCP on top.</b> CLAUDE.md rule 2 keeps models out of computation; a device protocol through an AI tool layer
+      would violate it. The local build's read-only MCP server (D184) is the right place for MCP.</li>
+  <li><b>Voice: fixed rules first, a model only for grounded gaps.</b> Mirrors the numeric sanity gate: a number the system shows must
+      come from its source — here, the words heard.</li>
+  <li><b>Plan aligned with the local build.</b> The TASK-055/056 notes in the 23 Oct push showed the Televend mirror (vends, refills in
+      cups), machine QR stickers, a Flutter staff app, built-in chat and an MCP server already decided; the deck reuses them instead of
+      proposing parallel answers (e.g. kg delivered vs cups refilled vs cups sold needs no new hardware).</li>
+</ul>
+
+<h2>How it works</h2>
+<h3>Deck</h3>
+<p>Slides are written as six fragments and assembled by a build script (kept outside the repository) that numbers slides, resolves
+cross-references written as keys (so "slide 15" stays right when slides move), embeds the fonts and writes two files: the repository
+copy (a full HTML document) and an artifact copy. Presentation mode computes <code>scale = min(width/1920, height/1080)</code> and
+transforms the stage; a media query <code>(max-width:900px),(max-aspect-ratio:1/1)</code> switches to reading mode. Charts are inline SVG
+on a fixed scale with hover read-outs that convert screen to stage coordinates.</p>
+<h3>Demo animation and video</h3>
+<pre>render(t) — every crate position, the scale reading, scanner, beam, Wi-Fi packets, table rows,
+            banners, manifest, captions — is a pure function of t ∈ [0, 72]
+live:   requestAnimationFrame → t += dt → render(t)
+video:  deck.html?record#s12 → for f in 0..2160: seek(f/30); screenshot → ffmpeg (libx264, CRF 21, +faststart)</pre>
+<p>Because nothing depends on wall-clock time (CSS transitions are off in the demo), the recorded frames equal what the slide shows.</p>
+<h3>Voice page</h3>
+<pre>button / Space ─► getUserMedia ─► MediaRecorder (WebM/Opus, ≤ 15 s)
+               ─► POST /audio/transcriptions (whisper-large-v3-turbo, language, temperature 0, format-biasing prompt)
+               ─► normalize: number words → digits, "point five", "and a half", "no 3", "18,5"
+               ─► fixed rules: crate · weight (kg) · plate after the LAST vehicle word
+               ─► missing field? POST /chat/completions (json_schema, strict; one retry in json_object mode; 10 s timeout)
+                    └─ value accepted only if it appears in the transcript, else ignored and flagged
+               ─► row on top · read-back · CSV</pre>
+
+<h2>Concepts and techniques used</h2>
+<ul>
+  <li><b>Double-entry inventory with virtual locations</b> — every movement has a source and a destination, including places outside
+      the business (garbage, charity, sold, cups sold, moisture loss, unexplained), so losses become visible balances (Odoo's model).</li>
+  <li><b>License plate numbers (LPN)</b> — an ID on every container scanned at each move (Manhattan); here, the crate QR plus a fill record.</li>
+  <li><b>Mass balance</b> — input weight equals the sum of outputs plus expected loss; the remainder is the number to investigate.</li>
+  <li><b>Tolerance from physics</b> — alarm when shortfall exceeds the highest expected moisture loss for the elapsed hours plus two scale
+      divisions; with the assumed rates one orange stands out for trips up to ~11 h at 10 g resolution.</li>
+  <li><b>State machine with refusal</b> — the station cannot be scanned out of order; refusals are logged, not lost.</li>
+  <li><b>Grounding gate</b> — a model's output is accepted only when its value can be found in the source text.</li>
+  <li><b>Deterministic rendering for capture</b> — render as a function of time, then sample it; the same technique video tools use.</li>
+  <li><b>Secure context</b> — microphone APIs need one; Chromium grants it to file:// pages (VF-T70.1).</li>
+</ul>
+
+<h2>Research findings (web search, 23 Oct 2026)</h2>
+<div class="tw"><table>
+<tr><th>Searched</th><th>Found</th><th>Used / rejected</th></tr>
+<tr><td>Manhattan Active WM</td><td>manh.com: receiving, putaway, inventory control, cycle counting in all editions; yard and labour by edition/add-on; LPN and PIX in training outlines</td><td>Concepts borrowed; labour standards rejected (SPEC-000 R27)</td></tr>
+<tr><td>OpenWMS.org</td><td>Java 25 / Spring Boot 4.1 microservices, RabbitMQ, Kubernetes targets, PLC material-flow control; Apache-2.0 core, some GPLv3</td><td>Not adopted (weight, automation focus)</td></tr>
+<tr><td>Odoo CE, ERPNext, OpenBoxes, InvenTree, GreaterWMS</td><td>Odoo double-entry virtual locations; fuller barcode app in Enterprise (secondary sources); ERPNext quality inspection, MariaDB, Postgres not supported for ERPNext; OpenBoxes lot/expiry/FEFO (EPL); InvenTree MIT, REST, barcodes; GreaterWMS Apache-2.0 (one mirror says GPL)</td><td>Models borrowed; none adopted</td></tr>
+<tr><td>CopilotKit OpenIntelligentUI, OpenDots</td><td>READMEs fetched: generative-UI chat (MIT, ~3.9k stars, Python agent, OpenAI + Jev); persistent agents with own computers (MIT, alpha, ~5.9k stars, CopilotKit Intelligence)</td><td>Neither adopted; one pattern borrowed</td></tr>
+<tr><td>Scales with REST / RS232</td><td>Mettler-Toledo IND360 (JSON REST), Arlyn UpScale (REST); Ohaus Ranger 3000 RS232 standard, Ethernet kit; XK3190-A12E indicator; USR-W610 bridge with HTTP client mode</td><td>RS232 + bridge recommended; REST indicators by quote</td></tr>
+<tr><td>Scanners</td><td>Tera HW0002 AED 246–292; NETUM DS2800 Wi-Fi with TCP/MQTT/HTTP (seller); Zebra DS2278 AED 2,279–2,879 (NEOTECH)</td><td>Shortlisted</td></tr>
+<tr><td>Cameras, ANPR, edge AI</td><td>Hikvision 4 MP AED 399–420; NVR AED 505–759; ANPR AED 2,040–7,200 (Dubai); ANPR events pushed over HTTP as XML (forum, model-dependent); Frigate detectors (Hailo, OpenVINO); AI HAT+ AED 420; Jetson Orin Nano Super AED 3,499; fast-alpr (MIT); Plate Recognizer UAE engine</td><td>Shortlisted; on-camera ANPR preferred</td></tr>
+<tr><td>Dubai rules</td><td>SIRA: licensed installer, approved devices, 31-day retention, 4 MP — installers' guides only; PDPL treats CCTV as personal data (law-firm commentary)</td><td>Marked believed; counsel to confirm</td></tr>
+<tr><td>Oranges</td><td>USDA medium ≈ 131 g (via secondary source); ambient weight loss 0.5–1.3 %/day in three studies; YOLO citrus defect work</td><td>Tolerance chart; grading as R&amp;D</td></tr>
+<tr><td>Phones and protocols</td><td>BarcodeDetector on Chrome Android, not Safari; no Web Bluetooth in iOS Safari; Telegram mini-app QR scanner (API 6.9+); MCP = JSON-RPC tools/resources/prompts for AI hosts</td><td>Server-side pairing; REST for devices</td></tr>
+<tr><td>Groq</td><td>Whisper Large v3 Turbo $0.04/h, 10 s minimum; webm accepted; 25 MB free; gpt-oss-20b strict structured outputs; groq-sdk blocks browsers unless <code>dangerouslyAllowBrowser</code>; CORS not stated by Groq</td><td>Page calls the REST API directly with fallbacks</td></tr>
+</table></div>
+
+<h2>Verification</h2>
+<ul>
+  <li><b>Deck:</b> all 36 slides rendered in Chromium at 1920×1080 — no console errors; an overflow probe flagged only slide 4 (the
+      arrow between chain cards sits outside each card by design) and the full-bleed demo. Four contact sheets reviewed by eye; sparse
+      slides enlarged; decision and chat slides redesigned.</li>
+  <li><b>Budget arithmetic</b> computed by script from the line items: pilot AED 1,096–5,592, rollout 12,535–40,957, advanced
+      17,151–53,836; chart bars placed by the same scale as the axis.</li>
+  <li><b>Video:</b> ffprobe — h264, 1920×1080, 30/1, 72.03 s, 2,950,686 bytes; frames at 2, 10, 38 and 58 s inspected (intro, logged
+      crate, refused scan naming CRT-0003, closed trip at 72.73 kg).</li>
+  <li><b>Voice parser:</b> 16 of 16 phrasings correct, including "H N eight nine seven", "H.N. 897", "A 54321", "no 3", "18,5 kgs",
+      "seventeen and a half", "one hundred twenty", reordered fields and a sentence with two vehicle words.</li>
+  <li><b>Voice page end to end</b> (Chromium, file://, fake microphone, Groq mocked by request interception): key check; three
+      recordings of 18–19 KB posted with Authorization, file, model, language and prompt; rows newest first; for a sentence without a
+      vehicle the model was asked (json_schema, temperature 0) and its invented "XY123" was <b>ignored and flagged</b>; per-vehicle totals
+      correct; no page errors.</li>
+</ul>
+
+<h2 class="warn">What we have not verified</h2>
+<div class="card unverified"><ul>
+  <li><b>Groq itself.</b> This environment's proxy refuses api.groq.com, so no real transcription ran and whether Groq answers a browser
+      page's cross-origin request is unknown. The page explains the failure and offers Chrome's built-in speech and typing.</li>
+  <li>Whisper's accuracy on real speech in a noisy warehouse, and with Gulf, Hindi or Malayalam accents — not measured.</li>
+  <li>No scale, scanner, bridge, camera or tracker was bench-tested. RS232 frame formats, the USR-W610 HTTP mode and the NETUM DS2800
+      HTTP output come from listings, not from the devices or their manuals.</li>
+  <li>Prices are search-result snapshots of 23 Oct 2026; Amazon.ae could not be opened directly; several items have no captured price.</li>
+  <li>SIRA requirements come from installers' guides; PDPL points are a technical reading for counsel.</li>
+  <li>Orange weight (131 g) and moisture-loss rates are not FreshNow's; the 11-hour figure is arithmetic on them.</li>
+  <li>UHF RFID read rates through crates of oranges; phone-camera scan speed vs a scanner gun — not tested.</li>
+  <li>The 20 Oct local build (analytics, MCP, inventory, routing, TASK-055 plan) was seen only through notes in the 23 Oct push; the deck
+      may duplicate or contradict parts of it until merged. The analytics redesign is a plan against code we have not read.</li>
+  <li>The deck in the claude.ai artifact viewer: keyboard focus needs a click first; video playback from the artifact's own files was not
+      tested from here.</li>
+  <li>Reading mode (phones) was checked by layout rules only, not on a phone.</li>
+</ul></div>
+
+<h2>Open questions</h2>
+<ul>
+  <li>The eight management decisions on deck slide 33 (layout, pilot, crates and seals, devices, alarm owners, cameras, tolerance, one codebase).</li>
+  <li>Will the repository be made private, and may we remove the data folders from <code>main</code>'s history (needs a force push)?</li>
+  <li>Push the 20 Oct build to <code>vscode-build-2026-10-20</code> so the warehouse tasks can be merged into the TASK-055 → 069 plan.</li>
+  <li>Crates per van, number of crates, vans and machines; the real weight of FreshNow's oranges.</li>
+  <li>Does the Oranfresh machine's refill in cups map to a fixed number of oranges or kilograms? It sets the kg-vs-cups alarm band.</li>
+</ul>
+</body></html>
