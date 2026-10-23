@@ -1,4 +1,4 @@
-# Session status — 2026-10-23 (cloud session, TASK-074 — written as "TASK-070" before the 20 Oct build was recovered)
+# Session status — 2026-10-23 (cloud session, TASK-085 — first numbered TASK-070, then TASK-074; the plan of 19 Oct keeps 070–084 for its own tasks)
 
 - **Proposal deck for the warehouse and orange tracking:** `docs/reports/warehouse-traceability-deck.html` — 36 slides, opens
   offline, arrow keys to move, F for full screen. Options with prices and Amazon.ae links, Dubai suppliers, budget, computer
@@ -10,6 +10,48 @@
 - **Repository:** `main` was force-pushed back to 28 Sep at 18:41 UTC and WhatsApp exports, Televend data and `private-data/` were
   pushed on top — the repository is **public**; make it private and remove those folders from history (G217). The 20 Oct build
   (commit `9ee207e`, "Recent developments") was recovered from the laptop's reflog as branch `rescue-2` and merged here.
+- **Pull request #11** (`rescue-2` → `main`, the 20 Oct build) could not merge: it conflicted in this file and four knowledge-base
+  files. `rescue-2` now carries the resolved merge (fast-forward, nothing rewritten), so GitHub can merge it. The first resolution
+  had dropped the 20 Oct section below; it is back (G222).
+- **Numbers:** the proposal is TASK-085 — the plan of 19 Oct keeps 070–084 (D270). Next: TASK-075, the Analytics improvements
+  asked for on 23 Oct.
+- Tests here: typecheck clean; 1,216 passed with placeholder model keys, 6 skipped, and 8 that call a real model failed because
+  this container cannot reach the providers (G224). `pnpm test` here first runs an install that fails (G223).
+
+---
+
+# Session status — 2026-10-20 (TASK-070 to TASK-072, the independent review)
+
+- **One decision for you — Supervisors and cash.** A Supervisor no longer gets Televend's "should have found" cash figure anywhere,
+  but can still count a machine's cash sales from the sales list. If Supervisors never collect cash, the fix is to take "holds cash"
+  off the Supervisor role, which completes the blind count. If they do collect, the sales list would hide each sale's payment type
+  from them instead. Nothing changes until you answer (D254, A-T61.14).
+- **The independent review is done** (owed since 15 Oct, D263): roles (057), the command centre and stock fixes (059, 060), Cash and
+  Route (061), Analytics (070). Reviewers, then a skeptic trying to refute each finding: 53 of 57 confirmed, all fixed with tests
+  (migrations 0039–0041, applied live). A second pass over the fixes found 24 more: 23 fixed, the 24th is the decision above. Each task
+  page has an "Independent review, 20 Oct" section. The ones that mattered most: a Supervisor saw Televend's expected cash; an auditor's
+  question and the answer were copied where erasure never reaches; a second visit after midnight went to tomorrow night's plan;
+  Analytics compared days that were not paired.
+- **TASK-070, Analytics** (new portal): machines above, about and below the fleet average, the machines that make 80 % of cups,
+  categories, each machine's days against the week before. Since the review it reads only checked days, compares day for day, and
+  counts FreshNow's machines through their moves (D257). Income: cash cups at the cash price, card cups at the name's price (D258).
+- **TASK-071, sales history:** every sale Televend still lists was copied (read-only) — the store now holds **every day from 26 Mar to
+  19 Oct**, each equal to Televend's own count. Televend's own daily totals go back to 1 Oct 2025: they fall from 88,283 sales in October
+  to 33,666 in March, then recover from April. Why is not known yet (fleet size? Ramadan?).
+- **TASK-072:** a machine opens as a full page (stock, last refill and by whom, today against last week, every sale, refill, collection
+  and visit, across its moves); a Recent sales page; the command centre's tiles open their lists.
+- **Two defects found today and fixed:** a sale stamped exactly at midnight was read into two days, so two days could never be checked
+  (G215 — both are in the store now); a driver who ended a visit while a photo was still uploading lost the photo (G216 — "End" now
+  waits).
+- **Services restarted** on the final code (API, worker, bot; logs in `private-data/scratch/`); dashboard rebuilt; health ok, Televend
+  synced within the last 10 minutes, the store at 208 days (newest 19 Oct), none differing or failed.
+- **After pulling:** `pnpm install`, `pnpm migrate` (0038–0041), `pnpm build:web`, restart api, worker and bot.
+- Tests: **1,225 passed, 5 skipped**, 0 failed; typecheck clean. Browser checks on the final code, no console errors: Cash 35/35,
+  Route 27/27, Stock 23/23, Analytics 20/20, Operations 19/19.
+- Not verified: real drivers, auditors and phones on any of these portals; Televend's stock figure against a machine counted by hand;
+  the few review fixes that are screen or script only (named on their pages); the MCP server Claude Code uses still runs the reader
+  from before the midnight fix until it restarts.
+- **Next:** TASK-073, each portal its own sidebar.
 
 ---
 

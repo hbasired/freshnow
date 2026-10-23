@@ -427,18 +427,18 @@ Staff App (it goes below zero). Confirm: the Ops Head — at what level is a mac
 The role table of TASK-061 gave Supervisors cash.hold. With D254 they no longer see Televend's expected figure, but they still see every
 sale's payment type. Confirm: does a Supervisor ever collect cash? If not, take cash.hold from the role (D254).
 
-## A-T74.1 — Handoffs are not weighed and signed into a system today [assumed]
+## A-T85.1 — Handoffs are not weighed and signed into a system today [assumed]
 Confirm/refute: the warehouse team describes how stock, sorting and loading are recorded now. Affects: the pilot baseline and slide 4 of the deck.
 
-## A-T74.2 — 24 crates per van; crates weigh 5–30 kg filled [assumed]
+## A-T85.2 — 24 crates per van; crates weigh 5–30 kg filled [assumed]
 Used only for arithmetic (49 vs 25 scans) and the station's plausibility check. Confirm/refute: dispatch lead and the crate specification.
 
-## A-T74.3 — One orange ≈ 131 g; moisture loss 0.5–1.3 % a day at ambient temperature [assumed]
+## A-T85.3 — One orange ≈ 131 g; moisture loss 0.5–1.3 % a day at ambient temperature [assumed]
 USDA "medium" orange via a secondary source; three storage studies under different conditions. Confirm/refute: weigh 20 of
 FreshNow's oranges; weigh control crates twice a day during the pilot. Affects: the theft-detection tolerance (deck slide 15).
 
-## A-T74.4 — Alarm thresholds (2 % short delivery, 48 h ageing, 1.5 days of cover, +5 points yield, 15 min for unexplained loss) [assumed]
+## A-T85.4 — Alarm thresholds (2 % short delivery, 48 h ageing, 1.5 days of cover, +5 points yield, 15 min for unexplained loss) [assumed]
 Placeholders so the design can be discussed. Confirm/refute: management sets each threshold and owner (deck decision 5).
 
-## A-T74.5 — SIRA rules: licensed installer, approved devices, 31-day retention, 4 MP minimum [assumed — installers' guides only]
+## A-T85.5 — SIRA rules: licensed installer, approved devices, 31-day retention, 4 MP minimum [assumed — installers' guides only]
 Confirm/refute: SIRA's own published requirements or a SIRA-licensed installer's written statement before buying cameras.

@@ -2085,7 +2085,7 @@ or script changes without one are named on the task pages); 1 is FreshNow's choi
 from the sales list (D254, A-T61.14). Each task page has an "Independent review, 20 Oct" section. Lesson kept: 20 of the 53 first fixes
 needed a second look, so a fix gets its own review, not only a re-run of its test.
 
-## D264 — Orange tracking is built inside the platform as the warehouse tasks of the TASK-055 plan (TASK-074) [believed — proposal, awaiting management decision]
+## D264 — Orange tracking is built inside the platform as the warehouse tasks of the TASK-055 plan (TASK-085) [believed — proposal, awaiting management decision]
 Receiving, sorting, crates, weigh-and-load, trips and machine delivery are proposed as modules on the existing Postgres, RLS,
 audit log, alarm engine and staff app, on top of the Televend mirror and machine registry of TASK-056. Adopting OpenWMS.org,
 Odoo Community, ERPNext, OpenBoxes, InvenTree or GreaterWMS was rejected: each is a second system of record (ERPNext a second
@@ -2093,28 +2093,33 @@ database engine — MariaDB; OpenWMS a Java/RabbitMQ/Kubernetes stack for automa
 Manhattan's LPN, ASN, reason codes, cycle counts and perpetual inventory transactions; Odoo's double-entry moves through virtual
 locations; ERPNext's quality-inspection gate; OpenBoxes' lot, expiry and FEFO. Deck: `docs/reports/warehouse-traceability-deck.html`.
 
-## D265 — Recommended capture: weigh at the tailgate; cameras are evidence, not the record (TASK-074) [believed — proposal]
+## D265 — Recommended capture: weigh at the tailgate; cameras are evidence, not the record (TASK-085) [believed — proposal]
 Option 1b puts the networked scale at the van door: the van is scanned once, each crate once, so weighing and loading are one
 record and there is no waiting area where fruit can be taken. Two zones (Option 1) need a numbered seal per crate. Computer vision
 reads plates at the gate and bookmarks video per scan; reading crate numbers by camera misses hidden crates silently, so it is an
 audit layer only. Face recognition of staff or drivers is not proposed (biometric data; disproportionate).
 
-## D266 — Devices reach the platform over HTTPS (REST); MCP is never in a device's data path (TASK-074) [believed — reasoning from CLAUDE.md rule 2]
+## D266 — Devices reach the platform over HTTPS (REST); MCP is never in a device's data path (TASK-085) [believed — reasoning from CLAUDE.md rule 2]
 Affordable scales speak RS232/USB; a serial-to-network bridge with an HTTP client (USR-W610 class) or a Raspberry Pi gateway
 posts stable readings to the API with a device key. MCP lets an AI assistant call tools; placing it between a scale and the record
 would put a model in the data path. MCP stays where the local build put it (D184): read-only tools over computed totals.
 
-## D267 — Weights in whole grams; one ledger row per movement (TASK-074) [believed — design, not built]
+## D267 — Weights in whole grams; one ledger row per movement (TASK-085) [believed — design, not built]
 Integer grams avoid rounding drift in totals; every movement of fruit is one append-only row (from, to, grams, who, when,
 evidence), with virtual places for garbage, charity, staff, sold, cups sold, expected moisture loss and "unexplained".
 
-## D268 — Voice entry prototype: Groq Whisper for speech, fixed rules for fields, a model only for grounded gaps (TASK-074) [verified — 16/16 parser cases, mocked end-to-end run]
+## D268 — Voice entry prototype: Groq Whisper for speech, fixed rules for fields, a model only for grounded gaps (TASK-085) [verified — 16/16 parser cases, mocked end-to-end run]
 `docs/prototypes/voice-crate-capture.html` is a standalone page: the user's Groq key, a 15-second recording cap, Whisper with a
 format-biasing prompt, a deterministic parser (number words, decimals, spelled plates), and a model call only for a missing field
 whose value must appear in the transcript or it is ignored and flagged. Not for staff data while Groq is the provider (D121).
 
-## D269 — CopilotKit OpenIntelligentUI and OpenDots not adopted (TASK-074) [believed — their GitHub READMEs, 23 Oct 2026]
+## D269 — CopilotKit OpenIntelligentUI and OpenDots not adopted (TASK-085) [believed — their GitHub READMEs, 23 Oct 2026]
 OpenIntelligentUI (MIT; Next.js + Python FastAPI agent; OpenAI default; Jev router needing a TypeSafe key) would add a runtime,
 send data to two more US AI services (against D121) and let model-written UI show numbers no query produced. Borrowed idea: the
 assistant picks one of our registered chart components and fills it with SQL rows. OpenDots (MIT, alpha; agents with their own
 browser/shell; needs CopilotKit Intelligence) conflicts with "no model decides who or whether" and adds an outside service.
+
+## D270 — Task numbers follow the plan of 19 Oct; other work takes the next number after its range [decided 2026-10-23 — reversible]
+The plan reserves 070–084 (074 = alarms that clear themselves, 075 = the business analytics portal). The orange proposal — first
+TASK-070, then TASK-074 — is TASK-085, and its assumptions A-T74.x are A-T85.x. The Analytics improvements asked for on 23 Oct are
+TASK-075, the plan's own number for that work.

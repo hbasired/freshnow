@@ -1394,7 +1394,7 @@ and asserts the button waits.
 ignored. aa00334's tree equals branch `claude/charming-hopper-tfg8v8` (f44bab1), so no code was lost. Prevention: push only from the
 folder that contains `packages/televend`, never with `-f`, and to a new branch when unsure. The repository is public.
 Recovered the same evening: `git push origin "HEAD@{2}:refs/heads/rescue-2"` from the laptop sent the pre-reset commit
-9ee207e (the reflog keeps it for 90 days), which was merged with main of 7 Oct and the proposal (TASK-075 branch).
+9ee207e (the reflog keeps it for 90 days), which was merged with main of 7 Oct and the proposal (branch claude/lucid-babbage-duy1uz).
 
 ## G218 — This build environment cannot reach Groq or Amazon.ae [verified 2026-10-23]
 The proxy answers 403 to CONNECT for api.groq.com and www.amazon.ae, and the fetch tool cannot resolve console.groq.com. Groq's
@@ -1410,4 +1410,22 @@ A `.stack{display:flex}` box with `hidden` stayed visible in the voice page. Add
 ## G221 — Speech-to-text writes plates and numbers many ways [verified 2026-10-23 — parser tests]
 "HN897", "HN 897", "H.N. 897", "HN-897", "H N eight nine seven", "A 54321"; "no 3" without a full stop; "18,5 kgs"; "seventeen
 and a half". The parser reads the plate after the LAST vehicle word ("truck with vehicle number …") and treats "a"/"an" as a
-plate letter only when digits follow. 16 cases in the TASK-074 write-up.
+plate letter only when digits follow. 16 cases in the TASK-085 write-up.
+
+## G222 — A merge resolution dropped a whole section of SESSION-STATUS.md [verified 2026-10-23]
+Resolving the conflict between the 20 Oct build and the proposal (d68000a) kept only one side's top section, so the 20 Oct status
+notes vanished; the four knowledge-base files kept both sides. After resolving, check that every line of each side survives:
+`git show <side>:<file> | grep -v '^\s*$' | sort -u | comm -23 - <(grep -v '^\s*$' <file> | sort -u)` prints nothing, except
+lines replaced on purpose. The section was restored in the next commit.
+
+## G223 — pnpm 11 ignores the settings in `.npmrc`; `pnpm test` ran an install first [verified 2026-10-23 — pnpm 11.25.0]
+`pnpm config get verify-deps-before-run` (and `auto-install-peers`) answer `undefined` although `.npmrc` sets them. So `pnpm test`
+checked the dependencies, found node_modules unlike the lockfile (xlsx 0.18.5 put in by hand: cdn.sheetjs.com is blocked here,
+G218) and ran an install that failed after removing the televend package's `xlsx` link. In such a container run
+`./node_modules/.bin/tsc --noEmit -p tsconfig.json` and `./node_modules/.bin/vitest run` directly. [believed] pnpm 11 reads these
+settings from `pnpm-workspace.yaml` (camelCase), where the build-script approvals already are.
+
+## G224 — Twenty tests fail in a container with no model keys; none is a code failure [verified 2026-10-23]
+Twelve need only *a* key configured (they stub `fetch`): run with `GROQ_API_KEY=test-key NVIDIA_API_KEY=test-key
+OPENROUTER_API_KEY=test-key`. Eight call a real model on purpose and fail where the providers are blocked (G218). On the merged
+20 Oct build: 1,216 passed with placeholder keys, those 8 failed, 6 skipped.

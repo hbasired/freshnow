@@ -513,14 +513,16 @@ Routing goes to the **CEO only** for now (company routing data not yet supplied)
   hidden figures (D259), alarms (D260), roles that lead people (D261), media uploads (D262); migrations 0039–0041. The second pass
   found 24 more: 23 fixed, 1 FreshNow's choice (A-T61.14). G212–G214, G216; A-T61.13, A-T61.14. Each task page has its section.
 
-- **T74 Orange traceability and warehouse proposal (document + prototype, no platform code)** (2026-10-23): a 36-slide deck
+- **T85 Orange traceability and warehouse proposal (document + prototype, no platform code)** (2026-10-23): a 36-slide deck
   — the orange's eight handoffs, a double-entry weight ledger, six capture options (recommended: weigh at the tailgate, D265),
   the theft window and how small a theft a re-weigh catches, computer vision where it pays, the employee-phone option, REST not MCP
   for devices (D266), Amazon.ae shortlist, Dubai suppliers, budget AED 1,096–5,592 pilot / 12,535–40,957 rollout, Manhattan and
   open-source WMS comparison (D264), alarms, chat, analytics redesign, CopilotKit verdicts (D269), roadmap, eight decisions.
   A 72-second Option 1 demo video rendered from the deck (VF95) and a voice crate log prototype (D268, VF92). Found and
   reported: main rewound and company data pushed to the public repo; the 20 Oct build recovered from the reflog (G217).
-  -> `docs/tasks/TASK-074-orange-traceability-proposal.html` · `docs/reports/warehouse-traceability-deck.html` · `docs/prototypes/voice-crate-capture.html`
+  -> `docs/tasks/TASK-085-orange-traceability-proposal.html` · `docs/reports/warehouse-traceability-deck.html` · `docs/prototypes/voice-crate-capture.html`
+  Follow-up the same day: numbered TASK-085, as the plan keeps 070–084 (D270); the merge with the 20 Oct build had dropped its
+  status section, restored (G222); pnpm 11 ignores `.npmrc` (G223); tests in a container with no model keys (G224).
 
 ## Blocked on the user
 - ~~`CEO_TELEGRAM_USER_ID` is empty.~~ **Resolved 2026-09-04:** CEO = 6051615734,
