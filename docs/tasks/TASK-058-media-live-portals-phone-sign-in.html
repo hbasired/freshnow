@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TASK-058 — Platform plumbing</title>
+<style>
+  :root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#3fb950;--warn:#d29922;--bad:#f85149;--card:#161b22;--bd:#30363d}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;max-width:980px;padding:48px 24px;margin-inline:auto}
+  h1{font-size:1.9rem;margin:0 0 4px} h2{margin-top:2.5rem;color:var(--acc);font-size:1.25rem} h3{font-size:1.05rem;margin-top:1.6rem}
+  .meta{color:var(--mut);font-size:.9rem;margin-bottom:2rem}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:18px;margin:14px 0}
+  .unverified{border-left:3px solid var(--warn)} .ok{border-left:3px solid var(--acc)} .bad{border-left:3px solid var(--bad)}
+  code{background:#1f2630;padding:2px 6px;border-radius:4px;font-size:.9em}
+  pre{background:#1f2630;padding:12px;border-radius:8px;overflow-x:auto;font-size:.85rem;line-height:1.45}
+  .tw{overflow-x:auto} table{border-collapse:collapse;width:100%;margin:14px 0}
+  th,td{border:1px solid var(--bd);padding:7px 9px;text-align:left;font-size:.88rem;vertical-align:top} th{background:#1f2630}
+  .good{color:var(--acc);font-weight:600}.warn{color:var(--warn);font-weight:600}
+  ul{padding-left:1.1rem} li{margin:3px 0} a{color:#88c0f0}
+  .flow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0}
+  .flow span{background:#1f2630;border:1px solid var(--bd);border-radius:8px;padding:6px 10px;font-size:.85rem}
+  .flow b{color:var(--mut)}
+  @media (max-width:600px){body{padding:28px 16px}}
+</style></head><body>
+<h1>TASK-058 — Platform plumbing</h1>
+<p class="meta">2026-10-15 → 2026-10-16 · Operations + Inventory expansion, layer 4 · migrations <code>0026_media</code>,
+<code>0027_live_scope</code>, <code>0028_device_sign_in</code>, <code>0029_function_hardening</code>, <code>0030_media_per_uploader</code> ·
+new: core <code>media*.ts</code>, <code>live-audience.ts</code>, <code>device-auth.ts</code>, <code>ops-sales.ts</code>,
+<code>telegram-text.ts</code>; api routes <code>media</code>, <code>devices</code>, <code>ops</code>; dashboard <code>portals.ts</code>,
+<code>portals/operations.tsx</code>, <code>charts/hourly-comparison.tsx</code>, <code>portal-boundary.tsx</code>; <code>scripts/live-load.ts</code> ·
+dependencies added: <code>sharp</code> (photos), <code>recharts</code> + <code>react-is</code> (the chart)</p>
+
+<div class="card ok"><b>One-sentence summary:</b> the plumbing the staff app and the Operations portal stand on — photos and
+videos stored without where they were taken, live updates that reach only the people they concern (measured at 300 and 1,000
+open streams), a dashboard that holds several portals and loads each one's code only when it is opened, a phone sign-in for
+shared and personal phones, and one privacy notice (3.0) that names all of it — plus fixes for five defects that would have shown
+a wrong number, kept a promise only on paper, or left a message undeliverable.</div>
+
+<h2>What was asked</h2>
+<ul>
+  <li>The approved plan's TASK-058 row: a media store and upload API (location removed, type checked, retention sweep); realtime
+      v2 (scoped topics, a per-viewer filter, a raised stream cap); the dashboard shell for many portals plus a chart library; the
+      device and PIN sign-in for the app. <b>Done when:</b> 300 simulated live clients are measured, CPU and memory recorded, not
+      assumed; a photo makes the round trip.</li>
+  <li>Plan §0.7: the privacy-notice change for all the operations work introduced <b>once</b>, as notice 3.0, before any staff touch
+      the app.</li>
+  <li>The user's answers (2026-10-15): keep the original scope; photos in Supabase Storage; Recharts; add sharp. Then, three times,
+      "check and proceed".</li>
+  <li>Standing: nothing in Televend may be changed — the connector stays read-only.</li>
+</ul>
+
+<h2>What was done</h2>
+<div class="tw"><table>
+<tr><th>Part</th><th>What it does now</th><th>Decisions</th></tr>
+<tr><td>1 · Photos and videos</td><td>POST <code>/dashboard/media</code> takes a JPEG or an MP4 (≤ 15 s, ≤ 50 MiB), checks the type by its
+  first bytes, scans it, removes location and device data (photos re-encoded by sharp; MP4 metadata boxes neutralised in place),
+  names it by the sha256 of the cleaned bytes and stores it in a private Supabase Storage bucket. GET <code>/dashboard/media/:id</code>
+  serves it only to people who may see its uploader. One record per uploader per content; the bytes are shared and removed only
+  when no record needs them. Each file has a retention class chosen by the server; deletion waits for <code>MEDIA_RETENTION=on</code>.</td>
+  <td>D203–D205, D212</td></tr>
+<tr><td>2 · Live updates v2</td><td>The database's change notification carries a scope (whose rows changed); each open stream keeps
+  a picture of what its viewer may see and hears only matching changes. The browser still gets <code>{table, op, at}</code> and
+  nothing more. Limits are settings (500 streams per process, 8 per person). <code>pnpm live:load</code> measures it on the test database.</td>
+  <td>D206, D207, D209, D211</td></tr>
+<tr><td>3 · Portals and the first chart</td><td>A portal registry (Tasks, Projects, Operations) shown by permission; per-portal data
+  loading; Operations in its own code chunk with the chart library. Its first page: cups sold by hour, today (or any day) against
+  the same weekday a week earlier, from the Televend mirror — the hour in progress dashed, a day the mirror did not read said in words.</td>
+  <td>D208, D214</td></tr>
+<tr><td>4 · Phone sign-in</td><td>Phones are enrolled by a QR code from the dashboard (company phones) or bound to one person
+  (personal); a lead issues a set-up code; the person picks a 4–6 digit PIN; sign-in gives short opaque tokens. Lockouts, shift-end
+  sessions, one person at a time on a shared phone, revocation by device or by person, erasure and export covered.</td><td>D210</td></tr>
+<tr><td>5 · Privacy notice 3.0</td><td>Names Televend's records with staff names, photos and videos, phone sign-in, the app's
+  wake-up through Firebase, and the cash and stock the app will record — each only when it is switched on — and who sees what
+  since TASK-057. Everyone is asked again; the Telegram request comes in two messages.</td><td>D213, D215</td></tr>
+<tr><td>Fixes found on the way</td><td>
+  1&nbsp;A day the mirror never read was drawn as a line along zero, and just after midnight today showed 23 hours of nothing
+  sold — now null and said in words (D214). 2&nbsp;The question box could read any table the CEO can, including phone sign-ins —
+  now only its eight documented tables, enforced by Postgres's own plan (D216). 3&nbsp;The activity feed would have listed who
+  signed in when (D216). 4&nbsp;Notice 3.0 is longer than Telegram accepts in one message (G187). 5&nbsp;The live dashboard's
+  theme script was blocked by its own security policy on a Windows checkout (G180). Earlier review fixes: one media record per
+  uploader (D212), function hardening (D211).</td><td>D211–D216</td></tr>
+</table></div>
+
+<h2>Why it was done this way</h2>
+<h3>Scoped doorbells, not a second realtime server</h3>
+<p>Before, every change rang every open stream: with 300 people at five writes a second that is 90,000 doorbells a minute, each
+followed by a refetch. The plan named the fix (D92's own note): let the database say <i>whose</i> rows changed and let the API decide
+per stream. Nothing new to run — no Centrifugo, no Supabase Realtime — and D92's rule holds: no row content leaves the database by this
+path; the scope stays on the server. Everything fails open, because a missed doorbell is a board that silently goes stale while
+an extra one only costs a refetch.</p>
+<h3>Two queries for a picture, because RLS is per row</h3>
+<p>The first version asked RLS for everyone the viewer may see; Postgres ran the policy function on every row, and an org change
+took 9 s to settle for 300 people. A plain query lists the candidates, and RLS then decides among those — 25 times faster, and
+still the one rule that guards every read (G179, D207).</p>
+<h3>A PIN the server checks</h3>
+<p>The plan's first idea — a key on the phone unlocked by the PIN — fails on a shared phone: anyone holding it can try PINs offline
+against the stored key. So the PIN never leaves the server's check, is hashed with a secret the database does not hold, and every
+token is opaque and short-lived with a positive check on each request (D210). The user's 4–6 digits fall short of NIST's 8 for this
+case; that is written down as a deviation with a recommendation (6).</p>
+<h3>"Not in the mirror" is measured</h3>
+<p>The Operations page compares days. A comparison against a day the mirror never read — or read with a hole — would be confidently
+wrong. Whether time was read is a fact Postgres has (the sync's completed windows), so the page asks it, exactly, with range types,
+and shows "—" and a reason instead of a number it cannot stand behind (D214).</p>
+<h3>One notice change, honest in every part</h3>
+<p>Each re-consent stops people's updates until they agree, so the plan bundles the operations work into one change. Each part
+appears only when the system is configured for it, like every line before it — and two promises it makes were made true in code
+first: sign-ins are not readable by the question box or shown in the activity feed (D216), and the app's Firebase wake-up carries no
+content, a rule TASK-063 inherits (D213).</p>
+
+<h2>How it works</h2>
+<h3>A live update</h3>
+<div class="flow"><span>a write (any of 19 tables)</span><b>→</b><span>statement trigger: transition table → scope keys</span><b>→</b>
+<span>NOTIFY {table, op, at, scope}</span><b>→</b><span>API: each stream's picture hears it?</span><b>→</b><span>SSE: {table, op, at}</span><b>→</b><span>board refetches</span></div>
+<p><code>e:&lt;person&gt;</code> — anyone who may see that person; <code>s:&lt;person&gt;</code> — only that person (their inbox, a blocker
+they resolve); <code>p:&lt;project&gt;</code>; <code>org</code> — who sees whom changed, so every picture reloads; <code>*</code> — read-all
+viewers only. A trigger that cannot compute its scope sends <code>*</code> + <code>org</code>; more than 100 keys collapse to <code>*</code>.</p>
+<h3>A phone</h3>
+<div class="flow"><span>dashboard: enrol → QR</span><b>→</b><span>phone: /device/enrol → device secret</span><b>→</b><span>lead: set-up code</span><b>→</b>
+<span>/device/credentials + PIN → person secret</span><b>→</b><span>/device/sign-in → fna_ (15 min) + fnr_</span><b>→</b><span>/device/refresh rotates</span></div>
+<p>The device secret and person secret travel in headers; the PIN is checked as scrypt(HMAC(pepper, PIN)). A refresh token used twice
+ends its family; the 60-second grace covers a phone that lost the answer. On a company phone a new sign-in ends the previous
+person's session, and the session ends at the shift handover.</p>
+<h3>A photo</h3>
+<div class="flow"><span>upload</span><b>→</b><span>type by first bytes</span><b>→</b><span>virus scan</span><b>→</b><span>clean (no location)</span><b>→</b>
+<span>sha256 of cleaned bytes</span><b>→</b><span>Storage (private bucket)</span><b>→</b><span>media_object row</span></div>
+<h3>A figure on the Operations page</h3>
+<pre>cut      = greatest(day start, least(day end, now, Televend cursor))     -- in Postgres, microseconds kept
+read     = range_agg(tstzrange(window_from, window_to)) over vends runs with complete = true
+day      = tstzrange(day start, cut)  &lt;@ read   (and cut &gt; day start)
+earlier  = tstzrange(day start − 7 d, day start − 6 d)  &lt;@ read
+a side that is not read → null, and the page says why (before the mirror · a gap · nothing read yet today)</pre>
+
+<h2>Concepts and techniques used</h2>
+<ul>
+  <li><b>Statement-level triggers with transition tables</b> — one notification per statement, scope computed from the changed rows
+      (one trigger per event, G181).</li>
+  <li><b>Leakproof predicates and RLS</b> — a planner may apply a leakproof filter before a security policy, which is what makes the
+      candidate shortcut fast without weakening the policy (G179).</li>
+  <li><b>Range types and multiranges</b> (Postgres 14+; live is 17.11) — <code>range_agg</code> merges read windows; <code>&lt;@</code>
+      asks containment exactly.</li>
+  <li><b>EXPLAIN as an allow-list</b> — the plan names every relation a query reads, CTEs and subqueries resolved, without running it.</li>
+  <li><b>Opaque tokens with rotation and reuse detection</b> (RFC 9700 §4.14); <b>scrypt + pepper</b> (OWASP).</li>
+  <li><b>Content addressing</b> (sha256 of cleaned bytes) with per-uploader records; <b>MP4 box neutralisation</b> (rename to
+      <code>free</code>, zero in place — offsets stay valid, G176).</li>
+  <li><b>Code splitting with React.lazy</b> and an error boundary; a one-time reload after a deploy.</li>
+  <li><b>CSP script hashes</b> computed over what the browser parses (G180).</li>
+  <li><b>Emphasis chart design</b> — one accent series, one gray context series, both validated for contrast in both themes; a
+      legend <i>and</i> end labels; a table twin; dashed for the partial hour.</li>
+</ul>
+
+<h2>Research findings</h2>
+<div class="tw"><table>
+<tr><th>Source</th><th>What it says</th><th>Effect here</th></tr>
+<tr><td>NIST SP 800-63B-4 §3.1.1.2, §3.2.10, §3.2.2</td><td>Memorised secrets ≥ 8 characters when used with another factor (≥ 15 alone);
+  activation secrets ≥ 4 (6 recommended), at most 10 consecutive failures then disable; ≤ 100 failed attempts overall.</td>
+  <td>Disable at 10 wrong PINs; the 4–6 digit PIN is a recorded deviation (recommend 6).</td></tr>
+<tr><td>RFC 9700 (OAuth 2.0 Security BCP) §4.14</td><td>Refresh-token rotation; a replayed refresh token revokes the active one.</td>
+  <td>Family revocation on reuse, with a 60 s lost-response grace.</td></tr>
+<tr><td>OWASP Password Storage Cheat Sheet</td><td>scrypt N=2^17,r=8,p=1 or equivalents (N=2^14,r=8,p=5); Argon2id 19 MiB,t=2,p=1;
+  a pepper kept outside the database.</td><td>scrypt N=2^14, r=8, p=5 over HMAC(pepper, PIN).</td></tr>
+<tr><td>sharp output docs</td><td>No metadata is kept unless asked for (EXIF incl. GPS, ICC, XMP, IPTC).</td><td>Photos re-encoded; a test writes GPS first.</td></tr>
+<tr><td>Recharts 3.10.1</td><td>MIT; React 19 peer; needs react-is.</td><td>Added to the dashboard only.</td></tr>
+<tr><td>Telegram Bot API, sendMessage</td><td><code>text</code>: 1–4096 characters after entities parsing.</td><td>Long text cut into parts (G187).</td></tr>
+<tr><td>Firebase, Android message priority (updated 2026-10-15)</td><td>High priority: several seconds in onMessageReceived, enough to
+  show a notification; fetch in an expedited WorkManager job; deprioritised when messages do not lead to user-facing notifications.</td>
+  <td>D213 and A-T58.6 — the rules TASK-063 builds the wake-up on.</td></tr>
+</table></div>
+<p><b>Contradiction flagged, not followed silently:</b> the approved plan says 4–6 digit PINs; NIST says 8+ for this use. Kept as
+decided, recorded in DEVIATIONS.md with the recommendation.</p>
+
+<h2>Verification</h2>
+<div class="card ok">
+<ul>
+  <li><b>Tests</b> — full suite against a throwaway Postgres (never mocked): 973 pass, 5 skipped (the one failure, a version pinned to
+      "2.x", fixed). New or extended: live-scope (14), live-audience (10, including the RLS twin), events (7), device-auth (17), devices
+      over HTTP (5), media (12 + 9 + 3), ops-sales (7), ops over HTTP (3), consent (25), telegram-text (4), the question box's table
+      allow-list (5).</li>
+  <li><b>Load</b> — <code>pnpm live:load</code> on the test database: 300 streams ≈ 17 KB each, 0.9 % CPU at 5 writes/s, p95 3 ms;
+      1,000 streams ≈ 23 KB each, 3.1 % at 20 writes/s, p95 4 ms; an org change settles in 1.27 s / 4.5 s (VF68).</li>
+  <li><b>Browser</b> — 31 checks in Chromium against the test database with synthetic sales: the chunk loads only on Operations,
+      the partial hour, the table twin, the day before the mirror, a gap day, yesterday with no comparison, a VMO moved off,
+      a failed chunk, dark, light and a 390 px phone (VF69, VF70).</li>
+  <li><b>Live, read-only</b> — a GPS-tagged photo through Supabase Storage came back clean (VF67); the mirror's completed reads are
+      one unbroken range from 4 Oct (VF71); notice 3.0 measured under the live settings (VF72).</li>
+</ul></div>
+
+<h2>What we have not verified</h2>
+<div class="card unverified">
+<ul>
+  <li><b>No phone has signed in.</b> The sign-in API is tested end to end over HTTP, but the app that holds its secrets (Android Keystore,
+      <code>allowBackup=false</code>, <code>FLAG_SECURE</code>, attestation later) is TASK-063.</li>
+  <li><b>The Firebase wake-up is untried</b> on any phone, Doze and battery saver included (A-T58.6).</li>
+  <li><b>The numbers are the laptop's</b>, with Postgres on the same machine; the VPS has 8 shared vCPU (A-T58.3). The load test measures
+      the doorbell, not the boards' refetches that follow it.</li>
+  <li><b>Notice 3.0 is a developer's draft</b> — not reviewed by FreshNow or a lawyer, English only; its cash and stock lines describe
+      what the app is planned to record (A-T58.7); Televend's server region is unconfirmed and its data processing agreement is not
+      filed (A-T58.5).</li>
+  <li><b>Erasure does not reach names inside the Televend mirror</b> (who filled a machine, in <code>tv_refill</code> and raw JSON) —
+      Televend users are not mapped to employees yet (A-T56.2).</li>
+  <li><b>The question box's allow-list sees tables, not the inside of functions.</b> A function the app role may call that reads another
+      table is not caught by EXPLAIN; the ones in use return booleans or ids — not checked exhaustively.</li>
+  <li><b>The two-part Telegram request</b> has not been seen arriving in a real chat yet; the bot's own long replies are not covered by a
+      bot test.</li>
+  <li><b>Shift handovers 07:30 and 15:00</b> and the <b>media retention periods</b> are assumptions (A-T58.4, A-T58.1); deletion is off.</li>
+  <li><b>Screen readers</b> were not tried on the chart; it has a title, a description and a table twin.</li>
+  <li><b>An independent review</b> of parts 2–5 — see the review section below for what ran and what it found.</li>
+</ul></div>
+
+<h2>Open questions</h2>
+<ul>
+  <li>Require 6 digits for the PIN (NIST asks 8 for this use)?</li>
+  <li>Are the shift handovers 07:30 and 15:00?</li>
+  <li>The media periods (evidence 180 days, video 30, receipts 5 years, chat 1 year) — and when to switch deletion on.</li>
+  <li>Notice 3.0 to the company's lawyer; Televend's region and data processing agreement.</li>
+</ul>
+
+<h2>Review</h2>
+<p>Two independent reviews ran, each with read-only reviewer agents and a skeptic who tried to refute every finding against the code.</p>
+<div class="tw"><table>
+<tr><th>Review</th><th>What it found</th><th>What was done</th></tr>
+<tr><td>Phone sign-in (17 Oct)</td><td>A <b>critical</b> bypass — a path spelled differently (<code>%64ashboard</code>) skipped the sign-in check, because the
+  guard read <code>req.url</code> instead of the route the router matched (G191) — and nine findings in phone sign-in: audit rows
+  outside the transaction, races between two sign-ins on one phone, a refresh token whose answer was lost, guarded roles on company
+  phones, the export showing sign-in times to others, correlation ids that were not UUIDs (G192).</td>
+  <td>All ten fixed with tests (D219); the bypass smoke-tested live (401).</td></tr>
+<tr><td>Live updates, media, the question box, the notice (17–18 Oct; 27 findings with TASK-059's, 25 confirmed)</td>
+  <td>For this task's parts: the question box could read other tables through functions such as <code>query_to_xml</code>; a third
+  party's export counted a person's token refreshes as "sessions"; voice transcripts escaped the retention sweep and erasure; uploads:
+  bytes stored before the record (orphans on failure), a race between a removal and a new upload of the same picture, the retention
+  clock not restarting when a picture is attached again, parallel uploads passing the hourly limit, storage errors reported as "no
+  such file"; live updates: a failed first LISTEN stacking listeners, capability keys unknown, machine problems not reaching the Ops
+  Head's screen until the next poll, a stalled stream keeping its socket, semaphores passing their cap, one audit row per refused
+  request.</td>
+  <td>All fixed with tests (D233), except two the skeptic refuted (a duplicated Telegram part on a partial failure — deliberate; the
+  MP4 header's self-declared length). Written down, not fixed: with no vends cursor every day reads "not in the mirror" until the
+  first complete read.</td></tr>
+</table></div>
+</body></html>

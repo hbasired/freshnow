@@ -96,6 +96,13 @@ export async function pollInbox(cfg: InboxConfig | null = inboxConfig()): Promis
     socketTimeout: 90_000,
   });
   let failure: string | null = null;
+  // ImapFlow also reports a dropped connection as an "error" EVENT. With no listener Node treats it
+  // as uncaught and exits: on 2026-10-15 one Gmail connection drop took the whole worker down — the
+  // outbox, the SLA sweep and the Televend sync — for two hours (G174). The awaited call fails too,
+  // and that failure is what this poll reports; the listener only keeps it to this poll.
+  client.on("error", (err: unknown) => {
+    failure ??= err instanceof Error ? err.message : String(err);
+  });
   try {
     await client.connect();
     await pollMailbox(client, cfg, cfg.mailbox, false, result);

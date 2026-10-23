@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TASK-071 — Sales history and the analytics store</title>
+<style>
+  :root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#3fb950;--warn:#d29922;--bad:#f85149;--card:#161b22;--bd:#30363d}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;max-width:980px;padding:48px 24px;margin-inline:auto}
+  h1{font-size:1.9rem;margin:0 0 4px} h2{margin-top:2.5rem;color:var(--acc);font-size:1.25rem} h3{font-size:1.05rem;margin-top:1.6rem}
+  .meta{color:var(--mut);font-size:.9rem;margin-bottom:2rem}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:18px;margin:14px 0}
+  .unverified{border-left:3px solid var(--warn)} .ok{border-left:3px solid var(--acc)} .bad{border-left:3px solid var(--bad)}
+  code{background:#1f2630;padding:2px 6px;border-radius:4px;font-size:.9em}
+  .tw{overflow-x:auto} table{border-collapse:collapse;width:100%;margin:14px 0}
+  th,td{border:1px solid var(--bd);padding:7px 9px;text-align:left;font-size:.88rem;vertical-align:top} th{background:#1f2630}
+  ul{padding-left:1.1rem} li{margin:3px 0} a{color:#88c0f0}
+  @media (max-width:600px){body{padding:28px 16px}}
+</style></head><body>
+<h1>TASK-071 — Sales history and the analytics store</h1>
+<p class="meta">2026-10-20 · Phase 1 of the plan of 19 Oct · migration <code>0038_analytics_store.sql</code> (applied live) · core
+<code>analytics-store.ts</code> · worker job <code>analytics-store</code> (hourly) · <code>pnpm analytics:store</code>,
+<code>pnpm televend:day-totals</code> · <code>/health</code> → <code>analyticsStore</code> · a fix in the Televend reader
+(<code>packages/televend/src/sources/bridge.ts</code>) · no new dependency</p>
+
+<div class="card ok"><b>One-sentence summary:</b> every sale Televend still lists — from 25 March 2026 — was copied into our mirror, read-only
+and paced; a store now holds each machine record's cups per Dubai day and per hour, built only from days that were read to their end and
+equal Televend's own count, with every build recorded so a figure can be traced and rebuilt; and Televend's own fleet total per day is kept
+back to 1 October 2025, where its sales list no longer reaches. Live: 208 days, 26 March to 19 October, each equal to Televend's count.</div>
+
+<h2>What was asked</h2>
+<ul>
+  <li>R0.2 "Store the data so patterns can be found to increase sales and revenue"; R0.3 "Extensive, intensive EDA"; R15.3 "The system
+  collects and stores data for future learning and model building"; R15.6 "Each day's complete data is in the next day's analysis"
+  (<code>docs/requirements/REQ-2026-10-19.md</code>).</li>
+  <li>The plan's row 071: sales copied back from Televend as far as it returns, paced; tables per machine per day and per hour; a daily
+  check that our totals equal Televend's; each run recorded with its inputs, so it can be replayed. The base for 074, 075, 079, 080
+  and 084.</li>
+</ul>
+
+<h2>What was done</h2>
+<div class="tw"><table>
+<tr><th>Layer</th><th>What</th></tr>
+<tr><td>Migration 0038</td><td><code>sales_day</code> — one row per Televend machine record and Dubai day: cups by payment (cash, cashless, cashless 3,
+token, wallet, other), first and last sale, and the record's Televend name and region at the day's last sale. <code>sales_hour</code> — cups per
+record and Dubai hour. <code>analytics_run</code> — each build: the sales it read, the newest sale stored, the cups and machines written,
+Televend's own count and whether they agree. <code>tv_day_total</code> — Televend's fleet count per day for the months its sales list no longer
+holds. Row security: readable with <code>televend.read</code>; written only by the worker's service role (D253).</td></tr>
+<tr><td>Core</td><td><code>daysToBuild</code> (whole days read to their end by a daily check or a backfill, not built yet or built from other input),
+<code>buildSalesDay</code> (one day replaced in one transaction under an advisory lock), <code>runAnalyticsStore</code> (at most 31 days a call),
+<code>backfillDayTotals</code>, <code>analyticsStoreHealth</code>.</td></tr>
+<tr><td>Worker</td><td><code>analytics-store</code> every hour: builds each checked day not yet built, oldest first.</td></tr>
+<tr><td>Scripts</td><td><code>pnpm analytics:store [--from --to --limit]</code> builds by hand (Televend is not contacted);
+<code>pnpm televend:day-totals --from --to</code> reads Televend's own count per day, one read per day, paced.</td></tr>
+<tr><td><code>/health</code></td><td><code>analyticsStore</code>: the newest day built, when, how many days, and any day whose sales differ from Televend's count
+or whose build failed.</td></tr>
+<tr><td>History, live (read-only)</td><td>The sales backfill (<code>pnpm televend:backfill</code>, TASK-056's command) from the first day Televend lists; the day totals
+for 1 Oct 2025 – 31 Mar 2026 (182 reads).</td></tr>
+<tr><td>Analytics</td><td>TASK-070's portal now reads the store (D257, the review of 20 Oct).</td></tr>
+<tr><td>Fix found while checking the store</td><td>A sale stamped exactly at midnight was read into both days: Televend's list includes both ends of a
+window. The reader now keeps a window's sales inside <code>[from, to)</code> (G215). Test.</td></tr>
+</table></div>
+
+<h2>Why it was done this way</h2>
+<h3>Only checked days</h3>
+<p>The 10-minute sync reads overlapping short windows; it cannot say a day is whole. A daily check (04:00 Dubai) or a backfill reads a
+whole day again and compares it with Televend's own count. Only those days are built. A day not built is "not read" in every figure,
+never "nothing sold". Yesterday therefore arrives in the store about an hour after its morning check (R15.6).</p>
+<h3>Rebuilt, never edited</h3>
+<p>A late sale stored after a build changes the day's input (the count read, the newest sale stored), and the next run builds the day again:
+its rows are replaced in one transaction and the earlier run stays in <code>analytics_run</code>. So every figure traces to a run, and a run
+can be repeated to the same answer (CLAUDE.md rule 3).</p>
+<h3>Where the machine stood, not where it stands</h3>
+<p>Machines move, and a move gives the machine a new Televend record (asset 796 has had four, G160). Each sale carries its record's name and
+region at the time, and the store keeps those of the day's last sale. Categories are not stored per day: FreshNow's corrections must reach
+back over the history, so they are applied when the store is read (D257).</p>
+<h3>Televend's totals where the list stops</h3>
+<p>Televend's itemised sales list reaches back about 200 days, but its own daily count goes further (VF87). The count is kept as it is, one
+figure per day for the fleet: enough for a long trend, not for machines or categories. Nothing is invented for the missing detail.</p>
+<h3>Not built here</h3>
+<ul>
+  <li>A table per category per day (the plan's wording): categories are worked out at read time, for the reason above.</li>
+  <li>Any chart of the long history — the day totals are stored, not shown yet (TASK-075).</li>
+  <li>A nightly schedule for the backfill: it was run by hand. The daily check keeps each new day; the sales list's start moves forward
+  as days age out (VF87), so there is nothing older left to copy.</li>
+</ul>
+
+<h2>How it works</h2>
+<p><code>daysToBuild</code> asks Postgres for whole Dubai days with a complete daily-check or backfill run of the sales stream, measures each
+day's input inside Postgres (how many sales, the newest <code>synced_at</code> — G202), and returns those never built or built from different
+input, oldest first. <code>buildSalesDay</code> takes an advisory lock for the day, reads Televend's count from the newest complete run,
+deletes the day's rows and inserts them again from <code>tv_vend</code> by one <code>insert … select</code> per table, and records the run with
+<code>agrees = (sales read = Televend's count)</code>. All counting is Postgres's; the TypeScript only chooses days.</p>
+
+<h2>Research findings</h2>
+<ul>
+  <li>How far back Televend keeps sales, by read-only probes through the MCP tool (VF87): the list held 31 Mar 2026 and later, not
+  20 Mar or earlier, while the daily count reaches further.</li>
+  <li>Televend's day count ignores the time of day and includes the end date (G147); only whole days are compared, sent as the last
+  second of the last day.</li>
+  <li>The sales list includes both ends of a window (found 20 Oct, G215), while the day count does not take the next day's 00:00:00 sale.</li>
+  <li>Sale records spell a region differently from the machine list ("Other Stations" against "Other stations", G211).</li>
+</ul>
+
+<h2>Verification</h2>
+<div class="tw"><table>
+<tr><th>Check</th><th>Result</th></tr>
+<tr><td>Core (<code>analytics-store.test.ts</code>, real Postgres)</td><td>10 pass — only checked days; cups by payment adding up; the name and region of the
+day's last sale; Dubai hours; each build's record and agreement; nothing rebuilt when nothing changed; a late sale rebuilds the day and keeps
+the earlier run; health names differing days; who may read (the warehouse sees nothing; the app role writes nothing); day totals newest first,
+resuming, skipping days already read.</td></tr>
+<tr><td>The midnight fix (<code>bridge.test.ts</code>)</td><td>A sale at exactly midnight is in the day it starts and not the day before. With the fix, the
+Televend, MCP and store tests pass (9 files, 149 tests).</td></tr>
+<tr><td>Whole suite + typecheck</td><td>114 files, 1,225 passed, 5 skipped, 0 failed on the final code of 20 Oct (the midnight fix included); typecheck clean.</td></tr>
+<tr><td>Live, read-only towards Televend</td><td>The store holds <b>208 days, 26 Mar – 19 Oct</b>, every day equal to Televend's count, none differing, none
+failed. 25 March is not built: Televend's list begins part-way through it. 182 day totals for 1 Oct 2025 – 31 Mar 2026 (364,161 sales);
+on the six days both hold (26–31 Mar) the day total, the store's check, the sales read and the cups are equal (VF91).</td></tr>
+<tr><td>The gap found on 20 Oct</td><td>19 days (29 Aug – 16 Sep) were missing at first: backfilled at 05:10–05:24 that morning, just after an hourly build, and
+waiting their turn (31 days a run, oldest first). Built by hand. Two more days (11 Jul, 15 Sep) had read one sale more than Televend's
+count — the midnight sale — and are built since the fix.</td></tr>
+</table></div>
+
+<h2>What we have not verified</h2>
+<div class="card unverified"><ul>
+  <li><b>The sales list as a rolling window:</b> whether Televend drops a day from the start each day (VF87) is not watched yet. The store keeps what
+  was copied either way.</li>
+  <li><b>25 March:</b> only part of the day is in the list (719 sales read); it stays out of the store.</li>
+  <li><b>Day totals before October 2025</b> were not asked for; how far Televend's count reaches is not known.</li>
+  <li><b>Speed at a year's volume</b>: a day builds in well under a second today (about 1,500 sales); a year of rebuilds was not timed.</li>
+  <li><b>The MCP server</b> used by Claude Code was still running the reader from before the midnight fix; it picks the fix up when it is
+  restarted.</li>
+  <li><b>Replay of a run</b> is "build again and compare"; no test replays a stored run against changed sales on purpose.</li>
+  <li><b>Independent review</b> of this task: the 20 Oct review covered Analytics on the store (TASK-070 page), not the store's own code.</li>
+</ul></div>
+
+<h2>Open questions for FreshNow</h2>
+<ul>
+  <li>The day totals show sales falling month by month from October 2025 (88,283) to March 2026 (33,666) and recovering from April. Is that
+  the fleet changing size, Ramadan, or something else? The analysis (TASK-075) should say which, not guess.</li>
+</ul>
+</body></html>

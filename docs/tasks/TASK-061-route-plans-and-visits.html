@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TASK-061 — Route plans and visits</title>
+<style>
+  :root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#3fb950;--warn:#d29922;--bad:#f85149;--card:#161b22;--bd:#30363d}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;max-width:980px;padding:48px 24px;margin-inline:auto}
+  h1{font-size:1.9rem;margin:0 0 4px} h2{margin-top:2.5rem;color:var(--acc);font-size:1.25rem} h3{font-size:1.05rem;margin-top:1.6rem}
+  .meta{color:var(--mut);font-size:.9rem;margin-bottom:2rem}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:18px;margin:14px 0}
+  .unverified{border-left:3px solid var(--warn)} .ok{border-left:3px solid var(--acc)}
+  code{background:#1f2630;padding:2px 6px;border-radius:4px;font-size:.9em}
+  pre{background:#1f2630;padding:12px;border-radius:8px;overflow-x:auto;font-size:.85rem;line-height:1.45}
+  .tw{overflow-x:auto} table{border-collapse:collapse;width:100%;margin:14px 0}
+  th,td{border:1px solid var(--bd);padding:7px 9px;text-align:left;font-size:.88rem;vertical-align:top} th{background:#1f2630}
+  ul{padding-left:1.1rem} li{margin:3px 0} a{color:#88c0f0}
+  .flow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0}
+  .flow span{background:#1f2630;border:1px solid var(--bd);border-radius:8px;padding:6px 10px;font-size:.85rem}
+  .flow b{color:var(--mut)}
+  @media (max-width:600px){body{padding:28px 16px}}
+</style></head><body>
+<h1>TASK-061 (part 2) — Route plans and visits</h1>
+<p class="meta">2026-10-19 · Operations + Inventory expansion, layer 7, second part · migration <code>0036_routes_and_visits.sql</code>
+(applied live 19 Oct) · new core: <code>routes.ts</code>, <code>visits.ts</code> · API <code>routes/route.ts</code> · dashboard
+<code>portals/route.tsx</code>, <code>route-sheets.tsx</code>, <code>lib/route-api.ts</code> · no new dependency</p>
+
+<div class="card ok"><b>One-sentence summary:</b> the team × machine instruction sheet that a Supervisor used to fill in by hand —
+and whose red "NO" cells were worked out by scrolling through photos in the WhatsApp group — is now a plan in the app: each team's
+machines in order, what to do at each, the crates to take and the proof to bring back; a driver starts each visit at the machine
+(its sticker's link, or its number typed), adds the photos and the dispenser video, records the fill and the cash on the ledgers that
+already exist, and the planner sees OK / NO for every stop, worked out, with Televend's refill beside it.</div>
+
+<h2>What was asked</h2>
+<ul>
+  <li>The approved plan's TASK-061: <i>"route plans (instruction sheets), visits by QR, evidence requirements, fills, cash
+  collections …"</i> — with the user's decisions of 15 Oct: <b>no GPS</b>; proof of presence = the machine's QR + photos + Televend's
+  timestamps; photos mandatory, short videos.</li>
+  <li>The instruction sheets in the Service Team group (13 and 18 Oct): per team and shift, each machine with its tasks ("Full service,
+  Resort, Cash, Water remove"), crates ("2 crates"), a check ("🚨 cup failure"), and the proof columns — normal pic, re-sorting pic,
+  video of the white fruit dispenser, other — marked OK or a red NO. "Schedule rashid always Night" (18 Oct).</li>
+  <li>The user, 19 Oct: finish what was in progress first, then plan the 15-point request (recorded separately).</li>
+</ul>
+
+<h2>What was done</h2>
+<div class="tw"><table>
+<tr><th>Layer</th><th>What</th></tr>
+<tr><td>Migration 0036</td><td>Capabilities <code>routes.plan</code> (Supervisor, Ops Head, CEO, Admin) and <code>visits.record</code> (also VMO,
+Technician). <code>machine.service_shift</code> / <code>service_note</code>. Tables <code>route_plan</code>, <code>route_plan_member</code>,
+<code>route_stop</code> (tasks, crates 0–20, instructions, proof asked, removed_at), <code>visit</code> (machine, person, stop,
+started_at, <code>started_how</code> qr | typed, ended_at, tasks done, note; one open per person), <code>visit_evidence</code>
+(kind, media, added/removed), <code>visit_doc</code> (the stock or cash document a visit posted). Guards: a visit's who/which/when is
+never changed, an ended visit never changes except its note being removed, proof is taken off and never deleted, links stay.
+RLS: planners read all; a person their own visits and the plans they are on. A visit's photos are readable by planners. Live-update
+scopes for every table. <code>visit_purge</code> for practice runs.</td></tr>
+<tr><td>Core</td><td><code>routes.ts</code>: save / cancel / copy plans, service-shift rules, the person's round (night plans until noon),
+the proof grid with Televend's refill and Cash Collection beside each visit. <code>visits.ts</code>: start (sticker or number; resumes
+the same machine; refuses a second machine while one is open), proof add / take off, tasks, fill (stock ledger "used, into a machine"
+from the person's own stock), cash (a collection on their shift, ticks "Cash"), end (says what is missing), detail.</td></tr>
+<tr><td>API</td><td>16 routes under <code>/dashboard/route/*</code> (so the sign-in hook guards them); shapes checked with Zod; refusals in
+words with their status (403 role, 404 not yours, 409 conflict, 400 shape).</td></tr>
+<tr><td>Dashboard</td><td>The <b>Route</b> portal (<code>#route</code>, <code>#route/plans</code>, <code>#route/proof</code>): <i>Today</i>
+(a sticker's card, "start a visit" by number, the round with each stop's tasks, crates, instructions and proof chips, and the team's
+progress); the <i>visit sheet</i> (tick tasks, take each proof — photo or 15-s video — put stock in from what you hold, cash taken out
+with its photo, a note, end); <i>Plans</i> (day picker, the plan editor — team, people, machines in order with task chips, crates,
+instructions, proof chips suggested from the tasks, reorder, remove — copy the day before, machines served only by day or night);
+<i>Proof</i> (the sheet's grid: OK / NO per column, visited by whom and how, fill and cash, Televend). A sticker's link
+<code>#visit/&lt;token&gt;</code> opens it. The portal switcher wraps at three per row (six labels collided).</td></tr>
+<tr><td>Privacy</td><td>Notice lines for visits (what, why, who, how long) and "no location tracking" reworded to what is true; visit
+notes, plan notes and instructions in the retention sweep, erasure and the person's own download; <code>reset-employee.ts</code>
+clears visits and plans first (their links name stock and cash documents).</td></tr>
+<tr><td>Docs</td><td>KB D241–D247, A-T61.7–12, G205–G206, VF84; DEVIATIONS #17; COMMANDS §7l; DEMO-GUIDE act 5d; this page.</td></tr>
+</table></div>
+
+<h2>Why it was done this way</h2>
+<h3>The sheet's own words, as data</h3>
+<p>The tasks and proof columns are the 18 Oct sheet's, word for word ("Kachara remove", "Make free vend", "Check 🚨"), stored as
+fixed codes so the grid can be computed. A plan is a team's day and shift; a team is whoever is on the plan that day, because the
+sheet pairs people differently each day (A-T61.10). Removing a stop keeps it, marked removed, because a visit may already point at it.</p>
+<h3>A sticker link instead of an in-page scanner</h3>
+<p>A page can read a QR code itself with the Barcode Detection API, but only on HTTPS (MDN) — and this laptop setup is plain HTTP on the
+local network until the server is deployed (TASK-064). Every Android phone's camera already opens a link printed as a QR code, so the
+sticker <i>is</i> the link; the number printed on it is the fallback, and the visit records which was used (D242). No location is read.</p>
+<h3>Missing proof is said, not refused</h3>
+<p>Refusing to end a visit without the re-sorting photo would leave the visit open and block the driver's next machine; the sheet's
+practice is a red NO that the Supervisor follows up. So ending is always allowed and answered with what is missing (D243).</p>
+<h3>No third ledger</h3>
+<p>The fill and the cash go on the stock and cash ledgers built in TASK-060 and part 1, with their photos and rules; the visit only
+links to them (D244). The auditor's view of cash does not change, and the driver still never sees Televend's "should have found" (D237).</p>
+<h3>What was deliberately not built here</h3>
+<ul>
+  <li>Part swaps and tickets (part 3), reconciliation and "who did not report" (TASK-062), printed stickers (TASK-065), suggested stops
+  and route optimisation (the 15-point plan).</li>
+  <li>Any ranking or score of drivers from their visits — the grid is about stops, not people (CLAUDE.md).</li>
+</ul>
+
+<h2>How it works</h2>
+<div class="flow"><span>Supervisor: plan (team, machines, tasks, crates, proof)</span><b>→</b><span>team told once, with the crates</span><b>→</b>
+<span>driver at the machine: sticker link / number</span><b>→</b><span>visit: tasks ✓, photos, video, fill, cash</span><b>→</b>
+<span>end: "proof still missing: …"</span><b>→</b><span>Proof grid: OK / NO + Televend refill</span></div>
+<p>A visit matches the stop for its machine on the person's current round, unvisited first. The grid takes Televend's refill and Cash
+Collection within 60 minutes before to 120 minutes after the visit began (A-T61.12). Every write carries an id made in the browser,
+so a double tap or a retry posts once; every change is audited with its correlation id.</p>
+
+<h2>Research findings</h2>
+<ul>
+  <li><b>Barcode Detection API:</b> "available only in secure contexts (HTTPS)", experimental and not Baseline —
+  <a href="https://developer.mozilla.org/en-US/docs/Web/API/BarcodeDetector">MDN, BarcodeDetector</a>. Hence the sticker link.</li>
+  <li><b>Taking a video from a web page on Android:</b> a report from 2025 says Chrome on Android 14 and 15 no longer offers the
+  camera for a plain <code>&lt;input type=file accept="video/*"&gt;</code>; adding <code>capture</code> forces a recording through
+  the camera app (and then no file can be picked from the gallery) —
+  <a href="https://blog.addpipe.com/html-file-input-accept-video-camera-option-is-missing-android-14-15/">addpipe blog</a>. The visit
+  sheet uses <code>capture="environment"</code>, so proof is recorded on the spot. Not tried on a real phone (below).</li>
+  <li>Android's 48 dp touch-target guidance (checked 17 Oct for TASK-060) is kept: every button on the visit sheet is at least 48 px.</li>
+</ul>
+
+<h2>Verification</h2>
+<div class="tw"><table>
+<tr><th>Check</th><th>Result</th></tr>
+<tr><td>Core tests (<code>routes.test.ts</code>, against real Postgres)</td><td>19 pass — plans, refusals, re-save, removal, night-only warning, copy,
+visits by number and sticker, proof kinds, fill and cash links, end and immutability, the round until noon, the grid with Televend,
+RLS per role, grants, retention keeps the proof record; plus the words on visits and plans in the download, the sweep and erasure.</td></tr>
+<tr><td>API tests (<code>route.test.ts</code>)</td><td>4 pass — a plan made and re-sent; a sticker visit with proof, tasks, end; the grid's
+OK/NO; refusals (driver planning 403, keeper reading plans 403, a photo as the video 400, a second open visit 409, unknown sticker 404,
+both number and sticker 400); a planner ends a forgotten visit; the night-only warning.</td></tr>
+<tr><td>Portal rules (<code>portals.test.ts</code>)</td><td>Route for Supervisor, Ops Head, CEO, Admin, VMO, Technician — not for the keeper,
+the auditor, managers; sticker links take only a UUID.</td></tr>
+<tr><td>Whole suite + typecheck</td><td>109 files, <b>1,133 passed, 5 skipped</b> (opt-in suites), 0 failed; typecheck clean; dashboard
+builds (the Route chunk is 37.7 kB, downloaded only by those who open it).</td></tr>
+<tr><td>Browser (Chromium; throwaway test database; a Supervisor at 1280 px, a driver on a 390 px phone)</td><td><b>26 of 26</b> checks,
+no console errors: the switcher wraps to two rows; a plan made with suggested proof, crates, a check that needs words; the plans list
+refreshes after saving (a bug found by this check and fixed — it waited for the live doorbell); the sticker link opens Route and the
+address becomes <code>#route</code>; ticks, a photo whose thumbnail loads, 2 cartons put in from the driver's own stock, AED 30 with its
+photo; end says "proof still missing: Re-sorting pic; not ticked: Resort"; a typed-number visit; no sideways scroll; the grid shows
+OK / NO, "sticker" and "number typed".</td></tr>
+<tr><td>Live</td><td>0036 applied 19 Oct 23:19; read-only check: the six tables have row security forced, the capabilities are mirrored,
+86 numbered active machines, 0 plans, 0 visits. API, worker and bot restarted on the new code; health ok, Televend lag 1 minute; the
+new routes answer 401 without sign-in; the worker asked the 2 people who need to agree to the changed notice.</td></tr>
+</table></div>
+
+<h2>What we have not verified</h2>
+<div class="card unverified"><ul>
+  <li><b>A real phone:</b> the camera opening a sticker's link (no stickers are printed yet — TASK-065), recording the dispenser video
+  through <code>capture</code>, whether the recording is MP4 and under 15 s (the server refuses longer; the phone does not stop at 15 s),
+  and whether a person who is not signed in lands back on the visit after signing in.</li>
+  <li><b>A video in the browser check:</b> the dispenser-video path was tested in the API with a stored video record, not by uploading a
+  real recording through the page.</li>
+  <li><b>Reaching the laptop from a phone:</b> the link works only where the phone can reach the API (same network now; HTTPS after
+  TASK-064).</li>
+  <li><b>Televend's refill window</b> (−60 / +120 minutes) is a guess until there are real visits to compare (A-T61.12).</li>
+  <li><b>Crates vs cartons</b> (A-T61.7), which machines always need the video (A-T61.8), when night shifts end (A-T61.9).</li>
+  <li><b>Live updates to teammates</b> (the doorbell on a plan or visit change) were not watched in a browser this time; the planner's own
+  change now reloads without it.</li>
+  <li><b>Copy the day before</b> and <b>machines served only by day or night</b> were tested in the API and core, not clicked in the browser.</li>
+  <li><b>Scale:</b> 60 stops × 6 people per plan and many teams at once were not measured.</li>
+  <li><b>The notice's wording</b> is a developer's draft (3.0-draft), not FreshNow's or a lawyer's.</li>
+  <li>The independent review ran on 20 Oct (<a href="#review-20oct">below</a>). Two of its fixes are screen or script only and untested: the
+  proof and tasks shown on visits off the plans, and the demo reset's "[erased]" words.</li>
+</ul></div>
+
+<h2>Open questions for FreshNow</h2>
+<ul>
+  <li>Is one crate on the sheet one carton of the stock list? (A-T61.7)</li>
+  <li>Which machines need the dispenser video every time? (A-T61.8)</li>
+  <li>When does the latest night shift end — is noon the right cut-off for "last night's plan"? (A-T61.9)</li>
+  <li>When two people work one machine, do both record the visit? (A-T61.11)</li>
+</ul>
+<h2 id="review-20oct">Independent review, 20 Oct</h2>
+<p>The review owed since 15 Oct ran on 20 Oct, once the usage limit reset (D263). For each area, read-only reviewers looked for defects and a skeptic tried to refute each finding before it counted. A second pass then checked every fix — fixed, partly fixed, or fixed but broke something — and looked for what the fixes themselves broke, again with a skeptic for each problem. Everything confirmed was fixed with a test unless the row says otherwise.</p>
+<p>For Route, 14 findings were raised: 12 confirmed and fixed (D256), 2 refuted (a fill at a machine without a number does name its machine; teammates seeing each other's ticks is what the notice says).</p>
+<div class="tw"><table>
+<tr><th>Finding</th><th>Severity</th><th>Fix</th></tr>
+<tr><td>After midnight, a second visit to a machine was credited to tomorrow night's plan instead of the night being worked.</td><td>high</td><td>A visit carries out a stop on the plans of the shift the clock is in (handovers 07:30 and 15:00, A-T58.4) first: a second visit at 02:00 joins last night's stop, a 10:00 visit the day plan's. Test.</td></tr>
+<tr><td>A visited stop's machine could still be changed by sending a removed stop's id again.</td><td>medium</td><td>A visited stop keeps its machine — taken off and sent again too — in core and in the database (migration 0039's guard), and the stop chosen by a visit is locked while it starts. Test, including a direct UPDATE refused.</td></tr>
+<tr><td>Visits to a removed stop or a cancelled plan disappeared from the Proof page and were not listed as off the plan.</td><td>medium</td><td>The proof page lists visits to a stop taken off, or to a plan cancelled, saying which. Test.</td></tr>
+<tr><td>The Fill column showed only the first visit's fill at a stop.</td><td>medium</td><td>A stop's fill adds up every visit's fill, item by item. Test: two 1-carton fills show 2 cartons.</td></tr>
+<tr><td>One photo could prove any number of visits, including a photo uploaded before the visit.</td><td>medium</td><td>A photo or video proves one visit, and only one sent after the visit began (5 minutes allowed; the phone's start time when it queued offline). Test.</td></tr>
+<tr><td>The Televend column was hidden for a whole team while that team's first stop was unvisited.</td><td>low</td><td>The Televend column shows for whoever reads Televend, whichever stop comes first.</td></tr>
+<tr><td>Visits off the plans made before noon were listed under two days.</td><td>low</td><td>Each visit off the plans belongs to the day of the shift it was made in, and shows its date when that differs. Test.</td></tr>
+<tr><td>A planner's note when ending someone else's visit was stored as the driver's own note.</td><td>low</td><td>Ending someone else's visit writes no words on it; the note box shows only to the visitor. Test.</td></tr>
+<tr><td>A planner's own plan notes and instructions were missed by erasure and missing from their download.</td><td>low</td><td>A plan's note and a stop's instructions keep their author (migration 0039), copies too; erasure and the person's download follow the author. Test.</td></tr>
+<tr><td>A visit's fill and cash were posted and linked in separate transactions.</td><td>low</td><td>A fill or a cash entry at a visit is posted and linked in one transaction, or not at all. Test: a failing link leaves no stock or cash document.</td></tr>
+<tr><td>Copying plans could silently drop a team's plan.</td><td>low</td><td>Renaming a plan to a name its shift already has is refused; copying a day names every plan it left out, and why. Test.</td></tr>
+<tr><td>The Proof page's Televend lookup ignored when a record stood in the machine, and could count another machine's refill and collection.</td><td>low</td><td>Televend's refill and collection beside a stop come only from the records placed in that machine at the visit's time. Test.</td></tr>
+</table></div>
+<h3>The second pass: checking the fixes</h3>
+<p>Of the 12 fixes, 8 were checked as fixed, 2 as partly fixed and 2 as fixed but breaking something. Its 4 problems were all confirmed and are all fixed:</p>
+<div class="tw"><table>
+<tr><th>Finding</th><th>Severity</th><th>Fix</th></tr>
+<tr><td>Between the 07:30 handover and noon, a night team's second visit still went to tonight's stop.</td><td>medium</td><td>After the shift being worked, a shift already begun comes before one still to come: last night's stop, not tonight's. Test.</td></tr>
+<tr><td>Visits whose shift date differed from the visitor's plan date appeared on no Proof page (made by the fix for two-day listing).</td><td>medium</td><td>A visit on a stop belongs to its plan's day; one off the plans to its shift's day, looked for among the people on that day's plans and the days either side. Test.</td></tr>
+<tr><td>Visits on a cancelled plan or a removed stop were listed without their proof.</td><td>low</td><td>Those lines show what was done and the proof, or "no proof". Screen only, not tested.</td></tr>
+<tr><td>The demo reset emptied the instructions on stops that stay, which breaks copying a plan with a "check" or "other" stop.</td><td>low</td><td>It writes "[erased]", as erasure does. The reset script has no test.</td></tr>
+</table></div>
+<h3>Found after the review: a photo lost by ending too soon</h3>
+<p>The browser check, run again on 20 Oct, reproduced a 409 seen once before and not explained then: a driver who took a photo and tapped
+"End the visit" while it was still uploading ended the visit first, so the photo was refused ("This visit has ended") and the stop showed
+its proof missing. On mobile data that is likely. The photo is now sent and added as one change, and "End the visit" waits for it. The
+browser check now slows the upload and checks the button waits (27 of 27). It was not run against the old screen; by reading, the button
+there was enabled during the upload.</p>
+</body></html>

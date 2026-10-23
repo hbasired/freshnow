@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TASK-057 — Roles and permissions</title>
+<style>
+  :root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#3fb950;--warn:#d29922;--bad:#f85149;--card:#161b22;--bd:#30363d}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;max-width:980px;padding:48px 24px;margin-inline:auto}
+  h1{font-size:1.9rem;margin:0 0 4px} h2{margin-top:2.5rem;color:var(--acc);font-size:1.25rem} h3{font-size:1.05rem;margin-top:1.6rem}
+  .meta{color:var(--mut);font-size:.9rem;margin-bottom:2rem}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:18px;margin:14px 0}
+  .unverified{border-left:3px solid var(--warn)} .ok{border-left:3px solid var(--acc)}
+  code{background:#1f2630;padding:2px 6px;border-radius:4px;font-size:.9em}
+  pre{background:#1f2630;padding:12px;border-radius:8px;overflow-x:auto;font-size:.85rem;line-height:1.45}
+  .tw{overflow-x:auto} table{border-collapse:collapse;width:100%;margin:14px 0}
+  th,td{border:1px solid var(--bd);padding:7px 9px;text-align:left;font-size:.88rem;vertical-align:top} th{background:#1f2630}
+  .good{color:var(--acc);font-weight:600}.warn{color:var(--warn);font-weight:600}
+  ul{padding-left:1.1rem} li{margin:3px 0} a{color:#88c0f0}
+  .flow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0}
+  .flow span{background:#1f2630;border:1px solid var(--bd);border-radius:8px;padding:6px 10px;font-size:.85rem}
+  .flow b{color:var(--mut)}
+  @media (max-width:600px){body{padding:28px 16px}}
+</style></head><body>
+<h1>TASK-057 — Roles and permissions</h1>
+<p class="meta">2026-10-15 · Operations + Inventory expansion, layer 3 · migration <code>0025_rbac_v2.sql</code> · new:
+<code>core/permissions.ts</code> · changed: core (org, people, alerts, email ×3, projects, roles, onboarding, updates), every API route that
+decided by role, the bot, the dashboard · no new dependency</p>
+
+<div class="card ok"><b>One-sentence summary:</b> seven new roles — Admin, Ops Head, Supervisor, Cash auditor, Warehouse keeper,
+Technician, VMO — decided by one permission table kept in code and in Postgres (a test fails if they differ), with every
+"refuse if employee" check replaced by "allow if the role may", and four live defects found on the way fixed first.</div>
+
+<h2>What was asked</h2>
+<ul>
+  <li>The approved plan's role table (§3): CEO and Admin get full access; the Ops Head gets the operations side; drivers and the
+      other field roles see only their own work.</li>
+  <li>The user's answers of 2026-10-15: Admin reads everything the CEO reads, including the CEO's own items; only the CEO makes
+      someone Admin; Admin gives work to anyone, Ops Head and Supervisor to their reports, everyone else to themselves only; fix
+      the four live defects first.</li>
+</ul>
+
+<h2>What was done</h2>
+<div class="tw"><table>
+<tr><th>Area</th><th>Change</th></tr>
+<tr><td>Four live defects (fixed first)</td><td>
+  1&nbsp;"Update my details" could rewrite one's own department, site and shift through the service role — now filled once, then
+  changed only on the People page. 2&nbsp;The bot processed people whose account was not active — it now processes nothing from them.
+  3&nbsp;The CEO could <code>/withdraw</code> in the bot and lock the dashboard — refused in core for every channel. 4&nbsp;The bot's status
+  buttons accepted any task id — core refuses a task that is not the reporter's.</td></tr>
+<tr><td>The permission table</td><td><code>core/permissions.ts</code>: 11 roles × 19 capabilities, <code>can()</code>, and the rules built on it
+  (who may give work, see others' blockers, lead people, which roles one may give, which role changes are refused and why).
+  Deny by default: an unknown role or an inactive account has nothing.</td></tr>
+<tr><td>Postgres (0025)</td><td>The role CHECK widened; <code>role_capability</code> (the table's SQL copy, 56 rows);
+  <code>app_has_capability()</code> and <code>app_reads_all()</code>; the two visibility helpers rewritten on capabilities; 22 read policies that
+  named the CEO now read <code>(select app_reads_all())</code>, the nine Televend tables <code>(select app_has_capability('televend.read'))</code>.</td></tr>
+<tr><td>Code</td><td>About 60 decision points in core, the API, the bot and the dashboard converted from role names to capabilities.
+  <code>/dashboard/me</code> now sends the viewer's capabilities, the roles they may give, and every role's label and description; the
+  browser shows buttons from those and never reasons about role names. The bot's menus are built from capabilities.</td></tr>
+<tr><td>People page</td><td>The role picker offers only the roles the viewer may give, each with one line on what it allows; "Reports to"
+  offers only roles that lead people; an Admin's account shows no erase button to an Admin.</td></tr>
+<tr><td>Tests</td><td>The twin (code = database for every role × capability); per-role visibility in Postgres (what each role sees AND does
+  not: people, tasks, projects, audit log, Televend data); the rules as rules; the new roles over HTTP and through the real bot; the
+  four defects, each with the scenario that exploited it.</td></tr>
+</table></div>
+
+<h2>Why it was done this way</h2>
+<h3>Capabilities, not role names — one table, two copies, one test</h3>
+<p>Fourteen checks said "refuse if the role is employee". Adding a role value would have waved a VMO straight through them — to the
+people list, to starting projects, to turning a technician's email about a broken machine into a work proposal. A capability table
+inverts that: a role has exactly what it lists. The database needs the same answers for row-level security, so the table lives in
+<code>permissions.ts</code> and, seeded from it, in <code>role_capability</code>; a test asks Postgres every role × capability and compares.</p>
+<h3>Admin is not the CEO</h3>
+<p><code>app_is_ceo()</code> is unchanged and still means the CEO alone; a new <code>app_reads_all()</code> is what the read policies ask. So Admin
+reads everything (the user's "full access"), while the CEO-only write policies, the guard on privileged employee columns (0014) and
+everything done in the CEO's name stay the CEO's (SPEC-000 R30). In code, Admin lacks one capability — making Admins — and core refuses
+any change to the CEO's own row by anyone but the CEO.</p>
+<h3>Only a role that leads people may be someone's manager</h3>
+<p>Escalation sends a raiser's own words to their manager. The "Reports to" picker offered anyone who was not an employee — so it would
+have offered a VMO, who must not read a colleague's words. Now core refuses it and the picker does not offer it.</p>
+<h3>Rules in core, not in each channel</h3>
+<p>Three of the four defects were rules enforced in the dashboard's route but not underneath it, so the bot — a second channel to the
+same core — skipped them. Task ownership, the CEO's withdrawal and every org change are now checked in core, where every channel
+passes.</p>
+
+<h3>What the review found — done by hand this time</h3>
+<p>The independent review (three reviewers and a skeptic, as for TASK-056) could not run: the review agents hit the account's weekly
+limit. Reviewing the change myself, adversarially, found two things, both fixed with tests:</p>
+<ul>
+  <li><b>An email address is an identity (D201).</b> Inbound email decides who is speaking by the sender's address, and Admin may now
+      set addresses — so an Admin could have pointed the CEO's record at a mailbox they control and given work by email in the CEO's
+      name. Now the CEO's and an Admin's address are the CEO's to change.</li>
+  <li><b>A CEO ability removed by accident (D202).</b> The first version refused any change to or from the CEO role, which also took
+      away the CEO's existing way to hand the role over. Restored for the CEO alone.</li>
+</ul>
+<h3>The worker stopped for two hours — not this task's code, found during it (G174)</h3>
+<p>At about 19:28 Dubai the worker exited: the email client reported a dropped Gmail connection as an "error" event that nothing was
+listening for, and Node stops on that. Everything the worker does stopped with it — Telegram delivery, the SLA sweep, the Televend sync —
+until it was restarted at 21:40 (nothing was waiting to be delivered; the Televend mirror caught up in one run). The email client and the
+four BullMQ queues and workers now have error listeners; a test with a fake mail server that hangs up reproduces the exact error and
+shows it no longer escapes.</p>
+
+<h2>How it works</h2>
+<div class="flow"><span>employee.access_role</span><b>→</b><span>permissions.ts: capabilitiesOf()</span><b>→</b><span>can(viewer, cap) in API, bot,
+worker</span><b>·</b><span>/dashboard/me → capabilities → buttons</span><b>·</b><span>withContext sets app.access_role</span><b>→</b><span>app_has_capability()
+in RLS</span></div>
+<pre>-- a read policy after 0025: evaluated once per statement, not per row (the (select …) form)
+alter policy tv_vend_select on tv_vend using ((select app_has_capability('televend.read')));
+-- the CEO-only write policies are untouched: Admin's writes go through checked handlers
+create policy employee_update ... using (id = app_current_employee() or app_is_ceo())</pre>
+
+<h2>Concepts and techniques used</h2>
+<ul>
+  <li><b>Capability-based access control, deny by default</b> — a role holds a list of what it may do; anything not listed is refused.</li>
+  <li><b>Policy as code with a database twin</b> — one table, two copies, a test that they agree.</li>
+  <li><b>Row-level security</b> — reads are filtered by Postgres for every role, whatever the code forgets.</li>
+  <li><b>initPlan caching</b> — <code>(select fn())</code> lets Postgres evaluate a row-independent check once per statement.</li>
+  <li><b>Separation of identity and capability</b> — "is the CEO" and "sees everything" are different questions with different answers.</li>
+  <li><b>Checks where every channel passes</b> — rules in core, not in one channel's route.</li>
+</ul>
+
+<h2>Research findings</h2>
+<ul>
+  <li>Supabase's RBAC guide uses the same shape: a role → permission table and a STABLE SECURITY DEFINER <code>authorize()</code> function the
+      policies call, with the role carried in the sign-in token by an access-token hook. A third-party write-up (not the guide) notes
+      such a claim stays stale until the token refreshes; here the role is read from the employee row for every transaction, so a
+      role change takes effect at once.</li>
+  <li>Supabase's RLS performance guidance: wrap row-independent checks in <code>(select …)</code> so they become an initPlan; it reports large
+      speed-ups on big tables (their measurements, not ours).</li>
+</ul>
+
+<h2>Verification</h2>
+<div class="tw"><table>
+<tr><th>Check</th><th>How</th><th>Result</th></tr>
+<tr><td>The twin: code = database</td><td>every role × every capability asked of Postgres</td><td class="good">11 × 19, no difference</td></tr>
+<tr><td>Who sees what (RLS)</td><td>an org of 9 people across 7 roles; people, tasks, projects, audit log, Televend rows per viewer</td><td class="good">each
+  role sees exactly its set — and nothing more</td></tr>
+<tr><td>The rules as rules</td><td>unit tests: Admin lacks only "make Admins"; the question box only for roles that see everything; no
+  capability ranks or scores people; inactive and unknown roles have nothing</td><td class="good">pass</td></tr>
+<tr><td>New roles over HTTP</td><td>Admin adds a VMO, is refused Admin, the CEO's row and another Admin's erasure; Ops Head assigns to their
+  report only; a VMO gives no work and starts no project</td><td class="good">pass (9 tests)</td></tr>
+<tr><td>New roles in the bot</td><td>through the real bot: Ops Head, Admin and VMO menus, assignment and forged taps</td><td class="good">pass</td></tr>
+<tr><td>The four defects</td><td>each exploit scenario as a test (forged task tap, inactive account, CEO /withdraw, re-answering department)</td><td class="good">all refused</td></tr>
+<tr><td id="full">Full suite</td><td><code>pnpm verify</code> + dashboard <code>tsc</code> and build</td><td class="good">869 pass, 5 skipped (the opt-in suites: real mail server, live model, real ClamAV); typecheck clean, root and
+  dashboard; the web app builds; the running worker's schedules untouched by the run. (Two earlier runs lost tests to 30-second timeouts
+  on live model calls over a slow network — G168, G175 — and passed on re-run.)</td></tr>
+<tr><td id="review">Review</td><td>by hand on 15 Oct (the agents hit the weekly limit); the independent review on 20 Oct</td><td class="good">two
+  findings by hand, both fixed (D201, D202); four confirmed by the independent review, all fixed with tests (<a href="#review-20oct">below</a>)</td></tr>
+<tr><td>The worker survives a dropped mail connection (G174)</td><td>a fake IMAP server that hangs up; run with and without the fix</td><td class="good">without:
+  "Connection not available" escapes unhandled; with: the poll fails alone and is recorded</td></tr>
+<tr><td id="live">Live</td><td>0025 applied; api, bot and worker restarted</td><td class="good">0025 applied to the live database; api, bot and worker restarted on the final code: <code>/health</code> ok, the app page
+  serves, the bot polls, email polled every minute and Televend synced (the worker's first run caught up the outage)</td></tr>
+</table></div>
+
+<h2 class="warn">What we have not verified</h2>
+<div class="card unverified"><ul>
+  <li>The independent review ran on 20 Oct (<a href="#review-20oct">below</a>). It reads code; it does not use the portals as each role
+      on a real phone.</li>
+  <li><code>/dashboard/me</code> under real sign-in: the live API needs a signed-in session to answer, which this machine's checks do not
+      have; the new fields were checked through the API tests in demo mode.</li>
+  <li>The dashboard in a browser as each new role — checked by type-checking, the build and the API's answers, not by looking at it.</li>
+  <li>Whether a crafted identifier can slip <code>set_config</code> past the question box's guard and change the asker's RLS identity
+      (role map, not verified). The question box is limited to roles that already see everything, so it could not widen anyone's view.</li>
+  <li>RLS speed on large tables with the new checks — not measured; the <code>(select …)</code> form follows Supabase's guidance.</li>
+  <li>A Supervisor's "team" is their direct reports until teams exist (TASK-061) — an assumption, not FreshNow's org.</li>
+  <li>The Telegram client side of a forged callback: tested by sending the forged data to the bot, not by forging it from a client.</li>
+</ul></div>
+
+<h2>Open questions</h2>
+<ul>
+  <li>Should the bot's "turn a document into tasks" (CEO and Admin) match the dashboard's (everyone who leads people)? Kept as it was.</li>
+  <li>Who should receive escalations meant for operations (Ops Head)? Comes with alarms → blockers in TASK-059.</li>
+</ul>
+<h2 id="review-20oct">Independent review, 20 Oct</h2>
+<p>The review owed since 15 Oct ran on 20 Oct, once the usage limit reset (D263). For each area, read-only reviewers looked for defects and a skeptic tried to refute each finding before it counted. A second pass then checked every fix — fixed, partly fixed, or fixed but broke something — and looked for what the fixes themselves broke, again with a skeptic for each problem. Everything confirmed was fixed with a test unless the row says otherwise.</p>
+<p>For the roles, and the stock pages they reach, 5 findings were raised: 4 confirmed and fixed, 1 refuted (saving a plan rang removed members' doorbells — they only re-read, and see nothing).</p>
+<div class="tw"><table>
+<tr><th>Finding</th><th>Severity</th><th>Fix</th></tr>
+<tr><td>Stock-document photos were hidden from the people who confirm, settle or approve the document.</td><td>medium</td><td>A photo on a stock document is seen by whoever may read the document (migration 0040) — the receiver confirming, the keeper, the Ops Head — never the cash auditor. Test.</td></tr>
+<tr><td>A manager's role could be changed to one that cannot see their reports, and escalations kept sending the reports' blocker words to them.</td><td>medium</td><td>A role that cannot lead people is refused to someone people still report to, and an escalation never tells such a 'manager', or one who left (D261). Tests.</td></tr>
+<tr><td>Stock documents read their machine under row security, so the keeper, a driver and a technician saw "used into a machine" with no machine.</td><td>low</td><td>Stock documents name their machine for the keeper, the driver and the technician too (read through the service role, for documents they may already read). Test.</td></tr>
+<tr><td>The Stock portal hid "I used some" and "Some is damaged" from movers who hold stock themselves, though the API allowed it.</td><td>low</td><td>Movers who hold stock themselves can write off what they hold ('Used / Damaged, from what I hold').</td></tr>
+</table></div>
+<h3>The second pass: checking the fixes</h3>
+<p>All four fixes were checked as fixed. The problem the second pass found on stock take-backs (a holder whose role changed) is on the TASK-060 page; Televend's cash figure and the Supervisor role are on the TASK-061 Cash page.</p>
+
+</body></html>

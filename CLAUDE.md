@@ -97,7 +97,9 @@ query self-references (an employee's manager is also an employee in the same tab
 | API | **Fastify** + Zod | |
 | Jobs | **BullMQ** + Redis | delayed jobs for SLA timers |
 | DB | **PostgreSQL** via self-hosted Supabase | RLS enforced, pgvector available |
-| Dashboard | **Next.js** + Tailwind + shadcn/ui | |
+| Dashboard | **React 19 + Vite** + Tailwind 4 SPA, served by the API at `/app` | not Next.js — see DEVIATIONS #9 |
+| Staff app | **Flutter** (Android), role-based, offline-first | from TASK-063 (D179) |
+| Televend | read-only connector `packages/televend` + MCP server `packages/mcp-televend` | allow-listed GETs only (TASK-055, D180) |
 | LLM | **OpenRouter** via a single wrapper module | never called directly from handlers |
 | Proxy | **Caddy** | automatic TLS |
 | Deploy | **Docker Compose** | one stack, one box |
@@ -140,7 +142,9 @@ every container competes with Postgres for CPU.
     ├── api/      # Fastify HTTP layer
     ├── bot/      # grammY — thin translation only
     ├── worker/   # BullMQ processors
-    └── dashboard/# Next.js
+    ├── televend/ # read-only Televend connector (allow-list gate, 3 transports)
+    ├── mcp-televend/ # stdio MCP server over the connector (read tools only)
+    └── dashboard/# React + Vite SPA (served at /app)
 ```
 
 ---
@@ -240,6 +244,9 @@ inline.
 
 Employees read/write their own rows; managers read their department; the `ceo` role
 reads all; the worker's `service_role` bypasses. Never disable RLS "temporarily."
+Since TASK-057 what each role may do is one capability table — `packages/core/src/permissions.ts`,
+mirrored in the `role_capability` table for RLS (a test keeps them equal). Ask `can(viewer, capability)`,
+never compare role names; Admin reads all too, but is not the CEO.
 
 ### `telegram_user_id` is `bigint`
 
@@ -359,6 +366,12 @@ See the `uae-compliance` skill.
 | **3** | Warehouse: batch/lot traceability, QC + R&D logging, inventory; CEO assistant with read-only tools | routing, delivery |
 | **4** | Vending telemetry (vendor API preferred), demand forecasting, driver PWA | route optimization |
 | **5** | Route optimization (OR-Tools/VROOM), delivery ops, customer channel | — |
+
+**User-directed expansion (2026-10-15, D179):** the Operations and Inventory portals, the read-only Televend
+integration (the company already uses Televend — the "buy" path), a Flutter staff app (replacing the planned
+driver PWA) and a chat built into our own API and database are being built now, ahead of Phases 3–4, one task at a
+time (TASK-055 onward; the sequence is in TASK-BOARD.md § "Operations + Inventory expansion"). The rules above — and
+route optimization staying in Phase 5 — are unchanged.
 
 **Phase 1 success is not "the AI works."** It is employee response rate above 70% for
 four consecutive weeks and the CEO opening the digest daily. If either is failing, fix

@@ -141,7 +141,7 @@ line marked "terminal", all in the project folder.
 | # | Terminal | Command | Wait for |
 |---|---|---|---|
 | 1 | any | `docker compose up -d` | `freshnow-redis … Started` (instant) |
-| 2 | any | `npx supabase start -x realtime,storage-api,imgproxy,edge-runtime,logflare,vector,supavisor,mailpit,postgrest` | `Started supabase local development setup.` (~30 s) |
+| 2 | any | `npx supabase start -x realtime,imgproxy,edge-runtime,logflare,vector,supavisor,mailpit,postgrest` | `Started supabase local development setup.` (~30 s) |
 | 3 | **api** | `$env:HOST = "127.0.0.1"; pnpm start:api` | `API listening on http://127.0.0.1:3001 — React dashboard at …/app/` (first comes one `[api] policy: demo mode, not enforced — N rule(s) would stop production` line — expected, see below) |
 | 4 | **worker** | `pnpm start:worker` | `[worker] telegram sender ready` **and** `[worker] web push sender ready` (after the same `policy` line) |
 | 5 | **bot** | `pnpm start:bot` | `[bot] @freshnow1bot polling …` |

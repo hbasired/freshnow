@@ -3,10 +3,11 @@ import { getServiceSql } from "./db.js";
 import { channelStates, liveChannels, type Channel } from "./channels.js";
 import { CONSENT_POLICY_VERSION, currentNoticeHashes } from "./consent.js";
 import { emailAddressAllowed } from "./email-config.js";
-import { DEMO_CEO_ID } from "./meta.js";
+import { DEMO_CEO_ID, SYSTEM_ACTOR_ID } from "./meta.js";
 import { canAssignTo, loadViewer } from "./org.js";
 import { enqueueNotification, type OutboxChannel } from "./outbox.js";
 import { hasPushDevice } from "./push.js";
+import { can } from "./permissions.js";
 
 /**
  * Who is told what, through which channel, and why.
@@ -115,9 +116,15 @@ async function blockerFacts(blockerId: string): Promise<{
   const rows = await sql<
     { raised_by: string; assigned_resolver: string | null; task_id: string | null; manager_id: string | null; department: string | null }[]
   >`select b.raised_by, b.assigned_resolver, u.task_id,
-           raiser.manager_employee_id as manager_id, raiser.department
+           -- The raiser's manager only while they are active and their role still leads people: a manager moved to a role
+           -- that cannot see their reports never receives those reports' blocker words (review, 20 Oct).
+           case when mgr.status = 'active'
+                 and exists (select 1 from role_capability rc where rc.role = mgr.access_role and rc.capability in ('data.read_all', 'people.view_reports'))
+                then raiser.manager_employee_id end as manager_id,
+           raiser.department
       from blocker b
       join employee raiser on raiser.id = b.raised_by
+      left join employee mgr on mgr.id = raiser.manager_employee_id
       left join task_update u on u.id = b.task_update_id
       where b.id = ${blockerId}`;
   return rows[0] ?? null;
@@ -268,9 +275,10 @@ interface PrefRow {
 /**
  * The three ways a person giving work can choose to tell someone, as the dashboard offers them
  * (TASK-054). "app" is the in-app inbox plus a phone notification where the person has turned
- * one on — to the person reading it, both are "the app".
+ * one on — to the person reading it, both are "the app". The app comes first: it is FreshNow's own
+ * channel and the main one; Telegram is an option for people who link it (D217, the user, 2026-10-16).
  */
-export const NOTIFY_CHOICES = ["telegram", "app", "email"] as const;
+export const NOTIFY_CHOICES = ["app", "telegram", "email"] as const;
 export type NotifyChoice = (typeof NOTIFY_CHOICES)[number];
 
 /** The outbox channels one choice stands for. */
@@ -628,6 +636,12 @@ export async function notifyPeople(p: {
    * does not get those. Without it, the defaults below apply and email is never used.
    */
   prefEvent?: PrefEventType;
+  /**
+   * "fallback": Telegram only for someone the app cannot reach on a device (no phone or desktop
+   * notifications turned on) — the app is the main channel, Telegram the extra (D217). Default
+   * "always": Telegram for everyone who linked it, as before.
+   */
+  telegram?: "always" | "fallback";
 }): Promise<{ enqueued: number }> {
   const byPerson = new Map<string, string>();
   for (const r of p.recipients) if (!byPerson.has(r.employeeId)) byPerson.set(r.employeeId, r.reason);
@@ -651,6 +665,7 @@ export async function notifyPeople(p: {
     const reason = byPerson.get(person.id)!;
     for (const channel of channels) {
       if (channel === "telegram" && person.telegram_user_id == null) continue;
+      if (channel === "telegram" && p.telegram === "fallback" && withDevice.has(person.id)) continue;
       if (channel === "webpush" && !withDevice.has(person.id)) continue;
       if ((channel === "telegram" || channel === "webpush") && prefOf(person.id, channel) && prefOf(person.id, channel) !== "immediate") continue;
       // Email only for someone who opted in to this kind of message and has an address.
@@ -679,8 +694,14 @@ export async function notifyPeople(p: {
  * while the earlier alert is still open → one alert, counted. Without a named asset there
  * is no safe way to say two reports are the same, so each blocker is its own alert: the
  * failure mode is a second message, never a silent one.
+ *
+ * A machine's problems are never folded: machine_alarm already keeps one problem per machine AND alarm,
+ * and every one of them has the same raiser (the system) and a coarse category — so "Bill / Cash Box
+ * Full" behind "No cash sales" would have paged nobody and been acknowledged with it (review
+ * 2026-10-17, command-centre#2).
  */
 export function blockerAlias(b: { id: string; raised_by: string; category: string | null; affected_asset: string | null }): string {
+  if (b.raised_by === SYSTEM_ACTOR_ID) return `blocker:${b.id}`;
   const asset = b.affected_asset?.trim().toLowerCase().replace(/\s+/g, " ");
   if (!asset) return `blocker:${b.id}`;
   return `blocker:${b.raised_by}:${(b.category ?? "-").toLowerCase()}:${asset}`;
@@ -776,7 +797,7 @@ export async function resolveAlertOfBlocker(blockerId: string, correlationId?: s
 export async function mayAcknowledgeBlocker(actorId: string, blockerId: string): Promise<boolean> {
   const viewer = await loadViewer(actorId);
   if (!viewer) return false;
-  if (viewer.isCeo) return true;
+  if (can(viewer, "work.give_to_anyone")) return true; // the CEO, Admin
   const b = await blockerFacts(blockerId);
   if (!b) return false;
   if (b.assigned_resolver === actorId) return true;

@@ -1,19 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import {
-  assignTask,
-  canAssignTo,
-  checkRateLimit,
-  decodeTextFile,
-  documentSemaphore,
-  extractPdfText,
-  inspectFile,
-  listEmployees,
-  MAX_DOC_TASKS,
-  planDocumentTasks,
-  planningDirectory,
-  safeFileName,
-} from "@freshnow/core";
+import { assignTask, canAssignTo, checkRateLimit, decodeTextFile, documentSemaphore, extractPdfText, inspectFile, listEmployees, MAX_DOC_TASKS, planDocumentTasks, planningDirectory, safeFileName, can } from "@freshnow/core";
 import { forbid, resolveViewer } from "../viewer.js";
 
 /**
@@ -50,7 +37,7 @@ const ApplyBody = z.object({
 export function registerDocumentRoutes(app: FastifyInstance): void {
   app.post("/dashboard/documents/plan", async (req, reply) => {
     const viewer = await resolveViewer(req);
-    if (viewer.accessRole === "employee") {
+    if (!can(viewer, "documents.plan_tasks")) {
       return forbid(req, reply, "Only somebody who assigns work can turn a document into tasks");
     }
     const actor = viewer.employeeId;

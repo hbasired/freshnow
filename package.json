@@ -25,6 +25,7 @@
     "start:bot": "tsx packages/bot/src/index.ts",
     "start:worker": "tsx packages/worker/src/index.ts",
     "e2e": "tsx scripts/e2e-demo.ts",
+    "live:load": "tsx scripts/live-load.ts",
     "reset:employee": "tsx scripts/reset-employee.ts",
     "link:user": "tsx scripts/link-dashboard-user.ts",
     "urls": "node scripts/urls.mjs",
@@ -38,7 +39,13 @@
     "backup:restore-test": "tsx scripts/backup.ts restore-test",
     "security:scan": "tsx scripts/security-scan.ts",
     "email:setup": "tsx scripts/email-setup.ts",
-    "email:check": "tsx packages/worker/src/email-check.ts"
+    "email:check": "tsx packages/worker/src/email-check.ts",
+    "televend:probe": "tsx scripts/televend-probe.ts",
+    "televend:verify": "tsx scripts/televend-verify.ts",
+    "televend:sync": "tsx scripts/televend-sync.ts",
+    "televend:backfill": "tsx scripts/televend-sync.ts backfill",
+    "televend:day-totals": "tsx scripts/televend-sync.ts day-totals",
+    "analytics:store": "tsx scripts/analytics-store.ts"
   },
   "devDependencies": {
     "@types/node": "^22.20.1",

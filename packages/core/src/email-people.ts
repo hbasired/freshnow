@@ -1,5 +1,7 @@
 import { logAudit } from "./audit.js";
 import { getServiceSql } from "./db.js";
+import { DEMO_CEO_ID } from "./meta.js";
+import { loadViewer } from "./org.js";
 import { emailAddressAllowed, emailAllowlist, emailStatus, inboxConfig } from "./email-config.js";
 import { formatTaskKey } from "./email-reply.js";
 
@@ -37,9 +39,26 @@ export function checkedEmployeeEmail(raw: string | null | undefined): string | n
  * an address the system may never use is not worth storing. Audited without the address itself:
  * the row says that it changed and the domain, not the personal data.
  */
+/** A change to an address that identifies someone the actor may not speak for. */
+export class EmailChangeRefused extends Error {
+  constructor(reason: string) {
+    super(reason);
+    this.name = "EmailChangeRefused";
+  }
+}
+
 export async function setEmployeeEmail(p: { employeeId: string; email: string | null; by: string; correlationId?: string }): Promise<{ email: string | null }> {
   const email = checkedEmployeeEmail(p.email);
   const sql = getServiceSql();
+  // An address is an identity: inbound email decides who is speaking by it. So the CEO's address,
+  // and an Admin's, are the CEO's to change — otherwise an Admin could point the CEO's row at a
+  // mailbox they control and give work by email in the CEO's name (TASK-057 review; R30).
+  const target = (await sql<{ access_role: string }[]>`select access_role from employee where id = ${p.employeeId}`)[0];
+  if (!target) throw new EmailAddressError("No such person.");
+  const guarded = p.employeeId === DEMO_CEO_ID || target.access_role === "ceo" || target.access_role === "admin";
+  if (guarded && p.by !== p.employeeId && !(await loadViewer(p.by))?.isCeo) {
+    throw new EmailChangeRefused("The CEO's and an Admin's email address are the CEO's to change: inbound email trusts them.");
+  }
   try {
     const rows = await sql`update employee set email = ${email} where id = ${p.employeeId} returning id`;
     if (rows.length === 0) throw new EmailAddressError("No such person.");

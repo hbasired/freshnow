@@ -1,8 +1,11 @@
 import { createHash } from "node:crypto";
 import { logAudit } from "./audit.js";
+import { DEVICE_AUTH } from "./device-auth.js";
 import { emailAddressAllowed, inboxConfig } from "./email-config.js";
 import { channelAvailability, liveChannels } from "./channels.js";
 import { getServiceSql } from "./db.js";
+import { mediaRetentionDays } from "./media.js";
+import { mediaStoreConfigured } from "./media-store.js";
 import { enqueueNotification } from "./outbox.js";
 import { hasPushDevice } from "./push.js";
 import { retentionDays } from "./retention.js";
@@ -33,12 +36,19 @@ import { retentionDays } from "./retention.js";
  *   4. Everyone is ASKED — in Telegram with an "I agree" button, and in the app — without
  *      having to message first (`requestConsentFromEveryone`, run by the worker).
  *
+ * 3.0 (TASK-058) adds the operations work in ONE change, so people are asked once rather than
+ * task by task (plan §0.7): the Televend records that carry staff names, photos and videos,
+ * phone sign-in, the phone app's wake-up signal, and the cash and stock recorded in the app.
+ * Each part is named only when the system is configured for it, like everything else here — except
+ * stock, cash and visits, which every installation records since TASK-060 and TASK-061, so their lines are
+ * always there (what is recorded, why, who can see it, how long it is kept).
+ *
  * UNVERIFIED: the wording is a developer's draft, not FreshNow's or a lawyer's. The version
  * string says "draft" until the company signs it off. Hindi and Malayalam versions must be
  * written by native speakers (the machine-written ones for 1.0 were never reviewed); until
  * they exist, everyone sees English.
  */
-export const CONSENT_POLICY_VERSION = "2.0-draft";
+export const CONSENT_POLICY_VERSION = "3.0-draft";
 
 type Env = NodeJS.ProcessEnv;
 
@@ -64,6 +74,26 @@ function hostOf(url: string | undefined): string | null {
     return null;
   }
 }
+
+/**
+ * The read-only Televend connector signs in to Televend (bridge or official mode); files mode only
+ * reads exports on disk. The compliance check (R5) uses this same rule to demand that the notice
+ * names Televend, so the two cannot disagree.
+ */
+export function televendReachable(env: Env = process.env): boolean {
+  return (env.TELEVEND_MODE ?? "bridge") !== "files" && !!(env.TELEVEND_USERNAME || env.TELEVEND_CLIENT_ID);
+}
+
+/**
+ * The phone app is switched on: its sign-in (D210) cannot hash a PIN without the pepper, and refuses
+ * one shorter than 32 characters (device-auth.ts) — so the pepper is the switch.
+ */
+export function phoneAppOn(env: Env = process.env): boolean {
+  return (env.APP_PIN_PEPPER ?? "").length >= 32;
+}
+
+/** "180 days", "1 year", "5 years". */
+const span = (days: number): string => (days % 365 === 0 ? `${days / 365} year${days === 365 ? "" : "s"}` : `${days} days`);
 
 /** Every service outside the company's own database that receives someone's data, as notice lines. */
 export function dataRecipientLines(env: Env = process.env): string[] {
@@ -105,6 +135,23 @@ export function dataRecipientLines(env: Env = process.env): string[] {
     const lf = hostOf(env.LANGFUSE_BASE_URL ?? "http://localhost:3000");
     lines.push(`Troubleshooting copies of what the AI service is asked are kept by Langfuse at ${lf}.`);
   }
+  // A source rather than a recipient: Televend already holds these records for the company, and the
+  // connector sends it nothing about anyone (only its own sign-in). Named all the same — the records
+  // are processed abroad, and agreeing covers that. Its hosting region is not published
+  // (compliance/processors.json), so the notice does not claim one.
+  if (televendReachable(env)) {
+    lines.push(
+      "Televend — the vending machines' own system, run by INTIS d.o.o., a Croatian (EU) company — holds the machine records that carry your name, for the company. " +
+        "Where its servers are is not yet confirmed: take it that they are outside the UAE. FreshNow only reads from Televend and sends it nothing about you.",
+    );
+  }
+  // A promise TASK-063 must keep: the wake-up carries no content (D213), like the live updates (D92).
+  if (phoneAppOn(env)) {
+    lines.push(
+      "When the company gives you the FreshNow phone app, Google's Firebase service wakes the app when something new arrives. " +
+        "The signal carries no message — the app then fetches it from FreshNow — so Google sees only that a signal went to your phone, and when.",
+    );
+  }
   return lines;
 }
 
@@ -114,7 +161,11 @@ export function dataRecipientLines(env: Env = process.env): string[] {
  */
 export function consentNotice(_language = "en", env: Env = process.env): string {
   const days = retentionDays(env);
-  return [
+  const televend = televendReachable(env);
+  const media = mediaStoreConfigured(env);
+  const phone = phoneAppOn(env);
+  const keep = mediaRetentionDays(env);
+  const lines: (string | false)[] = [
     `FreshNow Ops — privacy notice (version ${CONSENT_POLICY_VERSION})`,
     "",
     "What this system records about you",
@@ -122,29 +173,59 @@ export function consentNotice(_language = "en", env: Env = process.env): string 
     "• Problems you raise, so they reach the person who can clear them.",
     "• Your name, department, role, site and shift.",
     "• If you turn on notifications in the app: that device's push address.",
+    televend &&
+      "• If you work on the vending machines: the refills and machine alarms that Televend, the machines' own system, records against your name. FreshNow copies these records, and the machines' sales, from Televend.",
+    media && "• Photos and short videos you send as proof of work — a machine, a counter, a receipt. Location and device details are removed before they are stored.",
+    phone && "• If you sign in to the FreshNow phone app: the phone you use (its model and the app's version), when you sign in and out, and wrong PINs.",
+    "• Company stock you are given, hand back, use or count — what moved, between whom and when, with any note or photo you add.",
+    "• Cash you handle for the company: what you collect from each machine, put back to test it, spend (fuel and other expenses, with their receipts) and deposit — with your shifts, and any note or photo you add.",
+    "• Your visits to machines: which machine you said you were at — by its sticker or the number you typed — when the visit started and ended, what you ticked as done, the photos and videos you added as its proof, and the stock and cash you recorded there. Also the team plans you are put on.",
     "",
     "Why",
-    "To run the company's daily work: tasks, problems, and who needs to act. Fixed company rules — never the AI — decide who is told and when something escalates.",
+    `• To run the company's daily work: tasks, problems${televend ? ", the machines" : ""} and who needs to act. Fixed company rules — never the AI — decide who is told and when something escalates.`,
+    phone &&
+      "• Phone sign-in records only keep your account safe: they stop wrong PINs and end sessions, and after three wrong PINs in a row you and your lead are told. They are never used to check when or how much you work.",
+    "• Stock is recorded so that every carton has one holder and each day can be balanced. A difference is a fact about what is held, and a person looks at it before anything follows from it.",
+    `• Cash is balanced the same way, shift by shift, and a cash auditor checks each shift${televend ? " — beside the cash the machines' own records say they took" : ""}. A question about it comes to you to answer.`,
+    "• Visits take the place of the instruction sheet and the proof photos in the WhatsApp group: they show what was done at each machine and which proof is still missing. A missing photo is a fact about a stop, and a person looks at it before anything follows from it.",
     "",
     "Who can see it",
-    "You, the people you report to, and the CEO. It is kept in FreshNow's own database.",
+    "• You, the people you report to, your department's lead, the CEO and the company's Admins. It is kept in FreshNow's own database.",
+    televend && "• The machine records from Televend: the CEO, Admins, the Ops Head and Supervisors.",
+    "• The stock you hold and hand over: the warehouse keepers, the Ops Head, Supervisors, the CEO and Admins.",
+    "• The cash you record, and its receipts: the cash auditor, the Ops Head, the CEO and Admins.",
+    "• Your visits and their proof: Supervisors, the Ops Head, the CEO and Admins. The others on your team plan see how far the team has got — who visited each machine, when, and which proof is still missing — but not your photos or videos.",
+    media && "• A photo or video: only the people who may see your work. It is kept in FreshNow's own file store, next to its database.",
     "",
     "Where your data goes beyond FreshNow's database — this is what you are agreeing to",
     ...dataRecipientLines(env).map((l) => `• ${l}`),
     "",
     "What it does NOT do",
-    "• No location tracking. No productivity scoring. No ranking of people. No sentiment analysis.",
+    "• No location tracking: the app never reads where your phone is. A visit records only the machine you named, by its sticker or its number, and the time — nothing records where you are between visits.",
+    "• No productivity scoring. No ranking of people. No sentiment analysis.",
+    phone && "• No attendance tracking from phone sign-ins.",
     "",
     "How long",
     days
       ? `• Your own words are removed after ${days} days. Statuses, counts and the audit trail are kept.`
       : "• The company has not yet set how long your own words are kept; until it does, they are kept.",
+    media &&
+      (env.MEDIA_RETENTION === "on"
+        ? `• Photos and videos are removed after: proof-of-work photos ${span(keep.evidence)}, videos ${span(keep.video)}, receipts ${span(keep.receipt)}, photos in chat ${span(keep.chat)}.`
+        : "• The company has not yet set how long photos and videos are kept; until it does, they are kept."),
+    televend && "• Machine records from Televend are kept as the company's operations record.",
+    "• Stock records — what moved, between whom and when — are kept as the company's stock record; the words you type on them go with your other words.",
+    "• Cash records are kept as the company's financial record; the words you type on them, and the auditor's questions to you, go with your other words.",
+    "• Visits are kept as the company's operations record; the notes you type on them, and the planners' instructions, go with your other words.",
+    phone &&
+      `• Phone sign-in sessions are deleted ${DEVICE_AUTH.pruneAfterDays} days after they end; the audit trail keeps a line for each sign-in, sign-out and wrong PIN, as it does for every action.`,
     "",
     "Your choices",
     "• Until you agree, the system does not take your updates, and nothing about you is sent through Telegram, notifications or email except this request — you will find messages only in the app's inbox.",
     "• You can withdraw at any time: /withdraw in Telegram, or Alerts → Your consent → Withdraw in the app. Withdrawing switches your account off; records already made stay as the company's record.",
     "• To see or correct what is held about you, ask the CEO.",
-  ].join("\n");
+  ];
+  return lines.filter((l): l is string => l !== false).join("\n");
 }
 
 /** Hash of the exact notice text shown, so consent stays provable after a re-wording. */

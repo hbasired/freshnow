@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -61,6 +62,16 @@ describe("the CSP hash of an inline script", () => {
 
   it("ignores scripts loaded from a file (they are allowed by origin, not by hash)", () => {
     expect(inlineScriptHashes('<script type="module" src="/app/assets/x.js"></script>')).toEqual([]);
+  });
+
+  it("hashes the text the browser hashes: line endings in the file make no difference (G180)", () => {
+    // The HTML parser turns CRLF and lone CR into LF before a script's text exists, so a browser
+    // hashes the LF form whatever the file holds. A Windows checkout gives index.html CRLF endings.
+    const seen = "\n  document.documentElement.dataset.x = 'y';\n";
+    const want = [`'sha256-${createHash("sha256").update(seen, "utf8").digest("base64")}'`];
+    expect(inlineScriptHashes(`<script>${seen}</script>`)).toEqual(want);
+    expect(inlineScriptHashes(`<script>${seen.replace(/\n/g, "\r\n")}</script>`)).toEqual(want);
+    expect(inlineScriptHashes(`<script>${seen.replace(/\n/g, "\r")}</script>`)).toEqual(want);
   });
 });
 

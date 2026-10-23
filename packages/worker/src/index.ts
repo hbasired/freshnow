@@ -11,6 +11,10 @@ import {
   recordComplianceSnapshot,
   slaSweep,
   sweepUnroutedBlockers,
+  mediaRetentionSweep,
+  pruneAppAuth,
+  sendMorningReport,
+  inventoryReminders,
 } from "@freshnow/core";
 import { startEscalationWorker } from "./escalation.js";
 import { startBackgroundJobs } from "./jobs.js";
@@ -108,6 +112,21 @@ async function main(): Promise<void> {
         // run is asked within a minute and nobody is asked twice.
         const c = await requestConsentFromEveryone();
         if (c.enqueued > 0) console.log(`[worker] consent: asked ${c.people} person(s) to agree to notice ${CONSENT_POLICY_VERSION}`);
+        // Yesterday's report for the people who run the machines, once, after 07:30 (TASK-059).
+        // Its own try: a failed report must never stop delivery or the sweeps.
+        try {
+          const m = await sendMorningReport();
+          if (m.sent) console.log(`[worker] morning report for ${m.date}: ${m.recipients} person(s), ${m.enqueued} message(s)`);
+        } catch (err) {
+          console.error("[worker] morning report failed", err);
+        }
+        // Stock (TASK-060): a handover still waiting, a count after stock went out — each once.
+        try {
+          const r = await inventoryReminders();
+          if (r.handovers + r.counts > 0) console.log(`[worker] stock reminders: ${r.handovers} handover, ${r.counts} count message(s)`);
+        } catch (err) {
+          console.error("[worker] stock reminders failed", err);
+        }
       }
       // Projects move in days, not minutes, and their sweep tells the same people the same
       // thing once per day (the date is in the idempotency key). Running it hourly is enough
@@ -124,6 +143,22 @@ async function main(): Promise<void> {
         const r = await retentionSweep();
         if (!r.enabled) console.log("[worker] retention sweep: disabled (RETENTION_DAYS not set) — free text is kept indefinitely");
         else if (r.notesAged > 0) console.log(`[worker] retention sweep: aged out ${r.notesAged} note(s) older than ${r.days} days`);
+        // Photos and videos past their retention class (TASK-058) — off until MEDIA_RETENTION=on,
+        // for the same reason as RETENTION_DAYS, and said so once an hour.
+        const mr = await mediaRetentionSweep();
+        if (!mr.enabled) console.log("[worker] media retention: disabled (MEDIA_RETENTION not on) — photos and videos are kept");
+        else if (mr.removed > 0) console.log(`[worker] media retention: removed ${mr.removed} file(s) past their time`);
+        // Phone sign-in housekeeping (TASK-058): sessions and codes ended over 30 days ago are deleted —
+        // a sign-in is kept for security, not as a record of who worked when (D210). Its own try: a
+        // failing prune must never stop the compliance snapshot below (TASK-058 review #3).
+        try {
+          const pa = await pruneAppAuth();
+          if (pa.sessions + pa.codes + pa.enrolments > 0) {
+            console.log(`[worker] phone sign-in: removed ${pa.sessions} old session(s), ${pa.codes} set-up code(s), ${pa.enrolments} enrolment code(s)`);
+          }
+        } catch (err) {
+          console.error("[worker] phone sign-in housekeeping failed", err);
+        }
         // Rule R8: once per company day, the compliance counts go into the append-only audit log.
         const snap = await recordComplianceSnapshot();
         if (snap.recorded) console.log("[worker] compliance snapshot recorded for today");

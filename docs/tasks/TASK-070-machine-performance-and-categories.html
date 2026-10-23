@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TASK-070 — Machine performance and categories</title>
+<style>
+  :root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#3fb950;--warn:#d29922;--bad:#f85149;--card:#161b22;--bd:#30363d}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;max-width:980px;padding:48px 24px;margin-inline:auto}
+  h1{font-size:1.9rem;margin:0 0 4px} h2{margin-top:2.5rem;color:var(--acc);font-size:1.25rem} h3{font-size:1.05rem;margin-top:1.6rem}
+  .meta{color:var(--mut);font-size:.9rem;margin-bottom:2rem}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:18px;margin:14px 0}
+  .unverified{border-left:3px solid var(--warn)} .ok{border-left:3px solid var(--acc)} .bad{border-left:3px solid var(--bad)}
+  code{background:#1f2630;padding:2px 6px;border-radius:4px;font-size:.9em}
+  .tw{overflow-x:auto} table{border-collapse:collapse;width:100%;margin:14px 0}
+  th,td{border:1px solid var(--bd);padding:7px 9px;text-align:left;font-size:.88rem;vertical-align:top} th{background:#1f2630}
+  ul{padding-left:1.1rem} li{margin:3px 0} a{color:#88c0f0}
+  @media (max-width:600px){body{padding:28px 16px}}
+</style></head><body>
+<h1>TASK-070 — Machine performance and categories</h1>
+<p class="meta">2026-10-19/20 · Phase 1 of the plan of 19 Oct, the task the user named first · migration <code>0037_machine_category.sql</code>
+(applied live) · core <code>analytics.ts</code> · API <code>routes/analytics.ts</code> · dashboard <code>portals/analytics.tsx</code>,
+<code>components/charts/analytics-charts.tsx</code>, <code>lib/analytics-api.ts</code> · no new dependency</p>
+
+<div class="card ok"><b>One-sentence summary:</b> a new Analytics portal sorts every live machine against the fleet average of cups per
+machine a day — top, about average, below, or nothing sold — names the few machines that make 80 % of the cups, adds up and compares
+the categories (Hospital / Clinics, Metro, malls, Events — the Expo machines — and the rest), draws each machine's days beside the
+same weekday a week before, and says in short sentences what it means and what to check; on the live mirror, 13–19 Oct against the
+week before: cups fell 12.7 %, cash fell from 20.8 % to 13.4 % of cups, and three machines dropped sharply.</div>
+
+<h2>What was asked</h2>
+<ul>
+  <li>R8.2 "priority segmentation based on the volume of sales … which machines' performance is well and which ones is below average
+  based on sales and income"; R8.3 "for each machine … the trendline of number of sales each day and previous weeks same day"; R8.4
+  "for the entire segregation like expo or hospital or mall aggregate sales should also be shown and plotted with key insights";
+  R8.5 clear and self-explanatory (<code>docs/requirements/REQ-2026-10-19.md</code>).</li>
+  <li>RM.7: "implement according to level of ease like the aggregation and segregation of machines according to their performance and
+  also aggregate of the different categories of machines like expo, hospitals etc." — this task is first for that reason.</li>
+  <li>The user's answers (D248): categories are Televend's regions with FreshNow's corrections; three tiers against the fleet average;
+  income estimated from the price in the machine's name.</li>
+</ul>
+
+<h2>What was done</h2>
+<div class="tw"><table>
+<tr><th>Layer</th><th>What</th></tr>
+<tr><td>Migration 0037</td><td>Capability <code>machines.manage</code> (Ops Head, CEO, Admin). <code>machine.category_override</code>,
+<code>category_note</code>, <code>category_set_by</code>, <code>category_set_at</code> — FreshNow's correction; Televend never changed.</td></tr>
+<tr><td>Core</td><td><code>machinePerformance</code> (coverage, per machine, tiers, the 80 % set, categories, insights), <code>machineDaily</code>,
+<code>categoryChoices</code>, <code>setMachineCategory</code> (audited), <code>insightsOf</code>, <code>checkRange</code>.</td></tr>
+<tr><td>API</td><td><code>GET /dashboard/analytics/performance</code>, <code>GET …/machines/:tvId/daily</code>, <code>GET …/categories</code>,
+<code>PUT …/machines/:tvId/category</code> — refusals in words (403, 400 with a code, 404).</td></tr>
+<tr><td>Dashboard</td><td>The <b>Analytics</b> portal (<code>#analytics</code>, <code>#analytics/categories</code>) for televend.read: a day picker (yesterday,
+7, 14, 28 days, or any range of whole days), five key figures, "What it says — and what to do", tier cards that filter, a ranked bar
+per machine with the average and its 75 % / 125 % lines, a machine list with each machine's day-by-day line, category bars and
+category cards with a small line each, and the category correction for the Ops Head.</td></tr>
+<tr><td>Privacy</td><td>The reason typed for a correction follows the person's other words: aged by the retention sweep, erased with them,
+in their own download; the audit log records only that a reason was given.</td></tr>
+<tr><td>Docs</td><td>KB D249–D252, A-T70.1–5, G207–G210, VF85–VF86; COMMANDS §7m; this page.</td></tr>
+</table></div>
+
+<h2>Why it was done this way</h2>
+<h3>Only days that were read</h3>
+<p>The sync records which stretches of time it read to their end. A day counts only when it lies wholly inside them; any other day is
+named on the page and left out, and per-day figures divide by the days read. A day the mirror did not read is never a day with no sales
+— the rule the Operations pages already followed (TASK-058 review).</p>
+<h3>The same weekdays, whole weeks earlier</h3>
+<p>Sales follow the week. Comparing Monday with Sunday would read a weekday pattern as a change, so the period before is shifted by
+whole weeks: yesterday against the same weekday a week before (the user's "previous week's same day"), ten days against the ten days
+two weeks before.</p>
+<h3>Levels per machine that sold; changes on volume</h3>
+<p>The fleet average counts only machines that sold, so a broken machine does not pull the bar down for everyone — those are listed
+apart as "sold nothing". But a <i>change</i> computed on that average moves whenever a machine starts or stops selling. The first version
+did exactly that and said <b>"Sales rose 6.2 %" while cups fell from 476 to 420</b> (one machine stopped). It was found by looking at
+the browser check's screenshot, not by the tests, which had been written to the same rule (G210). Every change is now on volume — cups
+per day for the same machines — and the average is shown as a level with its value before, without an arrow.</p>
+<h3>Colour that means something</h3>
+<p>Above, about and below the average is one scale with a middle, so it is drawn as a diverging scale — the existing accent blue, the
+base gray, and a new orange validated in both themes with the data-viz validator — and every tier is also written in words. Nine
+categories would need nine colours; the palette stops at eight, so categories are compared on one-colour bars and small charts.</p>
+<h3>Not built here</h3>
+<ul>
+  <li>History before 3 Oct (TASK-071 copies it back), the full machine page and the sales list (072), exploring a day or range across
+  everything (075), any ranking of people — the figures are about machines and places.</li>
+</ul>
+
+<h2>How it works</h2>
+<p><code>machinePerformance(viewer, {from, to})</code> runs three queries under the viewer's row security: the days read (time-range sets
+from <code>tv_sync_run</code>), one row per machine (sales on read days, summed by Televend machine id and joined to FreshNow's machine through
+its current placement, with category, price and card-only read from the names), and each category's cups per read day. Tiers, the
+80 % set, category figures and the sentences are worked out from those rows; each sentence carries the numbers it states, and a test
+checks that no number appears in a sentence that is not in its list.</p>
+
+<p><b>Since the review of 20 Oct (D257):</b> the figures come from the TASK-071 store, not the raw mirror — a day counts only when its latest
+build agrees with Televend's own count. A change compares only the days read on both sides, from the totals. Each Televend record's sales
+count for the FreshNow machine it stood in that day: the placement in force at the day's end, else its number, else the record itself.</p>
+
+<h2>Research findings</h2>
+<ul>
+  <li>The live mirror, read-only (VF85, VF86): Televend's region is the category; its "location" is one address per region, so
+  there are no per-machine coordinates (G207); two machines sit in the wrong region (G208); prices appear in names in six spellings.</li>
+  <li>The chat of 15–17 Oct shows cash collected at machines named "Cashless 3 only" / "c3 only" — those words name the card reader,
+  not "no cash"; only "card" marks a card-only machine (A-T70.2, believed).</li>
+  <li>The data-viz method bundled with Claude Code: diverging and categorical rules, the 8-slot categorical cap; its validator run on
+  the tier colours (all checks pass in both themes; the gray fails chroma by design).</li>
+</ul>
+
+<h2>Verification</h2>
+<div class="tw"><table>
+<tr><th>Check</th><th>Result</th></tr>
+<tr><td>Core (<code>analytics.test.ts</code>, real Postgres, a hand-worked fixture of 7 machines over 14 days with one day not read)</td>
+<td>16 pass — range rules, read days only, the average and tiers, "Not counted", the 80 % set, income and card-only, changes on volume,
+categories and their days, insights in order with exact sentences, no number outside its list, one machine's days, who may read and
+correct, the reason's privacy paths.</td></tr>
+<tr><td>API (<code>analytics.test.ts</code>)</td><td>3 pass — figures for a reader; refusals for a driver, today, a range back to front, a bad
+date, an unknown machine; the Ops Head corrects, the Supervisor may not, a 61-character category refused.</td></tr>
+<tr><td>Portal rules, permissions</td><td>Analytics for CEO, Admin, Ops Head, Supervisor only; machines.manage for CEO, Admin, Ops Head.</td></tr>
+<tr><td>Whole suite + typecheck</td><td>111 files, 1,153 passed, 5 skipped, 0 failed (before the volume fix); after it, the analytics tests and
+typecheck pass. On the final code of 20 Oct, with the review's fixes: 114 files, 1,225 passed, 5 skipped, 0 failed.</td></tr>
+<tr><td>Browser (Chromium, test database; Supervisor wide, Ops Head wide, phone 390 px)</td><td><b>20 of 20</b>, no console errors: the switcher in
+rows of three; key figures; the silent machine and the sharp drop named with actions; bars drawn; tiers per machine; card-only shown; no
+correction for a Supervisor; a machine's day-by-day lines; tier filter; "Yesterday" compared with 7 days earlier; categories and
+"Its machines"; the Ops Head's correction to "Not counted", listed apart, audited without the reason's words; no sideways scroll on a
+phone; a driver has no Analytics and the API refuses them. The screenshot review found the flaw described above.</td></tr>
+<tr><td>Live</td><td>0037 applied; the same core function on the live mirror (read-only, 96 ms): VF86.</td></tr>
+</table></div>
+
+<h2>What we have not verified</h2>
+<div class="card unverified"><ul>
+  <li><b>Prices:</b> that the price in a name is the price for every payment there (A-T70.3), and what a token is (A-T70.1) — the income is
+  an estimate until Televend's amounts arrive with the API key.</li>
+  <li><b>Card-only:</b> that "card" in a name means no cash is accepted (A-T70.2).</li>
+  <li><b>Re-registered machines:</b> fixed by the review (D257) — tested with one machine on three records, and a record moved between two
+  machines at midnight. Not yet compared by hand with FreshNow's own record of moves.</li>
+  <li><b>Thresholds:</b> 125 % / 75 %, the sharp-drop and category-move rules are defaults (A-T70.4), not FreshNow's.</li>
+  <li><b>History:</b> since TASK-071 the store holds every day from 26 Mar to 19 Oct, each equal to Televend's own count; before 26 Mar
+  only Televend's fleet totals per day.</li>
+  <li><b>Real use:</b> nobody at FreshNow has used the portal; whether the sentences help the Ops Head decide is untested.</li>
+  <li><b>Independent review:</b> done on 20 Oct (<a href="#review-20oct">below</a>). The income tile's text is screen only, not tested.</li>
+</ul></div>
+
+<h2>Open questions for FreshNow</h2>
+<ul>
+  <li>Is a cup's price the same for cash, card and wallet at a machine? What is a token sale? (A-T70.1, A-T70.3)</li>
+  <li>Do machines named "card" take no cash? (A-T70.2)</li>
+  <li>Are WAREHOUSE-1168 and Oranfresh-ITALY test machines to set "Not counted"? (A-T70.5)</li>
+  <li>Should Prime Nahda clinic (796) and Sharjah Police Main Building (392) move out of "Events"? (G208)</li>
+</ul>
+<h2 id="review-20oct">Independent review, 20 Oct</h2>
+<p>The review owed since 15 Oct ran on 20 Oct, once the usage limit reset (D263). For each area, read-only reviewers looked for defects and a skeptic tried to refute each finding before it counted. A second pass then checked every fix — fixed, partly fixed, or fixed but broke something — and looked for what the fixes themselves broke, again with a skeptic for each problem. Everything confirmed was fixed with a test unless the row says otherwise.</p>
+<p>For Analytics, 13 findings were raised and all 13 confirmed and fixed (D257, D258).</p>
+<div class="tw"><table>
+<tr><th>Finding</th><th>Severity</th><th>Fix</th></tr>
+<tr><td>Changes compared days that were not paired, so a partly read "before" mixed weekdays and nothing warned.</td><td>high</td><td>Every change compares only the days read on both sides — a day and the same weekday earlier — from the totals; the page says how many days were compared (D257). Test: a spike on an unpartnered day changes nothing.</td></tr>
+<tr><td>Machines were linked to FreshNow only through their current placement: corrections were lost, and a re-registered machine was split in two or lost its sales.</td><td>medium</td><td>A machine is FreshNow's machine: each Televend record's sales count for the machine it stood in that day; a record switched off keeps its category and price; one never placed counts by its number (D257). Tests: one machine with three records; a record moved between two machines at midnight.</td></tr>
+<tr><td>A day counted as read on incremental windows alone, so a failed whole-day check against Televend's count was ignored.</td><td>medium</td><td>Analytics reads the store, which holds only days checked against Televend's own count; a day whose build disagrees is 'not read' (D257). Test: a day read by an incremental run, its count disagreeing, is not read.</td></tr>
+<tr><td>The "before" volume dropped machines switched off since then but kept new ones, which pushed every change upward.</td><td>medium</td><td>Machines switched off since count in 'before', so a fall is not hidden; a sentence names them. Test.</td></tr>
+<tr><td>Percentage changes were computed from per-day rates already rounded to 0.1.</td><td>low</td><td>Changes come from the totals, never from rounded rates. Test: 2 cups against 1 is +100 %.</td></tr>
+<tr><td>The best and weakest category sentences skipped one-machine categories that the chart above them shows.</td><td>medium</td><td>The best and weakest category sentences say they cover categories where two or more machines sold; the chart marks a one-machine category.</td></tr>
+<tr><td>Some sentences stated numbers missing from their numbers list, or worked out in the template.</td><td>low</td><td>'and 2 more' carries its 2; the 80 % share is a figure of its own; the ratio is worked from the two figures the sentence shows. Test.</td></tr>
+<tr><td>The dashboard worked out the rank and the tier lines itself, and a tier could contradict the % shown beside it.</td><td>low</td><td>Ranks and the tier lines come from the server; the % shown is cut down, never rounded up, so it never crosses its tier's line. Test.</td></tr>
+<tr><td>The category small charts divided by a different machine count than the card's headline.</td><td>low</td><td>A category's small chart divides both lines by the machines that sold in the period, like its headline; the tooltip calls the change a volume change. Test.</td></tr>
+<tr><td>Impossible dates passed the check and crashed the query with a 500.</td><td>low</td><td>A day that does not exist (29 Feb 2031) is refused, not rolled over. Test.</td></tr>
+<tr><td>The price pattern had no word boundaries, so it could read a price out of a place name.</td><td>low</td><td>'AED' must be a whole word: 'Al Raed 2 Tower' names no price (in analytics and on the machine page). Test.</td></tr>
+<tr><td>The reset script forgot who wrote a category reason but kept the reason's words.</td><td>low</td><td>The reset script removes the reason's words with its author.</td></tr>
+<tr><td>The income tile described its formula wrongly.</td><td>low</td><td>Income = cash cups × the cash price (set, else AED 10) + card cups × the price in the name (else the cash price); token cups are not paid; the tile says so (D258). Test.</td></tr>
+</table></div>
+<h3>The second pass: checking the fixes</h3>
+<p>Of the 13 fixes, 9 were checked as fixed and 4 as partly fixed. It raised 5 problems: 4 confirmed and fixed, 1 refuted (bars drawn at the rounded rate cross the tier lines — by at most 0.05 cups a day, under a pixel; they are drawn at the exact rate now anyway).</p>
+<div class="tw"><table>
+<tr><th>Finding</th><th>Severity</th><th>Fix</th></tr>
+<tr><td>A Televend record with no machine number, corrected in Analytics, split again at the next machines sync: a phantom "no sales" machine came back.</td><td>high</td><td>A record's machine is its latest placement, open or closed, so the sync closing a hand-made placement no longer undoes the correction. Test, with a sync between the correction and the read.</td></tr>
+<tr><td>At exactly 125 % or 75 % the % shown and the tier disagreed.</td><td>low</td><td>The tier and its % are worked from whole numbers, the same way. Test: exactly 125 % is top and shows 125 %.</td></tr>
+<tr><td>Dates that pass the pattern but do not exist (month 13, day 32, day 00) still ended in a 500.</td><td>low</td><td>Refused in words (400). Test.</td></tr>
+<tr><td>The income tile left out that card cups at machines with no price in their name are priced at the cash price.</td><td>low</td><td>The tile says so. Screen only.</td></tr>
+</table></div>
+<p>The Analytics browser check, run again on the final code of 20 Oct: 20 of 20, no console errors.</p>
+</body></html>

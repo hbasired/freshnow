@@ -2,6 +2,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import { closeDb, getServiceSql } from "./db.js";
 import { DEMO_CEO_ID } from "./meta.js";
 import {
+  TaskNotYoursError,
   assignTask,
   createTask,
   listOpenBlockers,
@@ -150,5 +151,21 @@ describe("CEO assigns work to an employee", () => {
       select channel from notification_outbox
       where idempotency_key like ${`task.assigned:${res.assignmentId}:%`}`;
     expect(out.map((r) => r.channel)).toEqual(["inapp"]);
+  });
+});
+
+describe("a report on a task comes from its owner (role map, 2026-10-15)", () => {
+  it("refuses someone else's task unless the caller checked they may report for others", async () => {
+    const owner = await makeEmployee("UPD-OWNER");
+    const other = await makeEmployee("UPD-OTHER");
+    const taskId = await createTask(owner, "Owner's task", true);
+    await expect(recordTaskUpdate({ taskId, employeeId: other, status: "done" })).rejects.toThrow(TaskNotYoursError);
+    const sql = getServiceSql();
+    expect(await sql`select 1 from task_update where task_id = ${taskId}`).toHaveLength(0);
+    expect((await sql`select status from task where id = ${taskId}`)[0]?.status).not.toBe("done");
+
+    await recordTaskUpdate({ taskId, employeeId: owner, status: "in_progress" }); // the owner may
+    await recordTaskUpdate({ taskId, employeeId: other, status: "pending", reportForOthers: true }); // a checked caller may
+    expect(await sql`select 1 from task_update where task_id = ${taskId}`).toHaveLength(2);
   });
 });

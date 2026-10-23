@@ -1,4 +1,5 @@
 import type { AccessRole } from "./db.js";
+import { mayGiveWork } from "./permissions.js";
 
 /**
  * What a person may do in the bot. Three values, because the bot has three menus:
@@ -38,6 +39,9 @@ export function resolveRole(userId: bigint, ceoUserId: bigint): Role {
  */
 export function botRole(isConfigCeo: boolean, accessRole: AccessRole | null | undefined): Role {
   if (isConfigCeo || accessRole === "ceo") return "ceo";
-  if (accessRole === "manager" || accessRole === "lead") return "manager";
+  // Anyone who gives work reads as "manager" here (Admin, Ops Head, Supervisor too). Since TASK-057
+  // the bot's menus and checks come from capabilities (permissions.ts); this string is left for
+  // the CEO's identity and wording only.
+  if (mayGiveWork({ accessRole })) return "manager";
   return "employee";
 }

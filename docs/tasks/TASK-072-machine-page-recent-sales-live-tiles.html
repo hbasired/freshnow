@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TASK-072 — Machine page, recent sales, tiles that open</title>
+<style>
+  :root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#3fb950;--warn:#d29922;--bad:#f85149;--card:#161b22;--bd:#30363d}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;max-width:980px;padding:48px 24px;margin-inline:auto}
+  h1{font-size:1.9rem;margin:0 0 4px} h2{margin-top:2.5rem;color:var(--acc);font-size:1.25rem} h3{font-size:1.05rem;margin-top:1.6rem}
+  .meta{color:var(--mut);font-size:.9rem;margin-bottom:2rem}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:18px;margin:14px 0}
+  .unverified{border-left:3px solid var(--warn)} .ok{border-left:3px solid var(--acc)} .bad{border-left:3px solid var(--bad)}
+  code{background:#1f2630;padding:2px 6px;border-radius:4px;font-size:.9em}
+  .tw{overflow-x:auto} table{border-collapse:collapse;width:100%;margin:14px 0}
+  th,td{border:1px solid var(--bd);padding:7px 9px;text-align:left;font-size:.88rem;vertical-align:top} th{background:#1f2630}
+  ul{padding-left:1.1rem} li{margin:3px 0} a{color:#88c0f0}
+  @media (max-width:600px){body{padding:28px 16px}}
+</style></head><body>
+<h1>TASK-072 — Machine page, recent sales, tiles that open</h1>
+<p class="meta">2026-10-20 · Phase 1 of the plan of 19 Oct · no migration · core <code>ops-machine-page.ts</code>, <code>ops-activity.ts</code> · API
+<code>GET /dashboard/ops/machines/:asset/page</code>, <code>/dashboard/ops/refills</code>, <code>/dashboard/ops/sales</code> · dashboard
+<code>portals/ops-machine-page.tsx</code>, <code>ops-vends.tsx</code>, <code>ops-drill.tsx</code> · no new dependency</p>
+
+<div class="card ok"><b>One-sentence summary:</b> a machine now opens as its own page — its state, Televend's stock figure and about how many cups
+are left, the last sale, refill and collection, today by hour against the same weekday a week before, 28 days, payments, alarms, and every
+refill, collection, sale and visit, across every Televend record it has had; a Recent sales page lists every sale of a day with filters and
+totals; and the command centre's tiles open lists — cash in the machines, today's collections, today's refills, machines low on stock.</div>
+
+<h2>What was asked</h2>
+<ul>
+  <li>R11.1 "A machine opens as a full page, not a panel from the right"; R11.2 "All its details and analysis, its recent vends, charts of
+  today's sales against before"; R11.3 exploratory.</li>
+  <li>R7.3 "Televend's stock levels on the dashboard: cups still available, refills by whom and how much, the current level"; R7.4 "Each
+  machine's status, last refill and every transaction"; R7.5 charts.</li>
+  <li>R10.1 "A page of recent purchases (vends) with the other relevant details"; R10.2 charts, dynamic and interactive.</li>
+  <li>R13.1 "Collections today, refills today, cash in machines: buttons, not static numbers"; R13.2 "A click explores … which machines hold
+  cash and how much; the recent refills, how many, which machines need one and how many are left"; RW.9 "was hamriya cash collected"
+  (<code>docs/requirements/REQ-2026-10-19.md</code>).</li>
+</ul>
+
+<h2>What was done</h2>
+<div class="tw"><table>
+<tr><th>Layer</th><th>What</th></tr>
+<tr><td>Core</td><td><code>machinePage(viewer, asset, now)</code> — one machine across every Televend record it has had: state, stock, cups left (about),
+prices, last sale, refill and collection, today by hour against the same weekday a week before up to the same minute, 28 days each beside
+the same weekday a week before, payments, open alarms, refills, collections, sales, visits, and its Televend records with their dates.
+<code>refillsOn</code> (who, how much, how full after) and <code>salesList</code> (a day's sales, newest first, filtered by category and
+payment, at most 200 a page, with the day's totals under the same filters). All counted by Postgres under the viewer's row security.</td></tr>
+<tr><td>API</td><td><code>GET /dashboard/ops/machines/:asset/page</code>, <code>GET /dashboard/ops/refills?day=</code>, <code>GET /dashboard/ops/sales?day=&amp;…</code> —
+for <code>televend.read</code>; a driver, a day not begun, a bad page marker and an unknown machine are refused in words.</td></tr>
+<tr><td>Dashboard</td><td>The machine page at <code>#operations/machine/&lt;asset&gt;</code> (from the fleet, every list, Recent sales and Analytics' "Open the
+machine"); <b>Recent sales</b> at <code>#operations/vends</code> (opened from the "cups today" tile; today's list looks again every minute); the tiles
+<b>Cash in the machines</b> (cash.read only, D254), <b>Collections today</b>, <b>Refills today</b> and <b>Low on stock</b> open their lists under the
+tiles; every row opens its machine.</td></tr>
+<tr><td>Docs</td><td>A-T72.1; VF90; this page.</td></tr>
+</table></div>
+
+<h2>Why it was done this way</h2>
+<h3>A machine is FreshNow's, not a Televend record</h3>
+<p>A machine that moves gets a new Televend record (asset 796 has had four, G160). The page follows the machine through its placements, so its
+history stays with it; the records are listed with their dates.</p>
+<h3>Televend's stock is an estimate, and says so</h3>
+<p>Televend's share of capacity left is only as good as the fills logged in the Staff App: it goes below zero when sales outrun them (−0.22
+seen live, VF90). Cups left are worked out as that share × each column's capacity (from the newest refill) × the columns, and shown as
+"about", with the share it came from; a figure below zero is said in words. "Low on stock" is under 25 % (A-T72.1, to confirm).</p>
+<h3>Fair comparisons only</h3>
+<p>Today is compared with the same weekday a week before up to the same minute; a day the sync did not read to its end is empty, never zero
+(the TASK-058 rule).</p>
+<h3>Expected cash only for cash.read</h3>
+<p>What each collection should have found is shown only to those who may read it — the CEO, Admin, Ops Head and cash auditor (D237, D254).
+A Supervisor sees that a collection happened and when.</p>
+<h3>Not built here</h3>
+<ul>
+  <li><b>Televend's history log</b> of renames and moves (O2.9): its read is not on the allow-list, and was not added in this task. The page
+  shows the moves our placements know.</li>
+  <li><b>A machine moved within its site</b> (RW.7): the machine's notes are shown; recording a move inside a site is not built.</li>
+  <li><b>A page listing everything we read from Televend and where it is shown</b> (R10.3): carried to TASK-075.</li>
+</ul>
+
+<h2>How it works</h2>
+<p><code>machinePage</code> finds the machine by its asset number, gathers the Televend records placed in it (with their dates), and asks Postgres
+for each part under the viewer's row security: sales by hour and day from <code>tv_vend</code>, refills from <code>tv_refill</code>, collections from
+<code>tv_event</code>, alarms, visits. Prices: the cash price set on the machine, else AED 10; the card price from the "AED n" in its Televend
+name, else the cash price (D258). The page computes nothing; it draws what the server sends.</p>
+
+<h2>Research findings</h2>
+<ul>
+  <li>Televend's stock share in the live mirror (VF90): all 87 enabled records have one; it ranges from −0.22 to 1.00; one record is below zero,
+  eight are under 25 %.</li>
+  <li>Cash at machines named "AED 12" is collected in tens (VF89) — so the name's price is the card price, and cash is priced at the cash
+  price. This task's page priced it so first; Analytics followed in the review (D258).</li>
+</ul>
+
+<h2>Verification</h2>
+<div class="tw"><table>
+<tr><th>Check</th><th>Result</th></tr>
+<tr><td>Core (<code>ops-machine-page.test.ts</code>, real Postgres)</td><td>9 pass — follows the machine across its records; cash and card prices; cups
+left from the share, capacity and columns; today by hour against a week before up to the same minute; earlier days, payments, sales, refills,
+collections and visits; who may read; refills name who, how much and how full after; sales paged newest first without a row twice, with the
+day's totals; filters by category and payment.</td></tr>
+<tr><td>API (<code>ops-pages.test.ts</code>)</td><td>2 pass — a reader gets the page, the refills and the sales; a driver, a day not begun, a bad page marker and
+an unknown machine are refused.</td></tr>
+<tr><td>Browser (Chromium, test database; Ops Head and Supervisor wide, phone 390 px)</td><td><b>19 of 19</b>, no console errors, run again on 20 Oct after the
+review's fixes: cash in the machines opens its list; collections say what each should have found (Ops Head) and show no amount
+(Supervisor); no cash tile for a Supervisor; low on stock lists the machine below empty and one at 10 %; refills today name who, how much,
+how full after; the machine opens as a full page with stock "about 6 cups (10 % of 63)", its refill by name, today against a week before,
+its charts; "All machines" returns; "cups today" opens Recent sales; a cash filter; a machine opens from Recent sales and from Analytics;
+below-empty stock said in words; no sideways scroll on a phone; a driver is refused.</td></tr>
+<tr><td>Whole suite + typecheck</td><td>114 files, 1,225 passed, 5 skipped, 0 failed on the final code of 20 Oct; typecheck clean; the dashboard builds.</td></tr>
+</table></div>
+
+<h2>What we have not verified</h2>
+<div class="card unverified"><ul>
+  <li><b>Televend's stock figure</b> against a machine opened and counted by hand: the share and the cups left are Televend's estimate.</li>
+  <li><b>"Low on stock" at 25 %</b> is a default (A-T72.1), not the Ops Head's refill level.</li>
+  <li><b>Live use:</b> the page was checked on test data and the live API answered, but nobody at FreshNow has used it.</li>
+  <li><b>Speed</b> for a machine with a long history (hundreds of days of sales on several records) — not timed.</li>
+  <li><b>Recent sales looking again every minute</b> on a phone left open all day — not watched.</li>
+  <li><b>Independent review:</b> the 20 Oct review checked the expected-cash rule on this page (D254) and its alarms window (D260), not the
+  whole task.</li>
+</ul></div>
+
+<h2>Open questions for FreshNow</h2>
+<ul>
+  <li>At what stock level is a machine sent a refill? (A-T72.1)</li>
+  <li>Should Televend's history log be read (renames and moves)? It needs one more read on the allow-list.</li>
+</ul>
+</body></html>

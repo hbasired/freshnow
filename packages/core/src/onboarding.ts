@@ -117,46 +117,67 @@ export const PROFILE_STEPS = ["department", "role_title", "site", "shift"] as co
 export type ProfileStep = (typeof PROFILE_STEPS)[number];
 export type ProfileField = ProfileStep | "language";
 
+/**
+ * Fields a person may fill in for themselves only while they are blank. Department decides what
+ * a department lead sees and who leads a person; site and shift decide who resolves their
+ * blockers. "Update my details" rewrote them at will through the service role, past the guard on
+ * the employee table (0014) — so once set, they change on the People page (found by the role
+ * map, 2026-10-15). Role title and language stay the person's own.
+ */
+export const SELF_FILL_ONCE: readonly ProfileField[] = ["department", "site", "shift"];
+
 const PROMPTS: Record<ProfileField, string> = {
-  department: "1/4 · Which department do you work in?\n(e.g. production, warehouse, delivery, retail)",
-  role_title: "2/4 · What is your role or job title?\n(e.g. juice production operator, route driver)",
-  site: "3/4 · Which site do you work at?\n(e.g. HQ, warehouse, Deira route)",
-  shift: "4/4 · Which shift do you work?\n(e.g. day, evening, night)",
+  department: "Which department do you work in?\n(e.g. production, warehouse, delivery, retail)",
+  role_title: "What is your role or job title?\n(e.g. juice production operator, route driver)",
+  site: "Which site do you work at?\n(e.g. HQ, warehouse, Deira route)",
+  shift: "Which shift do you work?\n(e.g. day, evening, night)",
   language: "Preferred language?",
 };
 
-export function profilePrompt(field: ProfileField): string {
-  return PROMPTS[field];
+/** The question for one field — numbered ("2/3 · …") when it is part of a run of questions. */
+export function profilePrompt(field: ProfileField, position?: { index: number; of: number }): string {
+  return position && position.of > 1 ? `${position.index + 1}/${position.of} · ${PROMPTS[field]}` : PROMPTS[field];
+}
+
+/** The profile questions this person may still answer: role title always, the others while blank. */
+export async function profileStepsFor(employeeId: string): Promise<ProfileStep[]> {
+  const row = (await getServiceSql()<{ department: string | null; site: string | null; shift: string | null }[]>`
+    select department, site, shift from employee where id = ${employeeId}`)[0];
+  const blank = (v: string | null | undefined): boolean => !v || v.trim() === "";
+  return PROFILE_STEPS.filter((f) => f === "role_title" || blank(row?.[f]));
 }
 
 /**
  * Update one descriptive profile column. The column comes from a fixed whitelist —
- * an SQL identifier is never interpolated from user input.
+ * an SQL identifier is never interpolated from user input. A SELF_FILL_ONCE field that
+ * already has a value is left as it is; the result says whether anything changed.
  */
 export async function updateProfileField(
   employeeId: string,
   field: ProfileField,
   value: string,
-): Promise<void> {
+): Promise<{ updated: boolean }> {
   const sql = getServiceSql();
   const v = value.trim().slice(0, 120);
+  let count = 0;
   switch (field) {
     case "department":
-      await sql`update employee set department = ${v} where id = ${employeeId}`;
+      count = (await sql`update employee set department = ${v} where id = ${employeeId} and coalesce(btrim(department), '') = ''`).count;
       break;
     case "role_title":
-      await sql`update employee set role_title = ${v} where id = ${employeeId}`;
+      count = (await sql`update employee set role_title = ${v} where id = ${employeeId}`).count;
       break;
     case "site":
-      await sql`update employee set site = ${v} where id = ${employeeId}`;
+      count = (await sql`update employee set site = ${v} where id = ${employeeId} and coalesce(btrim(site), '') = ''`).count;
       break;
     case "shift":
-      await sql`update employee set shift = ${v} where id = ${employeeId}`;
+      count = (await sql`update employee set shift = ${v} where id = ${employeeId} and coalesce(btrim(shift), '') = ''`).count;
       break;
     case "language":
-      await sql`update employee set language = ${v} where id = ${employeeId}`;
+      count = (await sql`update employee set language = ${v} where id = ${employeeId}`).count;
       break;
   }
+  if (count === 0) return { updated: false };
   await logAudit({
     actor: `employee:${employeeId}`,
     action: "employee.profile_updated",
@@ -164,6 +185,7 @@ export async function updateProfileField(
     entityId: employeeId,
     detail: { field },
   });
+  return { updated: true };
 }
 
 /**
@@ -194,9 +216,25 @@ export async function ensureCeoLinked(telegramUserId: bigint | number): Promise<
   return true;
 }
 
-/** Withdraw consent (PDPL). Records the withdrawal; history is retained, not deleted. */
+/** The CEO's account cannot be withdrawn: it would lock the company out of its own system. */
+export class CeoWithdrawalRefused extends Error {
+  constructor() {
+    super("The CEO account cannot withdraw — hand the CEO role to someone else first");
+    this.name = "CeoWithdrawalRefused";
+  }
+}
+
+/**
+ * Withdraw consent (PDPL). Records the withdrawal; history is retained, not deleted.
+ *
+ * Refused for the CEO here, in core, so every channel enforces it: the dashboard refused it, but
+ * the bot's /withdraw did not — and a disabled CEO row locks the dashboard with no way back in
+ * (found by the role map, 2026-10-15).
+ */
 export async function withdrawConsent(employeeId: string): Promise<void> {
   const sql = getServiceSql();
+  const row = (await sql<{ access_role: string }[]>`select access_role from employee where id = ${employeeId}`)[0];
+  if (employeeId === DEMO_CEO_ID || row?.access_role === "ceo") throw new CeoWithdrawalRefused();
   await sql`update employee set status = 'disabled' where id = ${employeeId}`;
   await logAudit({
     actor: `employee:${employeeId}`,

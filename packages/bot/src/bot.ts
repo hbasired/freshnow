@@ -64,10 +64,14 @@ import {
   summariseOwnWork,
   transcribeAudio,
   updateProfileField,
+  profileStepsFor,
   validateInvite,
   withdrawConsent,
+  CeoWithdrawalRefused,
+  TaskNotYoursError,
   escapeMarkdown,
   matchPeopleByName,
+  telegramParts,
   type DocumentPlan,
   type ExtractedDocument,
   type SafetyReport,
@@ -77,6 +81,13 @@ import {
   type ProfileStep,
   type Role,
   type ViewerOrg,
+  ROLE_INFO,
+  can,
+  isAccessRole,
+  mayGiveWork,
+  maySeeOthersBlockers,
+  type AccessRole,
+  type Capability,
 } from "@freshnow/core";
 import { isStepStale, looksLikeName } from "./guards.js";
 import { postgresSessionStorage } from "./session-store.js";
@@ -86,7 +97,7 @@ interface LinkedEmployee {
   display_name: string;
   status: string;
   language: string | null;
-  access_role: "ceo" | "manager" | "lead" | "employee";
+  access_role: AccessRole;
   department: string | null;
 }
 
@@ -99,7 +110,7 @@ type Step =
   | { kind: "idle" }
   | { kind: "awaiting_code" }
   | { kind: "awaiting_consent"; code: string }
-  | { kind: "profile"; employeeId: string; index: number }
+  | { kind: "profile"; employeeId: string; index: number; steps?: ProfileStep[] }
   | { kind: "blocker_note"; taskUpdateId: string; correlationId: string }
   // Detail added right after a Done/Pending tap. Carries the SAME task_update id, so
   // the note lands ON that task instead of becoming an orphan update.
@@ -172,37 +183,44 @@ export interface BotDeps {
 /** Commands that work before the updated notice is agreed to — none of them takes anyone's words. */
 const CONSENT_FREE_COMMANDS = new Set(["/withdraw", "/help", "/whoami", "/cancel"]);
 
-function mainMenu(role: Role): InlineKeyboard {
-  if (role === "ceo") {
-    return new InlineKeyboard()
-      .text("🚨 Open blockers", "menu:blockers")
-      .row()
-      .text("📌 Assign a task", "menu:assign")
-      .row()
-      .text("➕ Create invite code", "menu:invite")
-      .row()
-      .text("📋 Log my own tasks", "menu:log");
+/**
+ * A reply longer than one Telegram message — the privacy notice is, with every part switched on —
+ * as several messages, the buttons under the last (core/telegram-text.ts). Telegram refuses the
+ * whole reply otherwise, and the person could never read the notice they are asked to agree to.
+ */
+async function replyInParts(ctx: FreshCtx, text: string, extra?: Parameters<FreshCtx["reply"]>[1]): Promise<void> {
+  const parts = telegramParts(text);
+  for (const [i, part] of parts.entries()) await ctx.reply(part, i === parts.length - 1 ? extra : undefined);
+}
+
+/** May the person on this chat do this? (permissions.ts — nothing until they are linked.) */
+function may(ctx: FreshCtx, capability: Capability): boolean {
+  return ctx.viewer != null && can(ctx.viewer, capability);
+}
+
+/**
+ * The main menu, built from what this person may do (permissions.ts) rather than from a role
+ * name, so every role gets exactly the buttons its capabilities allow (TASK-057). The CEO's,
+ * a manager's and an employee's menus are the same as before.
+ */
+function mainMenu(viewer: FreshCtx["viewer"]): InlineKeyboard {
+  const kb = new InlineKeyboard();
+  if (viewer && maySeeOthersBlockers(viewer)) {
+    kb.text(can(viewer, "data.read_all") ? "🚨 Open blockers" : "🚨 My team's blockers", "menu:blockers").row();
   }
-  if (role === "manager") {
-    // A manager's day is their own work plus their team's problems. No invites (the CEO
-    // adds people) and no documents-to-plans (that path assigns to anyone it reads).
-    return new InlineKeyboard()
-      .text("🚨 My team's blockers", "menu:blockers")
-      .row()
-      .text("📌 Assign a task to my team", "menu:assign")
-      .row()
-      .text("📋 Log daily tasks", "menu:log")
-      .row()
-      .text("➕ Add a task", "menu:addtask")
-      .row()
-      .text("👤 Update my details", "menu:register");
+  if (viewer && mayGiveWork(viewer)) {
+    kb.text(can(viewer, "work.give_to_anyone") ? "📌 Assign a task" : "📌 Assign a task to my team", "menu:assign").row();
   }
-  return new InlineKeyboard()
-    .text("📋 Log daily tasks", "menu:log")
-    .row()
-    .text("➕ Add a task", "menu:addtask")
-    .row()
-    .text("👤 Update my details", "menu:register");
+  if (viewer && can(viewer, "people.manage")) kb.text("➕ Create invite code", "menu:invite").row();
+  if (viewer?.isCeo) return kb.text("📋 Log my own tasks", "menu:log");
+  return kb.text("📋 Log daily tasks", "menu:log").row().text("➕ Add a task", "menu:addtask").row().text("👤 Update my details", "menu:register");
+}
+
+/** "CEO", "Ops Head", … for the person on this chat. */
+function roleLabel(ctx: FreshCtx): string {
+  if (ctx.viewer?.isCeo) return "CEO";
+  const r = ctx.employee?.access_role;
+  return isAccessRole(r) ? ROLE_INFO[r].label : "Employee";
 }
 
 export function createBot(deps: BotDeps): Bot<FreshCtx> {
@@ -326,7 +344,17 @@ export function createBot(deps: BotDeps): Bot<FreshCtx> {
   // notice is shown before an invite code is redeemed.
   bot.use(async (ctx, next) => {
     const emp = ctx.employee;
-    if (!emp || emp.status !== "active") return next();
+    if (!emp) return next();
+    // An account that is not active (consent withdrawn, or switched off on the People page) is not
+    // processed at all: its words are not stored and not sent to any AI service. This gate used to
+    // wave such people through to every handler (found by the role map, 2026-10-15).
+    if (emp.status !== "active") {
+      const command = ctx.message?.text?.startsWith("/") ? ctx.message.text.split(/[\s@]/)[0] : undefined;
+      if (command === "/whoami" || command === "/help") return next();
+      if (ctx.callbackQuery) await ctx.answerCallbackQuery({ text: "Your account is not active." });
+      await ctx.reply("Your account is not active, so nothing you send is recorded. If that is a mistake, ask the CEO or your manager.");
+      return;
+    }
     const command = ctx.message?.text?.startsWith("/") ? ctx.message.text.split(/[\s@]/)[0] : undefined;
     if (command && CONSENT_FREE_COMMANDS.has(command)) return next();
     if (ctx.callbackQuery?.data?.startsWith("consent:")) return next();
@@ -334,7 +362,8 @@ export function createBot(deps: BotDeps): Bot<FreshCtx> {
 
     if (ctx.callbackQuery) await ctx.answerCallbackQuery({ text: "Please read the updated notice first." });
     const anything = ctx.message != null && command !== "/start";
-    await ctx.reply(
+    await replyInParts(
+      ctx,
       "📄 Before we carry on: FreshNow's privacy notice has changed. Please read it and tap “✅ I agree”." +
         (anything ? "\n\nI have not recorded the message you just sent — send it again after you agree." : "") +
         "\n\n" +
@@ -350,27 +379,26 @@ export function createBot(deps: BotDeps): Bot<FreshCtx> {
     await ctx.answerCallbackQuery();
     if (!ctx.employee) return void (await ctx.reply("You are not linked to an employee record — send /start."));
     if (ctx.match![1] !== noticeTag()) {
-      await ctx.reply(
-        "The notice has changed again since that message. Here is the current one:\n\n" + consentNotice("en"),
-        { reply_markup: consentKeyboard() },
-      );
+      await replyInParts(ctx, "The notice has changed again since that message. Here is the current one:\n\n" + consentNotice("en"), {
+        reply_markup: consentKeyboard(),
+      });
       return;
     }
     // A second tap on the same button (or on the worker's copy after agreeing in the app) is
     // not a second agreement; one record per agreement keeps the history readable.
     if (await hasCurrentConsent(ctx.employee.id)) {
-      return void (await ctx.reply("✅ Already recorded — you can carry on.", { reply_markup: mainMenu(ctx.role ?? "employee") }));
+      return void (await ctx.reply("✅ Already recorded — you can carry on.", { reply_markup: mainMenu(ctx.viewer) }));
     }
     try {
       await recordConsent({ employeeId: ctx.employee.id, noticeHash: currentNoticeHash(), via: "telegram" });
     } catch (err) {
       if (!(err instanceof ConsentNoticeChangedError)) throw err;
-      await ctx.reply("The notice changed a moment ago. Here is the current one:\n\n" + consentNotice("en"), {
+      await replyInParts(ctx, "The notice changed a moment ago. Here is the current one:\n\n" + consentNotice("en"), {
         reply_markup: consentKeyboard(),
       });
       return;
     }
-    await ctx.reply("✅ Thank you — recorded. You can carry on.", { reply_markup: mainMenu(ctx.role ?? "employee") });
+    await ctx.reply("✅ Thank you — recorded. You can carry on.", { reply_markup: mainMenu(ctx.viewer) });
   });
 
   bot.callbackQuery("consent:later", async (ctx) => {
@@ -415,10 +443,9 @@ export function createBot(deps: BotDeps): Bot<FreshCtx> {
     }
 
     if (ctx.employee) {
-      const who = ctx.role === "ceo" ? "CEO" : ctx.role === "manager" ? "manager" : "employee";
       await ctx.reply(
-        `Welcome back, ${ctx.employee.display_name}.\nYou are signed in as *${who}*.\n\nPick an option below, or send /help.`,
-        { parse_mode: "Markdown", reply_markup: mainMenu(ctx.role ?? "employee") },
+        `Welcome back, ${ctx.employee.display_name}.\nYou are signed in as *${roleLabel(ctx)}*.\n\nPick an option below, or send /help.`,
+        { parse_mode: "Markdown", reply_markup: mainMenu(ctx.viewer) },
       );
       return;
     }
@@ -439,8 +466,11 @@ export function createBot(deps: BotDeps): Bot<FreshCtx> {
   });
 
   bot.command("help", async (ctx) => {
+    // Built from what this person may do (permissions.ts); the lines are the same as before
+    // for the CEO, a manager and an employee.
+    const anyone = may(ctx, "work.give_to_anyone");
     const text =
-      ctx.role === "ceo"
+      ctx.viewer?.isCeo
         ? "*CEO commands*\n\n" +
           "/start — your menu\n" +
           "/invite Ahmed Khan — create an invite code\n" +
@@ -448,17 +478,20 @@ export function createBot(deps: BotDeps): Bot<FreshCtx> {
           "/assign — give a task to an employee\n" +
           "/cancel — stop what you were doing\n\n" +
           "You are alerted automatically whenever anyone reports a blocker."
-        : ctx.role === "manager"
-          ? "*Manager commands*\n\n" +
+        : ctx.viewer && mayGiveWork(ctx.viewer)
+          ? `*${roleLabel(ctx)} commands*\n\n` +
             "/start — your menu\n" +
-            "/blockers — open problems raised by your team, with one-tap Acknowledge\n" +
-            "/assign — give a task to someone who reports to you\n" +
+            (may(ctx, "people.manage") ? "/invite Ahmed Khan — create an invite code\n" : "") +
+            (anyone ? "/blockers — open problems, with one-tap Acknowledge\n" : "/blockers — open problems raised by your team, with one-tap Acknowledge\n") +
+            (anyone ? "/assign — give a task to anyone\n" : "/assign — give a task to someone who reports to you\n") +
             "/log — report your own day\n" +
             "/cancel — stop what you were doing\n\n" +
-            "You can assign to your direct reports" +
-            (ctx.viewer?.accessRole === "lead" ? " and to anyone in your department" : "") +
-            ". The CEO sets who reports to whom on the dashboard.\n\n" +
-            "*To report your day:* /start → 📋 Log daily tasks."
+            (anyone
+              ? "You can assign to anyone."
+              : "You can assign to your direct reports" +
+                (may(ctx, "work.give_to_department") ? " and to anyone in your department" : "") +
+                ". The CEO or an Admin sets who reports to whom on the dashboard.") +
+            "\n\n*To report your day:* /start → 📋 Log daily tasks."
           : "*How to use this bot*\n\n" +
           "/start — your menu\n" +
           "/cancel — stop what you were doing\n" +
@@ -477,7 +510,7 @@ export function createBot(deps: BotDeps): Bot<FreshCtx> {
     const hadFiles = (ctx.session.pendingFiles ?? []).length;
     ctx.session.pendingFiles = undefined;
     await ctx.reply(hadFiles ? `Okay, cancelled — and I dropped ${hadFiles} held file(s).` : "Okay, cancelled.", {
-      reply_markup: mainMenu(ctx.role ?? "employee"),
+      reply_markup: mainMenu(ctx.viewer),
     });
   });
 
@@ -495,7 +528,7 @@ export function createBot(deps: BotDeps): Bot<FreshCtx> {
     }
 
     await ctx.reply("No problem — the status is already saved.", {
-      reply_markup: mainMenu(ctx.role ?? "employee"),
+      reply_markup: mainMenu(ctx.viewer),
     });
   });
 
@@ -504,7 +537,7 @@ export function createBot(deps: BotDeps): Bot<FreshCtx> {
     if (!ctx.employee) return void (await ctx.reply("Please register first — send /start."));
     await ctx.reply("📊 Building the end-of-day report…");
     try {
-      if (ctx.role === "ceo") {
+      if (may(ctx, "reports.generate_all")) {
         const reports = await generateAllEodReports();
         const active = reports.filter((r) => r.reportsMade > 0);
         const silent = reports.filter((r) => r.reportsMade === 0);
@@ -541,14 +574,19 @@ export function createBot(deps: BotDeps): Bot<FreshCtx> {
 
   bot.command("whoami", async (ctx) => {
     await ctx.reply(
-      `Telegram id: ${ctx.from?.id}\nRole: ${ctx.role ?? "unknown"}\n` +
+      `Telegram id: ${ctx.from?.id}\nRole: ${ctx.employee ? roleLabel(ctx) : "not linked"}\n` +
         `Linked: ${ctx.employee ? ctx.employee.display_name : "no"}`,
     );
   });
 
   bot.command("withdraw", async (ctx) => {
     if (!ctx.employee) return void (await ctx.reply("You are not linked to an employee record."));
-    await withdrawConsent(ctx.employee.id);
+    try {
+      await withdrawConsent(ctx.employee.id);
+    } catch (err) {
+      if (err instanceof CeoWithdrawalRefused) return void (await ctx.reply(`${err.message}.`));
+      throw err;
+    }
     await ctx.reply(
       "Your consent has been withdrawn and your account is disabled.\n" +
         "Existing records are kept as the operational record, but you will not be prompted again.",
@@ -590,12 +628,13 @@ export function createBot(deps: BotDeps): Bot<FreshCtx> {
       ));
     }
 
-    ctx.session.step = { kind: "profile", employeeId: res.employeeId!, index: 0 };
+    const steps = await profileStepsFor(res.employeeId!);
+    ctx.session.step = { kind: "profile", employeeId: res.employeeId!, index: 0, steps };
     await ctx.reply(
       `✅ Thank you, ${res.displayName}. You are now registered.\n\n` +
-        "Now 4 quick questions about your job — you know it better than anyone.",
+        `Now ${steps.length === 1 ? "one quick question" : `${steps.length} quick questions`} about your job — you know it better than anyone.`,
     );
-    await ctx.reply(profilePrompt(PROFILE_STEPS[0]!));
+    await ctx.reply(profilePrompt(steps[0]!, { index: 0, of: steps.length }));
   });
 
   bot.callbackQuery(/^lang:(en|hi|ml)$/, async (ctx) => {
@@ -610,14 +649,18 @@ export function createBot(deps: BotDeps): Bot<FreshCtx> {
         : lang === "ml"
           ? "ഭാഷ മലയാളം ആയി സജ്ജമാക്കി. ✅"
           : "Language set to English. ✅";
-    await ctx.reply(msg, { reply_markup: mainMenu(ctx.role ?? "employee") });
+    await ctx.reply(msg, { reply_markup: mainMenu(ctx.viewer) });
   });
 
   bot.callbackQuery("menu:register", async (ctx) => {
     await ctx.answerCallbackQuery();
     if (!ctx.employee) return void (await ctx.reply("Please enter an invite code first — send /start."));
-    ctx.session.step = { kind: "profile", employeeId: ctx.employee.id, index: 0 };
-    await ctx.reply(profilePrompt(PROFILE_STEPS[0]!));
+    const steps = await profileStepsFor(ctx.employee.id);
+    ctx.session.step = { kind: "profile", employeeId: ctx.employee.id, index: 0, steps };
+    if (steps.length < PROFILE_STEPS.length) {
+      await ctx.reply("Your department, site and shift are already set — they change on the People page, not here.");
+    }
+    await ctx.reply(profilePrompt(steps[0]!, { index: 0, of: steps.length }));
   });
 
   // ── Daily task logging ────────────────────────────────────────────────────
@@ -647,13 +690,20 @@ export function createBot(deps: BotDeps): Bot<FreshCtx> {
     }
     await ctx.answerCallbackQuery();
 
-    // The button tap IS the status — deterministic, recorded immediately.
-    const rec = await recordTaskUpdate({
-      taskId,
-      employeeId: ctx.employee.id,
-      status,
-      telegramMessageId: ctx.callbackQuery.message?.message_id ?? null,
-    });
+    // The button tap IS the status — deterministic, recorded immediately. Core refuses a task that
+    // is not this person's (callback data can be forged).
+    let rec: Awaited<ReturnType<typeof recordTaskUpdate>>;
+    try {
+      rec = await recordTaskUpdate({
+        taskId,
+        employeeId: ctx.employee.id,
+        status,
+        telegramMessageId: ctx.callbackQuery.message?.message_id ?? null,
+      });
+    } catch (err) {
+      if (err instanceof TaskNotYoursError) return void (await ctx.reply(`${err.message}.`));
+      throw err;
+    }
 
     // ALWAYS name the task in the confirmation.
     //
@@ -697,7 +747,7 @@ export function createBot(deps: BotDeps): Bot<FreshCtx> {
   // ── CEO actions ───────────────────────────────────────────────────────────
   bot.callbackQuery("menu:invite", async (ctx) => {
     await ctx.answerCallbackQuery();
-    if (ctx.role !== "ceo") return void (await ctx.reply("Only the CEO can create invites."));
+    if (!may(ctx, "people.manage")) return void (await ctx.reply("Only the CEO or an Admin can create invites."));
     ctx.session.step = { kind: "invite_name" };
     await ctx.reply(
       "Type the new person's name and send it.\n\n_Shortcut: you can also send_ `/invite Ahmed Khan`",
@@ -706,7 +756,7 @@ export function createBot(deps: BotDeps): Bot<FreshCtx> {
   });
 
   bot.command("invite", async (ctx) => {
-    if (ctx.role !== "ceo") return void (await ctx.reply("Only the CEO can create invites."));
+    if (!may(ctx, "people.manage")) return void (await ctx.reply("Only the CEO or an Admin can create invites."));
     const name = typeof ctx.match === "string" ? ctx.match.trim() : "";
     if (!name) {
       ctx.session.step = { kind: "invite_name" };
@@ -717,12 +767,12 @@ export function createBot(deps: BotDeps): Bot<FreshCtx> {
 
   bot.callbackQuery("menu:blockers", async (ctx) => {
     await ctx.answerCallbackQuery();
-    if (ctx.role === "employee") return void (await ctx.reply("Only the CEO or a manager sees the blocker queue."));
+    if (!ctx.viewer || !maySeeOthersBlockers(ctx.viewer)) return void (await ctx.reply("Only someone who leads people sees the blocker queue."));
     await showBlockers(ctx);
   });
 
   bot.command("blockers", async (ctx) => {
-    if (ctx.role === "employee") return void (await ctx.reply("Only the CEO or a manager sees the blocker queue."));
+    if (!ctx.viewer || !maySeeOthersBlockers(ctx.viewer)) return void (await ctx.reply("Only someone who leads people sees the blocker queue."));
     await showBlockers(ctx);
   });
 
@@ -747,12 +797,12 @@ export function createBot(deps: BotDeps): Bot<FreshCtx> {
 
   bot.callbackQuery("menu:assign", async (ctx) => {
     await ctx.answerCallbackQuery();
-    if (ctx.role === "employee") return void (await ctx.reply("Only the CEO or a manager can assign tasks."));
+    if (!ctx.viewer || !mayGiveWork(ctx.viewer)) return void (await ctx.reply("Only someone who gives work can assign tasks."));
     await showDirectory(ctx);
   });
 
   bot.command("assign", async (ctx) => {
-    if (ctx.role === "employee") return void (await ctx.reply("Only the CEO or a manager can assign tasks."));
+    if (!ctx.viewer || !mayGiveWork(ctx.viewer)) return void (await ctx.reply("Only someone who gives work can assign tasks."));
     await showDirectory(ctx);
   });
 
@@ -949,12 +999,18 @@ export function createBot(deps: BotDeps): Bot<FreshCtx> {
     const taskId = ctx.match![1]!;
     const rows = await getServiceSql()<{ title: string }[]>`
       select title from task where id = ${taskId}`;
-    const rec = await recordTaskUpdate({
-      taskId,
-      employeeId: ctx.employee.id,
-      status: "pending",
-      telegramMessageId: ctx.callbackQuery.message?.message_id ?? null,
-    });
+    let rec: Awaited<ReturnType<typeof recordTaskUpdate>>;
+    try {
+      rec = await recordTaskUpdate({
+        taskId,
+        employeeId: ctx.employee.id,
+        status: "pending",
+        telegramMessageId: ctx.callbackQuery.message?.message_id ?? null,
+      });
+    } catch (err) {
+      if (err instanceof TaskNotYoursError) return void (await ctx.reply(`${err.message}.`));
+      throw err;
+    }
     await processNote(ctx, rec.taskUpdateId, rec.correlationId, step.text, rows[0]?.title);
   });
 
@@ -1118,7 +1174,7 @@ export function createBot(deps: BotDeps): Bot<FreshCtx> {
     }
     // With no caption we still must not make the CEO guess the magic words — offer the
     // action directly. Not guessing the words was the whole failure of 2026-09-08.
-    if (ctx.role === "ceo" && hasReadableDoc([file])) {
+    if (may(ctx, "documents.plan_in_bot") && hasReadableDoc([file])) {
       await ctx.reply(
         `📎 Got ${describeAttachment(file)}.\n\nShall I read it and turn the work inside into tasks?`,
         {
@@ -1132,7 +1188,7 @@ export function createBot(deps: BotDeps): Bot<FreshCtx> {
     }
     await ctx.reply(
       `📎 Got ${describeAttachment(file)}.\n` +
-        (ctx.role === "ceo"
+        (may(ctx, "documents.plan_in_bot")
           ? "Now tell me what it is for — for example: _send this to Rashid, fix van 2 chiller_."
           : "Now tell me what it is about, and I will file it with your report."),
       { parse_mode: "Markdown" },
@@ -1188,7 +1244,7 @@ export async function handleText(ctx: FreshCtx, text: string): Promise<void> {
         return;
       }
       ctx.session.step = { kind: "awaiting_consent", code: text };
-      await ctx.reply(consentNotice("en"), {
+      await replyInParts(ctx, consentNotice("en"), {
         reply_markup: new InlineKeyboard()
           .text("✅ I agree", "consent:agree")
           .row()
@@ -1198,17 +1254,19 @@ export async function handleText(ctx: FreshCtx, text: string): Promise<void> {
     }
 
     case "profile": {
-      const field = PROFILE_STEPS[step.index] as ProfileStep | undefined;
+      // A session from before 2026-10-15 has no steps: the full list, which core then guards.
+      const steps: readonly ProfileStep[] = step.steps ?? PROFILE_STEPS;
+      const field = steps[step.index];
       if (!field) {
         ctx.session.step = { kind: "idle" };
         return;
       }
       await updateProfileField(step.employeeId, field, text);
       const nextIndex = step.index + 1;
-      const next = PROFILE_STEPS[nextIndex];
+      const next = steps[nextIndex];
       if (next) {
         ctx.session.step = { ...step, index: nextIndex };
-        await ctx.reply(profilePrompt(next));
+        await ctx.reply(profilePrompt(next, { index: nextIndex, of: steps.length }));
         return;
       }
       ctx.session.step = { kind: "idle" };
@@ -1456,11 +1514,11 @@ function hasReadableDoc(files: readonly IncomingFile[] | undefined): boolean {
 async function planFromDocument(ctx: FreshCtx, instruction: string): Promise<void> {
   const employee = ctx.employee;
   if (!employee) return;
-  // Only the button is shown to the CEO, but `doc:read` is callback data anyone can send.
-  // Reading a document into tasks assigns to whoever it names, so the role is checked
+  // Only the button is shown to those who may, but `doc:read` is callback data anyone can send.
+  // Reading a document into tasks assigns to whoever it names, so the permission is checked
   // here — at the function — not only at the button.
-  if (ctx.role !== "ceo") {
-    await ctx.reply("Only the CEO can turn a document into tasks. Your file is held — tell me what it is for.");
+  if (!may(ctx, "documents.plan_in_bot")) {
+    await ctx.reply("Only the CEO or an Admin can turn a document into tasks here. Your file is held — tell me what it is for.");
     return;
   }
   const file = (ctx.session.pendingFiles ?? []).find(
@@ -1744,7 +1802,7 @@ async function routeFreeText(ctx: FreshCtx, text: string): Promise<void> {
   //
   // The presence of the document is the signal, and it is a fact, not a judgement —
   // so this is a deterministic branch taken before any model call.
-  if (ctx.role === "ceo" && hasReadableDoc(ctx.session.pendingFiles)) {
+  if (may(ctx, "documents.plan_in_bot") && hasReadableDoc(ctx.session.pendingFiles)) {
     await planFromDocument(ctx, text);
     return;
   }
@@ -1796,7 +1854,7 @@ async function routeFreeText(ctx: FreshCtx, text: string): Promise<void> {
       // The resolver was given every colleague as a candidate, so for a manager each
       // named person is checked against the write rule; the ones outside their team are
       // reported back by name, not silently dropped and not silently assigned.
-      if (ctx.role !== "employee" && ctx.viewer) {
+      if (ctx.viewer && mayGiveWork(ctx.viewer)) {
         // `assignee` is set only when the name as written fits exactly one person (checked in
         // code — people-match.ts). Two Ahmeds, or a name only the model could place, are NOT
         // assigned: that work is asked about below, with just the people it could mean.
@@ -1904,15 +1962,17 @@ async function routeFreeText(ctx: FreshCtx, text: string): Promise<void> {
   }
 }
 
-/** Questions: the CEO gets guarded NL->SQL; an employee gets only their own rows. */
+/** Questions: those who see everything get guarded NL->SQL; everyone else only their own rows. */
 async function answerForRole(ctx: FreshCtx, text: string): Promise<void> {
   const employee = ctx.employee;
   if (!employee) return;
 
-  if (ctx.role === "ceo") {
+  if (may(ctx, "data.ask") && ctx.viewer) {
     await ctx.reply("🔎 Looking that up…");
     try {
-      const res = await answerQuestion(text);
+      // Behind the asker's own eyes — the CEO's or an Admin's; both see everything.
+      const v = ctx.viewer;
+      const res = await answerQuestion(text, undefined, { employeeId: v.employeeId, isCeo: v.isCeo, accessRole: v.accessRole, department: v.department });
       await ctx.reply(res.answer);
       if (res.sql) await ctx.reply(`Query used (${res.rowCount} row(s)):
 
@@ -1996,9 +2056,9 @@ async function showBlockers(ctx: FreshCtx): Promise<void> {
   // dashboard reads under, so the two can never show different lists.
   const blockers = await listOpenBlockersFor(ctx.viewer);
   if (blockers.length === 0) {
-    return void (await ctx.reply(ctx.role === "ceo" ? "No open blockers. 🎉" : "No open blockers in your team. 🎉"));
+    return void (await ctx.reply(may(ctx, "data.read_all") ? "No open blockers. 🎉" : "No open blockers in your team. 🎉"));
   }
-  await ctx.reply(`${blockers.length} open blocker(s)${ctx.role === "ceo" ? "" : " in your team"}:`);
+  await ctx.reply(`${blockers.length} open blocker(s)${may(ctx, "data.read_all") ? "" : " in your team"}:`);
   for (const b of blockers) {
     await ctx.reply(
       `⚠️ *${b.severity}* · ${b.category}\n` +
@@ -2017,9 +2077,9 @@ async function showDirectory(ctx: FreshCtx): Promise<void> {
   const people = await listAssignable(ctx.viewer);
   if (people.length === 0) {
     return void (await ctx.reply(
-      ctx.role === "ceo"
+      may(ctx, "work.give_to_anyone")
         ? "Nobody to assign to yet — create an invite first."
-        : "Nobody reports to you yet. The CEO sets reporting lines on the dashboard's People tab.",
+        : "Nobody reports to you yet. The CEO or an Admin sets reporting lines on the dashboard's People tab.",
     ));
   }
   const kb = new InlineKeyboard();

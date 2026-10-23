@@ -239,7 +239,7 @@ describe("managers and leads (the org model)", () => {
     await sql`delete from blocker where id = ${b!.id}`;
   });
 
-  it("only the CEO changes roles and reporting lines, and a loop is refused", async () => {
+  it("only the CEO (or an Admin) changes roles and reporting lines, and a loop is refused", async () => {
     const denied = await app.inject({ method: "PATCH", url: `/dashboard/people/${A}?viewer=${M}`, payload: { accessRole: "manager" } });
     expect(denied.statusCode).toBe(403);
 
@@ -249,8 +249,12 @@ describe("managers and leads (the org model)", () => {
       select access_role, department from employee where id = ${A}`;
     expect(row).toMatchObject({ access_role: "lead", department: "delivery" });
 
-    // R reports to M; making M report to R would loop.
-    const loop = await app.inject({ method: "PATCH", url: `/dashboard/people/${M}?viewer=ceo`, payload: { managerEmployeeId: R } });
+    // Only a role that leads people may be a manager (TASK-057): R is an employee.
+    const notALeader = await app.inject({ method: "PATCH", url: `/dashboard/people/${M}?viewer=ceo`, payload: { managerEmployeeId: R } });
+    expect(notALeader.statusCode).toBe(403);
+    // A (now a lead) reports to M; making M report to A would loop.
+    expect((await app.inject({ method: "PATCH", url: `/dashboard/people/${A}?viewer=ceo`, payload: { managerEmployeeId: M } })).statusCode).toBe(200);
+    const loop = await app.inject({ method: "PATCH", url: `/dashboard/people/${M}?viewer=ceo`, payload: { managerEmployeeId: A } });
     expect(loop.statusCode).toBe(409);
   });
 

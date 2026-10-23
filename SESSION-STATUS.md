@@ -1,3 +1,165 @@
+# Session status — 2026-10-20 (TASK-070 to TASK-072, the independent review)
+
+- **One decision for you — Supervisors and cash.** A Supervisor no longer gets Televend's "should have found" cash figure anywhere,
+  but can still count a machine's cash sales from the sales list. If Supervisors never collect cash, the fix is to take "holds cash"
+  off the Supervisor role, which completes the blind count. If they do collect, the sales list would hide each sale's payment type
+  from them instead. Nothing changes until you answer (D254, A-T61.14).
+- **The independent review is done** (owed since 15 Oct, D263): roles (057), the command centre and stock fixes (059, 060), Cash and
+  Route (061), Analytics (070). Reviewers, then a skeptic trying to refute each finding: 53 of 57 confirmed, all fixed with tests
+  (migrations 0039–0041, applied live). A second pass over the fixes found 24 more: 23 fixed, the 24th is the decision above. Each task
+  page has an "Independent review, 20 Oct" section. The ones that mattered most: a Supervisor saw Televend's expected cash; an auditor's
+  question and the answer were copied where erasure never reaches; a second visit after midnight went to tomorrow night's plan;
+  Analytics compared days that were not paired.
+- **TASK-070, Analytics** (new portal): machines above, about and below the fleet average, the machines that make 80 % of cups,
+  categories, each machine's days against the week before. Since the review it reads only checked days, compares day for day, and
+  counts FreshNow's machines through their moves (D257). Income: cash cups at the cash price, card cups at the name's price (D258).
+- **TASK-071, sales history:** every sale Televend still lists was copied (read-only) — the store now holds **every day from 26 Mar to
+  19 Oct**, each equal to Televend's own count. Televend's own daily totals go back to 1 Oct 2025: they fall from 88,283 sales in October
+  to 33,666 in March, then recover from April. Why is not known yet (fleet size? Ramadan?).
+- **TASK-072:** a machine opens as a full page (stock, last refill and by whom, today against last week, every sale, refill, collection
+  and visit, across its moves); a Recent sales page; the command centre's tiles open their lists.
+- **Two defects found today and fixed:** a sale stamped exactly at midnight was read into two days, so two days could never be checked
+  (G215 — both are in the store now); a driver who ended a visit while a photo was still uploading lost the photo (G216 — "End" now
+  waits).
+- **Services restarted** on the final code (API, worker, bot; logs in `private-data/scratch/`); dashboard rebuilt; health ok, Televend
+  synced within the last 10 minutes, the store at 208 days (newest 19 Oct), none differing or failed.
+- **After pulling:** `pnpm install`, `pnpm migrate` (0038–0041), `pnpm build:web`, restart api, worker and bot.
+- Tests: **1,225 passed, 5 skipped**, 0 failed; typecheck clean. Browser checks on the final code, no console errors: Cash 35/35,
+  Route 27/27, Stock 23/23, Analytics 20/20, Operations 19/19.
+- Not verified: real drivers, auditors and phones on any of these portals; Televend's stock figure against a machine counted by hand;
+  the few review fixes that are screen or script only (named on their pages); the MCP server Claude Code uses still runs the reader
+  from before the midnight fix until it restarts.
+- **Next:** TASK-073, each portal its own sidebar.
+
+---
+
+# Session status — 2026-10-19, evening (TASK-061 part 2, the plan of 19 Oct)
+
+- **TASK-061, part 2: Route.** A new portal, "Route" (`/app/#route`; migration 0036 — applied live 23:19). A Supervisor makes each
+  team's plan for the shift — the instruction sheet's machines, tasks, crates and the proof to bring back; a driver starts each visit at
+  the machine (its sticker's link, or its number typed), ticks what was done, takes the photos and the dispenser video, puts stock in
+  from what they hold and records the cash; the Supervisor sees the sheet's OK / NO for every stop, worked out, with Televend's refill
+  beside it. No location is ever read. The portal switcher now wraps to a second row (six portals collided).
+- **Privacy notice 3.0-draft changed again** (it now names visits, and says plainly what "no location tracking" means); the worker asked
+  the 2 people who need to agree. Do not agree on anyone's behalf.
+- **Services restarted** on the new code (logs in `private-data/scratch/api.log`, `worker.log`, `bot.log`); health ok; Televend lag 1 min.
+- **After pulling:** `pnpm install`, `pnpm migrate` (0036), `pnpm build:web`, restart api, worker and bot.
+- Tests: **1,133 passed, 5 skipped**, 0 failed; typecheck clean; 26 browser checks of the Route portal, no console errors (one bug found
+  and fixed: the plans list did not reload after saving).
+- **Your request of 19 Oct** is recorded verbatim (`docs/requirements/REQ-2026-10-19.md`, 115 requirements) and planned
+  (`docs/reports/plan-2026-10-19-analytics-routing-cash.html`, final with your 16 answers). Next: TASK-070, machine performance tiers
+  and category totals, in a new Analytics portal.
+- Not verified: a real phone (sticker link, video recording), the Route portal with real drivers, Televend's refill window; the
+  independent reviews owed for 057, 059 fixes, 060, 061 (blocked until 23 Oct 17:00).
+
+---
+
+# Session status — 2026-10-19 (laptop session, TASK-060 review, TASK-061 part 1)
+
+- **Sign-in was down this morning** ("Sign-in service is not reachable"): after the reboot Windows had reserved the block of ports
+  54306–54405, which covers Supabase's 54321–54323, so its containers ran without their ports. Fixed with your approval of the
+  Windows prompt: those three ports are now reserved for FreshNow permanently, and Supabase was restarted. If it ever happens with
+  another port: `netsh interface ipv4 show excludedportrange protocol=tcp` (G204).
+- **TASK-061, part 1: Cash.** A new portal, "Cash" (`/app/#cash`; migration 0035 — run `pnpm migrate`), replacing the CASH COLLECTION
+  WhatsApp group. A driver records each collection with its photo, a test note put back into a machine, fuel and other expenses with
+  the receipt, and the deposit with the cash-deposit machine's receipt — and sees what they hold. The cash auditor checks each ended
+  shift with the photos and, beside every collection, what the machine's own Televend sales say it should have held (the driver never
+  sees that figure — D237); "all ok", or a question the driver answers in the app. The warehouse keeper sees no cash.
+- **TASK-060's review:** 17 findings, all real, all fixed with tests — the two that mattered most: a count's difference could be
+  posted twice, and stock still on its way in or out could be counted twice; on screen, typing "2.5" recorded 25.
+- **Privacy notice 3.0-draft changed again** (it now names cash: who sees it, how long its words stay); the two people who had agreed
+  were asked again. Do not agree on anyone's behalf. In Telegram the notice now arrives in two messages (it is over 4,096 characters).
+- **Services:** the API, worker and bot you started this morning were restarted on the new code by this session (logs in
+  `private-data/scratch/api.log`, `worker.log`, `bot.log`).
+- **After pulling:** `pnpm install`, `pnpm migrate` (0035), `pnpm build:web`, restart api, worker and bot.
+- Tests: **1,108 passed, 5 skipped** (the opt-in suites), 0 failed; typecheck clean; 35 browser checks of the Cash portal and the
+  stock fixes, no console errors.
+- Not verified: a real driver or auditor using Cash; Televend's figure on real collections; a real phone camera; the independent
+  skeptic pass of the TASK-060 review (usage limit until 23 Oct — confirmed by hand instead).
+
+---
+
+# Session status — 2026-10-16 to 18 (laptop session, TASK-058 to TASK-060)
+
+- **TASK-060: Stock.** A new portal, "Stock", for everyone who holds or sees stock (migrations 0032–0034 — run `pnpm migrate`).
+  Every carton, box and company phone has one holder on a ledger that is never edited: deliveries in; the warehouse gives out
+  and the driver confirms on their phone ("All here", or "Something is different"); give back and hand on; used and damaged with
+  a reason; counts that never show the system's figure, with big differences counted again by someone else and decided by the
+  Ops Head, the CEO or an Admin. The 19 items of the WhatsApp list are there with **no stock** — the first approved count is the
+  opening stock. **Ask the keeper to check the units** in Stock → Items before that count (some are guesses, A-T60.2).
+- **TASK-059: the Operations command centre** — every machine's state, the alarms that need someone, the cash each collection should
+  have found, the day report, and yesterday's report every morning (app first). Alarms becoming routed problems is built and **off**
+  (`OPS_ALARM_PROBLEMS`) until the company names who handles machine, stock and cash problems.
+- **Independent review** of TASK-059 and TASK-058's last parts: 25 of 27 findings confirmed, all fixed with tests. The one you would
+  have seen: machines showed "needs someone" for alarms Televend had cleared hours earlier — fixed live (50 open → 8).
+- **Privacy notice 3.0-draft changed** (it now names stock: who sees it, how long it stays). Nobody had agreed to 3.0 yet; the two
+  people asked were asked again. Do not agree on anyone's behalf.
+- **Docker:** the two other-project containers that were running (`aiaic-postgres`, `aiaic-redis`) are stopped, not removed —
+  `docker start aiaic-postgres aiaic-redis` brings them back. They stay stopped across Docker restarts.
+- **After pulling:** `pnpm install`, `pnpm migrate` (0028–0034), `pnpm build:web`, restart api, worker and bot.
+- Tests: **1,067 passed, 5 skipped** (the opt-in suites) before the last three changes, whose own tests pass; typecheck clean;
+  22 browser checks of the Stock portal and 17 of the command centre.
+- Not verified: a real keeper or driver using Stock; notices on a real phone; photos on stock documents in a browser; the independent
+  review of TASK-060 (running).
+
+---
+
+# Session status — 2026-10-15, evening (laptop session, TASK-057)
+
+- **TASK-057: roles and permissions.** Seven new roles — Admin, Ops Head, Supervisor, Cash auditor, Warehouse keeper, Technician,
+  VMO — in one permission table (`core/permissions.ts`, mirrored in Postgres as `role_capability`; migration 0025 — run
+  `pnpm migrate`). The People page offers only the roles you may give, each with a line on what it allows. Your decisions: Admin sees
+  everything but is not the CEO (cannot make Admins, change the CEO's account, or act in the CEO's name); Ops Head and Supervisor give
+  work to their reports; the field roles report on their own work only.
+- **Four live defects fixed** (they predate this work): changing one's own department/site/shift in the bot; the bot processing
+  withdrawn or disabled people; the CEO able to /withdraw in the bot; the bot's status buttons accepting anyone's task.
+- **The worker stopped for two hours tonight** (≈19:28–21:40 Dubai): a dropped Gmail connection crashed it (G174). Fixed and tested;
+  nothing was waiting to be sent, and the Televend mirror caught up on restart. Restart the worker after pulling.
+- **Review:** the independent review agents hit the weekly limit (resets 19 Oct), so this change was reviewed by hand — two findings
+  fixed (an Admin could have taken over the CEO's email identity; the CEO's role handover had been removed by mistake). Run the
+  independent review before giving the new roles to real people.
+- **After pulling:** `pnpm install`, `pnpm migrate` (0024, 0025), `pnpm build:web`, restart api, bot and worker.
+- Tests: **869 pass, 5 skipped** (the opt-in suites); typecheck clean, root and dashboard. Live model calls in tests can time out on a
+  slow network (G168, G175) — still your decision whether to gate them behind `RUN_LLM_LIVE=1`.
+- Not verified: the dashboard in a browser as each new role; `/dashboard/me` under real sign-in; RLS speed on large tables.
+
+---
+
+# Session status — 2026-10-15 (laptop session, TASK-055 + TASK-056)
+
+- **TASK-056: Televend now lands in our database** (migration 0023 — run `pnpm migrate`). The worker reads Televend every
+  10 minutes (`TELEVEND_SYNC_MINUTES`) and re-checks yesterday against Televend's own count after 04:00; `/health` shows
+  `televend.lagMinutes`/`stale`. History: `pnpm televend:backfill --from … --to …` (COMMANDS.md §7h). 4–15 Oct are loaded;
+  4–13 Oct equal the portal's own exports row for row (refills, alarms) and Televend's daily sales counts (VF64).
+- **Two refill gaps were found and closed by that comparison:** two juices filled in the same second (G159), and a machine that
+  moves keeps its refills on its old, switched-off Televend record — past days now read every record (G160).
+- **Running the tests used to stop the worker's Televend sync and email polling** (the suite shared the live Redis database and
+  removed the worker's schedules, G163). Fixed: tests run in Redis database 15. If syncing stopped earlier, restart the worker.
+- **An independent review of the Televend fixes found 13 real defects, all fixed with tests** (G165–G168): a failed refill read
+  is retried instead of lost, removals count as cups taken out, re-reads cannot store twins (migration 0024), and the test setup
+  refuses anything but the throwaway database. **Your decision:** tests still make real model calls with the live provider keys.
+- **The Operations + Inventory expansion has started** (plan approved 2026-10-15; D179). TASK-055 = read-only Televend access.
+- **Televend can be read, and nothing can be written.** `packages/televend`: every request must match an allow-list of
+  host + method + path before it leaves; a refused sign-in latches (the password is never retried). Live reads of 12 Oct
+  and 5 Oct matched the portal's own exports row for row (machines, refills, alarms, vends).
+- **MCP server** `packages/mcp-televend` (six read-only tools) is registered in `.mcp.json` — Claude Code asks once to
+  approve it. Commands: COMMANDS.md §7h.
+- **Data hygiene:** the WhatsApp/Televend exports and screenshots are now git-ignored (the repo is public). Real data and
+  reports with names live under `private-data/` only.
+- **The Televend account in use is admin-level and cannot see cash amounts.** Ask FreshNow's Televend admin for a
+  dedicated view-only user (with cash-centre and vend-revenue *view*), and Televend IT for read-only API credentials —
+  drafts in `private-data/reports/televend-data-inventory.html`.
+- **Docker:** the six `aiaic-*` containers were stopped at the user's request (not removed — `docker start <name>`).
+- **After pulling:** `pnpm install` (new packages + SheetJS from its CDN), `pnpm migrate` (0023, 0024), set the `TELEVEND_*` lines (see
+  `.env.example`), restart api and worker.
+- Tests: **831 pass, 5 skipped** after TASK-056 and its review fixes (the opt-in suites that need a real mail server, a live model or a real ClamAV);
+  typecheck clean; a full run leaves the running worker's schedules untouched (checked before/after). The 7 failures in this
+  session's first run were test isolation, not code: the laptop's real Gmail settings leaking into tests (5, fixed in
+  `vitest.setup.ts`, G154) and `inbound.test.ts` failing its cleanup so a leftover "Worker" broke email-inbound (2, G145).
+- Not verified: the official Televend API (no credentials yet), cash amounts (no permission), OSV-Scanner on SheetJS.
+
+---
+
 # Session status — 2026-10-07 (cloud session, TASK-054)
 
 - **Assign & notify: choose Telegram · App · Email.** A choice that cannot reach the person is greyed out with the reason

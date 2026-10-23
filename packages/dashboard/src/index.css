@@ -66,6 +66,19 @@
   --color-mark-ok: #6ea329;
   --color-mark-info: #388bfd;
   --color-mark-crit: #da3633;
+  /* The EMPHASIS pair (TASK-058): one series is the point, the other is context — today against
+     the same day last week. Validated 2026-10-15 with the dataviz validator against the panel, in
+     both themes: lightness band, colour-blind separation (ΔE 18.9 dark / 16.7 light, target ≥ 8),
+     normal-vision floor (18.7 / 18.5, ≥ 15) and contrast (≥ 3:1) all pass. The gray "fails" the
+     chroma floor by design — the context line must read as gray. */
+  --color-mark-accent: #388bfd;
+  --color-mark-base: #6e7681;
+  /* Below the fleet average (TASK-070): the warm pole of a diverging scale whose other pole is the accent blue
+     (above the average) and whose middle is the base gray (about average). Orange is the reference palette's slot 2
+     stepped for each surface (#d95926 dark, #eb6834 light). Validated 2026-10-19 against the panel in both themes:
+     lightness band, colour-blind separation (blue ↔ orange ΔE 26.8 dark / 24.7 light; orange ↔ gray 12.0 / 12.0,
+     target ≥ 8), normal-vision floor (≥ 15) and contrast (≥ 3:1) all pass; the gray fails the chroma floor by design. */
+  --color-mark-below: #d95926;
   /* Hairline gridlines and the baseline — recessive, one step off the surface. */
   --color-grid: #2c323a;
 
@@ -134,6 +147,9 @@
   --color-mark-ok: #3d6b10;
   --color-mark-info: #0550ae;
   --color-mark-crit: #a40e26;
+  --color-mark-accent: #0550ae;
+  --color-mark-base: #6e7781;
+  --color-mark-below: #eb6834;
   --color-grid: #e1e4e8;
 
   /* The brand fills are mode-invariant: the same green is the same green on both pages,

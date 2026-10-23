@@ -26,6 +26,15 @@ describe("validateReadOnlySql", () => {
     expect(r.sql).toMatch(/limit 50$/i);
   });
 
+  it("can neither listen to the live-sync channel nor ring it (migration 0027, D206)", () => {
+    // The change notifications name the people and projects a change concerns, for the API's
+    // filter. The question box must not be a way to read them, nor to forge one.
+    expect(validateReadOnlySql("listen freshnow_change").ok).toBe(false);
+    expect(validateReadOnlySql("select pg_notify('freshnow_change', '{}')").ok).toBe(false);
+    expect(validateReadOnlySql("with x as (select 1) select pg_notify('freshnow_change', 'x') from x").ok).toBe(false);
+    expect(validateReadOnlySql("select 1; listen freshnow_change").ok).toBe(false);
+  });
+
   it("rejects writes", () => {
     expect(validateReadOnlySql("delete from employee").ok).toBe(false);
     expect(validateReadOnlySql("drop table blocker").ok).toBe(false);

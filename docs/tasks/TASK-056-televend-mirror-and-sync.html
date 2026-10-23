@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TASK-056 — Televend mirror and 10-minute sync</title>
+<style>
+  :root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#3fb950;--warn:#d29922;--bad:#f85149;--card:#161b22;--bd:#30363d}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;max-width:980px;padding:48px 24px;margin-inline:auto}
+  h1{font-size:1.9rem;margin:0 0 4px} h2{margin-top:2.5rem;color:var(--acc);font-size:1.25rem} h3{font-size:1.05rem;margin-top:1.6rem}
+  .meta{color:var(--mut);font-size:.9rem;margin-bottom:2rem}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:18px;margin:14px 0}
+  .unverified{border-left:3px solid var(--warn)} .ok{border-left:3px solid var(--acc)}
+  code{background:#1f2630;padding:2px 6px;border-radius:4px;font-size:.9em}
+  pre{background:#1f2630;padding:12px;border-radius:8px;overflow-x:auto;font-size:.85rem;line-height:1.45}
+  .tw{overflow-x:auto} table{border-collapse:collapse;width:100%;margin:14px 0}
+  th,td{border:1px solid var(--bd);padding:7px 9px;text-align:left;font-size:.88rem;vertical-align:top} th{background:#1f2630}
+  .good{color:var(--acc);font-weight:600}.warn{color:var(--warn);font-weight:600}
+  ul{padding-left:1.1rem} li{margin:3px 0} a{color:#88c0f0}
+  .flow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0}
+  .flow span{background:#1f2630;border:1px solid var(--bd);border-radius:8px;padding:6px 10px;font-size:.85rem}
+  .flow b{color:var(--mut)}
+  @media (max-width:600px){body{padding:28px 16px}}
+</style></head><body>
+<h1>TASK-056 — Televend mirror and 10-minute sync</h1>
+<p class="meta">2026-10-15 · Operations + Inventory expansion, layer 2 · migrations <code>0023_televend_mirror.sql</code>,
+<code>0024_televend_refill_identity.sql</code> · new:
+<code>core/televend-sync.ts</code>, <code>worker/televend-job.ts</code>, <code>scripts/televend-sync.ts</code> (<code>pnpm televend:sync</code>,
+<code>pnpm televend:backfill</code>) · changed: <code>worker/jobs.ts</code>, <code>api/routes/health.ts</code>, <code>semantic/schema.yaml</code>,
+connector rows now carry their raw JSON, <code>refillKey()</code>, <code>worker/redis.ts</code> + <code>vitest.setup.ts</code> (tests in their own Redis
+database, G163) · no new dependency</p>
+
+<div class="card ok"><b>One-sentence summary:</b> what the read-only connector reads now lands in nine tables in our own Postgres —
+machines (with a physical-machine registry keyed on the asset number), every vend, alarm and refill — kept current by a worker job every
+10 minutes that never stores anything twice, re-checks every past day against Televend's own count, and reports its health on
+<code>/health</code>.</div>
+
+<h2>What was asked</h2>
+<ul>
+  <li>After the MCP server: "build the necessary pipeline … so that all the information will be loaded, pipelined and displayed" —
+      the previous days first, then every ~10 minutes as events happen (plan §8–§9, TASK-056).</li>
+</ul>
+
+<h2>What was done</h2>
+<div class="tw"><table>
+<tr><th>Area</th><th>Change</th></tr>
+<tr><td>Database (0023)</td><td><code>tv_machine</code>, <code>tv_machine_caption</code> (every name a machine has had), <code>machine</code> (one per asset
+  number, QR token for the visit sticker, label that follows Televend unless set by hand), <code>machine_placement</code>, <code>tv_vend</code>,
+  <code>tv_event</code>, <code>tv_refill</code>, <code>tv_sync_run</code>, <code>tv_sync_cursor</code>. RLS enabled + forced, CEO-only select until
+  TASK-057; writes on the service role. Natural unique keys everywhere; BRIN indexes on time.</td></tr>
+<tr><td>Sync engine</td><td><code>core/televend-sync.ts</code>: <code>syncMachines</code> (+ placements, refill detection), <code>syncVendsWindow</code>,
+  <code>syncEventsWindow</code> (resolutions update rows), <code>syncRefillsDay</code>, <code>runIncrementalSync</code>, <code>checkDay</code>,
+  <code>backfillDays</code>, <code>televendHealth</code>. Every run writes a <code>tv_sync_run</code> row.</td></tr>
+<tr><td>Worker</td><td><code>televend-sync</code> BullMQ job scheduler, every <code>TELEVEND_SYNC_MINUTES</code> (default 10), one attempt per run (the
+  connector already retries inside a run), one long-lived Televend session per worker; a <code>job_run</code> row per run.</td></tr>
+<tr><td>Health</td><td><code>/health</code> → <code>televend: {configured, lastSyncAt, lastSyncOk, lagMinutes, stale, lastError}</code>; stale after 30 min.</td></tr>
+<tr><td>Commands</td><td><code>pnpm televend:sync</code> (one run), <code>pnpm televend:backfill --from … --to … [--streams] [--max-requests]</code>.</td></tr>
+<tr><td>Semantic layer</td><td>All nine tables documented per column, with FK purposes; the column-accurate test passes both ways.</td></tr>
+<tr><td>Tests</td><td>19 database tests (real throwaway Postgres, scripted Televend) + 2 date tests + 3 worker tests; connector tests for
+  disabled records' refill logs, the removal code, and same-second refills in two columns of an export; MCP tests for removals and
+  record selection.</td></tr>
+</table></div>
+
+<h2>Why it was done this way</h2>
+<h3>A mirror, not live calls from every screen</h3>
+<p>The Operations portal, the reconciliation rules and the app need Televend's data joined with our own stock, cash and visits, at the
+speed of a database query, and still available when Televend is slow or down. Televend is read on a schedule, paced at one request per
+second; screens read Postgres.</p>
+<h3>Never twice, never "probably complete"</h3>
+<ul>
+  <li>Vends are keyed on Televend's vend id; events on the event id (upserted: an alarm resolved later updates its row); refills — which
+      have no id — on machine asset number + time to the second + machine column + action + quantity, so the same refill from the API and
+      from an export is one row.</li>
+  <li>A stream's cursor moves only after a complete read. Incremental windows overlap the last read (30 min vends, 60 min events) because
+      telemetry boxes that were offline upload late with their original timestamps.</li>
+  <li>Once a day after 04:00 (after the night shift) yesterday is re-read whole and its vends compared with Televend's own whole-day count —
+      the only way a day is marked complete (G147). A day that will not complete is tried at most three times.</li>
+</ul>
+<h3>A bug the exports caught (G159)</h3>
+<p>The first refill key (asset number + second + action + quantity) silently dropped a genuine refill: a two-column machine logged
+two fills in the same second with the same quantity, one per product. The backfill's "65 read, 64 new" for 11 Oct prompted the check
+against the CSV, which showed the two rows differ only in column and product. The column is now part of the key; the stored rows were
+re-keyed and the affected days re-read (the dropped refill came back); a test covers the case. The lesson stays in the design: a
+backfill compared with an independent source catches what unit tests written from assumptions do not.</p>
+<h3>A second gap the same comparison caught (G160, G161)</h3>
+<p>After that fix, three refill rows were still only in the export — all one machine, on 4 and 6 Oct. The machine had moved to a new
+site: Televend gave it a new record and disabled the old one. The old record keeps its refill log, including the row of the machine
+being emptied before the move, but the machines list no longer shows its last refill — and a whole-day read asked enabled records
+only. A past day now asks <b>every</b> record, enabled or not (221 instead of 87 requests a day, D193): nothing in Televend's list says
+which disabled record was live on a given day, so pruning would be a guess. A record that turns disabled between two syncs has that
+day's log read at once. The comparison also named an unmapped Televend code — refill type 4 from source 3 is the export's
+"Removed / Televend" — and the one stored row was corrected and re-keyed before the re-read, so it is not stored twice.</p>
+<h3>Running the tests stopped the sync (G163)</h3>
+<p>While watching the 10-minute cadence, the sync stopped. The test suite used a throwaway Postgres but the developer's live Redis
+database, because both queue modules read only host and port from <code>REDIS_URL</code>. An opt-in email test starts the background
+jobs; with Televend settings cleared under tests, that start removed the live <code>televend-sync</code> schedule, and its teardown
+removed the email schedules — and a running worker only registers schedules when it starts. Now one <code>redisConnection()</code> reads
+the whole URL including the database number, and the suite runs in its own database (15) and refuses to run in the live one. Redis's
+own command log confirmed it: the same opt-in run sent all its commands to database 15, and the live schedules survived.</p>
+<h3>An independent review of the fixes (G165–G168, D195)</h3>
+<p>Two reviewers read the day's changes cold — one the Televend code, one the test setup — and a third tried to refute every finding:
+13 of 14 were confirmed, one was judged uncertain (it needs a test option this repository does not use) and hardened anyway. All
+are fixed, each with a test:</p>
+<div class="tw"><table>
+<tr><th>Found</th><th>Fixed</th></tr>
+<tr><td>The daily check was gated on vends alone: a failed refill or event re-read of yesterday was never retried</td><td>gated per stream,
+  at most 3 attempts each; one failing stream no longer stops the others</td></tr>
+<tr><td>The machines' new state was saved before the refill reads it called for — a later failure lost the read for good</td><td>reads
+  first; a record whose read failed keeps its old state and is asked again next run (D195)</td></tr>
+<tr><td>A read covered one business day: an emptying at 23:57 seen at 00:05 was looked up under the next day</td><td>reads span the
+  previous sync's day to today (at most two)</td></tr>
+<tr><td>A refill's key changed when a record's name changed number or a code got its meaning — re-reads stored twins</td><td>Televend's
+  own identity of an API row is unique too (0024); stored "unknown" rows are re-mapped before every read</td></tr>
+<tr><td>A "Removed" row's positive quantity was summed as cups added (MCP net change +106 where +22 was true)</td><td><code>refillCupsDelta</code>;
+  semantic-layer note corrected</td></tr>
+<tr><td>The MCP tool answered "0 refills" for a machine number no record has</td><td>it says no record carries that number, and lists the
+  records it asked</td></tr>
+<tr><td>The test setup dropped whatever schema TEST_DATABASE_URL_SERVICE named, kept RLS queries on the live database without
+  TEST_DATABASE_URL, sent traces to the live Langfuse project, and its Redis guard could be fooled by <code>127.0.0.1</code> vs
+  <code>localhost</code></td><td>refuses unless both test URLs name freshnow_test, differ from the live ones and the server confirms; both
+  URLs required; LANGFUSE_* cleared; hosts compared normalised, the live URL captured once</td></tr>
+</table></div>
+<p>Left open, as a decision rather than a defect: the suite makes real model calls with the live provider keys, on purpose
+(<code>vitest.config.ts</code>), which shares the live system's rate limits and does not count against its daily budget.</p>
+<h3>Deviations from the plan, stated</h3>
+<ul>
+  <li>Per-row raw JSON + <code>tv_sync_run</code> replace the planned <code>tv_raw_page</code> (D188).</li>
+  <li>Vehicle, team, shift window, site and the "system" actor move to the tasks that use them (D191).</li>
+  <li>No live-sync triggers on these tables until realtime is scoped (TASK-058), or every open dashboard would re-fetch its task lists
+      every 10 minutes (D192).</li>
+  <li>The official-API transport is not scheduled yet — it is a stream consumer and no credentials exist.</li>
+</ul>
+
+<h2>How it works</h2>
+<div class="flow"><span>BullMQ scheduler (10 min)</span><b>→</b><span>runIncrementalSync</span><b>→</b><span>syncMachines → refills of machines whose
+last refill moved</span><b>→</b><span>vends / events since cursor − overlap</span><b>→</b><span>upsert on natural keys</span><b>→</b><span>cursor moves if
+complete</span><b>→</b><span>after 04:00: checkDay(yesterday) vs Televend's count</span></div>
+<pre>-- an alarm resolved after the first read updates its row; nothing is inserted twice
+insert into tv_event (…) values (…)
+on conflict (source, external_id) do update set resolved_at = excluded.resolved_at, counter = excluded.counter, …
+where tv_event.resolved_at is distinct from excluded.resolved_at or tv_event.counter is distinct from excluded.counter
+returning (xmax = 0) as inserted      -- counts new vs changed for tv_sync_run (G158)</pre>
+
+<h2>Concepts and techniques used</h2>
+<ul>
+  <li><b>Change-data mirroring with high-water marks</b> — a cursor per stream that only moves after a complete read.</li>
+  <li><b>Overlapping windows for late-arriving data</b> — re-read a margin; idempotent keys make the overlap free.</li>
+  <li><b>Reconciliation against the source's own totals</b> — completeness is measured, not assumed.</li>
+  <li><b>Upsert with a change guard</b> — update only when something changed, so <code>last_seen_at</code> and counts mean something.</li>
+  <li><b>Physical asset vs system record</b> — one machine, many Televend records over time (placements), the human key (asset number) kept.</li>
+  <li><b>Bounded retries at two levels</b> — inside a run (connector) and across runs (next schedule; max 3 daily-check attempts).</li>
+</ul>
+
+<h2>Research findings</h2>
+<ul>
+  <li>Televend serves whole-day vend counts back at least a year and events back to at least April 2026 through the web endpoints (VF62) —
+      history can be backfilled from Televend itself; the portal exports remain a fallback.</li>
+  <li>The official Data-Streaming API keeps 7 days (TASK-055 research) — the history must come before the switch to it.</li>
+</ul>
+
+<h2>Verification</h2>
+<div class="tw"><table>
+<tr><th>Check</th><th>How</th><th>Result</th></tr>
+<tr><td>Re-reading inserts nothing twice</td><td>tests (vends, events, refills incl. API + export copy of one refill); live second run</td><td class="good">0 duplicates; live second run 5 requests, only genuinely new rows</td></tr>
+<tr><td>Resolution updates, not duplicates</td><td>test</td><td class="good">pass</td></tr>
+<tr><td>Cursor moves only after a complete read</td><td>test with an incomplete source</td><td class="good">pass</td></tr>
+<tr><td>Refill after midnight read under its own date</td><td>test (23:55 refill, 00:05 sync)</td><td class="good">pass</td></tr>
+<tr><td>Daily check once, max 3 attempts</td><td>test</td><td class="good">pass</td></tr>
+<tr><td>Renames / asset change / manual label</td><td>test</td><td class="good">pass</td></tr>
+<tr><td>A moved machine's old record is still read (G160)</td><td>tests: whole day asks disabled records; enabled → disabled flip reads that day once</td><td class="good">pass</td></tr>
+<tr><td>Partial failures lose nothing (G165)</td><td>tests: refill read fails then succeeds; vends fail while events and refills
+  run; the daily check retries only the failed stream; emptying at 23:57 seen at 00:05</td><td class="good">pass</td></tr>
+<tr><td>No twin after a name-number change or a newly mapped code (G167)</td><td>tests against the real index (0024)</td><td class="good">pass</td></tr>
+<tr><td>The test setup refuses a live database (G168)</td><td>run with a test URL naming another database</td><td class="good">refused before
+  connecting</td></tr>
+<tr><td>Full suite after the review fixes</td><td><code>pnpm verify</code></td><td class="good">831 pass, 5 skipped (opt-in: real mail server,
+  live model, real ClamAV); typecheck clean; the running worker's schedules untouched</td></tr>
+<tr><td>The reviewed code live</td><td>0024 applied; worker and api restarted</td><td class="good">first run 13:21 UTC ok (17 vends, 4 events);
+  <code>/health</code> shows <code>yesterdayIncomplete: []</code></td></tr>
+<tr><td>Tests cannot stop the live sync (G163)</td><td>the opt-in scheduler test + the escalation test run under Redis <code>MONITOR</code>; live schedules listed before and after</td><td class="good">all 263 test commands in database 15; database 0 saw only the live worker's polling; its 3 schedules survived</td></tr>
+<tr><td>CEO-only until TASK-057</td><td>RLS test as CEO and as an employee</td><td class="good">pass</td></tr>
+<tr><td>Yesterday complete against Televend's count</td><td>first live run (daily check of 14 Oct)</td><td class="good">complete</td></tr>
+<tr><td id="backfill">Backfill 4–13 Oct vs the exports</td><td><code>pnpm televend:backfill</code>, then counts per day in the mirror vs the CSV/XLS</td><td class="good">Refills: 4–12 Oct identical to the CSV export, refill for refill (68 · 52 · 38 · 39 · 49 · 49 · 53 · 65 · 54); 13 Oct: the
+  export ends at 11:03 Dubai — all 29 of its refills are in the mirror, plus 19 later ones. Alarms: every exported alarm row found
+  (111 · 87 · 74 · 63 · 75 · 98 · 96 · 71 · 65 · 15). Vends: every day complete and equal to Televend's own count (2,479 · 1,456 ·
+  1,563 · 1,567 · 1,621 · 1,645 · 2,146 · 2,039 · 1,570 · 1,612). It took the two fixes this check found (G159, G160); the re-read of
+  4–14 Oct was 2,464 requests with one sign-in.</td></tr>
+<tr><td id="observed">Lag over an observed hour</td><td>worker running, <code>/health</code></td><td class="good">15:01–16:31 Dubai on 15 Oct, after the G163 fix: 10 runs, every one ok, each exactly 10.0 minutes after the last, ≈ 6
+  requests a run; at the end <code>/health</code> lag 6 min and the newest stored vend 8 min old (target &lt; 15)</td></tr>
+</table></div>
+
+<h2 class="warn">What we have not verified</h2>
+<div class="card unverified"><ul>
+  <li>Weeks of unattended running: Keycloak session end and re-sign-in, Televend outages against the circuit breaker, disk growth of <code>raw</code>.</li>
+  <li>That 30/60-minute overlaps catch every late upload (A-T56.1) — the daily check catches the rest, but only for yesterday.</li>
+  <li>The official-API transport in the pipeline (no credentials).</li>
+  <li>Retention and erasure of staff names copied from Televend (A-T56.2) — waits for the people mapping (TASK-057) and the notice update.</li>
+  <li>How far back Televend serves history (earliest date not searched; refills and events older than April 2026 untested).</li>
+  <li>Load on the shared VPS: measured only on the laptop.</li>
+  <li>Refill codes 2 and 3 have never been seen; rows carrying them are stored as "unknown" and must be re-normalised and re-keyed when
+      their meaning is learned (G161).</li>
+  <li>The enabled → disabled flip on a live machine move: covered by a test only — no machine moved while the worker was watching.</li>
+  <li>The partial-failure paths (G165) against the real Televend — tested with a scripted source only; no real failure happened
+      while watching.</li>
+  <li>The test-database guard's "same server and database" branch: refusing on the name fired first in the only safe check.</li>
+  <li>A daily check that reads every machine record's refills has not run on its own yet: 14 Oct was checked before the G160 fix
+      (and re-read by hand afterwards); the first is due after 04:00 Dubai on 16 Oct.</li>
+</ul></div>
+
+<h2>Open questions</h2>
+<ul>
+  <li>How much history should be loaded (vends exist back to at least Oct 2025; a year is ≈ 10,000+ paced requests per stream)?</li>
+  <li>Retention for Televend copies in our database (sales are business records; names are personal data).</li>
+</ul>
+</body></html>

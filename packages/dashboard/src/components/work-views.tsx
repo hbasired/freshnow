@@ -1,22 +1,5 @@
 import { useMemo, useState } from "react";
-import {
-  api,
-  companyToday,
-  dmon,
-  hhmm,
-  NOTIFY_CHOICES,
-  progressLabel,
-  type AddedPerson,
-  type Blocker,
-  type DayUpdate,
-  type Employee,
-  type NeedsReview,
-  type NewPerson,
-  type NotifyChoice,
-  type OpenTask,
-  type PersonReach,
-  type ProgressSource,
-} from "../lib/api";
+import { api, companyToday, dmon, hhmm, NOTIFY_CHOICES, progressLabel, type AddedPerson, type Blocker, type DayUpdate, type Employee, type NeedsReview, type NewPerson, type NotifyChoice, type OpenTask, type PersonReach, type ProgressSource, type RoleChoice } from "../lib/api";
 import { Button, Select, TextField, Toast, useAction } from "./form";
 import { Icon } from "./icons";
 import { Age, Card, Demo, Empty, Severity } from "./ui";
@@ -514,13 +497,36 @@ export function ChannelPicker({
  * where they sit and who they report to. A Telegram invite code bound to the same person is made
  * too, so joining the bot later never creates a second them.
  */
-export function AddPersonCard({ viewer, people, onAdded, onClose }: { viewer: string; people: Employee[]; onAdded: () => void; onClose?: () => void }) {
+export function AddPersonCard({
+  viewer,
+  people,
+  onAdded,
+  onClose,
+  roles,
+  leading,
+}: {
+  viewer: string;
+  people: Employee[];
+  onAdded: () => void;
+  onClose?: () => void;
+  /** The roles this person may give (from /dashboard/me); absent: the three of old. */
+  roles?: RoleChoice[] | undefined;
+  /** Roles that lead people; only they are offered under "Reports to". */
+  leading?: string[] | undefined;
+}) {
   const act = useAction();
   const blank: NewPerson = { displayName: "", email: "", department: "", roleTitle: "", site: "", shift: "", accessRole: "employee", managerEmployeeId: null, telegramInvite: true };
   const [f, setF] = useState<NewPerson>(blank);
   const [done, setDone] = useState<(AddedPerson & { name: string }) | null>(null);
   const set = <K extends keyof NewPerson>(k: K, v: NewPerson[K]) => setF((x) => ({ ...x, [k]: v }));
-  const managers = people.filter((p) => p.status === "active" && p.access_role !== "employee");
+  const managers = people.filter((p) => p.status === "active" && (leading ? leading.includes(p.access_role) : p.access_role !== "employee"));
+  const roleOptions = roles?.length
+    ? roles.map((r) => ({ value: r.role, label: `${r.label} — ${r.describe}` }))
+    : [
+        { value: "employee", label: "Employee — their own work" },
+        { value: "manager", label: "Manager — their reports" },
+        { value: "lead", label: "Dept lead — their department" },
+      ];
 
   return (
     <Card>
@@ -569,11 +575,7 @@ export function AddPersonCard({ viewer, people, onAdded, onClose }: { viewer: st
           label="Access"
           value={f.accessRole ?? "employee"}
           onChange={(v) => set("accessRole", v as NewPerson["accessRole"])}
-          options={[
-            { value: "employee", label: "Employee — their own work" },
-            { value: "manager", label: "Manager — their reports" },
-            { value: "lead", label: "Dept lead — their department" },
-          ]}
+          options={roleOptions}
         />
         <label className="flex items-center gap-2 text-sm sm:col-span-2">
           <input type="checkbox" checked={f.telegramInvite ?? true} onChange={(e) => set("telegramInvite", e.target.checked)} className="size-4" />

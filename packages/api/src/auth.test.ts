@@ -152,6 +152,26 @@ describe("dashboard sign-in with a Supabase JWT", () => {
     expect(await status("/dashboard/me")).toBe(401);
   });
 
+  // The router matches the DECODED path; a guard that looked at the raw URL let "/%64ashboard/…"
+  // reach every dashboard route as ?viewer= or the CEO (TASK-058 review, critical). Whatever the
+  // spelling, the route it reaches decides — and a write is refused just the same.
+  it("is not walked round by spelling the path differently", async () => {
+    for (const url of ["/%64ashboard/blockers", "/%64ashboard/blockers?viewer=ceo", "/dashboard/%62lockers", "/%64ashboard/me", "/%65mployees"]) {
+      const r = await app.inject({ method: "GET", url });
+      expect([401, 404], url).toContain(r.statusCode);
+      expect(r.statusCode, url).not.toBe(200);
+    }
+    expect(await post(`/%64ashboard/people/${PRIYA}/erase`, {}, {})).toBe(401);
+  });
+
+  it("does not take a correlation id that is not a UUID — the audit trail could not store it", async () => {
+    const r = await app.inject({ method: "GET", url: "/health", headers: { "x-correlation-id": "x" } });
+    expect(r.headers["x-correlation-id"]).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+    const id = randomUUID();
+    const kept = await app.inject({ method: "GET", url: "/health", headers: { "x-correlation-id": id } });
+    expect(kept.headers["x-correlation-id"]).toBe(id);
+  });
+
   it("refuses tokens that are malformed, unpublished-key, expired, other-project or other-audience", async () => {
     const bad: [string, string][] = [
       ["not a JWT", "not-a-jwt"],

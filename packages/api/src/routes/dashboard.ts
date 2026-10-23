@@ -1,17 +1,9 @@
 import { timingSafeEqual } from "node:crypto";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import {
-  IS_DEMO,
-  answerQuestion,
-  companyToday,
-  generateAllEodReports,
-  hasCurrentConsent,
-  loadConfig,
-  withContext,
-} from "@freshnow/core";
+import { IS_DEMO, answerQuestion, companyToday, generateAllEodReports, hasCurrentConsent, loadConfig, withContext, ACCESS_ROLES, ROLE_INFO, can, capabilitiesOf, grantableRoles, mayLeadPeople } from "@freshnow/core";
 import { DASHBOARD_HTML } from "../dashboard-page.js";
-import { AuthError, authEnabled, viewerFromToken } from "../auth.js";
+import { APP_ROUTES, AuthError, authEnabled, isGuardedRoute, viewerFromToken } from "../auth.js";
 // Reads run under the viewer's RLS context via withContext (the app role,
 // RLS-enforced), so an employee sees only their own rows and the CEO sees all —
 // enforced by Postgres, not by the handler. See ../viewer.ts for who the viewer is.
@@ -54,7 +46,9 @@ export function registerDashboardRoutes(app: FastifyInstance): void {
   app.addHook("onRequest", async (req, reply) => {
     const expected = loadConfig().DASHBOARD_TOKEN;
     if (!expected) return;
-    if (!req.url.startsWith("/dashboard") && req.url !== "/") return;
+    // The matched route, not the raw URL — see isGuardedRoute.
+    const route = req.routeOptions.url ?? "";
+    if (!route.startsWith("/dashboard") && route !== "/") return;
 
     const supplied =
       (req.headers["x-dashboard-key"] as string | undefined) ??
@@ -108,10 +102,16 @@ export function registerDashboardRoutes(app: FastifyInstance): void {
   // Supabase JWT — never from a value the caller controls. A no-op in demo mode (no
   // SUPABASE_URL). Registered on the root instance, so it covers /employees too.
   app.addHook("preHandler", async (req, reply) => {
-    const guarded = req.url.startsWith("/dashboard") || req.url.startsWith("/employees");
-    if (!authEnabled() || !guarded) return;
+    if (!authEnabled() || !isGuardedRoute(req)) return;
     try {
       const v = await viewerFromToken(req.headers.authorization);
+      // A phone sign-in reaches only the routes opened to the app (D210) — never the whole dashboard.
+      if (v.via === "app" && !APP_ROUTES.has(`${req.method} ${req.routeOptions.url ?? ""}`)) {
+        return reply.code(403).send({
+          error: { code: "not_in_app", message: "This is not available in the app.", correlationId: req.correlationId },
+        });
+      }
+      req.viewerVia = v.via;
       // The REAL employee id, always — never the "ceo" label. Collapsing a signed-in CEO to
       // "ceo" made `actorOf` resolve them to DEMO_CEO_ID, so every write by any real CEO
       // was audited as the seeded demo employee and shared its rate-limit counter. The one
@@ -129,8 +129,8 @@ export function registerDashboardRoutes(app: FastifyInstance): void {
       // this, the same token could read the board straight from the API. Open without consent:
       // who you are, the consent routes themselves, and the live stream — which carries table
       // names only, never a row.
-      const path = req.url.split("?")[0] ?? req.url;
-      if (!CONSENT_FREE_PATHS.has(path) && !(await hasCurrentConsent(v.employeeId))) {
+      // The matched route again: an encoded spelling of a consent-free path must not count as another one.
+      if (!CONSENT_FREE_PATHS.has(req.routeOptions.url ?? "") && !(await hasCurrentConsent(v.employeeId))) {
         return reply.code(403).send({
           error: {
             code: "consent_required",
@@ -162,9 +162,15 @@ export function registerDashboardRoutes(app: FastifyInstance): void {
       // the id to tell its own tasks apart from everyone else's.
       employeeId: v.employeeId,
       isCeo: v.isCeo,
-      // What the browser may offer: a manager or lead gets the assign form, an employee
-      // does not. The API refuses either way; this only avoids buttons that can only fail.
+      // What the browser may offer, decided HERE from the one permission table (TASK-057): the
+      // browser shows buttons from `capabilities` and never reasons about role names. The API
+      // refuses either way; this only avoids buttons that can only fail.
       accessRole: v.accessRole,
+      roleLabel: ROLE_INFO[v.accessRole]?.label ?? v.accessRole,
+      capabilities: [...capabilitiesOf(v)],
+      grantableRoles: grantableRoles(v).map((r) => ({ role: r, ...ROLE_INFO[r] })),
+      leadingRoles: ACCESS_ROLES.filter((r) => mayLeadPeople(r)),
+      allRoles: ACCESS_ROLES.map((r) => ({ role: r, ...ROLE_INFO[r] })),
       department: v.department,
       displayName: req.viewerName ?? (v.displayName || null),
       authRequired: authEnabled(),
@@ -185,7 +191,7 @@ export function registerDashboardRoutes(app: FastifyInstance): void {
       sql`select id, display_name, department, role_title, site, shift, status, is_synthetic,
                  (telegram_user_id is not null) as linked,
                  (email is not null) as has_email,
-                 case when ${viewer.isCeo} then email end as email,
+                 case when ${can(viewer, "people.manage")} then email end as email,
                  access_role, manager_employee_id,
                  employee_display_name(manager_employee_id) as manager_name
           from employee order by display_name
@@ -248,8 +254,12 @@ export function registerDashboardRoutes(app: FastifyInstance): void {
       // `id` is selected so the browser can key rows on it. Keying on
       // (created_at, action, actor) collided for batch writes, which share a timestamp to
       // the millisecond — React then reused the wrong row's DOM node.
+      // Phone sign-ins and sign-outs stay in the audit trail but not on this screen: a feed of who
+      // signed in when is an attendance log, and the privacy notice (3.0) promises they are used
+      // only to keep accounts safe. Wrong PINs and stopped sign-ins still show — those are security.
       sql`select id, action, actor, entity, created_at, correlation_id
-          from audit_log order by created_at desc limit 40`),
+          from audit_log where action not in ('app.signed_in', 'app.signed_out')
+          order by created_at desc limit 40`),
   );
 
   function dayOf(req: { query: unknown }): string {
@@ -440,8 +450,8 @@ export function registerDashboardRoutes(app: FastifyInstance): void {
   app.post("/dashboard/eod/generate", async (req, reply) => {
     // Generating writes a report for every employee and spends model calls, so with real
     // sign-in it is the CEO's action. In demo mode there is no identity to check.
-    if (authEnabled() && !req.viewerIsCeo) {
-      return reply.code(403).send({ error: { code: "forbidden", message: "Only the CEO can generate reports" } });
+    if (authEnabled() && !can({ isCeo: req.viewerIsCeo === true, accessRole: req.viewerRole ?? null }, "reports.generate_all")) {
+      return reply.code(403).send({ error: { code: "forbidden", message: "Only the CEO or an Admin can generate everyone's reports" } });
     }
     const reports = await generateAllEodReports();
     return { generated: reports.length, date: reports[0]?.reportDate ?? null };
@@ -451,8 +461,8 @@ export function registerDashboardRoutes(app: FastifyInstance): void {
   app.post("/dashboard/query", async (req, reply) => {
     // Generated SQL runs as the service role (see the note below), so once sign-in is real
     // this box belongs to the CEO alone. In demo mode there is no identity to check.
-    if (authEnabled() && !req.viewerIsCeo) {
-      return reply.code(403).send({ error: { code: "forbidden", message: "Only the CEO can ask questions here" } });
+    if (authEnabled() && !can({ isCeo: req.viewerIsCeo === true, accessRole: req.viewerRole ?? null }, "data.ask")) {
+      return reply.code(403).send({ error: { code: "forbidden", message: "Only the CEO or an Admin can ask questions here" } });
     }
     const body = QueryBody.parse(req.body);
     // The query runs behind the asker's own RLS context, not the service role, so the

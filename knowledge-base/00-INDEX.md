@@ -407,6 +407,111 @@ Routing goes to the **CEO only** for now (company routing data not yet supplied)
   its list** — new Pending work, Completed and Problems pages with filters in the URL (D176). `reset-employee` fixed for email
   rows (G143). 683 tests (VF50), 34/34 browser checks (VF51).
   -> `docs/tasks/TASK-054-assign-by-email-channels-people-overview.html` · `EMAIL-DEMO-GUIDE.md` · COMMANDS.md §7g
+- **T55 Read-only Televend connector and MCP server** (2026-10-15): first task of the user-directed Operations + Inventory
+  expansion (D179). `packages/televend`: every request passes an allow-list of host + method + path before it leaves (D180); a
+  refused credential latches — the password is never retried (D181); three transports — bridge (chosen until the official API
+  exists), official Data-Streaming, export files (D182); windowed reads replace Televend's drifting paging (D183, G148). Televend's
+  vend count ignores the time of day (G147); request-shape traps (G149); machines get renamed (G150). `packages/mcp-televend`:
+  six read-only MCP tools, answers computed in code, names as initials (D184), registered in `.mcp.json`. A live read matched the
+  portal exports row for row (VF57); the WhatsApp cash posts line up with Televend's own cash-collected events (VF59). Company data
+  git-ignored, never committed (D186); Televend registered for compliance (R2/R5 production blockers until the DPA and notice).
+  -> `docs/tasks/TASK-055-televend-readonly-connector-mcp.html` · `pnpm televend:probe` · `pnpm televend:verify`
+- **T56 Televend mirror and 10-minute sync** (2026-10-15): migration 0023 — a read-only local mirror of Televend (machines with
+  name history, vends, events, refills, sync runs and cursors) plus our own machine registry keyed on the asset number, with a QR
+  token per machine (D187, D190). Per-row raw JSON instead of a raw-page table (D188). The worker syncs every 10 min with
+  overlapping windows; cursors move only after complete reads; after 04:00 yesterday is re-checked against Televend's own count,
+  at most 3 tries (D189). Tables arrive with the task that uses them (D191); no live-sync triggers until realtime is scoped (D192).
+  Info events never resolve (G156). History back at least a year for vends (VF62); first live syncs (VF63).
+  Comparing the backfill with the exports found two refill gaps: the key needs the machine column (G159), and a moved machine's
+  old, disabled record keeps its refill log — a past day asks every record (G160, D193); refill code 4 = Removed (G161); a machine
+  with no number in its name has two refill identities (G162). After the fixes 4–13 Oct equal the exports row for row (VF64) and
+  the worker holds lag under 15 min (VF65). The test suite had shared the live worker's Redis database and could remove its
+  schedules — now it runs in its own (G163, D194). Only SPEC-000 and SPEC-003 exist (G164).
+  An independent review (13 of 14 findings confirmed) led to: partial failures lose no read and the daily check retries per
+  stream (G165, D195); a removal is cups taken out (G166); a refill has two identities, migration 0024 (G167); the test setup
+  can no longer reach a live database or the live Langfuse project (G168).
+  -> `docs/tasks/TASK-056-televend-mirror-and-sync.html` · `pnpm televend:sync` · `pnpm televend:backfill`
+- **T57 Roles and permissions** (2026-10-15): seven roles (Admin, Ops Head, Supervisor, Cash auditor, Warehouse keeper,
+  Technician, VMO) in one capability table — permissions.ts + its database twin role_capability (0025), a test that they agree
+  (D196). Admin reads everything but is not the CEO (D197); only roles that lead people may be managers (D198); the bot's document
+  planning kept CEO/Admin (D199); department/site/shift self-filled once (D200); addresses are identities (D201); the CEO still
+  hands the role over (D202). Four live defects fixed first (G170, G171); deny-lists grant new roles everything (G169); RLS UPDATE
+  filters silently (G172); the dashboard's exactOptionalPropertyTypes (G173). An unheard "error" event stopped the worker for two
+  hours — listeners added (G174); bot tests must not send free text (G175). Verified per role (VF66); assumptions A-T57.1–2.
+  -> `docs/tasks/TASK-057-roles-and-permissions.html`
+- **T58 Platform plumbing** (2026-10-15/16): photos and videos in Supabase Storage with location removed (0026, D203–D205; one
+  record per uploader, server-decided retention, 0030, D212); live updates scoped to the people they concern (0027, D206; the
+  picture's candidate shortcut, G179, D207; limits as settings, D209; function hardening, 0029, D211, G181–G183) — 300 and 1,000
+  streams measured (VF68); a portal registry with per-portal code and data (D208, VF69) and the Operations portal's first chart,
+  shown only for time the mirror read (D214, G188, G189, VF70, VF71); phone sign-in (0028, D210, deviation 15); privacy notice
+  3.0 (D215) with the Firebase wake-up carrying no content (D213) and two promises made true first — the question box reads only
+  its documented tables and the activity feed leaves sign-ins out (D216). Telegram's 4,096-character limit (G187, VF72); the CSP
+  hash on a Windows checkout (G180); browser-check timing (G184); Recharts typings (G185). Assumptions A-T58.3–A-T58.7.
+  -> `docs/tasks/TASK-058-media-live-portals-phone-sign-in.html` · `pnpm live:load` · COMMANDS.md §7i
+  Its independent review: ten phone sign-in findings, all fixed (D219); a critical sign-in bypass by spelling the path
+  differently (G191) and correlation ids that must be UUIDs (G192).
+- **T59 Operations command centre** (2026-10-16/17): the app is the main channel, Telegram an option (D217, user). Migration
+  0031 — 13 alarm rules from the measured data with ISA-18.2 on-delays; alarms past their delay become routed problems raised by
+  a system actor, closed when Televend clears them, behind `OPS_ALARM_PROBLEMS`, off until someone is named (D220). "Should have
+  found" per collection = cash vends between collections × the cash price (D221, A-T62.1; 18 of 29 matched, VF75). Now / Sales
+  by hour / Day report, a machine panel, and yesterday's report every morning at 07:30, app first (D222). Names don't say how
+  a machine is paid (G193); "open in the last 14 days" needs `started_at <= now` (G194). The WhatsApp cash process and the
+  warehouse list as they are today (VF73, VF74, G190, A-T60.1, A-T61.1–2); live and browser checks (VF76, VF77). Stock
+  corrections are approved by the Ops Head, CEO or an Admin (D218, user — for TASK-060).
+  -> `docs/tasks/TASK-059-operations-command-centre.html`
+  Its independent review (with TASK-058's last parts, 17–18 Oct): 27 findings, 25 confirmed, fixed with tests (D233) — long alarms
+  never mirrored as cleared, now refreshed by re-reading their start windows (0033, G199, G201, VF81: 50 open → 8 live); machine
+  problems folded into one alert; repeats and retired records; the question box's function hole; media and live-update robustness.
+  The morning report waits for Televend until 10:00 (D235).
+- **T60 Stock ledger and portal** (2026-10-17/18): migrations 0032 (the ledger: items, places, documents, moves, balances kept by a
+  trigger and never below zero, guards, RLS, live scope) and 0034 (only the words on stock records may be redacted). One ledger, moves
+  only, reversals (D223); handovers confirmed by the other side, the rest in transit until an approver settles it (D224); counts with
+  a hidden figure, a second person and an approver (D225, D228; D218 corrected); per place and item, delivery details on the delivery
+  (D226); one unit per item (D227); purges for practice runs only (D229, G196); no seeded stock (D230); notices and reminders (D231,
+  G198); the Stock portal for everyone who holds or sees stock (D232); the notice names stock (D234). Upserts check the proposed row
+  (G195); default privileges (G197); never run a test file during the suite (G200). Verified VF78–VF80; assumptions A-T60.2–6.
+  -> `docs/tasks/TASK-060-stock-ledger-and-portal.html`
+  Its review (18–19 Oct; skeptic not run — usage limit — so each finding checked by hand): 17 findings, all real, fixed with tests
+  (D236) — a count's difference posted twice after another correction, in-transit stock counted twice, "2.5" typed as 25, take-back
+  amounts reset on refresh, figures visible to the person counting; postgres.js cuts timestamptz binds to milliseconds (G202); a
+  full count gives every item a count line (G203).
+- **T61 part 1 — Cash ledger and portal** (2026-10-18/19): migration 0035 (accounts, shifts, entries, moves, balances in whole fils;
+  guards, RLS, live scope; a photo on a cash entry readable by whoever sees all cash). Its own ledger with stock's rules; the shift is
+  what the auditor checks; undo by the person while open and unchecked, else an auditor; question and answer in the app (D238).
+  The driver never sees Televend's "should have found" — the auditor does (D237). The Cash portal (D239); the notice names cash always
+  (D240). Assumptions A-T61.3–6; facts VF82 (every mirrored sale is one cup, no amount), VF83 + G204 (Windows reserved Supabase's
+  ports after a reboot).
+  -> `docs/tasks/TASK-061-cash-ledger-and-portal.html`
+- **T61 part 2 — Route plans and visits** (2026-10-19): migration 0036 (plans, members, stops, visits, proof, links to stock and cash
+  documents; guards, RLS, live scope; a visit's photos readable by planners). A team's shift is a plan with the sheet's words, crates
+  and proof (D241); a visit starts by the sticker's link or the typed number, never by location (D242, DEVIATIONS #17); missing proof
+  is said, not refused (D243); fill and cash on the existing ledgers (D244); the OK / NO grid with Televend's refill beside it (D245);
+  the Route portal and a switcher that wraps (D246); the notice names visits (D247). Assumptions A-T61.7–12; gotchas G205 (a video has
+  no thumbnail), G206 (read a deep link on the first render); live VF84.
+  -> `docs/tasks/TASK-061-route-plans-and-visits.html`
+- **Plan of 19 Oct — analytics, money, routes, the Televend switch** (D248): the user's request recorded verbatim with 115
+  one-line requirements (`docs/requirements/REQ-2026-10-19.md`); five phases, easiest first, and the user's 16 answers
+  (`docs/reports/plan-2026-10-19-analytics-routing-cash.html`); tasks 070–084 on the board. The earlier plan checked item by item
+  (90 deliverables, six added — plan §10).
+- **T70 — Machine performance and categories** (2026-10-19/20): migration 0037 (machines.manage; FreshNow's category correction).
+  Read days only, same weekdays whole weeks earlier, levels per machine that sold, changes on volume (D249, G210 — a flaw found by
+  the screenshot: "sales rose" while cups fell); categories = correction else Televend's region, "Not counted" (D250); income an
+  estimate from the price in the name (D251); the Analytics portal (D252). A-T70.1–5; G207 (no per-machine location), G208 (wrong
+  regions), G209 (heredoc apostrophes); VF85 (regions, prices, payment types), VF86 (first live figures).
+  -> `docs/tasks/TASK-070-machine-performance-and-categories.html`
+- **T71 — Sales history and the analytics store** (2026-10-20): migration 0038 (D253) — `sales_day`, `sales_hour`, `analytics_run`,
+  `tv_day_total`; built only from days read to their end and equal to Televend's count; hourly, and `pnpm analytics:store`;
+  `pnpm televend:day-totals`. Live: 26 Mar – 19 Oct, 208 days, each equal to Televend's count; day totals Oct 2025 – Mar 2026 (VF87,
+  VF88, VF91). G211 (a region spelled two ways), G215 (Televend's list includes both ends of a window).
+  -> `docs/tasks/TASK-071-sales-history-and-analytics-store.html`
+- **T72 — Machine page, recent sales, tiles that open** (2026-10-20): no migration. A machine as a full page across its Televend
+  records; Recent sales; the command centre's tiles open their lists; expected cash for cash.read only (D254). A-T72.1; VF89, VF90.
+  -> `docs/tasks/TASK-072-machine-page-recent-sales-live-tiles.html`
+- **The independent review of 20 Oct** (D263): two passes with a skeptic for every finding, over TASK-057, the 059 and 060 fixes, 061
+  and 070 — 53 of 57 confirmed and fixed: expected cash only for cash.read (D254), the words of a cash check stay on the shift (D255),
+  visits, stops and proof (D256), Analytics on the store, day for day, FreshNow's machines (D257), income (D258), the stock clock and
+  hidden figures (D259), alarms (D260), roles that lead people (D261), media uploads (D262); migrations 0039–0041. The second pass
+  found 24 more: 23 fixed, 1 FreshNow's choice (A-T61.14). G212–G214, G216; A-T61.13, A-T61.14. Each task page has its section.
 
 ## Blocked on the user
 - ~~`CEO_TELEGRAM_USER_ID` is empty.~~ **Resolved 2026-09-04:** CEO = 6051615734,

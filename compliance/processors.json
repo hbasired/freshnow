@@ -6,7 +6,7 @@
     "Legal grounds follow UAE Federal Decree-Law No. 45 of 2021 as read in docs/reports/ceo-deck-hostinger-final-verdict.html (Art. 22-23 for transfers abroad). A developer's reading, not a lawyer's."
   ],
   "version": 1,
-  "reviewed_on": "2026-09-30",
+  "reviewed_on": "2026-10-15",
   "hosting": {
     "provider": "this-computer",
     "name": "The demo laptop",
@@ -123,6 +123,18 @@
       "controls": {},
       "how_to_confirm": "Detected per request by the host name; refused in production.",
       "sources": ["https://developers.cloudflare.com/tunnel/"]
+    },
+    {
+      "id": "televend",
+      "name": "Televend Cloud (INTIS d.o.o.)",
+      "role": "processor",
+      "country": "outside the UAE - INTIS d.o.o. is a Croatian (EU) company; Televend does not publish its hosting region (its API addresses resolve to AWS ranges; region not confirmed)",
+      "personal_data": ["names of staff who filled machines (Televend refill log), read INTO FreshNow", "names of staff who resolved or were assigned machine alarms (Televend events)", "the integration account's own sign-in"],
+      "ground": ["contract"],
+      "dpa": { "status": "not_filed", "accepted_on": null, "note": "Televend already processes FreshNow's machine and staff data under FreshNow's own Televend subscription; the TASK-055 connector only READS it back (allow-listed GET requests). Before production, confirm that subscription includes a data processing agreement and the hosting region, file it, then set status 'accepted' and accepted_on." },
+      "controls": {},
+      "how_to_confirm": "Ask Televend (INTIS d.o.o.) for the data processing agreement under FreshNow's subscription and its hosting region; record the date here.",
+      "sources": ["https://televend.com/privacy-policy/", "https://devportal.televendcloud.com/docs/guides/intro/"]
     }
   ]
 }

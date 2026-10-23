@@ -3,6 +3,8 @@ import { z } from "zod";
 // Telegram user ids exceed 32-bit range — always carry them as bigint.
 // (knowledge-base G2: using int silently corrupts identity mapping.)
 const telegramUserId = z.coerce.bigint();
+/** `NAME=` in .env means "not set", not zero — so a blank line cannot break every loadConfig(). */
+const blankIsDefault = <T extends z.ZodTypeAny>(schema: T) => z.preprocess((v) => (v === "" ? undefined : v), schema);
 
 export const configSchema = z.object({
   /**
@@ -74,6 +76,48 @@ export const configSchema = z.object({
   PUBLIC_URL: z.string().url().optional(),
   TELEGRAM_WEBHOOK_PATH: z.string().regex(/^\/[\w\-\/]+$/).default("/telegram/webhook"),
   TELEGRAM_WEBHOOK_PORT: z.coerce.number().int().min(1).max(65535).default(3002),
+
+  // ── Phone sign-in (TASK-058, D210) ───────────────────────────────────
+  // The pepper: keys the PIN hashes and the hashes of typed codes, kept outside the database so a copy
+  // of it cannot be used to guess either. At least 32 random characters. Unset: phone sign-in answers
+  // "not set up" (503). Changing it later means everyone sets their PIN again.
+  APP_PIN_PEPPER: z.string().optional(),
+  /** Shift handovers, Asia/Dubai, "HH:MM,HH:MM": a company phone's sign-in ends at the next one (+30 min). */
+  APP_SHIFT_HANDOVERS: z.string().optional(),
+  /** A company phone silent this long needs the PIN again. */
+  APP_COMPANY_IDLE_MINUTES: blankIsDefault(z.coerce.number().int().min(5).max(24 * 60).optional()),
+
+  // ── Live updates (TASK-058) ──────────────────────────────────────────
+  // Sized by `pnpm live:load` (measured, not guessed). Past either limit a board is told to keep
+  // polling (D93) — nothing is lost, it is only slower. A blank value means the default.
+  /** Live streams one API process serves at once. */
+  LIVE_MAX_STREAMS: blankIsDefault(z.coerce.number().int().min(1).max(10_000).default(500)),
+  /** Per person — their tabs and phones — so one leaking browser cannot take every slot. */
+  LIVE_MAX_STREAMS_PER_PERSON: blankIsDefault(z.coerce.number().int().min(1).max(100).default(8)),
+
+  // ── Operations (TASK-059) ────────────────────────────────────────────
+  /**
+   * "on": a Televend alarm still open after its on-delay becomes a problem (blocker) — routed, timed,
+   * escalated, and paged like any other. Off by default: until routing rules point machine alarms at
+   * the people who run the machines, every one of ~30 a day would page the CEO. The Operations
+   * portal lists the alarms that need action either way.
+   */
+  OPS_ALARM_PROBLEMS: blankIsDefault(z.enum(["on", "off"]).default("off")),
+  /** A cash vend's price when the machine has none set (fils). A-T62.1: AED 10. */
+  OPS_DEFAULT_CASH_PRICE_FILS: blankIsDefault(z.coerce.number().int().min(100).max(100_000).default(1000)),
+
+  // ── Stock (TASK-060) ─────────────────────────────────────────────────
+  /**
+   * Minutes a handover may wait for the other side before they are reminded, once. 0 = never.
+   * A-T60.3: 30 — a team is usually still at the warehouse then.
+   */
+  INVENTORY_HANDOVER_REMIND_MINUTES: blankIsDefault(z.coerce.number().int().min(0).max(1440).default(30)),
+  /**
+   * Minutes after stock was given out before the warehouse is asked to count what is left, once per
+   * hand-out round — the CEO asks for "the stock after the first team" every morning (VF74). 0 = never.
+   * A-T60.3: 30.
+   */
+  INVENTORY_COUNT_REMIND_MINUTES: blankIsDefault(z.coerce.number().int().min(0).max(1440).default(30)),
 
   // ── Misc ─────────────────────────────────────────────────────────────
   // Store UTC in the DB, render Asia/Dubai. UAE working week is Mon–Fri.

@@ -134,7 +134,7 @@ describe("GET /dashboard/people/reach — what can reach whom, before choosing",
     const ravi = people.find((p) => p.employeeId === R)!;
     expect(ravi.telegram.ok).toBe(true);
     expect(ravi.email.ok).toBe(true);
-    expect(ravi.usual).toEqual(["telegram", "app"]); // email is opt-in for automatic messages
+    expect(ravi.usual).toEqual(["app", "telegram"]); // the app first (D217); email is opt-in for automatic messages
     const nadia = people.find((p) => p.employeeId === N)!;
     expect(nadia.telegram).toEqual({ ok: false, why: "not linked to the Telegram bot yet" });
     expect(nadia.email).toEqual({ ok: false, why: "no email address on file" });
@@ -192,7 +192,7 @@ describe("POST /dashboard/assignments with a channel choice", () => {
   it("no choice: their own rules, as before — and the record says nobody chose", async () => {
     const res = await post("/dashboard/assignments", M, { assignedTo: R, title: `${PREFIX}usual way` });
     const body = res.json() as { assignmentId: string; notified: string[] };
-    expect(body.notified).toEqual(["telegram", "app"]);
+    expect(body.notified).toEqual(["app", "telegram"]);
     expect(await rowsFor(body.assignmentId)).toEqual(["inapp", "telegram"]);
     const [a] = await getServiceSql()<{ notify_channels: string[] | null }[]>`select notify_channels from assignment where id = ${body.assignmentId}`;
     expect(a!.notify_channels).toBeNull();

@@ -62,6 +62,9 @@ export const Icon = {
   barChart: (p: P) => (
     <svg {...base(p)}><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></svg>
   ),
+  gauge: (p: P) => (
+    <svg {...base(p)}><path d="M4.6 18.5a9 9 0 1 1 14.8 0" /><path d="m12 14 4-5" /><circle cx="12" cy="14" r="1.25" /></svg>
+  ),
   scroll: (p: P) => (
     <svg {...base(p)}>
       <path d="M8 21h12a2 2 0 0 0 2-2v-2H10v2a2 2 0 1 1-4 0V5a2 2 0 1 0-4 0v3h4" /><path d="M19 17V5a2 2 0 0 0-2-2H4M12 8h6M12 12h6" />
@@ -75,6 +78,15 @@ export const Icon = {
   ),
   folder: (p: P) => (
     <svg {...base(p)}><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" /></svg>
+  ),
+  box: (p: P) => (
+    <svg {...base(p)}><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9Z" /><path d="m4 7.5 8 4.5 8-4.5" /><path d="M12 12v9" /></svg>
+  ),
+  banknote: (p: P) => (
+    <svg {...base(p)}><rect x="2" y="6" width="20" height="12" rx="2" /><circle cx="12" cy="12" r="2.5" /><path d="M6 12h.01M18 12h.01" /></svg>
+  ),
+  map: (p: P) => (
+    <svg {...base(p)}><path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3Z" /><path d="M9 3v15M15 6v15" /></svg>
   ),
   alert: (p: P) => (
     <svg {...base(p)}><path d="M10.3 3.9 2.6 17a2 2 0 0 0 1.7 3h15.4a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0ZM12 9v4M12 17h.01" /></svg>

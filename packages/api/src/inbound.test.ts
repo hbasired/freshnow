@@ -45,6 +45,15 @@ afterAll(async () => {
   else process.env.INBOUND_EMAIL_SECRET = savedSecret;
   const sql = getServiceSql();
   await sql`delete from audit_log where action like 'inbound_email.%' and created_at > now() - interval '10 minutes'`;
+  // Since TASK-053 the route records the email (email_message → employee) and may leave a
+  // proposal; both point at these people, so they go first. Before this, the employee delete
+  // failed on the foreign key, "INBOUND Worker" survived, and email-inbound.test.ts — whose
+  // emails name "Worker" — found two Workers and made proposals instead of assignments
+  // (2 of its tests failed; G145, found 2026-10-15).
+  const people = [BOSS, WORKER];
+  await sql`delete from email_proposal where proposed_by = any(${people}) or decided_by = any(${people})`;
+  await sql`delete from notification_outbox where recipient_employee_id = any(${people})`;
+  await sql`delete from email_message where employee_id = any(${people})`;
   await sql`delete from employee where id in (${BOSS}, ${WORKER})`;
   await app.close();
   await closeDb();
@@ -83,7 +92,7 @@ describe("POST /inbound/email — the gates", () => {
   it("refuses an ordinary employee — they cannot assign work in the dashboard either", async () => {
     const r = await post({ from: WORKER_EMAIL, text: "Do this", ...pass });
     expect(r.statusCode).toBe(403);
-    expect((r.json() as { reason: string }).reason).toMatch(/manager, lead or the CEO/);
+    expect((r.json() as { reason: string }).reason).toMatch(/someone who gives work/);
   });
 
   it("drops an out-of-office instead of turning it into a task", async () => {

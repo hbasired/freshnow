@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { logAudit } from "./audit.js";
 import { getServiceSql } from "./db.js";
+import { mayGiveWork } from "./permissions.js";
 
 /**
  * Turning an email into a PROPOSAL of tasks.
@@ -99,7 +100,9 @@ export async function screenInboundEmail(mail: InboundEmail, correlationId?: str
   const sender = rows[0];
   if (!sender) return refuse("no active employee has that email address", 403);
   if (sender.status !== "active") return refuse("that person's account is not active", 403);
-  if (sender.access_role === "employee") return refuse("only a manager, lead or the CEO may assign work by email", 403);
+  if (!mayGiveWork({ accessRole: sender.access_role, status: sender.status })) {
+    return refuse("only someone who gives work (the CEO, an Admin, a manager or a lead) may assign work by email", 403);
+  }
 
   return { accepted: true, senderEmployeeId: sender.id, senderName: sender.display_name, text: mail.text };
 }

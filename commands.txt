@@ -1,0 +1,20 @@
+cd C:\Users\acer\Downloads\freshnow
+git status                      # if anything shows as modified: git stash
+git fetch origin
+git checkout claude/elegant-curie-bgpzqh
+git pull origin claude/elegant-curie-bgpzqh
+
+docker compose up -d            # Redis (the worker now needs it to read email)
+npx supabase start -x realtime,storage-api,imgproxy,edge-runtime,logflare,vector,supavisor,mailpit,postgrest
+pnpm install
+pnpm migrate                    # adds 0020_email.sql and 0021_task_number.sql
+pnpm build:web
+pnpm email:check                # must show "✓ sending" and "✓ reading"; sends nothing
+pnpm email:setup                # puts both addresses on the right people and turns email on
+
+in different terminal for each run
+
+$env:HOST = "127.0.0.1"; pnpm start:api
+pnpm start:worker
+pnpm start:bot
+cloudflared tunnel --url http://localhost:3001   # only needed for the phone demo

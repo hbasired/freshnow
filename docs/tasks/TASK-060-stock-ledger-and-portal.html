@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TASK-060 — Stock ledger and portal</title>
+<style>
+  :root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#3fb950;--warn:#d29922;--bad:#f85149;--card:#161b22;--bd:#30363d}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;max-width:980px;padding:48px 24px;margin-inline:auto}
+  h1{font-size:1.9rem;margin:0 0 4px} h2{margin-top:2.5rem;color:var(--acc);font-size:1.25rem} h3{font-size:1.05rem;margin-top:1.6rem}
+  .meta{color:var(--mut);font-size:.9rem;margin-bottom:2rem}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:18px;margin:14px 0}
+  .unverified{border-left:3px solid var(--warn)} .ok{border-left:3px solid var(--acc)}
+  code{background:#1f2630;padding:2px 6px;border-radius:4px;font-size:.9em}
+  pre{background:#1f2630;padding:12px;border-radius:8px;overflow-x:auto;font-size:.85rem;line-height:1.45}
+  .tw{overflow-x:auto} table{border-collapse:collapse;width:100%;margin:14px 0}
+  th,td{border:1px solid var(--bd);padding:7px 9px;text-align:left;font-size:.88rem;vertical-align:top} th{background:#1f2630}
+  ul{padding-left:1.1rem} li{margin:3px 0} a{color:#88c0f0}
+  .flow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0}
+  .flow span{background:#1f2630;border:1px solid var(--bd);border-radius:8px;padding:6px 10px;font-size:.85rem}
+  .flow b{color:var(--mut)}
+  @media (max-width:600px){body{padding:28px 16px}}
+</style></head><body>
+<h1>TASK-060 — Stock ledger and portal</h1>
+<p class="meta">2026-10-17/18 · Operations + Inventory expansion, layer 6 · migrations <code>0032_inventory.sql</code>,
+<code>0033_alarm_refresh_and_scopes.sql</code>, <code>0034_inventory_words.sql</code> · new core: <code>inventory-common.ts</code>,
+<code>inventory-ledger.ts</code>, <code>inventory-counts.ts</code>, <code>inventory-read.ts</code>, <code>inventory-catalogue.ts</code>,
+<code>inventory-notify.ts</code> · API <code>routes/inventory.ts</code> · dashboard <code>portals/inventory.tsx</code>, <code>inv-*.tsx</code>,
+<code>lib/inventory-api.ts</code> · no new dependency</p>
+
+<div class="card ok"><b>One-sentence summary:</b> every carton, box and company phone now has exactly one holder on a ledger that can
+never be edited — the warehouse gives stock out and the driver confirms it on their phone, what is used or damaged is recorded with a
+reason, and the warehouse is counted without seeing the system's figure, with any big difference counted again by someone else and
+decided by the Ops Head, the CEO or an Admin.</div>
+
+<h2>What was asked</h2>
+<ul>
+  <li>The plan's TASK-060: items, places, an append-only ledger with handshakes, counts, receive / issue / return / scrap, stock now,
+      movements and the end-of-day balance; the catalogue seeded from the WhatsApp list. <b>Done when</b> Σ moves = balance, no
+      UPDATE/DELETE possible, and the handshake flows are tested.</li>
+  <li>The user (16 Oct): "make sure you built the inventory system very effectively and focus on it and build solid"; automate the
+      WhatsApp process and make it "more user friendly and easy to use"; the FreshNow app is the main channel, Telegram an option (D217);
+      differences approved by the Ops Head, the CEO or an Admin (D218).</li>
+</ul>
+
+<h2>What was done</h2>
+<div class="tw"><table>
+<tr><th>Part</th><th>What it does</th><th>Decisions</th></tr>
+<tr><td>The ledger</td><td>Documents and moves; balances kept by a trigger in the same transaction; a CHECK that refuses a real place below
+  zero whoever writes; moves and lines never changed or deleted; documents' content never changed, states only forward; the app role
+  reads only. Reversals add the opposite moves. Every document id comes from the phone or browser: sent twice, posted once.</td><td>D223, D229</td></tr>
+<tr><td>Handovers</td><td>Give out, take back, give back, hand to someone. The stock leaves the giver at once and is the receiver's only when
+  the other side confirms; "All here" in one tap, or "Something is different" with the count and a reason. What did not arrive waits in
+  transit until an approver who was not part of it settles it.</td><td>D224</td></tr>
+<tr><td>Used and damaged</td><td>From the warehouse or from your own stock, with a reason (into a machine — with its number —, cleaning,
+  spoiled, broken, sorted out…) and an optional photo.</td><td>D223</td></tr>
+<tr><td>Counts</td><td>Opening, after the team left, closing, spot check. The screen never shows the record's figure; big differences go to a
+  second person; the decision is the approvers', never a counter's — and the database refuses it too.</td><td>D225, D228, D218</td></tr>
+<tr><td>The catalogue</td><td>The 19 items of the warehouse's WhatsApp list, with units (some assumed) and no stock: the first approved count
+  is the opening stock. Unit and step fixed after the first movement; the tolerance is the approvers'.</td><td>D226, D227, D230, A-T60.2</td></tr>
+<tr><td>The Stock portal</td><td>For everyone who holds or sees stock: what waits for you, today's counts, big action tiles, what you hold,
+  the stock list (🚨 when low), movements, the day sheet, the items. Phone first; refreshes when stock moves.</td><td>D232</td></tr>
+<tr><td>Notices</td><td>App first: a handover to confirm, less arrived, low stock (once a day per item), a count to recheck or decide, the
+  stock list after a count; reminders after 30 minutes.</td><td>D231, A-T60.3</td></tr>
+<tr><td>Privacy</td><td>The notice names stock, who can see it and how long it stays; the words typed on stock records follow the person's
+  other words (retention and erasure); a person's data download lists their stock.</td><td>D234</td></tr>
+<tr><td>The TASK-059 review's fixes</td><td>25 confirmed findings fixed with tests — long alarms now clear in the mirror (50 open → 8 live),
+  every machine problem pages on its own, the question box's function hole, media and live-update robustness.</td><td>D233, G201</td></tr>
+</table></div>
+
+<h2>Why it was done this way</h2>
+<h3>One ledger, moves only</h3>
+<p>The WhatsApp list is "copied forward, not counted" (VF74): the same numbers two days running, nothing about who took or brought back
+what. A balance column that people edit would repeat that. So nobody edits a number: every change is a move from one place to another,
+the balance is their sum kept by the database itself, and a mistake is put right by a reversal that stays visible next to the original.
+Because each move takes from one place exactly what it gives another, every item sums to zero over all places — a test checks it after
+80 random postings.</p>
+<h3>Two people for every handover</h3>
+<p>"How many oranges you took and how many you brought back" is the CEO's daily question in the groups. A handover that one side records
+alone is the same message in a new place. Here the stock is in transit until the other side confirms, so a carton always has exactly one
+holder — and when the counts differ, the difference is visible to the approvers, not argued about later.</p>
+<h3>The count screen hides the figure — but the screen is not the control</h3>
+<p>Blind counting is recommended practice in warehouse guides (one vendor's guide calls it "the gold standard" — a vendor blog, not a
+study). The keeper here also runs the warehouse and can open the stock list, so the figure cannot really be hidden from them. The
+control is a second person for any difference beyond tolerance, spot checks by the Ops Head, and a record of who counted what and when
+(D228). The task does not pretend otherwise.</p>
+<h3>No stock is seeded</h3>
+<p>Seeding the WhatsApp numbers would start the ledger from figures known to be copied. The first count — approved, with the reason
+"opening stock" — sets it.</p>
+<h3>What was deliberately not built</h3>
+<p>Per-lot balances (no evidence the warehouse keeps deliveries apart; the delivery's variety and carton weight are kept on its lines),
+unit conversions, a second warehouse, counting a person's stock (they hand it back and the warehouse counts it), loading into machines
+as a place (TASK-061), reconciliation against Televend's cups (TASK-062), the phone app's offline queue (TASK-063).</p>
+
+<h2>How it works</h2>
+<div class="flow"><span>Phone / browser makes the id</span><b>→</b><span>core: who may (capabilities), enough? (locked per item)</span><b>→</b>
+<span>stock_doc + lines + moves + audit, one transaction</span><b>→</b><span>trigger: balances (CHECK ≥ 0)</span><b>→</b><span>notices (best effort)</span><b>→</b><span>doorbell → screens refresh</span></div>
+<pre>hand-out   warehouse ──send──▶ in transit ──accept──▶ driver          (driver confirms)
+             └────────────────── refuse / cancel / settle back ◀───┘
+return     driver ──send──▶ in transit ──accept──▶ warehouse          (someone at the warehouse confirms)
+less came  in transit ──write off (reason)──▶ count adjustments       (an approver who was not a party)
+count      handed in → equal: closed · small: approval · big or moved: recount by someone else → approval
+           decision: the count is right → adjustment doc (warehouse ↔ count adjustments) · the record is right → nothing moves</pre>
+<p>Day sheet, per item: start + in − given out + back − used − damaged ± counts = end — both sides summed from the same moves, so the
+line always adds up.</p>
+
+<h2>Research findings</h2>
+<div class="tw"><table>
+<tr><th>Source (read 2026-10-17)</th><th>What it says</th><th>Effect here</th></tr>
+<tr><td>PostgreSQL 17 docs §13.2.1 (Read Committed)</td><td>A second UPDATE of a row waits for the first transaction and then applies to the
+  row as the first one left it.</td><td>Two hand-outs of the last carton cannot both pass; plus an advisory lock per item, in order, against
+  deadlocks.</td></tr>
+<tr><td>PostgreSQL 17 docs, INSERT … ON CONFLICT</td><td>An atomic insert-or-update; says nothing about CHECK order — the tests found it
+  checks the proposed row first (G195).</td><td>Update first, insert a place's first row.</td></tr>
+<tr><td>ERPNext, "Immutable Ledger"</td><td>Cancellation keeps the original rows and adds opposite rows; corrections are controlled
+  workflows. It does not say which date the reversal carries.</td><td>Reversals as new documents; dated when made (our choice).</td></tr>
+<tr><td>Odoo inter-warehouse transfers (third-party module pages and a forum; the official page was not found)</td><td>Two-step transfers go
+  through a transit location; the second step waits for the first.</td><td>"In transit" as a place, with its own balance.</td></tr>
+<tr><td>Warehouse cycle-count guides (Cleverence, CPCON — vendor blogs)</td><td>Blind counts; recount variances before posting; defined
+  tolerances; approvals.</td><td>Blind screen, tolerance, recount by another person, approval.</td></tr>
+<tr><td>Android accessibility help, "Touch target size"</td><td>At least 48×48 dp, about 9 mm.</td><td>Every button 48 px or more (checked in
+  the browser).</td></tr>
+<tr><td>Microsoft Research, text-free UIs for low-literate users</td><td>Graphics and voice preferred over text; fewer navigation levels.</td>
+  <td>Icons before words, one thing per sheet; voice is for the app (TASK-063).</td></tr>
+</table></div>
+
+<h2>Verification</h2>
+<div class="card ok"><ul>
+  <li>Tests against a throwaway Postgres: the ledger (29), counts (9), notices (5), the API (7), live scope, permissions, consent (26),
+      retention, export. Full suite before the last three changes: <b>1,067 passed, 5 skipped</b> (the opt-in suites), 0 failed; the
+      changed files' tests pass after them.</li>
+  <li>Browser: 22 checks as a keeper (wide), a driver (phone, 390 px) and the Ops Head (light theme), no console errors (VF79).</li>
+  <li>Live: 0032–0034 applied; 19 items and 6 places; nothing posted to the live ledger by the developer (VF80).</li>
+</ul></div>
+
+<h2>Review</h2>
+<p>Two read-only reviewers (18 Oct) reported 17 findings. The skeptic who tries to refute each one did not run (the weekly usage limit),
+so each was checked against the code by hand on 19 Oct: all 17 are real, and all are fixed, each with a test (D236).</p>
+<div class="tw"><table>
+<tr><th>Finding</th><th>Severity</th><th>Fix</th></tr>
+<tr><td>A decision posted the difference recorded at count time: with two counts of the same gap waiting (opening and closing), or a
+  document undone in between, the same gap was corrected twice — stock lost or made up on the books.</td><td>critical</td><td>Accepting a
+  count is refused when the item was corrected on the books after it was counted (another count's decision, or an undone document),
+  checked under the item locks ("changed since").</td></tr>
+<tr><td>Stock on a handover not yet confirmed (a hand-out not collected, a return not confirmed) could be counted on the shelf and booked
+  again when the handover was confirmed.</td><td>high</td><td>An item that differs while some of it is in transit is "unclear": counted
+  again, never accepted as counted. A count that matches is clear.</td></tr>
+<tr><td>Typing "2.5" in a number box recorded 25: the box re-read the number on every key, so the point vanished.</td><td>high</td><td>The box
+  keeps what is typed until it loses focus.</td></tr>
+<tr><td>Take back: amounts the keeper lowered went back to "everything" each time the screen refreshed.</td><td>high</td><td>The starting
+  amounts are set only when the person is chosen.</td></tr>
+<tr><td>The day sheet's person rows had no "undone" column: start + in − out did not equal the end.</td><td>high</td><td>Added; the test
+  checks the identity with an undone entry.</td></tr>
+<tr><td>An item's unit could change while a count of it waited for its decision.</td><td>medium</td><td>Fixed while a count waits or once a
+  count found some; the editor takes the ledger's item lock, and every posting locks its items before reading them.</td></tr>
+<tr><td>Stock held by someone who left could never be taken back (the take-back waited for their confirmation).</td><td>medium</td><td>Another
+  person at the warehouse confirms it — never the one taking it.</td></tr>
+<tr><td>A recount handed in after an approver let it go was answered "done"; its figures were dropped.</td><td>medium</td><td>Refused, in
+  words.</td></tr>
+<tr><td>Opening a count resumed any open count of yours, under the title you had chosen — a spot check handed in as a closing
+  count.</td><td>medium</td><td>The sheet shows the open count's own kind and offers to cancel it.</td></tr>
+<tr><td>Before anyone took a recount, a keeper or approver could read the first count (approvers also the ledger), then take the "blind"
+  recount.</td><td>medium</td><td>Hidden from everyone who may still take it.</td></tr>
+<tr><td>The person counting could read the ledger's figures on the stock screen and copy them: a copied count always "matches", and nobody
+  looks again.</td><td>medium</td><td>Hidden from them, and the day sheet closed to them, until they hand the count in. They could still look
+  before starting — someone else's spot count remains the control (D228).</td></tr>
+<tr><td>A different hand-in or decision under a closed count was answered "done".</td><td>low</td><td>Compared; a different one is
+  refused.</td></tr>
+<tr><td>A retry of a document already posted was refused if its item was switched off (or the person left) meanwhile.</td><td>low</td><td>A
+  repeat is answered before anything else is checked.</td></tr>
+<tr><td>A JSON number like 2.4996 was rounded to 2.5; the same text was refused.</td><td>low</td><td>Refused alike.</td></tr>
+<tr><td>A receiver whose role no longer holds stock could still accept a waiting handover.</td><td>low</td><td>They may refuse it, not take
+  it in.</td></tr>
+<tr><td>An item that dropped off a sheet's list on refresh was still sent, and its refusal could not be fixed on the sheet.</td><td>low</td>
+  <td>Only listed items are sent; a dropped one is named.</td></tr>
+<tr><td>Movements paged by millisecond and skipped a document recorded in the same millisecond as the last one shown.</td><td>low</td><td>Paged
+  by the exact time and id. (Found while testing it: postgres.js cuts a value bound as timestamptz to milliseconds — G202.)</td></tr>
+</table></div>
+
+<h2>What we have not verified</h2>
+<div class="card unverified"><ul>
+  <li><b>A real keeper or driver has not used it.</b> The flows are tested and checked in a browser; nobody at the warehouse has counted
+      or handed over stock with it yet.</li>
+  <li><b>The units</b> of most items are assumptions (A-T60.2) — the keeper must confirm them before the first count; a unit is fixed
+      after an item moves.</li>
+  <li><b>Photos on stock documents</b> were not uploaded in the browser check (the upload API is TASK-058's, tested there); thumbnails in
+      the movement detail were not seen with a real photo.</li>
+  <li><b>Notices on a real phone</b>: the outbox rows are tested; a keeper's phone receiving "count what is left" has not been seen.</li>
+  <li><b>The reminder delays</b> (30 minutes) and <b>one warehouse</b> are assumptions (A-T60.3, A-T60.4).</li>
+  <li><b>The demo reset's stock purge</b> was not run against the live database.</li>
+  <li><b>Concurrency</b> beyond two simultaneous hand-outs, and speed at a year's volume — unmeasured (the volume expected is hundreds of
+      moves a day).</li>
+  <li><b>The review's skeptic pass</b> did not run on 18 Oct (usage limit): the 17 findings were confirmed by the developer reading the code.
+      On 20 Oct an independent review with skeptics checked those fixes (<a href="#review-20oct">below</a>). The wording on the take-back sheet
+      is screen only, checked by the typecheck, not by a test.</li>
+  <li><b>Screen readers</b>, Hindi and Urdu, and working offline (the phone app's queue is TASK-063).</li>
+  <li><b>The notice's new lines</b> are a developer's draft, not FreshNow's or a lawyer's (notice 3.0 is still "draft").</li>
+</ul></div>
+
+<h2>Open questions for FreshNow</h2>
+<ul>
+  <li>The units and the minimum levels of each item (the 🚨 marks: straws, liquid detergent, trolley belt).</li>
+  <li>What "Shorting 🍊" means on the list (A-T60.5), and D1/D4 (A-T60.6).</li>
+  <li>Who counts the warehouse, when (opening, after each team, closing), and who recounts when there is one keeper on shift.</li>
+  <li>A count tolerance for any item (today it is 0 for every item: any difference goes to a second person).</li>
+</ul>
+<h2 id="review-20oct">Independent review, 20 Oct</h2>
+<p>The review owed since 15 Oct ran on 20 Oct, once the usage limit reset (D263). For each area, read-only reviewers looked for defects and a skeptic tried to refute each finding before it counted. A second pass then checked every fix — fixed, partly fixed, or fixed but broke something — and looked for what the fixes themselves broke, again with a skeptic for each problem. Everything confirmed was fixed with a test unless the row says otherwise.</p>
+<p>This round reviewed the 17 fixes of 19 Oct: 8 findings, all 8 confirmed and fixed (D259).</p>
+<div class="tw"><table>
+<tr><th>Finding</th><th>Severity</th><th>Fix</th></tr>
+<tr><td>Taking stock back from someone who left, or whose role no longer holds stock, could not be started from the portal.</td><td>high</td><td>Someone who left, or whose role no longer holds stock, is offered for 'Take back' (never for 'Give'), and the warehouse confirms (D236). Test.</td></tr>
+<tr><td>"Changed since" refused a correct decision when a mistake entered after the count had been undone.</td><td>low</td><td>A mistake entered after the count and undone again does not stop accepting it. Test.</td></tr>
+<tr><td>Every item on a partly accepted handover counted as in transit, so counts of fully accepted items stayed unclear until an approver settled it.</td><td>medium</td><td>Only the item still on its way counts as in transit on a partly accepted handover. Test.</td></tr>
+<tr><td>An item's unit and step could still change while the warehouse was being counted.</td><td>low</td><td>An item's unit and step stay as they are while the warehouse is being counted. Test.</td></tr>
+<tr><td>The "count closed" notice sent the full ledger to the Ops Head while they recounted or could still take a recount.</td><td>low</td><td>Someone counting, or who may take a waiting recount, gets stock notices without the figures (D259). Tests.</td></tr>
+<tr><td>"Changed since" compared transaction start times, not the order of the item lock.</td><td>low</td><td>A move's time, a count's start, hand-in and recount are all the database's clock, taken under the item lock, and compared in SQL (migration 0040, G213). Test.</td></tr>
+<tr><td>A refused hand-out showed the warehouse figure to the person counting.</td><td>low</td><td>Asking for more than the warehouse has tells someone counting nothing of the figure. Test.</td></tr>
+<tr><td>The count sheet and the delivery sheet did not get the "send only items still on the list" fix.</td><td>low</td><td>A count whose item list changed re-reads it and keeps the figures typed; a delivery shows items taken off its list instead of sending them unseen.</td></tr>
+</table></div>
+<h3>The second pass: checking the fixes</h3>
+<p>Of the 8 fixes, 3 were checked as fixed and 5 as partly fixed. The 6 problems it found were all confirmed and are all fixed:</p>
+<div class="tw"><table>
+<tr><th>Finding</th><th>Severity</th><th>Fix</th></tr>
+<tr><td>Taking stock back from someone still active whose role no longer holds stock waited for that person, who cannot open Stock.</td><td>medium</td><td>The warehouse confirms whenever the holder cannot: account off, or a role without inventory.hold. Test.</td></tr>
+<tr><td>Stock home and the Day view still showed the warehouse figures to everyone who may take a waiting recount.</td><td>low</td><td>The screens hide figures by the same rule as the notices (D259). Test.</td></tr>
+<tr><td>Undoing a delivery while counting named the warehouse figure.</td><td>low</td><td>No figure in that refusal either. Test.</td></tr>
+<tr><td>A count adjustment posted after the count and then undone still refused a correct decision.</td><td>low</td><td>An adjustment undone again nets out. Test.</td></tr>
+<tr><td>A waiting handover whose giver had left and whose receiver could not act stayed in transit for good.</td><td>low</td><td>An approver who is neither side may cancel it, and the stock goes back where it came from. Test.</td></tr>
+<tr><td>For a take-back from someone who left, the sheet and the notice named the wrong person.</td><td>low</td><td>The sheet says someone else at the warehouse confirms; the notice and the warehouse's list say "… took back X's stock". Test for the notice; the sheet is screen only.</td></tr>
+</table></div>
+<p>The Stock browser check, run again on the final code of 20 Oct: 23 of 23, no console errors.</p>
+</body></html>

@@ -9,6 +9,38 @@ cd C:\Users\acer\Downloads\freshnow
 
 ---
 
+## Start to end — the whole sequence in one place
+
+Docker Desktop must be running first (its whale icon steady in the taskbar). Then, in order:
+
+| # | Where | Command | Wait for |
+|---|---|---|---|
+| 1 | any terminal | `cd C:\Users\acer\Downloads\freshnow` | — |
+| 2 | same | `docker compose up -d` | instant (Redis, Adminer, the old rollback Postgres) |
+| 3 | same | `npx supabase start -x realtime,imgproxy,edge-runtime,logflare,vector,supavisor,mailpit,postgrest` | ~30 s: "Started supabase local development setup" |
+| 4 | same — **only after a `git pull`** | `pnpm install` | done |
+| 5 | same | `pnpm migrate` | `migrations up to date` (already-applied ones print `skip`) |
+| 6 | same — **only after a pull or a code change** | `pnpm build:web` | `✓ built in …` |
+| 7 | **terminal 1** | `pnpm start:api` | `API listening on … React dashboard at …/app/` |
+| 8 | **terminal 2** | `pnpm start:worker` | `[worker] outbox relay every 3000ms …` |
+| 9 | **terminal 3** | `pnpm start:bot` | `[bot] @freshnow1bot polling …` |
+| 10 | terminal 4 — only to use a phone away from this Wi-Fi, or phone notifications | `cloudflared tunnel --url http://localhost:3001` | an `https://….trycloudflare.com` address |
+| 11 | any terminal | `pnpm urls` | the addresses to open, each with `HTTP 200` |
+| 12 | browser | **http://localhost:3001/app/** — sign in with an account from `CREDENTIALS.local.md` | the first time after a notice change: read it and tap **I agree** |
+| 13 | browser | the demo itself: **`DEMO-GUIDE.md` → "Demo today"** | — |
+
+**To finish:**
+
+| # | Where | Command |
+|---|---|---|
+| 1 | terminals 1–4 | `Ctrl+C` in each |
+| 2 | any terminal | `npx supabase stop` — keeps all data. **Never add `--no-backup`**: it deletes the database |
+| 3 | same | `docker compose stop` — keeps all data |
+
+Lost the service terminals (started in the background)? §4 shows how to end them. Something not working? §8.
+
+---
+
 ## 0 · Get the latest code (`git pull`)
 
 New work arrives as a pull request on GitHub. Once it is **merged**, it is on `main`:
@@ -45,7 +77,7 @@ phone: close and reopen the app). Details: `DEMO-GUIDE-APP.md` §1.1.
 > **Skipping `pnpm migrate` breaks the dashboard** whenever a pull adds a migration: the task lists
 > fail with *Request failed (500)* and the api window logs `column … does not exist`. Run it, restart
 > the api. (TASK-049 added `0018_progress_band.sql`; TASK-053 added `0020_email.sql` and `0021_task_number.sql`;
-> TASK-054 adds `0022_assign_channels.sql`.)
+> TASK-054 `0022_assign_channels.sql`; TASK-055–058 `0023`–`0030`; TASK-059 adds `0031_machine_alarms.sql`.)
 
 ---
 
@@ -55,7 +87,7 @@ phone: close and reopen the app). Details: `DEMO-GUIDE-APP.md` §1.1.
 docker compose up -d                       # Redis + the old Postgres (rollback copy) + Adminer
 docker compose --profile security up -d clamav   # OPTIONAL virus scanner — see §7d before turning it on
 
-npx supabase start -x realtime,storage-api,imgproxy,edge-runtime,logflare,vector,supavisor,mailpit,postgrest
+npx supabase start -x realtime,imgproxy,edge-runtime,logflare,vector,supavisor,mailpit,postgrest
 
 pnpm migrate                               # only needed after a pull (§0); harmless otherwise
 
@@ -158,8 +190,8 @@ Get-CimInstance Win32_Process -Filter "Name='node.exe'" |
   ForEach-Object { taskkill /PID $_.ProcessId /T /F }
 ```
 
-> `npx supabase stop --no-backup` **deletes the Supabase database**. Only use it when a
-> start fails with `network supabase_network_freshnow not found`, and expect to restore data.
+> **Never run `npx supabase stop --no-backup`** — it deletes the Supabase database (the live data). If a start
+> fails with `network supabase_network_freshnow not found`, run plain `npx supabase stop`, then start again.
 
 ---
 
@@ -204,12 +236,12 @@ Record any new password in `CREDENTIALS.local.md`.
 ## 7 · Checks, tests and reports
 
 ```bash
-pnpm verify            # typecheck + the full test suite (~670 tests, ~3 minutes, makes real model calls)
+pnpm verify            # typecheck + the full test suite (~1,110 tests, ~3 minutes, makes real model calls)
 pnpm e2e               # 19 end-to-end checks against the real database and model — sends real Telegram messages
 python scripts/render-guides.py   # re-render docs/guides/*.html from the .md guides (DB-WALKTHROUGH, BACKEND-OPERATIONS, FRESH-RUN, CHANNELS-GUIDE)
 pnpm test              # tests only
 pnpm typecheck
-pnpm migrate           # apply any new migrations to the live database (21 so far)
+pnpm migrate           # apply any new migrations to the live database (31 so far)
 pnpm email:check       # can this machine log in to the mail server (send + read)? sends nothing (§7f)
 pnpm email:setup       # store the demo's two email addresses on the right people (§7f)
 pnpm compliance        # the policy checks, the record of processing and the evidence (§7c)
@@ -452,6 +484,151 @@ The privacy notice now names email, so each person taps **I agree** once more.
   (`#tasks/pending/blocked`), Urgent problems (`#tasks/problems/urgent`), Completed (`#tasks/done`), From
   earlier days (`#tasks/pending/older`), Need a human (`#tasks/problems/unread`).
 
+## 7h · Televend — read-only connector and MCP server (TASK-055)
+
+Nothing here can change anything in Televend: every request is checked against an allow-list of GET endpoints
+before it is sent (`packages/televend/src/allowlist.ts`). Settings are the `TELEVEND_*` lines in `.env`.
+
+```powershell
+pnpm televend:probe --day 2026-10-12     # what can be read, in what shape -> private-data\televend-probe\
+pnpm televend:verify --day 2026-10-12    # live read vs the exports in data-televend\ (machines, refills, alarms, vends)
+pnpm televend:sync                       # one sync into the database (TASK-056) — the worker does this every 10 min
+pnpm televend:backfill --from 2026-09-01 --to 2026-10-14                     # load history, newest day first
+pnpm televend:backfill --from 2026-01-01 --to 2026-08-31 --streams vends,events --max-requests 3000   # in chunks
+```
+
+- **The worker syncs on its own** every `TELEVEND_SYNC_MINUTES` (default 10) when `TELEVEND_MODE=bridge` is set: machines,
+  new sales and alarms, refills of machines just refilled; after 04:00 it re-checks yesterday against Televend's own count.
+- **Is it current?** `http://127.0.0.1:3001/health` → `televend.lagMinutes` and `stale` (true after 30 min without a good sync).
+- **Backfill cost (measured 4–14 Oct):** about 360 requests (≈ 6 minutes) per day with refills, ≈ 140 without — refills ask
+  every machine record, disabled ones too, because a machine that moved keeps its refill log on its old record (G160). It stops
+  at `--max-requests` (default 3000) and skips days already complete — run the same command again to continue.
+
+- **In Claude Code:** the project's `.mcp.json` starts the `freshnow-televend` server (approve it once). Tools:
+  `televend_status`, `televend_machines`, `televend_sales_day`, `televend_events_day`, `televend_refills_day`
+  (a whole day ≈ 4 min, every machine record — pass an asset number for one machine), `televend_cash_collections_day`.
+- **If sign-in is refused** the connector stops for good (it never retries a password, so the account cannot be locked):
+  fix `TELEVEND_PASSWORD`, then restart whatever was using it.
+- **Paced at 1 request/second.** A day of vends is ~40–70 requests, of events ~50–160, of refills ~224 (one per machine record).
+- Output with real data goes under `private-data\` (git-ignored). Never copy it into `docs\` — the repository is public.
+
+---
+
+## 7i · Live updates, photos and the Operations portal (TASK-058)
+
+```powershell
+pnpm live:load --clients 300 --rate 5 --seconds 60 --idle 30     # how many live streams one API process carries
+pnpm live:load --clients 1000 --rate 20 --seconds 30 --out private-data\scratch\live-load.json
+```
+
+- **The load test only ever uses the test database** (`freshnow_test`; run `pnpm test` once first so it has every
+  migration). It starts its own API process there, opens one stream per synthetic person, writes, measures, and removes
+  what it created. Measured on the laptop (15 Oct 2026): 300 streams ≈ 17 KB each, ~1 % of one core at 5 writes/s,
+  commit-to-browser p95 3 ms; 1 000 streams ≈ 23 KB each, 3 % at 20 writes/s. An org change (someone's manager, role,
+  department or status) reloads every viewer's picture: 1.3 s at 300 people, 4.5 s at 1 000 (briefly more than one core) —
+  meanwhile everyone is told everything, as before TASK-058.
+- **Limits** (`.env`): `LIVE_MAX_STREAMS` (500) per API process, `LIVE_MAX_STREAMS_PER_PERSON` (8). Past either, a board
+  keeps polling instead — nothing is lost, it is only slower.
+- **A change reaches only the people it concerns.** The database says whom (migration 0027); the API decides per open
+  stream and still sends the browser nothing but the table name.
+- **Photos and videos** live in Supabase Storage (the `-x` start command no longer excludes it). The API holds the only
+  key; a file is read through `/dashboard/media/<id>` and only by people who may see its sender. Location and device data
+  are removed before anything is stored. Nothing is deleted on a timer until `MEDIA_RETENTION=on`.
+- **Operations portal** — for the CEO, Admin, Ops Head and Supervisors (`televend.read`): cups sold today, hour by hour,
+  against the same day last week, from the Televend mirror. Its code and the chart library load only when it is opened.
+  A day the mirror did not read in full shows "—" and says why — never 0. To fill a gap: `pnpm televend:backfill` (§7h).
+- **Phone sign-in (for the staff app, TASK-063)** — the API is ready, the app is not: `/device/*` for phones,
+  `/dashboard/devices…` and `/dashboard/people/<id>/phone-setup-code` for the CEO, Admins and leads (no dashboard screen yet).
+  It needs `APP_PIN_PEPPER` in `.env` (32+ random characters) — **never change it once people have PINs**: every PIN stops
+  working. Shift handovers and the idle limit for shared phones: `APP_SHIFT_HANDOVERS`, `APP_COMPANY_IDLE_MINUTES`.
+- **Privacy notice 3.0** — when the notice changes, everyone is asked again (Telegram, the app's inbox, email) and their
+  messages are held until they agree. On Telegram it arrives in two messages; the "I agree" button is under the second.
+
+---
+
+## 7j · The command centre and Stock (TASK-059, TASK-060)
+
+- **Operations → Now / Sales by hour / Day report** (`#operations`, `#operations/sales`, `#operations/day`): every machine's
+  state, the alarms that need someone, the cash each collection should have found. Yesterday's report goes out at 07:30 to
+  everyone who runs the machines — the app first, Telegram only for someone the app cannot reach — and waits (until 10:00) while
+  Televend has not finished reading yesterday. Alarms → routed problems: `OPS_ALARM_PROBLEMS=on` in `.env`, **only after**
+  routing rules name who handles machine, stock and cash problems (otherwise every one pages the CEO). Restart the worker.
+- **Stock** (`#inventory`, `#inventory/moves`, `#inventory/day`, `#inventory/items`): for everyone whose role holds or sees
+  stock. Before the first use: **Stock → Items** — the keeper checks each item's unit (some are guesses) and sets the minimums;
+  then the **opening count**, approved by the Ops Head (or the CEO, or an Admin) with the reason "Opening stock".
+- **Who does what:** the warehouse keeper receives, gives out, takes back and counts; anyone given stock confirms it on their
+  phone; the Ops Head, the CEO or an Admin settles a short handover, decides a count and reverses a mistake — never the person
+  who counted. Nothing in the ledger is ever edited or deleted; a mistake is reversed and both stay in Movements.
+- **Reminders:** `INVENTORY_HANDOVER_REMIND_MINUTES` and `INVENTORY_COUNT_REMIND_MINUTES` (30 each; 0 switches one off).
+- **Clearing a practice run:** `scripts/reset-employee.ts` (§5) also removes the stock documents and counts of the people it
+  clears, through the ledger's purge, which rebuilds the balances. If removing them would leave someone else's stock below zero
+  (a delivery whose cartons went to a person you keep), it refuses — clear that person too, or reverse instead.
+
+## 7k · Cash (TASK-061, part 1)
+
+- **Cash** (`#cash`, `#cash/check`, `#cash/shifts`; migration 0035): for everyone whose role handles cash (VMO / driver, Supervisor,
+  Ops Head, CEO, Admin) or checks it (Cash auditor, Ops Head, CEO, Admin). The warehouse keeper and the technician do not see it.
+- **A driver:** *Start shift* (optional van) → **Collected** (machine number from its sticker, amount, a photo of the cash — 0 if
+  the box was empty) · **Fuel** / **Other expense** (receipt photo) · **Test note** (a note put back into a machine) · **Deposited**
+  (the notes on the receipt, its transaction number, a photo) → *End shift*. A slip is undone with **Undo** while the shift is open
+  and unchecked; after that only an auditor undoes.
+- **The auditor:** **To check** lists ended shifts not yet ok; each shows Televend's "should have found" beside every collection, and
+  the photos → **All ok**, or **Ask** (the driver and the Ops Head are told; the driver answers in Cash). The driver never sees
+  Televend's figure (D237).
+- **Clearing a practice run:** `scripts/reset-employee.ts` also removes the cleared people's shifts and cash entries (the cash
+  ledger's own purge, every balance rebuilt), and takes back the checks they made of other people's shifts. It refuses to clear an
+  auditor who undid entries in someone else's shift — clear that person first.
+
+## 7l · Route — plans and visits (TASK-061, part 2)
+
+- **Route** (`#route`, `#route/plans`, `#route/proof`; migration 0036): for whoever plans (Supervisor, Ops Head, CEO, Admin) and
+  whoever goes to the machines (VMO / driver, Technician). The warehouse keeper and the cash auditor do not see it.
+- **A planner:** *Plans* → pick the day → **+ New team plan** → day or night shift, the team's name, who goes, then each machine (its
+  number; its name appears) with what to do, crates of oranges, instructions (needed for *Check* and *Other*) and the proof to bring
+  back → **Make the plan**. The team is told, with the crates to take. **Copy … plans** copies the day before. Under the plans:
+  machines served only by day or only by night (a warning, never a refusal).
+- **A driver:** *Route* shows today's round. At the machine: scan its sticker with the phone's camera (it opens the visit), or type the
+  number on the sticker → **Start visit** → tick what was done, take each photo (and the dispenser video, 15 s at most), **Put stock in**
+  (from what you hold), **Cash taken out** (with its photo) → **End the visit**. Missing proof is said, not refused.
+- **The sheet's OK / NO:** *Proof* → the day → every stop: each proof column OK or NO, who visited and how, the fill and the cash, and
+  Televend's refill near the visit.
+- **A sticker's link** is `<address>/app/#visit/<the machine's qr_token>` (column `machine.qr_token`). Printing stickers is TASK-065.
+- **Clearing a practice run:** `scripts/reset-employee.ts` removes the person's visits (with their proof and links) first, then their
+  places on plans and the plans they made. It refuses when someone else's visit carried out one of those plans — clear that person first.
+
+## 7m · Analytics — machines and categories (TASK-070)
+
+- **Analytics** (`#analytics`, `#analytics/categories`; migration 0037): for whoever reads Televend's data (CEO, Admin, Ops Head,
+  Supervisor). Whole days only, up to yesterday: pick Yesterday, 7, 14 or 28 days, or any range up to 92 days. Each period is compared
+  with the same days of the week, whole weeks earlier.
+- **Machines:** five key figures; "What it says — and what to do" (machines that sold nothing, sharp drops, the trend, the 80 % set,
+  categories, cash); tier cards (top ≥ 125 % of the fleet average, about average, below < 75 %, no sales) that filter the list; the
+  ranked bars; each machine with "Day by day" — its days beside the same weekday a week before.
+- **Categories:** cups per machine a day by category, and a card each (machines, share, cash, income, best and weakest, its days).
+- **Correcting a category** (Ops Head, CEO, Admin): "Change category" on a machine → Televend's region, another category, or "Not
+  counted" (out of every figure — a test machine). Televend is never changed.
+- **Income is an estimate:** cash cups × the cash price (set on the machine, else AED 10) + the other paid cups × the "AED n" in the
+  machine's Televend name (else the cash price); token cups are not paid (D258).
+- **Only checked days count:** a day is in Analytics once the analytics store has built it (§7n) — yesterday after its 04:00 check,
+  usually by about 05:00 Dubai. Until then it is "not read", never "nothing sold".
+
+## 7n · Sales history, the analytics store, the machine page (TASK-071, TASK-072)
+
+- **The store** (migration 0038) holds each machine record's cups per Dubai day and hour, built only from days read to their end and
+  equal to Televend's own count. The worker builds it every hour (31 days at most a run, oldest first). By hand, e.g. after a
+  backfill: `pnpm analytics:store` (every checked day not built yet) or `pnpm analytics:store --from 2026-03-25 --to 2026-10-19`.
+  Running it twice changes nothing; Televend is not contacted. `/health` → `analyticsStore`: the newest day built, and any day that
+  differs from Televend's count or failed.
+- **Copying sales back** (read-only towards Televend, paced at one request a second):
+  `pnpm televend:backfill --from YYYY-MM-DD --to YYYY-MM-DD --streams vends` — newest day first, skips days already complete, stops at
+  `--max-requests` (run it again to continue). Televend's sales list reaches back about 200 days (VF87); on 20 Oct its first whole day
+  was 26 Mar 2026.
+- **Televend's own daily totals** for the months the list no longer holds: `pnpm televend:day-totals --from 2025-10-01 --to 2026-03-31`
+  (one read per day; already read on 20 Oct). A fleet figure per day, nothing per machine.
+- **The machine page** (`#operations/machine/<asset>`): opened from the fleet, any list, Recent sales or Analytics. **Recent sales**
+  (`#operations/vends`): opened from the "cups today" tile. The tiles **Cash in the machines** (CEO, Admin, Ops Head, cash auditor),
+  **Collections today**, **Refills today** and **Low on stock** (under 25 %, A-T72.1) open their lists.
+
 ---
 
 ## 8 · When something is wrong
@@ -461,12 +638,15 @@ The privacy notice now names email, so each person taps **I agree** once more.
 | Bot does not answer | Check the Telegram line in `pnpm urls`. If it says it cannot reach Telegram, it is the Wi-Fi, not the code — it retries by itself. Otherwise restart `pnpm start:bot`. |
 | Phone cannot open the dashboard | The Wi-Fi address changed (`pnpm urls`), the phone is on another network, or the firewall rule in §3 is missing. |
 | Dashboard loads, sign-in spins or says "Sign-in service is not reachable" | Supabase is not running (`npx supabase start …`, §1). Sign-in goes through port 3001, so no firewall rule for 54321 is needed. |
+| Same message, but `docker ps` shows the Supabase containers "Up" with no `0.0.0.0:5432x` ports | After a reboot Windows reserved a block of ports over Supabase's (`netsh interface ipv4 show excludedportrange protocol=tcp`). 54321–54323 are reserved for FreshNow on this laptop since 19 Oct, so `docker restart supabase_db_freshnow` (then the other `supabase_*` containers) is enough. For another port, an administrator PowerShell: `net stop winnat`, `netsh int ipv4 add excludedportrange protocol=tcp startport=<port> numberofports=1`, `net start winnat` (G204). |
 | `/app/` is a 404, or the dashboard looks like it did before a pull | Not rebuilt: `pnpm build:web`, then restart the api. |
 | After a pull, the task lists say **Request failed (500)**; the api window logs `column … does not exist` | A migration was not applied: `pnpm migrate`, then restart the api. |
 | A window says **`refusing to start: N compliance rule(s) block production (IS_DEMO=false)`** | `.env` has `IS_DEMO=false`. For the demo delete that line. For a real deployment fix what `pnpm compliance --production` lists (§7c). |
 | The phone's address stopped working | The tunnel was restarted or closed — it has a new address now: `pnpm urls`, send the `Phone` line to the phone again, and turn notifications on again there. |
 | `git pull` refuses: *"Your local changes … would be overwritten"* | You changed a tracked file. `git stash`, pull, then `git stash pop` (or `git stash drop` if you do not need the change). |
 | Nothing arrives in Telegram | The worker is not running; it is what delivers messages. |
+| The worker window ends with `Error: Connection not available` (imapflow) | A dropped mail-server connection used to stop the whole worker (fixed 15 Oct, G174). Restart the worker; on code from before that, pull first. |
+| `/health` shows `televend.stale: true`, or emails stopped being read, while the worker is running | Its schedules were removed — before 15 Oct running the tests did that (G163, fixed). Restart the worker; it registers them again on start. |
 | "429" or slow replies | The provider rate-limited us; the wrapper backs off and falls through the provider order (`LLM_PROVIDER_ORDER`). `curl localhost:3001/health` shows `load.llm`. |
 | `supabase start` fails, "network … not found" | Leftover containers from an interrupted start: `npx supabase stop`, then start again. Only if that fails: `npx supabase stop --no-backup` (this wipes Supabase data). |
 | Want to look inside the database | Supabase Studio: http://127.0.0.1:54323 |

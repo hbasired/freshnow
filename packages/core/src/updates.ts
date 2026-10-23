@@ -75,6 +75,14 @@ export async function createTask(
   return taskId;
 }
 
+/** A report on a task that belongs to someone else, from a caller who may not report for others. */
+export class TaskNotYoursError extends Error {
+  constructor() {
+    super("That task is not yours to report on");
+    this.name = "TaskNotYoursError";
+  }
+}
+
 export interface RecordedUpdate {
   taskUpdateId: string;
   correlationId: string;
@@ -102,10 +110,23 @@ export async function recordTaskUpdate(p: {
    * from the click to the row.
    */
   correlationId?: string;
+  /**
+   * The caller has checked that this person may report on someone else's task (the CEO on the
+   * dashboard today). Without it a task must be the reporter's own.
+   */
+  reportForOthers?: boolean;
 }): Promise<RecordedUpdate> {
   const sql = getServiceSql();
   const correlationId = p.correlationId ?? randomUUID();
   const channel: UpdateChannel = p.channel ?? "telegram";
+
+  // A report on a task must come from its owner. Checked here, in core, for every channel: the
+  // dashboard checked it, but the bot's status buttons take the task id from callback data, which
+  // a modified client can send for any task (found by the role map, 2026-10-15).
+  if (p.taskId && !p.reportForOthers) {
+    const owner = (await sql<{ employee_id: string }[]>`select employee_id from task where id = ${p.taskId}`)[0]?.employee_id;
+    if (owner !== p.employeeId) throw new TaskNotYoursError();
+  }
 
   // Consent is captured at onboarding and, until 2026-09-18, checked by NOTHING afterwards:
   // 6 of 7 active employees had no consent record because they were created by script,

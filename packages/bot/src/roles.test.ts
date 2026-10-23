@@ -28,6 +28,15 @@ const E = randomUUID(); // plain employee
 const AK = randomUUID();
 const AA = randomUUID();
 const TAG = "ROLE-";
+// The roles of TASK-057.
+const OH_TG = 9_700_000_000_011;
+const OR_TG = 9_700_000_000_012;
+const AD_TG = 9_700_000_000_013;
+const VM_TG = 9_700_000_000_014;
+const OH = randomUUID(); // ops head
+const OR = randomUUID(); // a VMO who reports to OH
+const AD = randomUUID(); // admin
+const VM = randomUUID(); // a VMO who reports to the CEO
 
 const bot = createBot({ token: "0:test", ceoUserId: BigInt(CEO_TG) });
 // Only the fields the handlers read; grammY's full `UserFromGetMe` shape is a fixture cast.
@@ -83,6 +92,10 @@ beforeAll(async () => {
   await person(R, "Rahim", "employee", M, R_TG);
   await person(O, "Omar", "employee", DEMO_CEO_ID, O_TG);
   await person(E, "Elif", "employee", DEMO_CEO_ID, E_TG);
+  await person(OH, "Ola", "ops_head", DEMO_CEO_ID, OH_TG);
+  await person(OR, "Oren", "vmo", OH, OR_TG);
+  await person(AD, "Adam", "admin", DEMO_CEO_ID, AD_TG);
+  await person(VM, "Vera", "vmo", DEMO_CEO_ID, VM_TG);
   await sql`insert into blocker (raised_by, category, severity, status, affected_asset, is_synthetic) values
     (${R}, 'equipment', 'high', 'open', 'ROLE chiller van 2', true),
     (${O}, 'supply', 'low', 'open', 'ROLE oranges', true)`;
@@ -92,25 +105,27 @@ beforeAll(async () => {
   await sql`update employee set telegram_user_id = ${CEO_TG} where id = ${DEMO_CEO_ID}`;
   // Everyone here has agreed to today's notice; the door for those who have not is
   // consent.test.ts's subject, not this file's.
-  for (const id of [M, R, O, E, DEMO_CEO_ID]) {
+  for (const id of [M, R, O, E, OH, OR, AD, VM, DEMO_CEO_ID]) {
     await recordConsent({ employeeId: id, noticeHash: currentNoticeHash(), via: "telegram" });
   }
 });
 
 afterAll(async () => {
   const sql = getServiceSql();
-  const ids = [M, R, O, E, AK, AA];
+  const ids = [M, R, O, E, AK, AA, OH, OR, AD, VM];
   await sql`update employee set telegram_user_id = ${ceoTelegramBefore} where id = ${DEMO_CEO_ID}`;
-  await sql`delete from bot_session where key = any(${[CEO_TG, M_TG, R_TG, O_TG, E_TG].map(String)})`;
+  await sql`delete from bot_session where key = any(${[CEO_TG, M_TG, R_TG, O_TG, E_TG, OH_TG, OR_TG, AD_TG, VM_TG].map(String)})`;
+  await sql`delete from invite_code where display_name like ${TAG + "%"} or issued_by = ${AD}`;
   await sql`delete from notification_outbox where recipient_employee_id = any(${ids})`;
   await sql`delete from escalation where blocker_id in (select id from blocker where raised_by = any(${ids}))`;
   await sql`delete from blocker where raised_by = any(${ids})`;
   await sql`delete from task_update where employee_id = any(${ids})`;
   await sql`delete from assignment where assigned_to = any(${ids}) or assigned_by = any(${ids})`;
   await sql`delete from task where employee_id = any(${ids})`;
-  await sql`delete from audit_log where actor = any(${ids.map((i) => `employee:${i}`)}) or actor = any(${[M_TG, R_TG, O_TG, E_TG, CEO_TG].map((t) => `telegram:${t}`)})`;
+  await sql`delete from audit_log where actor = any(${ids.map((i) => `employee:${i}`)}) or actor = any(${[M_TG, R_TG, O_TG, E_TG, CEO_TG, OH_TG, OR_TG, AD_TG, VM_TG].map((t) => `telegram:${t}`)})`;
   await sql`delete from audit_log where entity = 'employee' and entity_id = any(${ids})`;
   await sql`delete from consent_record where employee_id = any(${[...ids, DEMO_CEO_ID]}) and consented_at > now() - interval '1 hour'`;
+  await sql`update employee set manager_employee_id = null where id = any(${ids})`;
   await sql`delete from employee where id = any(${ids})`;
   await closeDb();
 });
@@ -119,7 +134,7 @@ describe("a manager in Telegram", () => {
   it("is greeted as a manager, with the team menu and no invite button", async () => {
     await bot.handleUpdate(text(M_TG, "/start"));
     const { texts, buttons } = drain();
-    expect(texts.join("\n")).toMatch(/signed in as \*manager\*/);
+    expect(texts.join("\n")).toMatch(/signed in as \*Manager\*/);
     expect(buttons).toContain("menu:blockers");
     expect(buttons).toContain("menu:assign");
     expect(buttons).toContain("menu:log");
@@ -224,18 +239,18 @@ describe("a manager in Telegram", () => {
 
   it("still cannot create invites", async () => {
     await bot.handleUpdate(text(M_TG, "/invite Somebody New"));
-    expect(drain().texts.join(" ")).toMatch(/Only the CEO can create invites/);
+    expect(drain().texts.join(" ")).toMatch(/Only the CEO or an Admin can create invites/);
   });
 });
 
 describe("a plain employee in Telegram", () => {
   it("is refused the manager commands", async () => {
     await bot.handleUpdate(text(E_TG, "/assign"));
-    expect(drain().texts.join(" ")).toMatch(/Only the CEO or a manager can assign/);
+    expect(drain().texts.join(" ")).toMatch(/Only someone who gives work can assign/);
     await bot.handleUpdate(text(E_TG, "/blockers"));
-    expect(drain().texts.join(" ")).toMatch(/Only the CEO or a manager sees the blocker queue/);
+    expect(drain().texts.join(" ")).toMatch(/Only someone who leads people sees the blocker queue/);
     await bot.handleUpdate(tap(E_TG, "menu:assign"));
-    expect(drain().texts.join(" ")).toMatch(/Only the CEO or a manager can assign/);
+    expect(drain().texts.join(" ")).toMatch(/Only someone who gives work can assign/);
   });
 
   it("is refused a crafted tap even with a guessable id", async () => {
@@ -256,5 +271,58 @@ describe("the CEO in Telegram", () => {
     expect(all).toContain("ROLE chiller van 2");
     expect(all).toContain("ROLE oranges");
     expect(all).not.toMatch(/in your team/);
+  });
+});
+
+describe("the roles of TASK-057 in Telegram", () => {
+  it("an Ops Head is greeted by role and gets the team menu: blockers and assign, no invites", async () => {
+    await bot.handleUpdate(text(OH_TG, "/start"));
+    const { texts, buttons } = drain();
+    expect(texts.join("\n")).toMatch(/signed in as \*Ops Head\*/);
+    expect(buttons).toEqual(expect.arrayContaining(["menu:blockers", "menu:assign", "menu:log"]));
+    expect(buttons).not.toContain("menu:invite");
+  });
+
+  it("an Ops Head assigns to their report and is refused anyone else, even with forged button data", async () => {
+    await bot.handleUpdate(text(OH_TG, "/assign"));
+    const { buttons } = drain();
+    expect(buttons).toContain(`assignto:${OR}`);
+    expect(buttons).not.toContain(`assignto:${VM}`);
+    await bot.handleUpdate(tap(OH_TG, `assignto:${VM}`));
+    expect(drain().alerts.join(" ")).toMatch(/only assign to people who report to you/i);
+    await bot.handleUpdate(tap(OH_TG, `assignto:${OR}`));
+    expect(drain().texts.join(" ")).toMatch(/What should ROLE-Oren do/);
+    await bot.handleUpdate(text(OH_TG, "Refill machine 793 before noon"));
+    expect(drain().texts.join(" ")).toMatch(/Assigned to ROLE-Oren/);
+    const n = await getServiceSql()<{ n: number }[]>`select count(*)::int as n from task where employee_id = ${VM}`;
+    expect(n[0]?.n).toBe(0);
+  });
+
+  it("an Admin gets invites, everyone's blockers and assigning to anyone", async () => {
+    await bot.handleUpdate(text(AD_TG, "/start"));
+    const { texts, buttons } = drain();
+    expect(texts.join("\n")).toMatch(/signed in as \*Admin\*/);
+    expect(buttons).toEqual(expect.arrayContaining(["menu:blockers", "menu:assign", "menu:invite", "menu:log"]));
+    await bot.handleUpdate(text(AD_TG, "/assign"));
+    expect(drain().buttons).toEqual(expect.arrayContaining([`assignto:${VM}`, `assignto:${OR}`]));
+  });
+
+  it("a VMO gets their own menu and is refused every command that leads people", async () => {
+    await bot.handleUpdate(text(VM_TG, "/start"));
+    const { texts, buttons } = drain();
+    expect(texts.join("\n")).toMatch(/signed in as \*VMO \/ driver\*/);
+    expect(buttons).toEqual(["menu:log", "menu:addtask", "menu:register"]);
+    await bot.handleUpdate(text(VM_TG, "/assign"));
+    expect(drain().texts.join(" ")).toMatch(/Only someone who gives work can assign/);
+    await bot.handleUpdate(text(VM_TG, "/blockers"));
+    expect(drain().texts.join(" ")).toMatch(/Only someone who leads people sees the blocker queue/);
+    await bot.handleUpdate(text(VM_TG, "/invite Somebody New"));
+    expect(drain().texts.join(" ")).toMatch(/Only the CEO or an Admin can create invites/);
+    // A forged tap is refused before any title is asked for. (No free text here: that would go to
+    // the live model and make this test hang on a slow network.)
+    await bot.handleUpdate(tap(VM_TG, `assignto:${OR}`));
+    const after = drain();
+    expect(after.alerts.join(" ")).toMatch(/only assign to people who report to you/i);
+    expect(after.texts.join(" ")).not.toMatch(/What should/);
   });
 });

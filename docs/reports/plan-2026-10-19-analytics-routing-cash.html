@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Plan — analytics, routing, cash, one app</title>
+<style>
+  :root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#3fb950;--warn:#d29922;--bad:#f85149;--card:#161b22;--bd:#30363d;--link:#88c0f0}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;max-width:1040px;padding:48px 24px;margin-inline:auto}
+  h1{font-size:1.9rem;margin:0 0 4px} h2{margin-top:2.6rem;color:var(--acc);font-size:1.3rem} h3{font-size:1.05rem;margin-top:1.6rem}
+  .meta{color:var(--mut);font-size:.9rem;margin-bottom:1.6rem}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:18px;margin:14px 0}
+  .warn{border-left:3px solid var(--warn)} .ok{border-left:3px solid var(--acc)} .bad{border-left:3px solid var(--bad)}
+  code{background:#1f2630;padding:2px 6px;border-radius:4px;font-size:.9em}
+  .tw{overflow-x:auto} table{border-collapse:collapse;width:100%;margin:14px 0}
+  th,td{border:1px solid var(--bd);padding:7px 9px;text-align:left;font-size:.88rem;vertical-align:top} th{background:#1f2630}
+  ul,ol{padding-left:1.2rem} li{margin:3px 0} a{color:var(--link)}
+  .tag{display:inline-block;border-radius:6px;padding:0 6px;font-size:.78rem;font-weight:600;white-space:nowrap}
+  .t-done{background:#1f3a26;color:#7ee2a0} .t-plan{background:#1f2a3a;color:#9cc7f0} .t-part{background:#3a331f;color:#e8c56a} .t-dep{background:#3a1f24;color:#f39aa2}
+  .phase{font-weight:700;color:var(--fg)} .small{font-size:.85rem;color:var(--mut)}
+  .q{margin:10px 0 18px} .q b{color:var(--fg)} .rec{color:var(--acc);font-weight:600}
+  @media (max-width:600px){body{padding:28px 16px}}
+</style></head><body>
+<h1>Plan — analytics, routing, cash and one app</h1>
+<p class="meta">2026-10-19 · answers the request recorded in <code>docs/requirements/REQ-2026-10-19.md</code> (your message and the 15 points,
+verbatim, split into 115 one-line requirements) · <b>status: final — your answers to the 16 questions (19 Oct) are in §7</b></p>
+
+<div class="card ok"><b>In one paragraph:</b> almost everything you asked for can be built on what exists, in five phases ordered from
+easiest to hardest. Phase 1 starts with what you named first — machines ranked by their sales against the fleet average, and every
+category (Hospital, Metro, Mall, Expo/Events …) added up and plotted — because it needs only the sales we already copy from
+Televend. Three things depend on others: <b>writing into Televend</b> (so the Staff App can be retired) needs Televend to offer that
+in its API and your yes; <b>cash withdrawn and left in each machine</b> needs the API key (or a Televend user allowed to see the cash
+centre); and the <b>phone app and chat for the field staff</b> need the server (HTTPS) that is not bought yet.</div>
+
+<h2>1. Your questions, answered</h2>
+<div class="tw"><table>
+<tr><th style="width:28%">Question</th><th>Answer</th></tr>
+<tr><td>Is this achievable? (RX.10)</td><td><b>Yes</b>, with three dependencies said plainly: (1) Televend writes — not found in
+Televend's public material; their IT must confirm the endpoints (§5.4); (2) cash amounts — in Televend's official API streams
+("cash income", "cash left in machine"), which we read once the key arrives; (3) the server for phones. Routing with OR-Tools /
+VROOM on OpenStreetMap is achievable, but each machine needs a map pin first — Televend has no per-machine location (§2).</td></tr>
+<tr><td>How many tasks remain from what you asked? (RM.2)</td><td><b>From the approved plan (TASK-055–069): 9 remain</b> — 061 part 3
+(part swaps, tickets), 062 (tally and end of day), 063 (app foundation), 064 (server), 065 (app for drivers and the warehouse),
+066 (chat), 067 (app for the other roles), 068 (OCR), 069 (pilot). Done: 055, 056, 057, 058, 059, 060, 061 parts 1–2.
+<b>Your new request adds 14 tasks</b> (070–081, 082 and 084; 083 only if you decide to write to Televend). Five independent reviews
+are also owed (057, 059 fixes, 060, 061 parts 1–2) — the review agents are blocked by the account limit until 23 Oct 17:00.</td></tr>
+<tr><td>Is the chat for all employees complete? (RM.3)</td><td><b>No — not started.</b> It is TASK-066. Today the system reaches people
+through the Telegram bot, email and the in-app alerts inbox; there is no person-to-person chat yet. It is planned with the phone
+app, after the server, because field staff use it on their phones.</td></tr>
+<tr><td>Unrelated Docker services stopped? (RM.5)</td><td>Checked 19 Oct 23:20: only FreshNow's containers run (Supabase ×6, Redis,
+Adminer, and the old Postgres kept for rollback). Nothing unrelated to stop.</td></tr>
+<tr><td>The WhatsApp chats of 15–19 Oct (RM.4)</td><td>Read. They add 13 points (RW.1–13 in the requirements file): food expenses
+approved by a manager, a "juice try" deduction, machines that take cards only, nights with almost no cash since 18 Oct, oranges
+rejected at delivery and returned, misshapen fruit allowed only at Wasl, a machine moved within its site, and seven nightly sums
+that all balance — which become the deposit check's test cases. Each is placed in a task in §6.</td></tr>
+</table></div>
+
+<h2>2. What the data says (facts that shape the plan)</h2>
+<div class="tw"><table>
+<tr><th>Fact</th><th>So</th><th>Confidence</th></tr>
+<tr><td>Televend's <b>region</b> is your category: Hospital / Clinics 19 live machines, Metro 19, Shopping Mall / Complex 18, Events (the
+Expo machines) 8, Office Buildings 7, Tram 6, Shopping Centers 5, Other stations 3, Parks 2 — 87 live of 221 records.</td>
+<td>Category totals can be built at once (TASK-070).</td><td>[verified — live mirror, 19 Oct]</td></tr>
+<tr><td>Some machines sit in the wrong region: a Sharjah clinic and Sharjah Police are filed under "Events".</td>
+<td>FreshNow needs its own corrections, kept in our system (Televend untouched).</td><td>[verified]</td></tr>
+<tr><td>Televend's "location" is one address per region (every Events machine shows Mirdif).</td>
+<td>There are <b>no per-machine coordinates</b>; routing needs each machine pinned once (Q9).</td><td>[verified]</td></tr>
+<tr><td>Our copy of the sales starts 3 Oct: 26,673 sales on 84 machines. Your Excel exports hold alarms back to April and refills,
+but no sales.</td><td>Backfill the sales from Televend before the history analysis (TASK-071).</td><td>[verified]</td></tr>
+<tr><td>Each sale is one cup with no amount (the list Televend's web app uses carries none).</td><td>Income is estimated: cups × the
+price in the machine's name ("AED15", "AED12"; AED 10 where none) until the API gives amounts (Q3).</td><td>[verified — VF82]</td></tr>
+<tr><td>Names carry the payment mode: "Card only", "Cashless 1 only"; and since 18 Oct most cash collections were AED 0.</td>
+<td>Card-only machines need no cash task; the cash share is a trend worth showing.</td><td>[verified names; chats]</td></tr>
+<tr><td>The mirror keeps Televend's stock figure per machine (<code>stock_percent</code>, <code>stock_data</code>).</td>
+<td>"Cups left" and "needs a refill" can be shown (TASK-072); what the figure counts is checked first.</td><td>[verified columns; meaning to check]</td></tr>
+<tr><td>Televend's official API streams carry vends <i>with amount</i>, fill events, cash collections (cash income, cash left in the
+machine, notes and coins) and cash-bag countings; streams keep 7 days.</td><td>The cash tally (R1.1, R4.3) becomes exact with the key.</td>
+<td>[read from Televend's specs, TASK-055]</td></tr>
+<tr><td>No public Televend endpoint for <i>recording</i> a fill was found; a remote command exists that forces a cash-collection
+reading from the machine's box.</td><td>Writing back is a question for Televend IT, not something to assume.</td><td>[web search 19 Oct]</td></tr>
+</table></div>
+
+<h2>3. Rules that hold throughout</h2>
+<ul>
+  <li><b>The model never computes a number.</b> Every figure on a dashboard comes from SQL; insights are fixed sentences filled from
+  query results (CLAUDE.md rule 2). Optional wording by the model passes the numeric gate.</li>
+  <li><b>Deterministic, replayable jobs.</b> Every analytics run, forecast, route and audit stores its inputs, parameters and output, so
+  it can be run again and give the same answer (rule 3).</li>
+  <li><b>Machines and processes are scored — never people.</b> Driver–region patterns (R3) are used to suggest assignments, never to rank
+  anyone (CLAUDE.md "do not build employee ranking").</li>
+  <li><b>Televend stays read-only</b> until you decide otherwise per operation (Q13); the bridge account never writes.</li>
+  <li>Every task follows the loop: research → plan → build → verify → document (HTML + knowledge base), with what was not verified.</li>
+</ul>
+
+<h2>4. Phases and tasks, easiest first</h2>
+<p class="small">S = a day or two of work, M = several days, L = a week or more. "Needs" names what must exist first.</p>
+
+<h3><span class="phase">Phase 1 — Analytics on the data we already have</span> (no new services)</h3>
+<div class="tw"><table>
+<tr><th>Task</th><th>Delivers</th><th>Requirements</th><th>Needs</th><th>Size</th></tr>
+<tr><td><b>070</b> Machine performance and categories</td><td>A new <b>Analytics</b> portal, first two pages. <i>Machines:</i> every live machine
+with cups, cups per day, estimated income, cash/card share and change against the previous period, sorted into tiers against the fleet
+average (Q2), plus the few machines that make 80 % of sales. <i>Categories:</i> each category's cups, cups per machine per day (fair
+between big and small categories), share, trend, best and weakest machine, plotted. Click a machine → its daily line with last week's
+same day beside it. Short insight sentences and suggested actions, each with its numbers. Date picker: one day or a range. Payment
+mode read from the names (card-only). Category corrections by the Ops Head or Admin, audited.</td>
+<td>RM.7, R8.1–8.5, R0.1, R0.5, R15.7 (part), RW.3, RW.4</td><td>—</td><td>M</td></tr>
+<tr><td><b>071</b> Sales history and the analytics store</td><td>Sales copied back from Televend as far as it returns (paced, at night);
+nightly tables per machine per day and per hour, per category per day; a daily check that our totals equal Televend's; each run
+recorded with its inputs (replay). The base for EDA, forecasts and learning.</td><td>R0.2, R0.3, R15.3, R15.6</td><td>—</td><td>M</td></tr>
+<tr><td><b>072</b> Machine page, sales page, live tiles</td><td>A machine opens as a <b>full page</b>: status, stock left, last refill and
+by whom, every transaction (sales with payment mode, refills, cash collections, alarms, visits with proof), today against the same day
+last week, notes and moves within its site (with Televend's history log of renames and moves, if its read is allow-listed). A <b>recent sales</b> page, live, filterable, with charts. The Operations tiles become
+buttons: <i>cash in machines</i> (per machine, estimated from cash sales since the last collection), <i>collections today</i>,
+<i>refills today</i> and <i>needs a refill</i>. A page listing everything we read from Televend and where it is shown.</td>
+<td>R7.3–7.5, R10.1–10.4, R11.1–11.3, R13.1–13.2, RW.7, RW.9, O2.9, O5.3, O5.4</td><td>070</td><td>M</td></tr>
+<tr><td><b>073</b> Each portal its own sidebar</td><td>The left sidebar lists the open portal's own pages (Operations: Now, Sales,
+Machines …; Stock: …), not the Tasks pages. (The switcher already wraps to a second row — done today.)</td><td>R9.1 (R9.2 done)</td><td>—</td><td>S</td></tr>
+<tr><td><b>074</b> Alarms that clear themselves; false alarms learned</td><td>An alarm followed by a successful sale on the same machine is
+shown "cleared by the next sale" in our system (Televend unchanged) and alerts nobody. For each alarm type on each machine the share
+that cleared by itself over 28 days is kept; types above a threshold (Q-free default 80 %) are marked "likely false", reviewable, with
+the evidence. Chattering and stale alarms named (ISA-18.2 terms). Nothing deleted. The alarms page gets its time-to-clear by type and
+its chronic machines. Alarms become routed problems (built in 059, switched off) once FreshNow names who handles machine, stock and cash
+problems.</td><td>R14.1–14.3, O2.22, O5.8</td><td>071</td><td>M</td></tr>
+<tr><td><b>075</b> The business analytics portal</td><td>EDA over the whole history for any day or range: sales by hour, weekday,
+category, payment mode and machine; refills and stock-outs; alarms; cash. Key indicators with their change, insight cards (what
+changed and why, in one line), and the actions to take, each linking to its evidence. Charts with clear legends and a tested colour
+palette. Yesterday's complete data is in by morning. The Operations "Now" page redesigned the same way.</td>
+<td>R0.3, R0.5, R12.1–12.3, R15.1–15.7</td><td>071</td><td>L</td></tr>
+</table></div>
+
+<h3><span class="phase">Phase 2 — Money and stock balanced</span></h3>
+<div class="tw"><table>
+<tr><th>Task</th><th>Delivers</th><th>Requirements</th><th>Needs</th><th>Size</th></tr>
+<tr><td><b>062</b> Tally and end of day</td><td>Per person per shift and per day: stock taken − put into machines − returned − damaged = 0;
+Televend's refills (cups) against the visits' fills (cartons); Televend's sales against what was loaded; the warehouse's day balance.
+At the deposit: collected − approved expenses − test notes − test purchases − earlier deposits must equal the deposit; a difference
+needs a reason, and the person and their manager are alerted (Q5). "Who did not report". The seven nightly sums from the chats are
+its tests. Also from the earlier plan: <b>Televend's people matched to FreshNow's</b> (an Admin confirms each "filled by" name — so the
+tally knows who filled, and erasure can reach Televend's copies of names), cups per carton measured from sales against cartons loaded,
+the over/short decisions, and closing a period on both ledgers.</td><td>R2.1–2.4, R5.4, R6.2, R6.4, R7.1, RW.13, O2.10, O2.16–2.18, O4.1–4.7</td><td>—</td><td>L</td></tr>
+<tr><td><b>076</b> Finance view and the bank statement</td><td>Buttons with the key figures (collected, deposited, spent, left with people,
+differences) opening to who, what, why, with every photo. Expense kinds: fuel (receipt), food (reason + a manager's approval in the app),
+test purchase, other. Upload the bank statement; deposits matched to its lines; unmatched ones pop up on the dashboard.</td>
+<td>R6.3, R6.5–6.9, RW.1, RW.2</td><td>062</td><td>M</td></tr>
+<tr><td><b>077</b> Stock: the gaps</td><td>"Other" in the materials list (typed, reviewed by the keeper), return to the supplier with a
+reason and photos (rejected oranges), a fruit grade allowed only at chosen machines ("misshapen → Wasl only").</td>
+<td>R5.2, R5.3, RW.5, RW.6</td><td>—</td><td>S</td></tr>
+<tr><td><b>061 part 3</b> Part swaps and tickets</td><td>A part from stock into a machine and the old part back; a technician's job from
+an alarm; a phone or SIM problem reported as a ticket; spare parts with their photos and the machine models they fit; each machine's
+parts history.</td><td>RW.10, O2.14, O5.10</td><td>—</td><td>M</td></tr>
+</table></div>
+
+<h3><span class="phase">Phase 3 — The Televend switch and the audits</span> (can be built before the key arrives)</h3>
+<div class="tw"><table>
+<tr><th>Task</th><th>Delivers</th><th>Requirements</th><th>Needs</th><th>Size</th></tr>
+<tr><td><b>082</b> MCP ↔ API switch</td><td>The variables named in <code>.env</code> (§5.3), a switch for the CEO/Admin in Settings, a
+side-by-side comparison period, automatic fall-back, and every switch audited. With the key: cash income and cash left per collection,
+and sale amounts, read from Televend. The MCP read tools the earlier plan listed and are still missing: one machine's detail, sales
+with filters and totals, the history log, importing an export file, and read tools over FreshNow's own operations views.</td><td>RX.4–RX.7, R1.1, R4.3, O2.8, O8.5</td><td>—</td><td>M</td></tr>
+<tr><td><b>084</b> Periodic audit</td><td>Daily: our copy against Televend's totals; the stock and cash ledgers' invariants; which Televend
+source is live and which writes are on. Weekly: who holds which role and sees cash. Monthly: a report. A failure is an alert.</td>
+<td>RX.8</td><td>071</td><td>S</td></tr>
+<tr><td><b>083</b> Writing to Televend <i>(only if you decide)</i></td><td>One operation at a time (fills first), after Televend confirms the
+endpoint: off → dry run → on, each with your yes; idempotent; read back from Televend to confirm.</td><td>R1.4, R1.9 (Televend part), RX.5</td>
+<td>082 + Televend</td><td>M</td></tr>
+</table></div>
+
+<h3><span class="phase">Phase 4 — One app for everyone</span> (needs the server)</h3>
+<div class="tw"><table>
+<tr><th>Task</th><th>Delivers</th><th>Requirements</th><th>Needs</th><th>Size</th></tr>
+<tr><td><b>064</b> Server</td><td>The VPS, HTTPS, backups, managed phones (approved plan).</td><td>—</td><td>purchase (Q16)</td><td>M</td></tr>
+<tr><td><b>066</b> Chat</td><td>Rooms that replace the groups, direct messages, photos, voice notes, cards that post themselves (a deposit,
+a low stock, a red NO); web first, then the app.</td><td>R1.5, R1.9, R4.1, RM.3</td><td>064 for phones</td><td>L</td></tr>
+<tr><td><b>063 · 065 · 067</b> The Android app</td><td>Foundation, then drivers and the warehouse, then the other roles — the same flows as the
+web portals, offline-first, with the sticker scanned in the app.</td><td>R1.2, R1.3, R1.6, R4.1, R4.2, R4.5, R6.1, RW.12</td><td>064</td><td>L</td></tr>
+<tr><td><b>068</b> OCR</td><td>Receipts, the deposit machine's slip, fuel receipts and the machine's counter screen read into the form; the
+person checks, then saves. Measured first on your real photos.</td><td>R4.4, R4.6, R7.2</td><td>062</td><td>M</td></tr>
+<tr><td><b>069</b> Pilot</td><td>One team and the warehouse first, two weeks beside WhatsApp, then everyone.</td><td>R4.1</td><td>all of Phase 4</td><td>M</td></tr>
+</table></div>
+
+<h3><span class="phase">Phase 5 — Forecasts and routes</span></h3>
+<div class="tw"><table>
+<tr><th>Task</th><th>Delivers</th><th>Requirements</th><th>Needs</th><th>Size</th></tr>
+<tr><td><b>078</b> Map and travel times</td><td>Each machine and the warehouse placed once — a pin on the map or a pasted Google Maps link (Q9); <b>sites</b> (machines at one site share
+a place) and the <b>vans</b> with their capacity in crates — both from the earlier plan, never built; OSRM on the UAE's OpenStreetMap roads;
+a travel-time table between every pair.</td><td>R1.10, R1.14, R1.15, O2.1, O2.3, O2.5</td><td>064 (memory)</td><td>M</td></tr>
+<tr><td><b>079</b> Demand and stock-out forecast</td><td>Per machine per hour from the history (same weekday, recent trend); when each machine
+will run out from Televend's stock figure; checked against what really happened before it is trusted.</td><td>R1.13</td><td>071</td><td>M</td></tr>
+<tr><td><b>080</b> Who usually goes where</td><td>Learned from Televend's refill log, the visits and the collections: person × region × machine ×
+weekday × shift, refreshed nightly, used only as a suggestion.</td><td>R3.1–3.3, R1.11</td><td>071</td><td>S</td></tr>
+<tr><td><b>081</b> Tomorrow's routes</td><td>At 00:00, with yesterday complete: which machines need a visit and why, teams by shift and region,
+the order of stops (solver per Q10), the cartons, parts and consumables each person takes — as Route plans the Supervisor sees; each
+person gets theirs one hour before their shift (Q11). Every run stored and replayable.</td><td>R1.10–1.18</td><td>078–080</td><td>L</td></tr>
+</table></div>
+
+<div class="card warn"><b>Owed before anything reaches real people:</b> the independent reviews of TASK-057 (roles), the fixes to
+TASK-059's review, TASK-060 (its skeptic pass), and TASK-061 parts 1 and 2 — blocked by the account limit until 23 Oct 17:00; run then,
+before the pilot (069). The privacy notice changed for cash and visits: the people asked must agree themselves.</div>
+
+<h2>5. How the hard parts work</h2>
+
+<h3>5.1 Analytics (070, 071, 075)</h3>
+<ul>
+  <li><b>Cups per day</b> = a machine's sales ÷ the days in the range it was live; the <b>fleet average</b> is the mean over live machines with
+  any sale. Machines with no sale for two days or more are listed apart ("check them"), not averaged in.</li>
+  <li><b>Tiers</b> (Q2) and the <b>80 % set</b> (the fewest machines making 80 % of cups). <b>Category per machine-day</b> makes a category of 19
+  machines comparable with one of 2.</li>
+  <li><b>Same day last week</b>: each day is compared with the same weekday 7 days earlier — never with the day before (weekday patterns).</li>
+  <li><b>Insights</b> are fixed sentences filled from SQL — e.g. "Hospital / Clinics: 19 machines, 38 % of cups, 41 cups per machine per
+  day — the highest category" — with the query behind each number shown on demand. <b>Actions</b> are rules with evidence: "No sales for
+  2 days at Burjuman 312 — check the machine".</li>
+  <li><b>The store</b> (071): aggregates per machine per day and hour carry no personal data and are kept; each nightly run records the
+  last sale it saw, so it can be replayed.</li>
+</ul>
+
+<h3>5.2 Alarms that clear themselves (074)</h3>
+<p>Some alarms are proven over by a sale (a vend failure, a cup or coin fault, a lost connection): if a sale succeeds on the same machine
+after the alarm began, we mark it <i>cleared by the next sale</i>, with that sale as the evidence; others (product low, cash box full) are
+never cleared this way. Over 28 days each alarm type on each machine gets a share cleared by itself; above the threshold it is
+"likely false" — still recorded and listed, never sent as an alert, and reviewable by the Ops Head. Televend is not changed.</p>
+
+<h3>5.3 The MCP ↔ API switch (082) — built so it cannot mix sources</h3>
+<ul>
+  <li><b>Names in <code>.env</code></b>, empty until you paste them: <code>TELEVEND_CLIENT_ID</code>, <code>TELEVEND_CLIENT_SECRET</code> (exist since
+  TASK-055), plus <code>TELEVEND_API_KEY</code> (if Televend's gateway issues one), <code>TELEVEND_API_BASE_URL</code>, <code>TELEVEND_AUTH_URL</code>,
+  <code>TELEVEND_COMMIT_OFFSETS</code>. "MCP" today means the bridge: our connector signed in as your Televend user, sending only
+  allow-listed reads; the MCP tools use the same connector, so they follow the switch.</li>
+  <li><b>One source of truth</b>: the live source is one row in the database, changed only by the CEO or an Admin with a typed confirmation,
+  audited (who, when, from what to what).</li>
+  <li><b>Four states</b>: <i>bridge</i> (now) → <i>API shadow</i> (both read; the API's data is compared with the bridge's, the bridge stays the
+  source) → <i>API</i> (the API is the source; the bridge stops) → <i>fall-back to bridge</i> automatically after 30 minutes of API failures,
+  with an alert. "API" is offered only after the key passes a live test and the shadow week shows matching totals.</li>
+  <li><b>No double counting</b>: every copied row carries its source and Televend's own id; the same sale from both sources is one row.
+  Streams keep 7 days, so the switch-over overlaps and the unique keys absorb the overlap.</li>
+</ul>
+
+<h3>5.4 Writing to Televend (083 — only if you say yes)</h3>
+<p>Your rule since 15 Oct is read-only, to protect Televend's logging and balance tally; your new message expects the API to be used
+"for reading, writing". Both are honoured by keeping writes <b>off</b> until you turn on one operation at a time, after Televend confirms
+the endpoint: off → dry run (built and logged, not sent) for two weeks → on; each write has an idempotency key and is confirmed by
+reading Televend back. The bridge account never writes. If Televend offers no write endpoint, the Staff App stays for Televend's own
+records and our app sends nothing there.</p>
+
+<h3>5.5 Routes (078–081)</h3>
+<p><b>Inputs:</b> machine and warehouse locations (pins or Google Maps links), Televend's stock figure and the forecast, service rules (night-only), shifts, people and
+their usual regions, van capacity in crates, travel times from OSRM. <b>Solver:</b> VROOM (open source, built for vehicle routing with
+capacities and time windows, on OSRM) — or OR-Tools — with fixed settings, a solution limit instead of a time limit, one thread, so the
+same inputs give the same routes; ant-colony optimisation as a benchmark (Q10). <b>Output:</b> draft Route plans with the reason for each
+stop ("stock 23 %, forecast 41 cups by 18:00") and the cartons, parts and consumables per person, computed at 00:00; the Supervisor
+reviews; each person receives theirs one hour before their shift (Q11). <b>Audit:</b> each run stores inputs, solver and version, settings
+and output; a replay test runs it again.</p>
+
+<h3>5.6 OCR (068)</h3>
+<p>PaddleOCR's text recognition (PP-OCRv5) on our server reads the photo; fixed parsers per kind of paper turn the text into fields
+(the deposit slip's amount, date, transaction number and notes; a fuel receipt's amount and litres; the counter on the machine's
+screen). The form is filled as a proposal with each field marked; the person corrects and saves; a number that is not in the text is
+never filled. Accuracy is measured on your real photos before it is switched on (Q8).</p>
+
+<h2>6. Every requirement, and where it is delivered</h2>
+<p class="small"><span class="tag t-done">built</span> exists today · <span class="tag t-plan">planned</span> in the task named ·
+<span class="tag t-part">partly</span> part exists, the rest planned · <span class="tag t-dep">depends</span> on Televend or a decision.</p>
+<div class="tw"><table>
+<tr><th style="width:9%">ID</th><th>Requirement (short)</th><th style="width:22%">Where</th></tr>
+<tr><td>RM.1</td><td>Finish the work in progress first</td><td><span class="tag t-done">built</span> TASK-061 part 2, live 19 Oct</td></tr>
+<tr><td>RM.2</td><td>Tasks remaining</td><td><span class="tag t-done">built</span> §1</td></tr>
+<tr><td>RM.3</td><td>Is the chat complete?</td><td><span class="tag t-done">built</span> §1 — no; TASK-066</td></tr>
+<tr><td>RM.4</td><td>Use the 15–19 Oct chats</td><td><span class="tag t-done">built</span> RW.1–13 below</td></tr>
+<tr><td>RM.5</td><td>Stop unrelated Docker services</td><td><span class="tag t-done">built</span> none running</td></tr>
+<tr><td>RM.6</td><td>Record the prompt; check the plan; final plan</td><td><span class="tag t-part">partly</span> this table; final after §7</td></tr>
+<tr><td>RM.7</td><td>Easiest first: performance and categories</td><td><span class="tag t-done">built</span> 070, 20 Oct</td></tr>
+<tr><td>R0.1</td><td>Deep analytics, patterns</td><td><span class="tag t-part">partly</span> 070 built; 075</td></tr>
+<tr><td>R0.2</td><td>Store data for patterns</td><td><span class="tag t-done">built</span> 071, 20 Oct</td></tr>
+<tr><td>R0.3</td><td>Extensive EDA</td><td><span class="tag t-plan">planned</span> 075</td></tr>
+<tr><td>R0.4</td><td>Automation, full</td><td><span class="tag t-part">partly</span> the store builds itself hourly (071); 074, 062, 081, 084</td></tr>
+<tr><td>R0.5</td><td>Insights, indicators, actions</td><td><span class="tag t-part">partly</span> 070 built; 075</td></tr>
+<tr><td>R0.6</td><td>Complete what was in progress</td><td><span class="tag t-done">built</span> 061 part 2</td></tr>
+<tr><td>R1.1</td><td>Cash details from the API; tally</td><td><span class="tag t-dep">depends</span> 082 (key) + 062</td></tr>
+<tr><td>R1.2</td><td>Mobile app, role-based</td><td><span class="tag t-plan">planned</span> 063, 065, 067 (roles built: 057)</td></tr>
+<tr><td>R1.3</td><td>Enter in our app what goes in the Staff App</td><td><span class="tag t-part">partly</span> web: Route, Cash, Stock; app 065</td></tr>
+<tr><td>R1.4</td><td>One entry updates Televend too</td><td><span class="tag t-dep">depends</span> 083 — Televend + your yes</td></tr>
+<tr><td>R1.5</td><td>One system instead of WhatsApp + Staff App</td><td><span class="tag t-plan">planned</span> 066, 065</td></tr>
+<tr><td>R1.6</td><td>Easy, attractive inputs</td><td><span class="tag t-part">partly</span> every UI task (steppers, chips, big targets built)</td></tr>
+<tr><td>R1.7</td><td>Updates everywhere</td><td><span class="tag t-part">partly</span> live updates built; Televend 083</td></tr>
+<tr><td>R1.8</td><td>Say what the API can and cannot do</td><td><span class="tag t-done">built</span> §2, §5.3–5.4</td></tr>
+<tr><td>R1.9</td><td>Replace the Staff App, communication in the app</td><td><span class="tag t-dep">depends</span> 065, 066; Televend's records 083</td></tr>
+<tr><td>R1.10</td><td>Dynamic routing, machine locations</td><td><span class="tag t-plan">planned</span> 078, 081 (pins: Q9)</td></tr>
+<tr><td>R1.11</td><td>VMOs by region and shift</td><td><span class="tag t-part">partly</span> plans built; 080</td></tr>
+<tr><td>R1.12</td><td>OR-Tools and ant colony</td><td><span class="tag t-plan">planned</span> 081 (Q10)</td></tr>
+<tr><td>R1.13</td><td>Stock and demand per machine</td><td><span class="tag t-plan">planned</span> 079</td></tr>
+<tr><td>R1.14</td><td>Distance from the warehouse</td><td><span class="tag t-plan">planned</span> 078</td></tr>
+<tr><td>R1.15</td><td>OpenStreetMap</td><td><span class="tag t-plan">planned</span> 078 (OSRM)</td></tr>
+<tr><td>R1.16</td><td>From 00:00; sent 1 h before the shift</td><td><span class="tag t-plan">planned</span> 081 (Q11, Q12)</td></tr>
+<tr><td>R1.17</td><td>Cartons, parts, materials per person</td><td><span class="tag t-plan">planned</span> 081</td></tr>
+<tr><td>R1.18</td><td>Observable, auditable, deterministic, traceable</td><td><span class="tag t-plan">planned</span> 081 run record + replay</td></tr>
+<tr><td>R2.1</td><td>Tally sales, stocking, warehouse out and back</td><td><span class="tag t-plan">planned</span> 062</td></tr>
+<tr><td>R2.2</td><td>Complete inventory</td><td><span class="tag t-part">partly</span> stock ledger built (060); 077</td></tr>
+<tr><td>R2.3</td><td>End-of-day balance</td><td><span class="tag t-plan">planned</span> 062</td></tr>
+<tr><td>R2.4</td><td>Alerts on discrepancies</td><td><span class="tag t-plan">planned</span> 062</td></tr>
+<tr><td>R3.1</td><td>Driver–region–machine–time patterns</td><td><span class="tag t-plan">planned</span> 080</td></tr>
+<tr><td>R3.2</td><td>Used in the system</td><td><span class="tag t-plan">planned</span> 080 → 081</td></tr>
+<tr><td>R3.3</td><td>Learns and adapts</td><td><span class="tag t-plan">planned</span> 080 nightly</td></tr>
+<tr><td>R4.1</td><td>Replace Staff App and WhatsApp</td><td><span class="tag t-dep">depends</span> 065, 066, 069; 083</td></tr>
+<tr><td>R4.2</td><td>By role, with credentials</td><td><span class="tag t-part">partly</span> roles built (057); app 063/067</td></tr>
+<tr><td>R4.3</td><td>Cash withdrawn and left, from the API</td><td><span class="tag t-dep">depends</span> 082 (key)</td></tr>
+<tr><td>R4.4</td><td>OCR fills the form; operator confirms</td><td><span class="tag t-plan">planned</span> 068 (Q8)</td></tr>
+<tr><td>R4.5</td><td>Manual entry, good UX</td><td><span class="tag t-part">partly</span> web Cash built; app 065</td></tr>
+<tr><td>R4.6</td><td>Automate for the operators</td><td><span class="tag t-plan">planned</span> 068, 062, 081</td></tr>
+<tr><td>R5.1</td><td>Design thinking, everywhere</td><td><span class="tag t-part">partly</span> each task's checklist</td></tr>
+<tr><td>R5.2</td><td>Materials dropdown with "Others"</td><td><span class="tag t-plan">planned</span> 077</td></tr>
+<tr><td>R5.3</td><td>Units; received; taken</td><td><span class="tag t-done">built</span> 060</td></tr>
+<tr><td>R5.4</td><td>EOD report, balance, alerts</td><td><span class="tag t-part">partly</span> day sheet built; 062</td></tr>
+<tr><td>R5.5</td><td>Damages</td><td><span class="tag t-done">built</span> 060 "Damaged"</td></tr>
+<tr><td>R6.1</td><td>Choose the machine first</td><td><span class="tag t-part">partly</span> number + name, sticker; app list 065</td></tr>
+<tr><td>R6.2</td><td>Deposit checked against the sum</td><td><span class="tag t-plan">planned</span> 062</td></tr>
+<tr><td>R6.3</td><td>Expenses with reasons</td><td><span class="tag t-part">partly</span> fuel/other built; food 076</td></tr>
+<tr><td>R6.4</td><td>Mismatch: reason, alert person and manager</td><td><span class="tag t-plan">planned</span> 062 (Q5)</td></tr>
+<tr><td>R6.5</td><td>Who, why, what on the dashboard</td><td><span class="tag t-plan">planned</span> 076</td></tr>
+<tr><td>R6.6</td><td>Buttons that open the proofs</td><td><span class="tag t-part">partly</span> the command centre's tiles open their lists (072); finance 076</td></tr>
+<tr><td>R6.7</td><td>Finances by person</td><td><span class="tag t-plan">planned</span> 076</td></tr>
+<tr><td>R6.8</td><td>Bank statement; deposits verified</td><td><span class="tag t-plan">planned</span> 076 (Q7)</td></tr>
+<tr><td>R6.9</td><td>Mismatch pop-ups</td><td><span class="tag t-plan">planned</span> 076</td></tr>
+<tr><td>R7.1</td><td>Money tracked accurately</td><td><span class="tag t-part">partly</span> cash ledger built; 062, 076</td></tr>
+<tr><td>R7.2</td><td>Extraction from images</td><td><span class="tag t-plan">planned</span> 068</td></tr>
+<tr><td>R7.3</td><td>Stock levels, cups left, refills by whom</td><td><span class="tag t-done">built</span> 072 (stock is Televend's estimate, VF90)</td></tr>
+<tr><td>R7.4</td><td>Status, last refill, all transactions</td><td><span class="tag t-done">built</span> 072</td></tr>
+<tr><td>R7.5</td><td>Charts</td><td><span class="tag t-done">built</span> 072</td></tr>
+<tr><td>R8.1</td><td>Serious analytics</td><td><span class="tag t-part">partly</span> 070 built; 075</td></tr>
+<tr><td>R8.2</td><td>Segmentation by volume and income</td><td><span class="tag t-done">built</span> 070</td></tr>
+<tr><td>R8.3</td><td>Daily line with last week's same day</td><td><span class="tag t-done">built</span> 070</td></tr>
+<tr><td>R8.4</td><td>Categories aggregated and plotted</td><td><span class="tag t-done">built</span> 070</td></tr>
+<tr><td>R8.5</td><td>Clear, self-explanatory</td><td><span class="tag t-done">built</span> 070</td></tr>
+<tr><td>R9.1</td><td>Each portal its own sidebar</td><td><span class="tag t-plan">planned</span> 073</td></tr>
+<tr><td>R9.2</td><td>Switcher wraps</td><td><span class="tag t-done">built</span> 19 Oct (D246)</td></tr>
+<tr><td>R10.1</td><td>Recent sales page</td><td><span class="tag t-done">built</span> 072</td></tr>
+<tr><td>R10.2</td><td>Interactive charts</td><td><span class="tag t-done">built</span> 072</td></tr>
+<tr><td>R10.3</td><td>All Televend data shown</td><td><span class="tag t-part">partly</span> sales, refills, collections, alarms shown (072); the page of everything read, 075</td></tr>
+<tr><td>R10.4</td><td>Self-explanatory</td><td><span class="tag t-plan">planned</span> every page</td></tr>
+<tr><td>R11.1–3</td><td>Machine as a full page, with analysis</td><td><span class="tag t-done">built</span> 072</td></tr>
+<tr><td>R12.1–3</td><td>Big-tech dashboard: indicators, insights, actions</td><td><span class="tag t-plan">planned</span> 075 (+ 070)</td></tr>
+<tr><td>R13.1–2</td><td>Live tiles that explore</td><td><span class="tag t-done">built</span> 072</td></tr>
+<tr><td>R14.1–3</td><td>Self-clearing alarms; false alarms learned</td><td><span class="tag t-plan">planned</span> 074</td></tr>
+<tr><td>R15.1–7</td><td>Business analytics portal</td><td><span class="tag t-part">partly</span> date picker built (070), the store (071); 075</td></tr>
+<tr><td>RX.1</td><td>Task by task, phase by phase, with research</td><td><span class="tag t-plan">planned</span> §4, each task</td></tr>
+<tr><td>RX.2</td><td>Adaptive, self-explanatory ecosystem</td><td><span class="tag t-part">partly</span> the store, hourly (071); 074, 080</td></tr>
+<tr><td>RX.3</td><td>Plan, then execute</td><td><span class="tag t-part">partly</span> this plan</td></tr>
+<tr><td>RX.4</td><td>Use the MCP and your credentials now</td><td><span class="tag t-done">built</span> bridge since TASK-055</td></tr>
+<tr><td>RX.5</td><td>API key: read, write, dashboard, app</td><td><span class="tag t-dep">depends</span> 082, 083</td></tr>
+<tr><td>RX.6</td><td>The variables named, ready to paste</td><td><span class="tag t-part">partly</span> two exist; 082 adds the rest</td></tr>
+<tr><td>RX.7</td><td>A solid MCP ↔ API switch</td><td><span class="tag t-plan">planned</span> 082 (§5.3, Q14)</td></tr>
+<tr><td>RX.8</td><td>Periodic audit</td><td><span class="tag t-plan">planned</span> 084</td></tr>
+<tr><td>RX.9</td><td>Questions with recommendations</td><td><span class="tag t-part">partly</span> §7</td></tr>
+<tr><td>RX.10</td><td>Achievable?</td><td><span class="tag t-done">built</span> §1</td></tr>
+<tr><td>RW.1</td><td>Food expense with an approver</td><td><span class="tag t-plan">planned</span> 076</td></tr>
+<tr><td>RW.2</td><td>Test note and "juice try"</td><td><span class="tag t-part">partly</span> test note built; 076</td></tr>
+<tr><td>RW.3</td><td>Card-only machines</td><td><span class="tag t-done">built</span> 070 (from the names)</td></tr>
+<tr><td>RW.4</td><td>Cash share falling</td><td><span class="tag t-part">partly</span> 070 shows it; 075</td></tr>
+<tr><td>RW.5</td><td>Rejected delivery, return to supplier</td><td><span class="tag t-plan">planned</span> 077</td></tr>
+<tr><td>RW.6</td><td>Misshapen fruit only at Wasl</td><td><span class="tag t-plan">planned</span> 077</td></tr>
+<tr><td>RW.7</td><td>Machine moved within its site</td><td><span class="tag t-part">partly</span> the machine's notes and its Televend records shown (072); a move inside a site is not recorded yet</td></tr>
+<tr><td>RW.8</td><td>Night-only machine</td><td><span class="tag t-done">built</span> D241</td></tr>
+<tr><td>RW.9</td><td>"Was X's cash collected?"</td><td><span class="tag t-done">built</span> 072 machine page</td></tr>
+<tr><td>RW.10</td><td>Phone/SIM problems</td><td><span class="tag t-plan">planned</span> 061 part 3</td></tr>
+<tr><td>RW.11</td><td>"audit ok ✅"</td><td><span class="tag t-done">built</span> D238</td></tr>
+<tr><td>RW.12</td><td>No typed machine names</td><td><span class="tag t-done">built</span> sticker/number; app 065</td></tr>
+<tr><td>RW.13</td><td>The nightly sums as test cases</td><td><span class="tag t-plan">planned</span> 062</td></tr>
+</table></div>
+<p class="small">Checked line by line against <code>REQ-2026-10-19.md</code>: 115 requirements, none without a place (checked by a script, 19 Oct). Grouped rows (R11.1–3, R12.1–3,
+R13.1–2, R14.1–3, R15.1–7) share one task each.</p>
+
+<h2>7. Questions — each with my recommendation</h2>
+<p>Asked in the chat in four rounds on 19 Oct. You chose the recommendation every time except Q9, where you asked for both the map pin and Google Maps links.</p>
+<h3>A · Analytics (decide TASK-070)</h3>
+<div class="q"><b>Q1 — Categories.</b> <span class="rec">Recommended:</span> Televend's regions, with corrections kept in FreshNow (the Ops Head or
+an Admin moves a machine; Televend unchanged). Others: Televend's regions exactly · your own list.<br><span class="tag t-done">your answer</span> Televend's regions with our corrections.</div>
+<div class="q"><b>Q2 — Tiers.</b> <span class="rec">Recommended:</span> three against the fleet average of cups per machine per day — Top ≥ 125 %,
+Average 75–125 %, Below &lt; 75 % — plus "no sales". Others: quartiles · ABC by share of cups · above/below average only.<br><span class="tag t-done">your answer</span> three tiers against the fleet average, plus "no sales".</div>
+<div class="q"><b>Q3 — Income.</b> <span class="rec">Recommended:</span> cups × the price in the machine's name (AED 10 where none), marked
+"estimated", replaced by Televend's amounts when the API arrives. Others: cups only · you give each machine's price.<br><span class="tag t-done">your answer</span> estimated from the price in the name, labelled "estimated".</div>
+<div class="q"><b>Q4 — History.</b> <span class="rec">Recommended:</span> copy the sales back as far as Televend returns, one request a second, at
+night. Others: the last 90 days · from today on.<br><span class="tag t-done">your answer</span> as far back as Televend returns.</div>
+<h3>B · Money and stock</h3>
+<div class="q"><b>Q5 — A deposit that does not match.</b> <span class="rec">Recommended:</span> any difference needs a reason when it is entered;
+the person and their manager are alerted at once; the auditor sees it. Others: allow AED 5 · only the auditor sees it.<br><span class="tag t-done">your answer</span> any difference needs a reason; the person and their manager are alerted.</div>
+<div class="q"><b>Q6 — Expenses.</b> <span class="rec">Recommended:</span> fuel needs its receipt; food and other need a reason and the manager's
+approval in the app; "juice try" is a test purchase. Others: no approvals · the auditor approves everything.<br><span class="tag t-done">your answer</span> fuel with its receipt; food and other approved by the manager in the app; "juice try" its own kind.</div>
+<div class="q"><b>Q7 — The bank statement.</b> <span class="rec">Recommended:</span> upload the bank's CSV or Excel export; its columns are mapped once;
+deposits are matched by amount and date (±1 day). Others: PDF statements (needs OCR) · MT940 · not now.<br><span class="tag t-done">your answer</span> the bank's CSV or Excel export (the bank's name still to come).</div>
+<div class="q"><b>Q8 — Where OCR runs.</b> <span class="rec">Recommended:</span> on our own server (PaddleOCR; photos never leave), measured on your
+real photos first. Others: a hosted vision model through OpenRouter (photos leave the server; the privacy notice changes) · no OCR yet.<br><span class="tag t-done">your answer</span> on our own server.</div>
+<h3>C · Routes</h3>
+<div class="q"><b>Q9 — Machine locations.</b> <span class="rec">Recommended:</span> the Supervisor pins each machine and the warehouse once on an
+OpenStreetMap map in the app — no phone location is read. Others: read once from a phone at the machine (the notice changes) · paste
+Google Maps links.<br><span class="tag t-done">your answer</span> <b>both</b> — a pin on the OpenStreetMap map, or a pasted Google Maps link. A full link is read directly; a short <code>maps.app.goo.gl</code> link needs one request to Google to expand it.</div>
+<div class="q"><b>Q10 — The solver.</b> <span class="rec">Recommended:</span> VROOM on OSRM as the solver, OR-Tools as a cross-check, ant colony as a
+benchmark only. Others: OR-Tools only · ant colony only.<br><span class="tag t-done">your answer</span> VROOM with an OR-Tools cross-check; ant colony as a benchmark.</div>
+<div class="q"><b>Q11 — How automatic.</b> <span class="rec">Recommended:</span> computed at 00:00; the Supervisor reviews; one hour before each shift the
+person gets their plan — if nobody reviewed it, the computed plan goes out marked "automatic". Others: always automatic · suggestions only.<br><span class="tag t-done">your answer</span> review, else the computed plan goes out marked "automatic".</div>
+<div class="q"><b>Q12 — Shifts and the warehouse.</b> <span class="rec">Recommended:</span> assume day 07:00–16:00 and night 16:00–07:30 until you
+confirm, and pin the warehouse in Q9's map. Other: you send the shift times now.<br><span class="tag t-done">your answer</span> assume day 07:00–16:00 and night 16:00–07:30 until confirmed.</div>
+<h3>D · Televend and order</h3>
+<div class="q"><b>Q13 — Writing to Televend.</b> <span class="rec">Recommended:</span> stay read-only; when the key comes, switch on one operation at a
+time (fills first) after Televend confirms it, with two weeks of dry run and read-back checks — each with your yes. Others: never write
+(the Staff App stays for Televend's records) · write as soon as the key works.<br><span class="tag t-done">your answer</span> one operation at a time, each with your yes; the bridge account never writes.</div>
+<div class="q"><b>Q14 — The switch.</b> <span class="rec">Recommended:</span> a CEO/Admin switch in Settings, stored in the database and audited, offering
+"API" only after a live test and a shadow week, falling back to the bridge after 30 minutes of failures, with an alert. Others: an
+<code>.env</code> setting and a restart · both.<br><span class="tag t-done">your answer</span> the switch in Settings, as recommended.</div>
+<div class="q"><b>Q15 — Order.</b> <span class="rec">Recommended:</span> Phase 1 → 2 → 3 → 4 → 5 as in §4. Others: the app and chat first · routes first.<br><span class="tag t-done">your answer</span> as planned.</div>
+<div class="q"><b>Q16 — The server.</b> <span class="rec">Recommended:</span> buy it before Phase 4 (the app, chat and OSRM need HTTPS and a public
+address). Others: buy now · later.<br><span class="tag t-done">your answer</span> before Phase 4.</div>
+
+<h2>8. What FreshNow must provide</h2>
+<ul>
+  <li>Televend IT: the API client (id, secret, and an API key if their gateway uses one), the production addresses, whether any
+  <b>write</b> endpoint exists (fills, stock levels), and the cost. A view-only Televend user that may see the cash centre, until then.</li>
+  <li>The warehouse's location and the shift times (Q12); the van capacities in crates; which machines take cards only (to confirm the
+  names).</li>
+  <li>For 076: a sample of the bank statement export (any month, amounts may be blurred) and the bank's name.</li>
+  <li>For 068: permission to use the receipt photos in the WhatsApp folders to measure OCR accuracy (they stay on this laptop).</li>
+  <li>The server (Q16).</li>
+  <li>Who handles machine, stock and cash problems (the routing rules) — until then alarms are not turned into routed problems (D220).</li>
+  <li>Whether the four requests drafted in TASK-055 were sent (Televend IT, the view-only Televend user, the bank or cash-in-transit
+  company, Oranfresh's parts catalogue).</li>
+</ul>
+
+<h2>9. Risks, and what will not be built</h2>
+<ul>
+  <li><b>Estimates look exact.</b> Income from prices in names, cash in machines from cash sales × price, and forecasts are labelled
+  "estimated" everywhere until Televend's amounts replace them.</li>
+  <li><b>History may be short.</b> If Televend returns only a few months of sales, weekday patterns and forecasts start weak; each page says
+  how many weeks it is based on.</li>
+  <li><b>Undocumented reads.</b> The bridge uses the web app's own reads; Televend may change them. The daily audit (084) notices a break.</li>
+  <li><b>Not built:</b> ranking or scoring of people; sending money decisions or Televend writes without a person's tap; a second chat
+  server; route optimisation before machines are pinned.</li>
+</ul>
+
+<h2>10. The earlier plan (TASK-055–069): nothing dropped</h2>
+<p>Asked on 19 Oct: "make sure that you did not neglect the implementation you were doing before". Every deliverable of the approved
+plan (<code>~/.claude/plans/first-get-the-full-partitioned-lerdorf.md</code>) checked one by one — 90 items. Six had no place in the
+first draft of this plan and now have one: Televend's people matched to FreshNow's (O2.10 → 062), sites and vans (O2.1, O2.3 → 078),
+Televend's history log (O2.9 → 072), period close (O2.16 → 062), the remaining MCP tools (O8.5 → 082), and alarms becoming routed
+problems once FreshNow names who handles them (O2.22 → 074). The O-numbers appear in §4's rows.</p>
+<div class="tw"><table>
+<tr><th style="width:8%">ID</th><th>From the earlier plan</th><th style="width:38%">Where it is</th></tr>
+<tr><th colspan="3">§0 Before any code</th></tr>
+<tr><td>O0.1</td><td>Data hygiene: company data git-ignored</td><td><span class="tag t-done">built</span> 055</td></tr>
+<tr><td>O0.2</td><td>Televend credentials as variables</td><td><span class="tag t-done">built</span> 055</td></tr>
+<tr><td>O0.3</td><td>Scope change recorded</td><td><span class="tag t-done">built</span> D179, DEVIATIONS</td></tr>
+<tr><td>O0.4</td><td>No ranking; variances as custody facts</td><td><span class="tag t-done">built</span> a rule — §3</td></tr>
+<tr><td>O0.5</td><td>Environment baseline</td><td><span class="tag t-done">built</span> 055</td></tr>
+<tr><td>O0.6</td><td>Docs matching reality (stack, phases)</td><td><span class="tag t-done">built</span> 055</td></tr>
+<tr><td>O0.7</td><td>One privacy-notice change (3.0)</td><td><span class="tag t-done">built</span> 058; re-asked for cash (D240) and visits (D247)</td></tr>
+<tr><th colspan="3">§1 Architecture and stack</th></tr>
+<tr><td>O1.1</td><td>Flutter Android app, one app, role-based</td><td><span class="tag t-plan">planned</span> 063, 065, 067</td></tr>
+<tr><td>O1.2</td><td>Offline store + command outbox + delta pulls</td><td><span class="tag t-plan">planned</span> 063</td></tr>
+<tr><td>O1.3</td><td>Chat built into our API and database</td><td><span class="tag t-plan">planned</span> 066</td></tr>
+<tr><td>O1.4</td><td>Realtime with scoped topics</td><td><span class="tag t-done">built</span> 058</td></tr>
+<tr><td>O1.5</td><td>FCM push (and the fcm channel)</td><td><span class="tag t-plan">planned</span> 063</td></tr>
+<tr><td>O1.6</td><td>Media store</td><td><span class="tag t-done">built</span> 058</td></tr>
+<tr><td>O1.7</td><td>Camera, QR, compression, background upload in the app</td><td><span class="tag t-plan">planned</span> 065</td></tr>
+<tr><td>O1.8</td><td>OCR with PaddleOCR on our server</td><td><span class="tag t-plan">planned</span> 068 (Q8)</td></tr>
+<tr><td>O1.9</td><td>Chart library</td><td><span class="tag t-done">built</span> 058 (Recharts)</td></tr>
+<tr><td>O1.10</td><td>MCP server</td><td><span class="tag t-part">partly</span> 055; missing tools in 082</td></tr>
+<tr><td>O1.11</td><td>App distribution: MDM or a private Play app</td><td><span class="tag t-plan">planned</span> 064</td></tr>
+<tr><td>O1.12</td><td>Shared company phones (photo + PIN), personal phones bound</td><td><span class="tag t-part">partly</span> 058 server side; 063 app</td></tr>
+<tr><th colspan="3">§2 Data model</th></tr>
+<tr><td>O2.1</td><td>Sites</td><td><span class="tag t-plan">planned</span> 078 — never built until now</td></tr>
+<tr><td>O2.2</td><td>Machines and their placements over time</td><td><span class="tag t-done">built</span> 056</td></tr>
+<tr><td>O2.3</td><td>Vans (vehicles)</td><td><span class="tag t-plan">planned</span> 078 — capacity in crates for 081</td></tr>
+<tr><td>O2.4</td><td>Teams</td><td><span class="tag t-done">built</span> per plan, 061 part 2 (A-T61.10)</td></tr>
+<tr><td>O2.5</td><td>Shift windows</td><td><span class="tag t-part">partly</span> day/night on plans; times 081 (Q12)</td></tr>
+<tr><td>O2.6</td><td>Phones as company items</td><td><span class="tag t-done">built</span> 058 + Stock</td></tr>
+<tr><td>O2.7</td><td>Televend mirror (raw kept per row, not a raw-page table)</td><td><span class="tag t-done">built</span> 056 (recorded decision)</td></tr>
+<tr><td>O2.8</td><td>Televend cash collections with amounts</td><td><span class="tag t-dep">depends</span> 082 — the API key</td></tr>
+<tr><td>O2.9</td><td>Televend history log</td><td><span class="tag t-plan">planned</span> not read: Televend's history log is not on the allow-list (072 left it out)</td></tr>
+<tr><td>O2.10</td><td>Televend users matched to employees</td><td><span class="tag t-plan">planned</span> 062 — never built until now</td></tr>
+<tr><td>O2.11</td><td>Stock ledger: items, places, documents, moves, balances, handshake, counts</td><td><span class="tag t-done">built</span> 060</td></tr>
+<tr><td>O2.12</td><td>Unit conversions</td><td><span class="tag t-done">built</span> replaced: one unit per item (D227)</td></tr>
+<tr><td>O2.13</td><td>Suppliers, invoices, receipts with photos</td><td><span class="tag t-done">built</span> 060</td></tr>
+<tr><td>O2.14</td><td>Part swaps</td><td><span class="tag t-plan">planned</span> 061 part 3</td></tr>
+<tr><td>O2.15</td><td>Damage, scrap, sorting waste</td><td><span class="tag t-done">built</span> 060</td></tr>
+<tr><td>O2.16</td><td>Period close</td><td><span class="tag t-plan">planned</span> 062</td></tr>
+<tr><td>O2.17</td><td>Cups per carton, calibrated</td><td><span class="tag t-plan">planned</span> 062</td></tr>
+<tr><td>O2.18</td><td>Cash ledger: accounts, postings, over/short</td><td><span class="tag t-part">partly</span> 061 part 1 (DEVIATIONS #16); over/short 062; bank 076</td></tr>
+<tr><td>O2.19</td><td>Phone time and server time, skew flagged</td><td><span class="tag t-part">partly</span> visits keep both; app 063</td></tr>
+<tr><td>O2.20</td><td>Route plans, visits, proof, fills</td><td><span class="tag t-done">built</span> 061 part 2</td></tr>
+<tr><td>O2.21</td><td>Shifts, collections, deposits, expenses, the auditor's check</td><td><span class="tag t-done">built</span> 061 part 1</td></tr>
+<tr><td>O2.22</td><td>Alarms become routed problems</td><td><span class="tag t-part">partly</span> 059, off until resolvers are named — 074</td></tr>
+<tr><td>O2.23</td><td>Reconciliation runs with their inputs, replayable</td><td><span class="tag t-plan">planned</span> 062</td></tr>
+<tr><td>O2.24</td><td>Media retention classes</td><td><span class="tag t-done">built</span> 058</td></tr>
+<tr><td>O2.25</td><td>Chat tables</td><td><span class="tag t-plan">planned</span> 066</td></tr>
+<tr><th colspan="3">§3 Roles</th></tr>
+<tr><td>O3.1</td><td>Roles, capability table, SQL twin, RLS</td><td><span class="tag t-done">built</span> 057</td></tr>
+<tr><td>O3.2</td><td>People admin for roles and devices</td><td><span class="tag t-done">built</span> 057, 058</td></tr>
+<tr><th colspan="3">§4 Reconciliation</th></tr>
+<tr><td>O4.1</td><td>A driver's stock per shift balances</td><td><span class="tag t-plan">planned</span> 062</td></tr>
+<tr><td>O4.2</td><td>The warehouse per day balances</td><td><span class="tag t-part">partly</span> day sheet 060; balance 062</td></tr>
+<tr><td>O4.3</td><td>Fills against Televend's refills</td><td><span class="tag t-part">partly</span> shown beside each visit (061 part 2); rule 062</td></tr>
+<tr><td>O4.4</td><td>Cups sold against cartons loaded</td><td><span class="tag t-plan">planned</span> 062</td></tr>
+<tr><td>O4.5</td><td>Cash per machine and per driver per night</td><td><span class="tag t-part">partly</span> per collection 059/061; per night 062</td></tr>
+<tr><td>O4.6</td><td>Who did not report</td><td><span class="tag t-part">partly</span> handover reminders 060; the rest 062</td></tr>
+<tr><td>O4.7</td><td>Alerts through the ladder, cards in chat</td><td><span class="tag t-plan">planned</span> 062; cards 066</td></tr>
+<tr><td>O4.8</td><td>A shift's business day</td><td><span class="tag t-done">built</span> 061 part 1</td></tr>
+<tr><th colspan="3">§5 Web portals</th></tr>
+<tr><td>O5.1</td><td>Shell for many portals</td><td><span class="tag t-done">built</span> 058; own sidebars 073</td></tr>
+<tr><td>O5.2</td><td>Command centre</td><td><span class="tag t-done">built</span> 059; redesign 075</td></tr>
+<tr><td>O5.3</td><td>Machines list with small sales lines</td><td><span class="tag t-part">partly</span> Analytics draws each machine's days (070); not in Operations' list yet</td></tr>
+<tr><td>O5.4</td><td>Machine page with its timeline and placements</td><td><span class="tag t-done">built</span> 072</td></tr>
+<tr><td>O5.5</td><td>Routes and teams; suggested stops</td><td><span class="tag t-part">partly</span> Route portal (061 part 2); suggestions 081</td></tr>
+<tr><td>O5.6</td><td>Yesterday's report</td><td><span class="tag t-done">built</span> 059</td></tr>
+<tr><td>O5.7</td><td>Cash pages</td><td><span class="tag t-done">built</span> 061 part 1</td></tr>
+<tr><td>O5.8</td><td>Alarms: time to clear, chronic machines, advice</td><td><span class="tag t-part">partly</span> 059; 074</td></tr>
+<tr><td>O5.9</td><td>Stock pages</td><td><span class="tag t-done">built</span> 060</td></tr>
+<tr><td>O5.10</td><td>Spare parts: photos, models they fit; parts history</td><td><span class="tag t-plan">planned</span> 061 part 3</td></tr>
+<tr><th colspan="3">§6 The app's flows</th></tr>
+<tr><td>O6.1</td><td>Driver and warehouse flows</td><td><span class="tag t-plan">planned</span> 065</td></tr>
+<tr><td>O6.2</td><td>Technician, supervisor, auditor, Ops Head, CEO</td><td><span class="tag t-plan">planned</span> 067</td></tr>
+<tr><td>O6.3</td><td>For people who may not read: icons, voice, en/hi/ur</td><td><span class="tag t-plan">planned</span> 063, 065</td></tr>
+<tr><th colspan="3">§7 Chat</th></tr>
+<tr><td>O7.1</td><td>Rooms from today's groups, direct messages, threads</td><td><span class="tag t-plan">planned</span> 066</td></tr>
+<tr><td>O7.2</td><td>Photos, voice notes, documents, read receipts, push</td><td><span class="tag t-plan">planned</span> 066</td></tr>
+<tr><td>O7.3</td><td>Cards that post themselves</td><td><span class="tag t-plan">planned</span> 066 (+062)</td></tr>
+<tr><td>O7.4</td><td>WhatsApp history imported as read-only, figures only as proposals</td><td><span class="tag t-plan">planned</span> 066</td></tr>
+<tr><th colspan="3">§8 Televend</th></tr>
+<tr><td>O8.1</td><td>Three transports</td><td><span class="tag t-done">built</span> 055</td></tr>
+<tr><td>O8.2</td><td>Read-only by construction, tested</td><td><span class="tag t-done">built</span> 055</td></tr>
+<tr><td>O8.3</td><td>Account safety (no password retries, breaker)</td><td><span class="tag t-done">built</span> 055</td></tr>
+<tr><td>O8.4</td><td>Televend named as a processor; notice</td><td><span class="tag t-done">built</span> 055, 058</td></tr>
+<tr><td>O8.5</td><td>MCP read tools</td><td><span class="tag t-part">partly</span> 6 built; the rest 082</td></tr>
+<tr><td>O8.6</td><td>Backfill, 10-minute sync, derived facts</td><td><span class="tag t-done">built</span> 056; history back to 26 Mar copied (071)</td></tr>
+<tr><td>O8.7</td><td>Requests to Televend IT, the admin, the bank, Oranfresh</td><td><span class="tag t-dep">depends</span> drafted 055 — sent? (§8)</td></tr>
+<tr><th colspan="3">§12 Verification and constraints</th></tr>
+<tr><td>O12.1</td><td>300 live-update clients measured</td><td><span class="tag t-done">built</span> 058</td></tr>
+<tr><td>O12.2</td><td>Ledger invariant tests</td><td><span class="tag t-done">built</span> 060, 061</td></tr>
+<tr><td>O12.3</td><td>Golden cases from the real cash lists</td><td><span class="tag t-plan">planned</span> 062</td></tr>
+<tr><td>O12.4</td><td>Real phones in the field</td><td><span class="tag t-plan">planned</span> 065, 069</td></tr>
+<tr><td>O12.5</td><td>Browser checks of every portal</td><td><span class="tag t-done">built</span> each task</td></tr>
+<tr><td>O12.6</td><td>Unauthenticated app calls refused; pool and stream caps as config</td><td><span class="tag t-done">built</span> 058</td></tr>
+<tr><td>O12.7</td><td>The fcm channel in the outbox</td><td><span class="tag t-plan">planned</span> 063</td></tr>
+<tr><th colspan="3">Left over from the last sessions</th></tr>
+<tr><td>O14.1</td><td>Independent reviews owed (057, 059 fixes, 060, 061 parts 1–2)</td><td><span class="tag t-plan">planned</span> after 23 Oct 17:00, before 069</td></tr>
+<tr><td>O14.2</td><td>Return to the supplier</td><td><span class="tag t-plan">planned</span> 077</td></tr>
+<tr><td>O14.3</td><td>Card-only machines</td><td><span class="tag t-done">built</span> 070 (from the names)</td></tr>
+<tr><td>O14.4</td><td>Food expenses approved by a manager</td><td><span class="tag t-plan">planned</span> 076</td></tr>
+<tr><td>O14.5</td><td>People agree to the changed notice themselves</td><td><span class="tag t-dep">depends</span> waiting on them</td></tr>
+</table></div>
+</body></html>

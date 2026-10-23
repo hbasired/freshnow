@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TASK-055 — Read-only Televend connector and MCP server</title>
+<style>
+  :root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#3fb950;--warn:#d29922;--bad:#f85149;--card:#161b22;--bd:#30363d}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;max-width:980px;padding:48px 24px;margin-inline:auto}
+  h1{font-size:1.9rem;margin:0 0 4px} h2{margin-top:2.5rem;color:var(--acc);font-size:1.25rem} h3{font-size:1.05rem;margin-top:1.6rem}
+  .meta{color:var(--mut);font-size:.9rem;margin-bottom:2rem}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:18px;margin:14px 0}
+  .unverified{border-left:3px solid var(--warn)} .ok{border-left:3px solid var(--acc)}
+  code{background:#1f2630;padding:2px 6px;border-radius:4px;font-size:.9em}
+  pre{background:#1f2630;padding:12px;border-radius:8px;overflow-x:auto;font-size:.85rem;line-height:1.45}
+  .tw{overflow-x:auto} table{border-collapse:collapse;width:100%;margin:14px 0}
+  th,td{border:1px solid var(--bd);padding:7px 9px;text-align:left;font-size:.88rem;vertical-align:top} th{background:#1f2630}
+  .bad{color:var(--bad);font-weight:600}.good{color:var(--acc);font-weight:600}.warn{color:var(--warn);font-weight:600}
+  ul{padding-left:1.1rem} li{margin:3px 0} a{color:#88c0f0}
+  .flow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0}
+  .flow span{background:#1f2630;border:1px solid var(--bd);border-radius:8px;padding:6px 10px;font-size:.85rem}
+  .flow b{color:var(--mut)}
+  @media (max-width:600px){body{padding:28px 16px}}
+</style></head><body>
+<h1>TASK-055 — Read-only Televend connector and MCP server</h1>
+<p class="meta">2026-10-15 · first task of the Operations + Inventory expansion (approved plan §8–§9) · new packages
+<code>packages/televend</code>, <code>packages/mcp-televend</code> · new scripts <code>televend-probe.ts</code>, <code>televend-verify.ts</code> ·
+new dependencies: SheetJS <code>xlsx</code> 0.20.3 (CDN tarball, pinned by sha512), <code>@modelcontextprotocol/server</code> 2.3.1, <code>zod</code> 4
+(MCP package only) · changed: <code>.gitignore</code>, <code>.env</code>/<code>.env.example</code>, <code>vitest.setup.ts</code>, <code>compliance/processors.json</code>,
+<code>core/compliance.ts</code>, <code>tsconfig.json</code>, <code>package.json</code> · no migration</p>
+
+<div class="card ok"><b>One-sentence summary:</b> FreshNow can now read Televend — machines, vends, alarms, refills and cash-collection
+events — through one client that refuses every request not on an explicit GET allow-list before it leaves the machine, exposed to
+Claude Code as a read-only MCP server, and a live read of two past days matched the people's own Televend exports row for row.</div>
+
+<h2>What was asked</h2>
+<ul>
+  <li>Access Televend Cloud and the Staff App with the credentials provided, check what is there — <b>read anything, change nothing</b>
+      ("it may affect the logging and the balance tally").</li>
+  <li>If direct access is not possible, build an MCP server and tool that reads everything needed — first, before the pipeline.</li>
+  <li>Plan how to get past days' data, then refresh every ~10 minutes as events happen (the pipeline itself is TASK-056).</li>
+</ul>
+
+<h2>What was done</h2>
+<div class="tw"><table>
+<tr><th>Area</th><th>Change</th></tr>
+<tr><td>Data hygiene (urgent)</td><td>The WhatsApp exports (phone numbers, photos), Televend exports and screenshots sat untracked in the root of
+  this <b>public</b> repository with nothing ignoring them. <code>.gitignore</code> now covers each folder, the Televend export file names and
+  <code>supabase/snippets/</code>, plus <code>private-data/</code> for everything that must stay local. Nothing was moved or deleted.</td></tr>
+<tr><td>Credentials</td><td>The Televend login in <code>.env</code> was free text; it is now <code>TELEVEND_*</code> variables. The Staff App login is used by
+  nothing in the design, so it moved out of <code>.env</code> into the git-ignored <code>CREDENTIALS.local.md</code> (kept, not loaded).
+  <code>vitest.setup.ts</code> removes every <code>TELEVEND_*</code> variable so no test can reach the real Televend.</td></tr>
+<tr><td><code>packages/televend</code></td><td><code>allowlist.ts</code> (host + method + path rules; the single gate), <code>client.ts</code> (pacing ≥ 1 s,
+  timeouts, bounded retries, one token refresh on 401, circuit breaker, a hook that reports every exchange for raw capture),
+  <code>auth.ts</code> (password session with refresh; client credentials for the official API; a refused credential latches),
+  <code>config.ts</code>, <code>schemas.ts</code> (Zod, written from real responses), <code>sources/</code> (<code>bridge</code>, <code>official</code>,
+  <code>files</code> behind one <code>TelevendSource</code> interface), <code>machine-names.ts</code> (asset number from a machine name).</td></tr>
+<tr><td><code>packages/mcp-televend</code></td><td>stdio MCP server with six read-only tools: <code>televend_status</code>, <code>televend_machines</code>,
+  <code>televend_sales_day</code>, <code>televend_events_day</code>, <code>televend_refills_day</code>, <code>televend_cash_collections_day</code>. Answers are
+  computed in code (<code>tools.ts</code>), at most 50 rows, names reduced to initials unless asked for. Registered in <code>.mcp.json</code>.</td></tr>
+<tr><td>Scripts</td><td><code>pnpm televend:probe</code> (what can be read, in what shape — saves raw JSON under <code>private-data/</code>);
+  <code>pnpm televend:verify</code> (live read of one day compared with the exports, per machine).</td></tr>
+<tr><td>Compliance</td><td>Televend registered in <code>compliance/processors.json</code> (processor, contract ground, DPA not filed) and as a
+  detector in <code>core/compliance.ts</code>. In the demo nothing is blocked; for production <code>pnpm compliance</code> now names two
+  blockers: file the Televend DPA (R2) and name Televend in the privacy notice (R5).</td></tr>
+<tr><td>Tests</td><td>110 new tests across <code>allowlist</code>, <code>client</code> (+ auth), <code>bridge</code>, <code>official</code>, <code>files</code>,
+  <code>machine-names</code> and the MCP <code>tools</code>. Fixtures are synthetic, built in memory with the real files' layout — no real
+  machine, person or sale is committed.</td></tr>
+</table></div>
+
+<h2>Why it was done this way</h2>
+<h3>An allow-list, not "only send GET"</h3>
+<p>The account we were given is a Televend <i>CompanyManager</i>: its own permission list (read from Televend's access-control service)
+shows edit rights on machines, events, products, prices, routes and more. "We will only call GET" is not enough either — Televend's web app
+has GET endpoints that <b>start</b> things (<code>GET …/vend/v1/{company}/export/{format}</code> starts an export job that can e-mail its result).
+So every request must match an exact host + method + path rule written in <code>allowlist.ts</code>; anything else throws
+<code>TelevendRefusedError</code> before a token is even requested. Widening the list takes a code change and a test, never a setting.
+Every write found in Televend's specs and bundles is listed in <code>allowlist.test.ts</code> and refused.</p>
+<h3>Three transports behind one interface</h3>
+<ul>
+  <li><b>Bridge</b> (chosen by the user until Televend issues API credentials) — the GET calls Televend's own web app makes, signed in as a
+      web user. Undocumented, so it may change; the research ranks it below the official API, which is why the connector is built to switch.</li>
+  <li><b>Official</b> — Televend's documented Data-Streaming API (Keycloak client credentials; fetch → persist → commit). Built against the
+      published specs and tested with a stub; no credentials exist yet.</li>
+  <li><b>Files</b> — the XLS/CSV exports people already download, for history and as a fallback.</li>
+</ul>
+<h3>Account safety</h3>
+<p>Keycloak counts failed passwords. The connector signs in once, lives on the refresh token, and on a refused credential stops for good
+(<code>latched</code>) — it never retries a password. Retries for everything else are bounded, and a circuit breaker pauses calls after
+repeated failures.</p>
+<h3>Why the MCP server computes the answers</h3>
+<p>CLAUDE.md rule 2: the model never counts or sums. A tool returns totals computed in TypeScript plus at most 50 rows as evidence, and says
+<code>truncated</code>/<code>complete</code> whenever something was cut. Filler names are personal data and the model's context is a processor
+of whatever is put in it, so they default to initials.</p>
+
+<h2>How it works</h2>
+<div class="flow"><span>MCP tool / probe / (TASK-056) sync job</span><b>→</b><span>TelevendSource (bridge · official · files)</span><b>→</b>
+<span>TelevendClient.get()</span><b>→</b><span>decide(): allow-list</span><b>→</b><span>token (PasswordSession / ClientCredentials)</span><b>→</b>
+<span>fetch (timeout, pacing, retries)</span><b>→</b><span>Zod schema</span><b>→</b><span>normalised Tv* rows</span></div>
+<pre>// allowlist.ts — the only requests that may ever leave
+r("vends.list",  HOSTS.cloudApi, "GET", `/machinist/api/v1/${T}/vends`),
+r("events.list", HOSTS.cloudApi, "GET", `/machinist/api/v1/${T}/events`),
+r("refills.details", HOSTS.cloudApi, "GET", `/refillator/api/v1/refill-log-list/[A-Za-z0-9_-]+/details`, "read", "tenant"),
+r("auth.token", HOSTS.auth, "POST", "/auth/realms/televend/protocol/openid-connect/token", "auth"),   // auth module only
+r(`official.stream.commit@${host}`, host, "POST", `/televend-api/data-streaming/${SLUG}/api/v1/offsets`, "offset-commit"),  // off by default</pre>
+<h3>Windowed reads instead of paging (the drift fix)</h3>
+<p>Vends and events are read by time window. A window is asked for as one page of 100; if Televend says there is another page, the window is
+split in half and each half asked again, until every slice fits in one page. Rows are de-duplicated by Televend id, so slice edges that
+Televend treats as inclusive cannot double-count. Bounded at 600 requests and a one-second minimum slice; a result that hit a bound says
+<code>complete: false</code>.</p>
+<h3>Refills are per machine</h3>
+<p>Televend's refill log answers one machine and one day per request (<code>date</code> must carry a time zone). The MCP tool reads all enabled
+machines for a past day (about 90 paced requests); the sync job (TASK-056) will ask only for machines whose <code>last_refill</code> moved.</p>
+
+<h2>Concepts and techniques used</h2>
+<ul>
+  <li><b>Allow-list (default deny) at the egress point</b> — the same idea as RLS default-deny, applied to outbound HTTP: a request is
+      refused unless a rule says yes, and the rule set is code under test.</li>
+  <li><b>Canonical-form check</b> — the URL parser silently resolves <code>..</code>, <code>%2e%2e</code> and backslashes; the gate refuses any URL
+      whose sent path differs from the written one, so nothing can walk out of an allowed prefix.</li>
+  <li><b>Latching credential failure</b> — a circuit that never closes on its own for the one error that can lock an account.</li>
+  <li><b>Circuit breaker, bounded exponential backoff, Retry-After</b> — CLAUDE.md rule 4 applied to an external API.</li>
+  <li><b>At-least-once stream consumption</b> — fetch → persist durably → commit; a crash between the last two re-delivers, and unique keys absorb it.</li>
+  <li><b>Adaptive time slicing</b> — replaces offset paging, which is unsafe on a list that changes while it is read.</li>
+  <li><b>Transport-agnostic normalisation</b> — downstream code sees <code>TvMachine/TvVend/TvEvent/TvRefill</code>, never Televend's JSON.</li>
+  <li><b>Synthetic fixtures with real layouts</b> — test files generated in memory with SheetJS, so the public repo never holds company data.</li>
+</ul>
+
+<h2>Research findings (web search and live probes, 15 Oct 2026)</h2>
+<ul>
+  <li><b>Televend has an official API</b> (devportal.televendcloud.com): Gravitee + Keycloak, JWT client credentials (2 h), Data-Streaming
+      (vends, vending-events, fill-events, cash-collections, cashbag-countings, …; offset-based; <b>7-day retention</b>), Master Data
+      (<code>GET /importer/{type}/api/v1</code>; its upsert/delete are writes), Operational, Wallet. Credentials come from Televend IT onboarding;
+      price not published. The commit is <code>POST …/offsets</code> with no body (spec v1.9.0).</li>
+  <li><b>The web app</b> (Angular 21 micro-frontends, app 4.8.3) calls <code>api-cloud.televendcloud.com/{machinist, cashtrack, warden, refillator,
+      reportforge}</code> and an older FastAPI host; <code>{tenant_id}</code> is <code>5</code> for this company.</li>
+  <li><b>MCP SDK</b>: <code>@modelcontextprotocol/server</code> 2.3.1 is the v2 "stable release line" (npm, 2026-10-15); it depends only on its
+      core and zod ≥ 4.2, negotiates protocol versions back to 2024-10-07 (read in the package), and serves stdio with
+      <code>serveStdio()</code>. Chosen over v1 <code>@modelcontextprotocol/sdk</code> 1.32.1, which pulls in express, hono, ajv and more.</li>
+  <li><b>SheetJS</b>: the npm registry copy is stuck at 0.18.5; the vendor publishes on its CDN (0.20.3, Apache-2.0). OSV lists
+      CVE-2023-30533 and CVE-2024-22363 for "xlsx" with no fixed npm version, but the advisories state fixes in 0.19.3 and 0.20.2 — 0.20.3
+      is past both. <code>pnpm audit</code> reports nothing for the CDN dependency.</li>
+  <li>Comparable systems (research for the plan): Cantaloupe, Parlevel/365 and Nayax VMS all derive expected cash from machine meters and
+      reconcile per driver per service — the pattern TASK-062 will use with Televend's data.</li>
+</ul>
+
+<h2>Verification</h2>
+<div class="tw"><table>
+<tr><th>Check</th><th>How</th><th>Result</th></tr>
+<tr><td>Nothing but allow-listed requests can leave</td><td>22 known Televend writes + 14 URL tricks refused in tests, with a stub
+  <code>fetch</code> that fails the test if reached; no token is requested for a refused call</td><td class="good">pass</td></tr>
+<tr><td>Credentials never appear in errors</td><td>refused password, refused refresh, rejected token — every message searched for the password,
+  username and both tokens</td><td class="good">pass</td></tr>
+<tr><td>Machines, live vs export</td><td><code>pnpm televend:verify</code></td><td class="good">same totals and enabled counts; 9 enabled machines had been
+  renamed since the export (matched by asset number)</td></tr>
+<tr><td>Refills, live vs export (12 Oct and 5 Oct)</td><td>per machine, rows and cups</td><td class="good">0 mismatches on both days (54 and 52 rows)</td></tr>
+<tr><td>Alarms/warnings, live vs export</td><td>every exported row matched to a live event on the same machine and minute</td><td class="good">65/65
+  (12 Oct), 87/87 (5 Oct); alarms are level 3, warnings level 2</td></tr>
+<tr><td>Vends</td><td>windowed list vs Televend's own whole-day count</td><td class="good">equal on both days</td></tr>
+<tr><td>Paging drift fixed</td><td>the same 23-hour window read twice</td><td class="good">identical (before the fix: 95 duplicates and 95 skipped)</td></tr>
+<tr><td>MCP over stdio</td><td>raw JSON-RPC: initialize, tools/list, four tool calls</td><td class="good">protocol 2025-06-18 negotiated, six read-only
+  tools, real answers, nothing else on stdout</td></tr>
+<tr><td>Account safety</td><td>every live run</td><td class="good">one password sign-in per process</td></tr>
+<tr><td>Whole suite</td><td><code>pnpm verify</code></td><td>see the session note; typecheck clean</td></tr>
+</table></div>
+
+<h2 class="warn">What we have not verified</h2>
+<div class="card unverified"><ul>
+  <li>The <b>official API transport</b> has never talked to Televend — no client credentials exist. It is built from the published specs and
+      tested with a stub only; its production gateway (<code>api.televendcloud.com</code>) is inferred from DNS.</li>
+  <li><b>Cash amounts</b>: this account cannot see the cash centre (403) nor vend values (hidden). Whether Televend's cash-collection records carry
+      the machine's counted/expected cash is <b>believed</b> from the specs (<code>cashIncome</code>, <code>cashLeftInMachine</code>), not seen.</li>
+  <li>Refill <code>fill_type</code> 2 ("removed") and <code>source</code> 3 ("Televend") meanings — not seen in live data; they stay "unknown" if they appear.</li>
+  <li>That the export files' local times are Asia/Dubai — consistent with every match made (minute-level), but not documented by Televend.</li>
+  <li>Long-run behaviour: token renewal over a full Keycloak session, the circuit breaker against a real outage, Televend rate limits (not published).</li>
+  <li>Claude Code picking the server up from <code>.mcp.json</code> on another machine — tested here by driving stdio directly.</li>
+  <li>OSV-Scanner's verdict on the CDN SheetJS dependency (the Docker scan was not run); a false positive is expected — see G152.</li>
+  <li>Whether reading Televend through a web user is acceptable under FreshNow's Televend contract (no terms are published) — the official
+      API removes the question.</li>
+  <li>The two email tests that still fail predate this task (a teardown foreign-key error and a model-dependent assertion; see the session note).</li>
+</ul></div>
+
+<h2>Open questions</h2>
+<ul>
+  <li>For FreshNow → Televend IT: read-only API onboarding (Data Streaming + Master Data + Operational GETs), production URLs, price, and a
+      one-off export of history older than 7 days.</li>
+  <li>For FreshNow's Televend admin: a dedicated <b>view-only</b> integration user (vend list, refill log, events, machines; cash-centre and
+      vend-revenue <i>view</i> for amounts). The current account cannot create users (<code>user_edit</code> is false).</li>
+  <li>For FreshNow: does the Televend subscription include a data processing agreement, and where is Televend hosted? (registry R2)</li>
+  <li>For TASK-056: how far back the bridge can read vends and events (it read 20 Sep refills fine; the limit is unknown).</li>
+</ul>
+</body></html>

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { closeDb, DEMO_CEO_ID, getServiceSql, recordComplianceSnapshot } from "@freshnow/core";
+import { closeDb, CONSENT_POLICY_VERSION, DEMO_CEO_ID, getServiceSql, recordComplianceSnapshot } from "@freshnow/core";
 import { buildServer } from "./server.js";
 
 /**
@@ -47,7 +47,8 @@ describe("the compliance record", () => {
     expect(body.policy.production).toBe(false); // the tests run as the demo
     expect(body.policy.refuse).toBe(false);
     expect(body.registry?.services.length).toBeGreaterThan(0);
-    expect(body.consent.version).toMatch(/^2\./);
+    // The version the notice is at now — not a number pinned here, which every new notice broke.
+    expect(body.consent.version).toBe(CONSENT_POLICY_VERSION);
   });
 
   it("names a Cloudflare quick tunnel when the page came through one", async () => {

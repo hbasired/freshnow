@@ -1,4 +1,4 @@
-import { loadConfig } from "@freshnow/core";
+import { loadConfig, telegramParts } from "@freshnow/core";
 import { RateLimitError, type Deliverer } from "./outbox-relay.js";
 
 /** Which Bot API method sends each kind of file, and what the file field is called. */
@@ -40,20 +40,7 @@ export function makeTelegramSender(): Deliverer {
   }
   const base = `https://api.telegram.org/bot${token}`;
 
-  return async ({ chatId, payload }) => {
-    const p = payload as OutboxPayload;
-
-    let method = "sendMessage";
-    let body: Record<string, unknown>;
-
-    if (p.kind === "attachment" && p.fileId) {
-      const spec = FILE_METHODS[p.fileKind ?? "document"] ?? FILE_METHODS.document!;
-      method = spec.method;
-      body = { chat_id: chatId, [spec.field]: p.fileId, caption: p.caption?.slice(0, 1024) };
-    } else {
-      body = { chat_id: chatId, text: p.text ?? "", reply_markup: p.reply_markup };
-    }
-
+  const call = async (method: string, body: Record<string, unknown>): Promise<void> => {
     // Node's fetch has NO default timeout, and this call runs inside the relay's open
     // transaction while holding `for update skip locked` row locks. Telegram refusing
     // connections is fine (fast error, backoff); Telegram or the wifi BLACK-HOLING packets
@@ -73,6 +60,23 @@ export function makeTelegramSender(): Deliverer {
     if (!res.ok) {
       const text = await res.text().catch(() => "");
       throw new Error(`Telegram ${method} failed ${res.status}: ${text.slice(0, 200)}`);
+    }
+  };
+
+  return async ({ chatId, payload }) => {
+    const p = payload as OutboxPayload;
+
+    if (p.kind === "attachment" && p.fileId) {
+      const spec = FILE_METHODS[p.fileKind ?? "document"] ?? FILE_METHODS.document!;
+      await call(spec.method, { chat_id: chatId, [spec.field]: p.fileId, caption: p.caption?.slice(0, 1024) });
+      return;
+    }
+    // Longer than one Telegram message (the privacy notice is): several messages in order, the
+    // buttons under the last, where the reading ends. A failure partway retries the whole row, so
+    // a part can arrive twice — better than a message Telegram refuses on every try.
+    const parts = telegramParts(p.text ?? "");
+    for (const [i, text] of parts.entries()) {
+      await call("sendMessage", { chat_id: chatId, text, ...(i === parts.length - 1 ? { reply_markup: p.reply_markup } : {}) });
     }
   };
 }

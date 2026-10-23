@@ -84,12 +84,14 @@ export class ApiError extends Error {
   constructor(
     readonly status: number,
     message: string,
+    /** The refusal's code, when the server gave one ("count_every_item"): what a screen can act on, not its words. */
+    readonly code: string | null = null,
   ) {
     super(message);
   }
 }
 
-async function get<T>(path: string, params: Record<string, string> = {}): Promise<T> {
+export async function get<T>(path: string, params: Record<string, string> = {}): Promise<T> {
   const qs = new URLSearchParams(params);
   const key = dashboardKey();
   if (key) qs.set(KEY_PARAM, key);
@@ -112,7 +114,7 @@ async function get<T>(path: string, params: Record<string, string> = {}): Promis
   return (await res.json()) as T;
 }
 
-async function post<T>(path: string, body?: unknown, params: Record<string, string> = {}, method = "POST"): Promise<T> {
+export async function post<T>(path: string, body?: unknown, params: Record<string, string> = {}, method = "POST"): Promise<T> {
   const key = dashboardKey();
   // Writes carry the viewer too. Under real sign-in the server ignores it and uses the
   // token; in demo mode, where the header lets you look through anyone's eyes, a write
@@ -140,13 +142,13 @@ async function post<T>(path: string, body?: unknown, params: Record<string, stri
     // A refusal says why ("Only the CEO can assign work"); show that, not a status code.
     const why = await refusal(res);
     if (why.code === "consent_required") consentRequired?.();
-    throw new ApiError(res.status, why.message ?? `Request failed (${res.status})`);
+    throw new ApiError(res.status, why.message ?? `Request failed (${res.status})`, why.code ?? null);
   }
   return (await res.json()) as T;
 }
 
 /** A file upload. The browser sets the multipart boundary itself, so no content-type here. */
-async function postForm<T>(path: string, form: FormData, params: Record<string, string> = {}): Promise<T> {
+export async function postForm<T>(path: string, form: FormData, params: Record<string, string> = {}): Promise<T> {
   const key = dashboardKey();
   const qs = new URLSearchParams(params);
   if (key) qs.set(KEY_PARAM, key);
@@ -159,7 +161,7 @@ async function postForm<T>(path: string, form: FormData, params: Record<string, 
     if (res.status === 401) unauthorized?.();
     const why = await refusal(res);
     if (why.code === "consent_required") consentRequired?.();
-    throw new ApiError(res.status, why.message ?? `Request failed (${res.status})`);
+    throw new ApiError(res.status, why.message ?? `Request failed (${res.status})`, why.code ?? null);
   }
   return (await res.json()) as T;
 }
@@ -174,7 +176,7 @@ async function download(path: string, params: Record<string, string>, fallbackNa
   if (!res.ok) {
     if (res.status === 401) unauthorized?.();
     const why = await refusal(res);
-    throw new ApiError(res.status, why.message ?? `Request failed (${res.status})`);
+    throw new ApiError(res.status, why.message ?? `Request failed (${res.status})`, why.code ?? null);
   }
   const name = /filename="([^"]+)"/.exec(res.headers.get("content-disposition") ?? "")?.[1] ?? fallbackName;
   const url = URL.createObjectURL(await res.blob());
@@ -209,7 +211,25 @@ export interface Employee {
   manager_name: string | null;
 }
 
-export type AccessRole = "ceo" | "manager" | "lead" | "employee";
+export type AccessRole =
+  | "ceo"
+  | "admin"
+  | "ops_head"
+  | "supervisor"
+  | "manager"
+  | "lead"
+  | "cash_auditor"
+  | "warehouse_keeper"
+  | "technician"
+  | "vmo"
+  | "employee";
+
+/** A role as the People page shows it: its name and one line on what it allows. */
+export interface RoleChoice {
+  role: AccessRole;
+  label: string;
+  describe: string;
+}
 
 export interface DayUpdate {
   id: string;
@@ -409,7 +429,8 @@ export interface Blocker {
 
 /** The three ways to tell someone about new work (TASK-054). */
 export type NotifyChoice = "telegram" | "app" | "email";
-export const NOTIFY_CHOICES: readonly NotifyChoice[] = ["telegram", "app", "email"];
+/** The app first — FreshNow's own channel and the main one; Telegram is an option (D217). Same order as core. */
+export const NOTIFY_CHOICES: readonly NotifyChoice[] = ["app", "telegram", "email"];
 
 /** Can each choice reach this person, and what their own rules would use. */
 export interface PersonReach {
@@ -445,7 +466,7 @@ export interface NewPerson {
   roleTitle?: string | null;
   site?: string | null;
   shift?: string | null;
-  accessRole?: "employee" | "manager" | "lead";
+  accessRole?: AccessRole;
   managerEmployeeId?: string | null;
   telegramInvite?: boolean;
 }
@@ -499,6 +520,186 @@ export interface Health {
   load: Record<string, { active: number; waiting: number; peakActive: number; peakWaiting: number; rejected: number }>;
 }
 
+/**
+ * Cups sold by Dubai hour, against the same weekday a week earlier (TASK-058, the Operations portal).
+ * Every number was counted by Postgres from the Televend mirror; the browser only draws.
+ */
+export interface HourlySales {
+  date: string;
+  comparedWith: string;
+  /** The hour being read now, while the day is not yet read to its end; null for a whole day or one not in the mirror. */
+  throughHour: number | null;
+  /** Whole hours; `cups` is null for the hour in progress and hours not read yet. A side not in the mirror is null throughout. */
+  hours: { hour: number; cups: number | null; cupsLastWeek: number | null }[];
+  /** The hour in progress so far, and the same minutes of that hour a week earlier. */
+  partial: { hour: number; cups: number; cupsLastWeekSameMinutes: number | null } | null;
+  /** Null where the mirror did not read that day — never 0. */
+  totals: { cups: number | null; cupsLastWeekSameTime: number | null; cupsLastWeekWholeDay: number | null };
+  /** How far Televend has been read; null if never. */
+  horizon: string | null;
+  /** The first whole day the mirror read; days before it are not in it. */
+  mirroredFrom: string | null;
+  /** Whether each day was read with no gap — false means "not in the mirror", never zero. */
+  covered: { date: boolean; comparedWith: boolean };
+  /** Whether Televend's own count confirmed each day. */
+  complete: { date: boolean; comparedWith: boolean };
+}
+
+// ── Operations: the fleet, one machine, a day (TASK-059) ─────────────────────────
+
+export type MachineState = "offline" | "needs_action" | "warning" | "ok";
+export type AlarmSeverity = "low" | "medium" | "high" | "critical";
+
+export interface MachineProblem {
+  alarm: string;
+  severity: AlarmSeverity;
+  since: string;
+  advice: string;
+  problem: { blockerId: string; status: string; slaDueAt: string | null; resolver: string | null } | null;
+}
+
+export interface FleetMachine {
+  machineTvId: number;
+  assetNo: number | null;
+  label: string;
+  region: string | null;
+  emirate: string | null;
+  state: MachineState;
+  lastVendAt: string | null;
+  lastRefillAt: string | null;
+  lastCashAt: string | null;
+  cupsToday: number;
+  cashCupsToday: number;
+  /** Cash vends since the last collection × the cash price; null = no collection seen in 60 days, or not for this viewer (D237). */
+  cashWaitingFils: number | null;
+  /** Televend's stock figure: the share of capacity it thinks is left (below 0 when sales outran the logged fills). */
+  stockPercent: number | null;
+  problems: MachineProblem[];
+}
+
+/** One machine as a full page (TASK-072) — core/ops-machine-page.ts. */
+export interface MachinePage {
+  assetNo: number;
+  label: string;
+  category: string | null;
+  televendRegion: string | null;
+  corrected: boolean;
+  emirate: string | null;
+  cardOnly: boolean;
+  prices: { cashFils: number; cashSource: "set" | "default"; cardFils: number; cardSource: "name" | "cash" };
+  status: {
+    state: MachineState;
+    connection: "online" | "offline" | "unknown";
+    signal: number | null;
+    lastSaleAt: string | null;
+    lastRefillAt: string | null;
+    lastCollectionAt: string | null;
+  };
+  stock: { percent: number | null; columns: number | null; capacityPerColumn: number | null; cupsLeft: number | null; negative: boolean };
+  places: { televendId: number; caption: string; region: string | null; enabled: boolean; current: boolean; firstSeen: string | null; lastSeen: string | null }[];
+  today: { date: string; readUntil: string | null; hours: { hour: number; cups: number; cupsWeekBefore: number | null }[]; cups: number; cupsWeekBeforeSameTime: number | null };
+  days: { date: string; cups: number | null; weekBefore: number | null }[];
+  payments: { caption: string; cups: number }[];
+  recentSales: { at: string; payment: string | null; product: string | null }[];
+  refills: { at: string; action: string; change: number; after: number | null; capacity: number | null; by: string | null }[];
+  /** Whether Televend's expected cash is given to this viewer (cash.read, D237). */
+  seesExpectedCash: boolean;
+  collections: { at: string; previousAt: string | null; cashVends: number | null; expectedFils: number | null }[];
+  alarms: {
+    open: { alarm: string; since: string; class: "actionable" | "noise" | "info"; decision: "wait" | "raise"; advice: string }[];
+    last7Days: { alarm: string; count: number }[];
+    recent: { alarm: string; startedAt: string; resolvedAt: string | null }[];
+  };
+  visits: { at: string; by: string; how: "qr" | "typed"; endedAt: string | null; proof: number }[];
+  notes: { machine: string | null; serviceShift: "day" | "night" | null; serviceNote: string | null; categoryNote: string | null };
+}
+
+/** A refill logged in Televend (TASK-072). */
+export interface RefillRow {
+  at: string;
+  assetNo: number | null;
+  label: string;
+  action: string;
+  change: number;
+  after: number | null;
+  capacity: number | null;
+  by: string | null;
+}
+
+/** A day's sales, paged, with the day's totals under the same filters (TASK-072). */
+export interface SalesList {
+  date: string;
+  rows: { at: string; id: string; machineTvId: number; assetNo: number | null; label: string; category: string | null; payment: string | null; product: string | null }[];
+  next: string | null;
+  summary: { cups: number; machines: number; byPayment: { caption: string; cups: number }[]; byHour: { hour: number; cups: number }[] };
+  choices: { categories: string[]; payments: string[] };
+}
+
+export interface FleetNow {
+  at: string;
+  machines: FleetMachine[];
+  counts: { total: number; ok: number; needsAction: number; warning: number; offline: number };
+  cupsToday: number;
+  cashCollectionsToday: number;
+  refillsToday: number;
+  /** Whether Televend's expected cash is given to this viewer (cash.read, D237). */
+  seesExpectedCash: boolean;
+  cashWaitingFils: number | null;
+  alarms: { needsAction: number; waiting: number; quietNoise: number; problemsEnabled: boolean };
+}
+
+export interface MachineDetail {
+  assetNo: number;
+  label: string;
+  region: string | null;
+  priceFils: number;
+  hourlyToday: number[];
+  openAlarms: { alarm: string; since: string; class: "actionable" | "noise" | "info"; decision: "wait" | "raise"; advice: string }[];
+  alarmsLast7Days: { alarm: string; count: number }[];
+  collections: { at: string; previousAt: string | null; cashVends: number | null; expectedFils: number | null }[];
+  refills: { at: string; action: string; quantity: number; product: string | null; by: string | null }[];
+}
+
+export interface DayReportMachine {
+  assetNo: number | null;
+  label: string;
+  region: string | null;
+  cups: number;
+  cashCups: number;
+  cardCups: number;
+  otherCups: number;
+  collections: { at: string; cashVends: number | null; expectedFils: number | null }[];
+  refills: number;
+  /** Alarms that stayed open past their wait — whatever their rule's class. */
+  alarmsNeedingSomeone: number;
+  /** Alarms that cleared within their wait. */
+  alarmsClearedThemselves: number;
+}
+
+export interface DayReport {
+  date: string;
+  /** Whether Televend's expected cash is given to this viewer (cash.read, D237). */
+  seesExpectedCash: boolean;
+  machines: DayReportMachine[];
+  totals: {
+    cups: number;
+    cashCups: number;
+    cardCups: number;
+    collections: number;
+    expectedCashFils: number | null;
+    refills: number;
+    alarmsNeedingSomeone: number;
+    alarmsClearedThemselves: number;
+    silentMachines: number;
+  };
+}
+
+/** AED from fils: "AED 1,240" — or "AED 12.50" when there are fils to show. */
+export function aed(fils: number): string {
+  const v = fils / 100;
+  return `AED ${v.toLocaleString("en-GB", { minimumFractionDigits: Number.isInteger(v) ? 0 : 2, maximumFractionDigits: 2 })}`;
+}
+
 export interface Me {
   viewer: string;
   /** The employee uuid behind the viewer; "ceo" is only a label. */
@@ -506,6 +707,19 @@ export interface Me {
   isCeo: boolean;
   /** What the browser may offer; the API refuses the rest regardless. */
   accessRole: AccessRole;
+  /** "CEO", "Ops Head", … */
+  roleLabel?: string;
+  /**
+   * What this person may do, decided by the server (permissions.ts, TASK-057). The browser offers
+   * buttons from these and never reasons about role names.
+   */
+  capabilities?: string[];
+  /** The roles this person may give someone, with a line each. */
+  grantableRoles?: RoleChoice[];
+  /** Roles that lead people — the only ones offered under "Reports to". */
+  leadingRoles?: AccessRole[];
+  /** Every role, for labels. */
+  allRoles?: RoleChoice[];
   department: string | null;
   displayName: string | null;
   authRequired: boolean;
@@ -562,6 +776,22 @@ export const api = {
   activity: (viewer: string) => get<ActivityRow[]>("/dashboard/activity", { viewer }),
   health: () => get<Health>("/health"),
   me: (viewer?: string) => get<Me>("/dashboard/me", viewer ? { viewer } : {}),
+  salesByHour: (viewer: string, date: string) => get<HourlySales>("/dashboard/ops/sales-by-hour", { viewer, date }),
+  opsFleet: (viewer: string) => get<FleetNow>("/dashboard/ops/fleet", { viewer }),
+  opsMachine: (viewer: string, asset: number) => get<MachineDetail>(`/dashboard/ops/machines/${asset}`, { viewer }),
+  opsDayReport: (viewer: string, date: string) => get<DayReport>("/dashboard/ops/day-report", { viewer, date }),
+  opsMachinePage: (viewer: string, asset: number) => get<MachinePage>(`/dashboard/ops/machines/${asset}/page`, { viewer }),
+  opsRefills: (viewer: string, date: string) => get<RefillRow[]>("/dashboard/ops/refills", { viewer, date }),
+  opsSales: (viewer: string, q: { date: string; machine?: number; category?: string; payment?: string; before?: string; limit?: number }) =>
+    get<SalesList>("/dashboard/ops/sales", {
+      viewer,
+      date: q.date,
+      ...(q.machine !== undefined ? { machine: String(q.machine) } : {}),
+      ...(q.category ? { category: q.category } : {}),
+      ...(q.payment ? { payment: q.payment } : {}),
+      ...(q.before ? { before: q.before } : {}),
+      ...(q.limit !== undefined ? { limit: String(q.limit) } : {}),
+    }),
   generateEod: () => post<{ generated: number; date: string | null }>("/dashboard/eod/generate"),
   /** Policy checks and their evidence — CEO only. */
   compliance: (viewer: string) => get<ComplianceEvidence>("/dashboard/compliance", { viewer }),

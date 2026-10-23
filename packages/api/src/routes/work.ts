@@ -1,21 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import {
-  ACCESS_ROLES,
-  acknowledgeBlocker,
-  assignTask,
-  attachNoteAndProcess,
-  canAssignTo,
-  checkRateLimit,
-  createTask,
-  NOTIFY_CHOICES,
-  NoReachableChannelError,
-  eraseEmployee,
-  mayAcknowledgeBlocker,
-  recordTaskUpdate,
-  updateOrg,
-  withContext,
-} from "@freshnow/core";
+import { ACCESS_ROLES, acknowledgeBlocker, assignTask, attachNoteAndProcess, canAssignTo, checkRateLimit, createTask, NOTIFY_CHOICES, NoReachableChannelError, eraseEmployee, mayAcknowledgeBlocker, recordTaskUpdate, updateOrg, withContext, can, OrgChangeRefused } from "@freshnow/core";
 import { forbid, resolveViewer } from "../viewer.js";
 
 /**
@@ -66,7 +51,7 @@ const EraseBody = z.object({
 });
 
 const OrgBody = z.object({
-  accessRole: z.enum(ACCESS_ROLES as [string, ...string[]]).optional(),
+  accessRole: z.enum(ACCESS_ROLES).optional(),
   managerEmployeeId: z.string().uuid().nullable().optional(),
   department: z.string().min(1).max(60).nullable().optional(),
 });
@@ -165,7 +150,7 @@ export function registerWorkRoutes(app: FastifyInstance): void {
           select employee_id from task where id = ${body.taskId!}`,
       );
       const owner = rows[0]?.employee_id;
-      if (!owner || (owner !== viewer.employeeId && !viewer.isCeo)) {
+      if (!owner || (owner !== viewer.employeeId && !can(viewer, "work.report_for_others"))) {
         return forbid(req, reply, "That task is not yours to report on");
       }
     }
@@ -177,6 +162,8 @@ export function registerWorkRoutes(app: FastifyInstance): void {
       noteRaw: body.note ?? null,
       channel: "web",
       correlationId: req.correlationId,
+      // Checked just above: the owner, or someone who may report for others (CEO, Admin).
+      reportForOthers: can(viewer, "work.report_for_others"),
     });
 
     // No note: nothing for the model to read, so nothing to wait for.
@@ -213,25 +200,26 @@ export function registerWorkRoutes(app: FastifyInstance): void {
   });
 
   /**
-   * Change somebody's place in the org — role, manager, department. CEO only: this is
-   * what decides who may see whom, and it should have exactly one author.
+   * Change somebody's place in the org — role, manager, department. The CEO or an Admin; the
+   * rules (the CEO's own row, the CEO and Admin roles, who may be a manager) are core's.
    */
   app.patch("/dashboard/people/:id", async (req, reply) => {
     const { id } = IdParams.parse(req.params);
     const body = OrgBody.parse(req.body);
     const viewer = await resolveViewer(req);
-    if (!viewer.isCeo) return forbid(req, reply, "Only the CEO can change roles and reporting lines");
+    if (!can(viewer, "people.manage")) return forbid(req, reply, "Only the CEO or an Admin can change roles and reporting lines");
 
     try {
       await updateOrg({
         employeeId: id,
-        ...(body.accessRole !== undefined ? { accessRole: body.accessRole as (typeof ACCESS_ROLES)[number] } : {}),
+        ...(body.accessRole !== undefined ? { accessRole: body.accessRole } : {}),
         ...(body.managerEmployeeId !== undefined ? { managerEmployeeId: body.managerEmployeeId } : {}),
         ...(body.department !== undefined ? { department: body.department } : {}),
-        by: viewer.employeeId,
+        actor: viewer,
         correlationId: req.correlationId,
       });
     } catch (err) {
+      if (err instanceof OrgChangeRefused) return forbid(req, reply, err.message);
       // The cycle guard and the CEO-row rule raise plain errors; they are the caller's
       // mistake, not the server's.
       const message = err instanceof Error ? err.message : "Could not update";
@@ -252,13 +240,17 @@ export function registerWorkRoutes(app: FastifyInstance): void {
     const { id } = IdParams.parse(req.params);
     const { reason } = EraseBody.parse(req.body);
     const viewer = await resolveViewer(req);
-    if (!viewer.isCeo) return forbid(req, reply, "Only the CEO can erase a person");
+    if (!can(viewer, "people.manage")) return forbid(req, reply, "Only the CEO or an Admin can erase a person");
     if (id === viewer.employeeId) return forbid(req, reply, "You cannot erase yourself");
 
     const target = await withContext(viewer, (sql) =>
       sql<{ access_role: string; status: string }[]>`select access_role, status from employee where id = ${id}`,
     );
     if (!target[0]) return reply.code(404).send({ error: { code: "not_found", message: "No such person", correlationId: req.correlationId } });
+    // An Admin's account is the CEO's to remove, like the Admin role itself.
+    if (target[0].access_role === "admin" && !can(viewer, "people.grant_admin")) {
+      return forbid(req, reply, "Only the CEO can erase an Admin");
+    }
     if (target[0].access_role === "ceo") {
       return reply.code(409).send({
         error: { code: "org_conflict", message: "Hand the CEO role to someone else before erasing this person", correlationId: req.correlationId },

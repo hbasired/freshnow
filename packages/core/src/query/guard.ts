@@ -19,6 +19,17 @@ const FORBIDDEN_SCHEMA =
   /\b(auth|storage|vault|extensions|realtime|supabase_functions|pg_catalog|information_schema)\s*\./i;
 /** Catalogue tables and session functions reachable without a schema prefix. */
 const FORBIDDEN_TABLE = /\b(pg_[a-z_]+|current_setting|set_config)\b/i;
+/**
+ * Functions that read a table by name or run SQL handed to them as text: what they read never appears
+ * in the plan as a table, so the approved-tables check could not see it (review 2026-10-17,
+ * todays-fixes#1: `query_to_xml('select * from app_session', …)`). And Unicode-escaped identifiers
+ * (U&"…"), which spell a name these text checks cannot read — no operational question needs one.
+ * answer.ts searches the plan's own deparsed text for the same functions, so a spelling missed here is
+ * still caught there.
+ */
+export const FUNCTIONS_THAT_READ =
+  /\b((query|table|cursor|schema|database)_to_xml(schema|_and_xmlschema)?|ts_stat|ts_rewrite|dblink[a-z_]*|lo_[a-z_]+|currval|nextval|setval)\b/i;
+const UNICODE_IDENTIFIER = /\bU&["']/i;
 
 export interface GuardResult {
   ok: boolean;
@@ -36,6 +47,9 @@ export function validateReadOnlySql(raw: string, maxRows = 50): GuardResult {
   if (FORBIDDEN.test(s)) return { ok: false, sql: s, reason: "forbidden keyword" };
   if (FORBIDDEN_SCHEMA.test(s)) {
     return { ok: false, sql: s, reason: "only the application schema may be queried" };
+  }
+  if (FUNCTIONS_THAT_READ.test(s) || UNICODE_IDENTIFIER.test(s)) {
+    return { ok: false, sql: s, reason: "functions that read tables by name or run SQL text are not allowed" };
   }
   if (FORBIDDEN_TABLE.test(s)) {
     return { ok: false, sql: s, reason: "system catalogues and session functions are not queryable" };

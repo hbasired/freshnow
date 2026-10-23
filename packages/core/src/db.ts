@@ -44,7 +44,9 @@ export function getServiceSql(): Db {
   return serviceSql;
 }
 
-export type AccessRole = "ceo" | "manager" | "lead" | "employee";
+// The roles and what each may do live in permissions.ts (TASK-057).
+export type { AccessRole } from "./permissions.js";
+import type { AccessRole } from "./permissions.js";
 
 export interface AppContext {
   employeeId?: string;

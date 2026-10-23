@@ -130,6 +130,13 @@ export const llmSemaphore = new Semaphore("model calls", perProcessLimit, 200);
 /** Document work is far heavier than a chat turn — download, parse, then a large prompt. */
 export const documentSemaphore = new Semaphore("document reads", 2, 50);
 
+/**
+ * Photo and video uploads write the file to Storage while holding the bytes' lock, inside a transaction on the API's
+ * service-role pool of five connections: at most two at once, so uploads can never take the connections everything else
+ * needs (review, 20 Oct).
+ */
+export const mediaStoreSemaphore = new Semaphore("media uploads", 2, 50);
+
 export interface SemaphoreStats {
   active: number;
   waiting: number;
@@ -143,5 +150,6 @@ export function concurrencyStats(): Record<string, SemaphoreStats> {
   return {
     llm: llmSemaphore.stats,
     documents: documentSemaphore.stats,
+    media: mediaStoreSemaphore.stats,
   };
 }

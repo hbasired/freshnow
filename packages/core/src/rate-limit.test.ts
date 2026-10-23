@@ -77,4 +77,15 @@ describe("per-person caps on expensive work", () => {
     // Hitting a limit is a security event, not merely a UX one.
     expect(rows[0]!.n).toBeGreaterThanOrEqual(1);
   });
+
+  it("records a refusal once every few minutes, not once per refused request (review 2026-10-17, live-updates-media#10)", async () => {
+    const who = await makeEmployee("RL-loop");
+    for (let i = 0; i < LIMITS.document!.max; i++) {
+      await logAudit({ actor: `employee:${who}`, action: "document.planned", entity: "document" });
+    }
+    for (let i = 0; i < 25; i++) expect((await checkRateLimit({ key: "document", employeeId: who })).allowed).toBe(false);
+    const [r] = await getServiceSql()<{ n: number }[]>`
+      select count(*)::int as n from audit_log where actor = ${`employee:${who}`} and action = 'security.rate_limited'`;
+    expect(r!.n).toBe(1);
+  });
 });

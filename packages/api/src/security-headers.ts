@@ -42,11 +42,19 @@ const BASE_HEADERS: Record<string, string> = {
   "cross-origin-resource-policy": "same-origin",
 };
 
-/** Every inline <script> in an HTML file, as CSP hash sources ('sha256-…'). */
+/**
+ * Every inline <script> in an HTML file, as CSP hash sources ('sha256-…').
+ *
+ * Hashed as the BROWSER sees the script, not as the file stores it: the HTML parser turns every CRLF
+ * (and any lone CR) into LF before the script's text exists, and the CSP hash is of that text. On a
+ * Windows checkout (git core.autocrlf) the built index.html has CRLF line endings; hashing the raw file
+ * named a script no browser ever sees, and the theme script was refused (G180, found by the TASK-058
+ * browser check).
+ */
 export function inlineScriptHashes(html: string): string[] {
   const out: string[] = [];
   for (const m of html.matchAll(/<script\b(?![^>]*\bsrc\s*=)[^>]*>([\s\S]*?)<\/script>/gi)) {
-    const body = m[1] ?? "";
+    const body = (m[1] ?? "").replace(/\r\n?/g, "\n");
     if (body.trim()) out.push(`'sha256-${createHash("sha256").update(body, "utf8").digest("base64")}'`);
   }
   return out;

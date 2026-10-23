@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { createServer, type AddressInfo } from "node:net";
 import { ImapFlow } from "imapflow";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { closeDb, currentNoticeHash, getServiceSql, recordConsent, type InboxConfig } from "@freshnow/core";
@@ -215,4 +216,33 @@ describe.skipIf(!HOST)("a real IMAP mailbox (EMAIL_TEST_IMAP_HOST)", () => {
       await jobs.close();
     }
   }, 40_000);
+});
+
+describe("a mail server that drops the connection (G174)", () => {
+  it("fails that one poll and records it — it never takes the worker down", async () => {
+    // Greets like an IMAP server, then hangs up on the first command: the shape of the Gmail drop
+    // that, on 2026-10-15, surfaced as an unheard "error" event and stopped the whole worker.
+    const server = createServer((sock) => {
+      sock.on("error", () => {});
+      sock.write("* OK [CAPABILITY IMAP4rev1 AUTH=PLAIN] fake server ready\r\n");
+      sock.once("data", () => sock.destroy());
+    });
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", () => resolve()));
+    const port = (server.address() as AddressInfo).port;
+    const cfg: InboxConfig = {
+      host: "127.0.0.1", port, secure: false, user: "u", pass: "p", mailbox: "INBOX",
+      inboxAddress: "ops+test@example.com", trustedAuthserv: "mx.example.com", pollSeconds: 60,
+    };
+    const before = new Date();
+    try {
+      await expect(pollInbox(cfg)).rejects.toThrow();
+      // Give a late "error" event time to fire: unheard, it would fail this file as an uncaught error.
+      await new Promise((r) => setTimeout(r, 300));
+    } finally {
+      server.close();
+    }
+    const [run] = await getServiceSql()<{ status: string }[]>`
+      select status from job_run where job_name = 'email_poll' and created_at >= ${before} order by created_at desc limit 1`;
+    expect(run?.status).toBe("error");
+  });
 });
