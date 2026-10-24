@@ -207,6 +207,8 @@ export {
   listOrders,
   listSuppliers,
   orderDetail,
+  isLight,
+  noteGramsFor,
   parseKg,
   saveSupplier,
   setOrderReady,

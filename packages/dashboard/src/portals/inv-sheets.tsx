@@ -53,7 +53,22 @@ function Dropped({ names, why = "there is none of it left to take from" }: { nam
 }
 
 // ── a delivery ───────────────────────────────────────────────────────────────
-export function ReceiveSheet({ viewer, items, onDone, onClose }: { viewer: string; items: ItemNow[]; onDone: (msg: string) => void; onClose: () => void }) {
+export function ReceiveSheet({
+  viewer,
+  items,
+  expected = [],
+  onPickExpected,
+  onDone,
+  onClose,
+}: {
+  viewer: string;
+  items: ItemNow[];
+  /** Deliveries marked expected (TASK-086): one of them arriving is received there, against what was ordered — not typed again here. */
+  expected?: { id: string; label: string }[];
+  onPickExpected?: (id: string) => void;
+  onDone: (msg: string) => void;
+  onClose: () => void;
+}) {
   const [id] = useState(newId);
   // Only the items still on the list are sent: one switched off while the sheet is open is said, not sent unseen (review, 20 Oct).
   const { values, set, lines, dropped } = useChosen(pickFrom(items, null));
@@ -91,6 +106,16 @@ export function ReceiveSheet({ viewer, items, onDone, onClose }: { viewer: strin
   };
   return (
     <Sheet title="📦 Delivery in" onClose={onClose} footer={<BigButton onClick={save} busy={busy} disabled={lines.length === 0}>Save delivery{lines.length ? ` (${lines.length} item${lines.length === 1 ? "" : "s"})` : ""}</BigButton>}>
+      {expected.length > 0 && onPickExpected ? (
+        <div className="space-y-2 rounded-xl border border-warn/50 bg-warn/10 p-3">
+          <p className="text-sm font-semibold">Is it one of these expected deliveries? Receive it there instead — it is checked against what was ordered and gets its lot number.</p>
+          {expected.map((e) => (
+            <button key={e.id} onClick={() => onPickExpected(e.id)} className="block min-h-11 w-full rounded-xl border border-edge bg-panel px-3 py-2 text-left text-sm font-semibold hover:border-link">
+              📦 {e.label} →
+            </button>
+          ))}
+        </div>
+      ) : null}
       <p className="text-sm text-mut">What arrived, as you counted it. It goes into the warehouse straight away.</p>
       <ItemSteppers items={pickFrom(items, null)} values={values} onChange={set} />
       <Dropped names={dropped} why="it is no longer in use" />

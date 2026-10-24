@@ -13,8 +13,10 @@ import {
   SHORT_WEIGHT_SHARE,
   cancelOrder,
   createOrder,
+  isLight,
   listOrders,
   listSuppliers,
+  noteGramsFor,
   orderDetail,
   parseKg,
   saveSupplier,
@@ -190,13 +192,14 @@ describe("a planned receipt", () => {
       stockDocId: DOC1,
       backorder: true,
       backorderId: BACK,
-      lines: [{ itemId: ORANGES, qty: 18, kg: "342.5" }, { itemId: STRAWS, qty: 3 }],
+      lines: [{ itemId: ORANGES, qty: 18, kg: "310" }, { itemId: STRAWS, qty: 3 }],
     });
     expect(done).toMatchObject({ state: "done", replay: false, stockDocId: DOC1, backorder: { id: BACK, state: "ready" } });
-    // 18 of 20 cartons; 342.5 kg is below 360 × (1 − 2 %) = 352.8, so it is light too.
+    // 18 of 20 cartons: the note's 360 kg for 20 is 324 kg for the 18 that came; 310 kg is below 324 × (1 − 2 %) = 317.52, so
+    // it is light too. (342.5 kg would not be: the two missing cartons are short once, in cartons.)
     expect(SHORT_WEIGHT_SHARE).toBe(0.02);
     expect(done.short).toEqual([
-      { itemId: ORANGES, name: `${TAG} oranges`, unit: "carton", expected: 20, done: 18, expectedKg: 360, doneKg: 342.5, weightShort: true },
+      { itemId: ORANGES, name: `${TAG} oranges`, unit: "carton", expected: 20, done: 18, expectedKg: 360, expectedKgForDone: 324, doneKg: 310, weightShort: true },
     ]);
     expect(await inWarehouse(ORANGES)).toBe(18);
     expect(await inWarehouse(STRAWS)).toBe(3);
@@ -208,16 +211,16 @@ describe("a planned receipt", () => {
     expect(await inWarehouse(ORANGES)).toBe(18);
     expect((await refusal(validateOrder(v[KEEP]!, R1, { stockDocId: id(), lines: [] }))).code).toBe("already_done");
     const card = (await orderDetail(v[KEEP]!, R1))!;
-    expect(card).toMatchObject({ state: "done", short: true, closedShort: false, stockDocState: "posted", backorders: [{ id: BACK, state: "ready" }], totals: { doneKg: 342.5 } });
+    expect(card).toMatchObject({ state: "done", short: true, closedShort: false, stockDocState: "posted", backorders: [{ id: BACK, state: "ready" }], totals: { doneKg: 310 } });
     const oranges = card.lines.find((l) => l.itemId === ORANGES)!;
-    expect(oranges).toMatchObject({ done: 18, doneKg: 342.5, lot: `${card.number}-1`, returnable: 18 });
+    expect(oranges).toMatchObject({ done: 18, doneKg: 310, expectedKgForDone: 324, lot: `${card.number}-1`, returnable: 18 });
     const back = (await orderDetail(v[KEEP]!, BACK))!;
     expect(back).toMatchObject({ state: "ready", backorderOf: { id: R1, number: card.number } });
     expect(back.lines.map((l) => [l.itemId, l.expected])).toEqual([[ORANGES, 2]]);
     const [lot] = await sql()<{ qty: string; weight_g: string; variety: string; best_before: string; received_on: string }[]>`
       select qty::text as qty, weight_g::text as weight_g, variety, best_before::text as best_before, received_on::text as received_on
         from inv_lot where order_id = ${R1} and item_id = ${ORANGES}`;
-    expect(lot).toEqual({ qty: "18.000", weight_g: "342500", variety: "Valencia", best_before: "2026-12-01", received_on: today });
+    expect(lot).toEqual({ qty: "18.000", weight_g: "310000", variety: "Valencia", best_before: "2026-12-01", received_on: today });
   });
 
   it("tells the approvers a delivery came short, while the driver may still be at the door", async () => {
@@ -226,6 +229,8 @@ describe("a planned receipt", () => {
     expect(told.length).toBeGreaterThan(0);
     expect(told.every((t) => t.employee_id === OPS)).toBe(true);
     expect(JSON.stringify(told[0]!.payload)).toContain("18 of 20 cartons");
+    // The weight is held to the note's for the 18 that came, not the 20 expected.
+    expect(JSON.stringify(told[0]!.payload)).toContain("310 kg on the scale against 324 kg by the note (−4.3 %)");
   });
 
   it("is never changed once done — not through core, not through the table", async () => {
@@ -269,8 +274,10 @@ describe("a return to the supplier", () => {
 
   it("posts a 'supplier_return' from the warehouse to Suppliers, and tells the approvers", async () => {
     expect((await refusal(validateOrder(v[KEEP]!, RET, { stockDocId: id(), lines: [{ itemId: ORANGES, qty: 3 }] }))).code).toBe("more_than_planned");
-    const done = await validateOrder(v[KEEP]!, RET, { stockDocId: RETDOC, lines: [{ itemId: ORANGES, qty: 2, kg: "38" }] });
+    // Lighter than planned (30 kg of 38): a return is never "short" — that is a delivery's word.
+    const done = await validateOrder(v[KEEP]!, RET, { stockDocId: RETDOC, lines: [{ itemId: ORANGES, qty: 2, kg: "30" }] });
     expect(done).toMatchObject({ state: "done", backorder: null, short: [] });
+    expect((await orderDetail(v[KEEP]!, RET))!).toMatchObject({ state: "done", short: false, lines: [{ done: 2, doneKg: 30 }] });
     expect(await inWarehouse(ORANGES)).toBe(19);
     const [doc] = await sql()<{ kind: string; reason: string; from_location_id: string; to_location_id: string }[]>`
       select kind, reason, from_location_id, to_location_id from stock_doc where id = ${RETDOC}`;
@@ -384,18 +391,19 @@ describe("the reports", () => {
       ["in_transit", 1],
     ]);
     expect(t.lots).toEqual(
-      expect.arrayContaining([expect.objectContaining({ qty: 18, kg: 342.5, variety: "Valencia", supplier: `${TAG} Fresh Fruit Co`, receivedOn: today })]),
+      expect.arrayContaining([expect.objectContaining({ qty: 18, kg: 310, variety: "Valencia", supplier: `${TAG} Fresh Fruit Co`, receivedOn: today })]),
     );
     expect(t.moves.length).toBeGreaterThanOrEqual(5);
     expect(await itemTracking(v[SUPV]!, randomUUID(), { from: today, to: today })).toBeNull();
   });
 
-  it("scores each supplier's process — never a person", async () => {
-    const rows = await supplierReport(v[SUPV]!, { from: today, to: today });
+  it("counts each supplier's deliveries — never a person", async () => {
+    const { lightShare, rows } = await supplierReport(v[SUPV]!, { from: today, to: today });
+    expect(lightShare).toBe(SHORT_WEIGHT_SHARE);
     const fvc = rows.find((r) => r.supplier.id === FVC)!;
-    // One receipt, scheduled for today and done today; 1 of its 2 lines complete; 360 kg expected against 342.5; one light line;
-    // one return; the backorder still open, not overdue (it is due today).
-    expect(fvc).toMatchObject({ receipts: 1, scheduled: 1, onTime: 1, lines: 2, linesComplete: 1, kgExpected: 360, kgReceived: 342.5, linesLight: 1, returns: 1, returnLines: 1, open: 1, overdue: 0 });
+    // One receipt, scheduled for today and done today; 1 of its 2 lines complete; 310 kg on the scale against the note's 324 kg
+    // for the 18 cartons that came (360 kg for 20) — one light line; one return; the backorder still open, not overdue (due today).
+    expect(fvc).toMatchObject({ receipts: 1, scheduled: 1, onTime: 1, lines: 2, linesComplete: 1, kgExpected: 324, kgReceived: 310, linesLight: 1, returns: 1, returnLines: 1, open: 1, overdue: 0 });
     const awir = rows.find((r) => r.supplier.id === AWIR)!;
     expect(awir).toMatchObject({ receipts: 1, scheduled: 0, lines: 1, linesComplete: 0, kgExpected: null, open: 0 });
   });
@@ -448,6 +456,14 @@ describe("erasure", () => {
 describe("kilograms", () => {
   it("are read as whole grams, never rounded past three decimals", () => {
     expect(parseKg("18.5")).toBe(18_500);
+    // Held to the note's weight for what came: 8 of 10 cartons of a 180 kg note should weigh 144 kg.
+    expect(noteGramsFor(10_000, 8_000, 180_000)).toBe(144_000);
+    expect(isLight(10_000, 8_000, 180_000, 150_500)).toBe(false);
+    expect(isLight(10_000, 8_000, 180_000, 141_120)).toBe(false);
+    expect(isLight(10_000, 8_000, 180_000, 141_119)).toBe(true);
+    expect(isLight(10_000, 10_000, 180_000, 176_399)).toBe(true);
+    expect(isLight(10_000, 0, 180_000, 0)).toBe(false);
+    expect(isLight(10_000, 8_000, null, 150_500)).toBe(false);
     expect(parseKg(0.001)).toBe(1);
     expect(parseKg(null)).toBeNull();
     expect(() => parseKg("1.2345")).toThrow(/three decimals/);

@@ -9,14 +9,21 @@ import { amount, inv, units, type Holder } from "../lib/inventory-api";
 
 /** A full-screen sheet on a phone, a panel on a wide screen. Escape and the ✕ close it. */
 export function Sheet({ title, onClose, children, footer }: { title: string; onClose: () => void; children: ReactNode; footer?: ReactNode }) {
+  const self = useRef<HTMLElement>(null);
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    // Only the sheet on top closes: a supplier added over a half-filled delivery must not take the delivery with it.
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      const open = document.querySelectorAll('[role="dialog"]');
+      if (open[open.length - 1] === self.current) onClose();
+    };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/40" onClick={onClose} role="presentation">
       <section
+        ref={self}
         role="dialog"
         aria-modal="true"
         aria-label={title}

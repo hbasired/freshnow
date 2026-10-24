@@ -2,14 +2,19 @@ import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { Card, Empty, Pill, Spinner } from "../components/ui";
 import { ApiError } from "../lib/api";
 import { COUNT_KIND_WORDS, amount, inv, type DocCard, type InventoryHome } from "../lib/inventory-api";
+import { wh, type OrderCard } from "../lib/warehouse-api";
 import { INVENTORY_VIEWS, type InventoryView } from "../portals";
 import { DecideSheet, CountSheet, RecountSheet } from "./inv-count";
 import { AnswerSheet, GiveSheet, ReceiveSheet, ReverseSheet, SettleSheet, UseSheet, type GiveMode } from "./inv-sheets";
 import { errorText, hhmm, linesText, when } from "./inv-ui";
+import { ExpectedSection, ReceiveSheet as ReceiveOrderSheet, orderLinesText } from "./wh-sheets";
 
 const MovesView = lazy(() => import("./inv-moves"));
 const DayView = lazy(() => import("./inv-day"));
 const ItemsView = lazy(() => import("./inv-items"));
+const DeliveriesView = lazy(() => import("./wh-docs"));
+const ReorderView = lazy(() => import("./wh-reorder"));
+const ReportsView = lazy(() => import("./wh-reports"));
 
 /**
  * The Inventory portal (TASK-060): every carton, box and phone — where it is, who holds it, and what
@@ -21,10 +26,19 @@ const ItemsView = lazy(() => import("./inv-items"));
  * The server decides what each may see and do; this page only leaves out buttons that would be refused.
  */
 
-const VIEW_LABEL: Record<InventoryView, string> = { stock: "Stock", moves: "Movements", day: "Day sheet", items: "Items" };
+const VIEW_LABEL: Record<InventoryView, string> = {
+  stock: "Stock",
+  deliveries: "Deliveries",
+  moves: "Movements",
+  day: "Day sheet",
+  reorder: "Reorder",
+  reports: "Reports",
+  items: "Items",
+};
 
 type Open =
   | { kind: "receive" }
+  | { kind: "receiveOrder"; order: OrderCard }
   | { kind: "give"; mode: GiveMode }
   | { kind: "use"; use: "use" | "damage"; from: "warehouse" | "mine" }
   | { kind: "answer"; doc: DocCard }
@@ -39,11 +53,21 @@ export default function InventoryPortal({ viewer, me, view, onView, liveTick }: 
   const [err, setErr] = useState<string | null>(null);
   const [open, setOpen] = useState<Open | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
+  // Deliveries marked expected and returns ready to go (TASK-086) — for whoever sees all stock.
+  const [expected, setExpected] = useState<OrderCard[]>([]);
 
   const load = useCallback(async () => {
     try {
-      setHome(await inv.home(viewer));
+      const h = await inv.home(viewer);
+      setHome(h);
       setErr(null);
+      if (h.can.read) {
+        try {
+          setExpected((await wh.orders(viewer, { state: "ready", limit: 50 })).orders);
+        } catch {
+          // The stock page stands without them.
+        }
+      }
     } catch (e) {
       setErr(e instanceof ApiError && e.status === 403 ? e.message : errorText(e));
     }
@@ -58,14 +82,16 @@ export default function InventoryPortal({ viewer, me, view, onView, liveTick }: 
     return () => clearInterval(t);
   }, [load]);
 
-  const done = (msg: string) => {
-    setOpen(null);
+  /** A sheet finished: close the portal's own sheet (a view's sheets close themselves), say what happened, reload. */
+  const done = (msg: string, closeSheet = true) => {
+    if (closeSheet) setOpen(null);
     setFlash(msg);
     void load();
     setTimeout(() => setFlash(null), 6_000);
   };
   const can = home?.can;
   const views = INVENTORY_VIEWS.filter((v) => v === "stock" || (v === "moves" ? true : can?.read === true));
+  const expectedReceipts = expected.filter((o) => o.kind === "receipt" && o.may.validate);
 
   return (
     <div className="space-y-4">
@@ -75,14 +101,15 @@ export default function InventoryPortal({ viewer, me, view, onView, liveTick }: 
           <p className="text-sm text-mut">Every carton and box: where it is and who holds it — counted, never copied forward.</p>
         </div>
         {views.length > 1 ? (
-          <div className="flex rounded-xl border border-edge bg-sunken p-0.5" role="tablist" aria-label="Stock views">
+          // Seven views do not fit a phone's width: the strip scrolls sideways on its own, the page does not.
+          <div className="flex max-w-full overflow-x-auto rounded-xl border border-edge bg-sunken p-0.5" role="tablist" aria-label="Stock views">
             {views.map((v) => (
               <button
                 key={v}
                 role="tab"
                 aria-selected={view === v}
                 onClick={() => onView(v)}
-                className={`min-h-10 rounded-lg px-3 py-1.5 text-sm ${view === v ? "bg-panel font-semibold text-ink shadow-sm" : "text-mut hover:text-ink"}`}
+                className={`min-h-10 shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm ${view === v ? "bg-panel font-semibold text-ink shadow-sm" : "text-mut hover:text-ink"}`}
               >
                 {VIEW_LABEL[v]}
               </button>
@@ -99,16 +126,34 @@ export default function InventoryPortal({ viewer, me, view, onView, liveTick }: 
       {err && !home ? <Empty>{err}</Empty> : null}
       {!home && !err ? <Spinner label="Opening stock…" /> : null}
 
-      {home && view === "stock" ? <StockHome viewer={viewer} home={home} onOpen={setOpen} onChanged={(msg) => done(msg)} /> : null}
+      {home && view === "stock" ? (
+        <StockHome viewer={viewer} home={home} expected={expected} onOpen={setOpen} onChanged={(msg) => done(msg)} onDeliveries={() => onView("deliveries")} />
+      ) : null}
       {home && view !== "stock" ? (
         <Suspense fallback={<Spinner label="Opening…" />}>
           {view === "moves" ? <MovesView viewer={viewer} liveTick={liveTick} onReverse={(doc) => setOpen({ kind: "reverse", doc })} /> : null}
           {view === "day" ? <DayView viewer={viewer} /> : null}
           {view === "items" ? <ItemsView viewer={viewer} can={home.can} /> : null}
+          {view === "deliveries" ? <DeliveriesView viewer={viewer} can={home.can} items={home.items} figuresHidden={home.figuresHidden} liveTick={liveTick} onChanged={(msg) => done(msg, false)} /> : null}
+          {view === "reorder" ? <ReorderView viewer={viewer} can={home.can} items={home.items} onChanged={(msg) => done(msg, false)} onDeliveries={() => onView("deliveries")} /> : null}
+          {view === "reports" ? <ReportsView viewer={viewer} items={home.items} /> : null}
         </Suspense>
       ) : null}
 
-      {home && open?.kind === "receive" ? <ReceiveSheet viewer={viewer} items={home.items} onDone={done} onClose={() => setOpen(null)} /> : null}
+      {home && open?.kind === "receive" ? (
+        <ReceiveSheet
+          viewer={viewer}
+          items={home.items}
+          expected={expectedReceipts.map((o) => ({ id: o.id, label: `${o.number} from ${o.supplier.name}: ${orderLinesText(o)}` }))}
+          onPickExpected={(id) => {
+            const order = expectedReceipts.find((o) => o.id === id);
+            if (order) setOpen({ kind: "receiveOrder", order });
+          }}
+          onDone={done}
+          onClose={() => setOpen(null)}
+        />
+      ) : null}
+      {open?.kind === "receiveOrder" ? <ReceiveOrderSheet viewer={viewer} order={open.order} onDone={done} onClose={() => setOpen(null)} /> : null}
       {home && open?.kind === "give" ? <GiveSheet viewer={viewer} me={me} mode={open.mode} items={home.items} mine={home.mine} onDone={done} onClose={() => setOpen(null)} /> : null}
       {home && open?.kind === "use" ? <UseSheet viewer={viewer} kind={open.use} from={open.from} items={home.items} mine={home.mine} onDone={done} onClose={() => setOpen(null)} /> : null}
       {home && open?.kind === "answer" ? <AnswerSheet viewer={viewer} doc={open.doc} onDone={done} onClose={() => setOpen(null)} /> : null}
@@ -121,7 +166,21 @@ export default function InventoryPortal({ viewer, me, view, onView, liveTick }: 
   );
 }
 
-function StockHome({ viewer, home, onOpen, onChanged }: { viewer: string; home: InventoryHome; onOpen: (o: Open) => void; onChanged: (msg: string) => void }) {
+function StockHome({
+  viewer,
+  home,
+  expected,
+  onOpen,
+  onChanged,
+  onDeliveries,
+}: {
+  viewer: string;
+  home: InventoryHome;
+  expected: OrderCard[];
+  onOpen: (o: Open) => void;
+  onChanged: (msg: string) => void;
+  onDeliveries: () => void;
+}) {
   const can = home.can;
   const myCounts = home.counts.filter((c) => c.may.recount || c.may.decide || c.may.waive || c.may.submit);
   return (
@@ -134,6 +193,8 @@ function StockHome({ viewer, home, onOpen, onChanged }: { viewer: string; home: 
           ))}
         </section>
       ) : null}
+
+      {home.can.read ? <ExpectedSection orders={expected} canMove={can.move} onReceive={(order) => onOpen({ kind: "receiveOrder", order })} onAll={onDeliveries} /> : null}
 
       {home.today ? <Today today={home.today} onOpen={onOpen} /> : null}
 

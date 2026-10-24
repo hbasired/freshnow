@@ -650,7 +650,10 @@ export interface SupplierRow {
   /** Receipt lines done in the range, and those with everything expected. */
   lines: number;
   linesComplete: number;
-  /** Lines weighed against a note's weight: their kilograms, and the lines lighter beyond the tolerance. */
+  /**
+   * Lines that came and were weighed against a note's weight: the note's kilograms for what came (8 of 10 cartons → 8/10 of
+   * them), the scale's kilograms, and the lines lighter than that beyond the tolerance.
+   */
   kgExpected: number | null;
   kgReceived: number | null;
   linesLight: number;
@@ -662,7 +665,8 @@ export interface SupplierRow {
   overdue: number;
 }
 
-export async function supplierReport(viewer: ViewerOrg, q: { from: string; to: string }, now: Date = new Date()): Promise<SupplierRow[]> {
+/** The rows, and the weight tolerance they were counted with — so a page explains "lighter" with the server's own figure. */
+export async function supplierReport(viewer: ViewerOrg, q: { from: string; to: string }, now: Date = new Date()): Promise<{ lightShare: number; rows: SupplierRow[] }> {
   requireRead(viewer);
   const range = checkRange(q.from, q.to);
   const today = localDate(now);
@@ -700,10 +704,13 @@ export async function supplierReport(viewer: ViewerOrg, q: { from: string; to: s
                    and (o.done_at at time zone 'Asia/Dubai')::date <= o.scheduled_on) as on_time,
                (select count(*)::int from rl where rl.supplier_id = s.id) as lines,
                (select count(*)::int from rl where rl.supplier_id = s.id and rl.done_qty >= rl.expected_qty) as lines_complete,
-               (select sum(rl.expected_g)::text from rl where rl.supplier_id = s.id and rl.expected_g is not null and rl.done_g is not null) as kg_expected,
-               (select sum(rl.done_g)::text from rl where rl.supplier_id = s.id and rl.expected_g is not null and rl.done_g is not null) as kg_received,
-               (select count(*)::int from rl where rl.supplier_id = s.id and rl.expected_g is not null and rl.done_g is not null
-                   and rl.done_g < rl.expected_g * (1 - ${SHORT_WEIGHT_SHARE}::numeric)) as lines_light,
+               -- The note's weight for what came (noteGramsFor in warehouse.ts): 8 of 10 cartons are held to 8/10 of its kilograms.
+               (select sum(round(rl.expected_g * rl.done_qty / rl.expected_qty))::text from rl
+                 where rl.supplier_id = s.id and rl.expected_g is not null and rl.done_g is not null and rl.done_qty > 0) as kg_expected,
+               (select sum(rl.done_g)::text from rl
+                 where rl.supplier_id = s.id and rl.expected_g is not null and rl.done_g is not null and rl.done_qty > 0) as kg_received,
+               (select count(*)::int from rl where rl.supplier_id = s.id and rl.expected_g is not null and rl.done_g is not null and rl.done_qty > 0
+                   and rl.done_g < round(rl.expected_g * rl.done_qty / rl.expected_qty) * (1 - ${SHORT_WEIGHT_SHARE}::numeric)) as lines_light,
                (select count(*)::int from done o where o.supplier_id = s.id and o.kind = 'supplier_return') as returns,
                (select count(*)::int from done o join wh_order_line l on l.order_id = o.id
                  where o.supplier_id = s.id and o.kind = 'supplier_return' and l.done_qty > 0) as return_lines,
@@ -714,7 +721,7 @@ export async function supplierReport(viewer: ViewerOrg, q: { from: string; to: s
          order by s.active desc, lower(s.name)`,
     { readOnly: true },
   );
-  return rows
+  const out = rows
     .filter((r) => r.receipts + r.returns + r.open > 0)
     .map((r) => ({
       supplier: { id: r.id, name: r.name, code: r.code },
@@ -731,4 +738,5 @@ export async function supplierReport(viewer: ViewerOrg, q: { from: string; to: s
       open: r.open,
       overdue: r.overdue,
     }));
+  return { lightShare: SHORT_WEIGHT_SHARE, rows: out };
 }

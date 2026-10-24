@@ -32,6 +32,21 @@ export type OrderState = "draft" | "ready" | "done" | "cancelled";
 export const SHORT_WEIGHT_SHARE = 0.02;
 const MAX_LINES = 60;
 
+/**
+ * The note's weight for what came, in grams: a note weighs what was expected, so 8 of 10 cartons are held to 8/10 of its
+ * kilograms — cartons that never came are counted short once, in cartons, not again as weight. Rounded to whole grams, as the
+ * supplier report rounds it (warehouse-reports.ts).
+ */
+export function noteGramsFor(expectedMilli: number, doneMilli: number, expectedG: number): number {
+  return expectedMilli > 0 ? Math.round(expectedG * (doneMilli / expectedMilli)) : 0;
+}
+
+/** Lighter than the note's weight for what came, beyond SHORT_WEIGHT_SHARE. Nothing came, or nothing weighed: not a weight question. */
+export function isLight(expectedMilli: number, doneMilli: number, expectedG: number | null, doneG: number | null): boolean {
+  if (expectedG === null || doneG === null || doneMilli <= 0) return false;
+  return doneG < noteGramsFor(expectedMilli, doneMilli, expectedG) * (1 - SHORT_WEIGHT_SHARE);
+}
+
 // ── small helpers ─────────────────────────────────────────────────────────────
 const cleanText = (s: string | null | undefined, max: number): string | null => {
   const t = s?.trim().replace(/\s+/g, " ");
@@ -490,16 +505,19 @@ export interface ShortLine {
   unit: string;
   expected: number;
   done: number;
+  /** The note's kilograms, for everything expected. */
   expectedKg: number | null;
+  /** The note's kilograms for what came (noteGramsFor). */
+  expectedKgForDone: number | null;
   doneKg: number | null;
-  /** Kilograms short beyond SHORT_WEIGHT_SHARE. */
+  /** Lighter than the note's weight for what came, beyond SHORT_WEIGHT_SHARE (isLight). */
   weightShort: boolean;
 }
 
 export interface Validated extends OrderRef {
   stockDocId: string;
   backorder: OrderRef | null;
-  /** Lines that came short — in units, or in kilograms beyond the tolerance. */
+  /** A delivery in: lines that came short — in units, or lighter than the note's weight for what came (isLight). */
   short: ShortLine[];
 }
 
@@ -572,11 +590,13 @@ export async function validateOrder(viewer: ViewerOrg, id: string, req: Validate
     for (const d of done) {
       const expected = toMilli(d.p.expected_qty);
       const eg = d.p.expected_g === null ? null : Number(d.p.expected_g);
-      const weightShort = eg !== null && d.grams !== null && d.grams < eg * (1 - SHORT_WEIGHT_SHARE);
-      if (d.milli < expected || weightShort) {
+      const weightShort = isLight(expected, d.milli, eg, d.grams);
+      // Short is a delivery's word: a return that goes back with less than planned is not the supplier's shortfall.
+      if (o.kind === "receipt" && (d.milli < expected || weightShort)) {
         short.push({
           itemId: d.p.item_id, name: d.p.name, unit: d.p.unit, expected: expected / 1000, done: d.milli / 1000,
-          expectedKg: eg === null ? null : eg / 1000, doneKg: d.grams === null ? null : d.grams / 1000, weightShort,
+          expectedKg: eg === null ? null : eg / 1000, expectedKgForDone: eg === null ? null : noteGramsFor(expected, d.milli, eg) / 1000,
+          doneKg: d.grams === null ? null : d.grams / 1000, weightShort,
         });
       }
     }
@@ -657,8 +677,8 @@ export async function startReturn(
 const shortWords = (s: ShortLine): string =>
   [
     s.done < s.expected ? `${s.name} ${s.done.toLocaleString("en-GB")} of ${s.expected.toLocaleString("en-GB")} ${s.unit}${s.expected === 1 ? "" : "s"}` : s.name,
-    s.weightShort && s.expectedKg !== null && s.doneKg !== null
-      ? `${kgText(Math.round(s.doneKg * 1000))} of ${kgText(Math.round(s.expectedKg * 1000))} (−${((1 - s.doneKg / s.expectedKg) * 100).toFixed(1)} %)`
+    s.weightShort && s.expectedKgForDone !== null && s.doneKg !== null
+      ? `${kgText(Math.round(s.doneKg * 1000))} on the scale against ${kgText(Math.round(s.expectedKgForDone * 1000))} by the note (−${((1 - s.doneKg / s.expectedKgForDone) * 100).toFixed(1)} %)`
       : null,
   ]
     .filter(Boolean)
@@ -712,7 +732,10 @@ export interface OrderLine {
   icon: string | null;
   expected: number;
   done: number | null;
+  /** The note's kilograms, for everything expected. */
   expectedKg: number | null;
+  /** Done: the note's kilograms for what came (noteGramsFor) — what the scale is held to. */
+  expectedKgForDone: number | null;
   doneKg: number | null;
   variety: string | null;
   bestBefore: string | null;
@@ -753,7 +776,7 @@ export interface OrderCard {
   returns: { id: string; number: string; state: OrderState }[];
   lines: OrderLine[];
   totals: { lines: number; expectedKg: number | null; doneKg: number | null };
-  /** Done with less than expected (in units), or lighter than its note beyond the tolerance. */
+  /** A delivery in, done with less than expected (in units), or a line lighter than its note's weight for what came (isLight). */
   short: boolean;
   /** Not done and its day has passed. */
   overdue: boolean;
@@ -915,6 +938,8 @@ async function cardsOf(viewer: ViewerOrg, ids: readonly string[], now: Date): Pr
             expected: toMilli(l.expected_qty) / 1000,
             done: l.done_qty === null ? null : toMilli(l.done_qty) / 1000,
             expectedKg: l.expected_g === null ? null : Number(l.expected_g) / 1000,
+            expectedKgForDone:
+              l.expected_g === null || l.done_qty === null ? null : noteGramsFor(toMilli(l.expected_qty), toMilli(l.done_qty), Number(l.expected_g)) / 1000,
             doneKg: l.done_g === null ? null : Number(l.done_g) / 1000,
             variety: l.variety,
             bestBefore: l.best_before,
@@ -924,9 +949,15 @@ async function cardsOf(viewer: ViewerOrg, ids: readonly string[], now: Date): Pr
             available: r.kind === "supplier_return" && (r.state === "draft" || r.state === "ready") && !hidden ? toMilli(l.stock ?? "0") / 1000 : null,
           }));
           const kg = (f: (l: OrderLine) => number | null) => (ls.some((l) => f(l) !== null) ? Math.round(ls.reduce((t, l) => t + (f(l) ?? 0) * 1000, 0)) / 1000 : null);
+          // A delivery in that came short; a return that went back with less than planned is not "short" — its lines say so.
           const short =
+            r.kind === "receipt" &&
             r.state === "done" &&
-            ls.some((l) => (l.done ?? 0) < l.expected || (l.expectedKg !== null && l.doneKg !== null && l.doneKg * 1000 < l.expectedKg * 1000 * (1 - SHORT_WEIGHT_SHARE)));
+            own.some(
+              (l) =>
+                toMilli(l.done_qty ?? "0") < toMilli(l.expected_qty) ||
+                isLight(toMilli(l.expected_qty), toMilli(l.done_qty ?? "0"), l.expected_g === null ? null : Number(l.expected_g), l.done_g === null ? null : Number(l.done_g)),
+            );
           const open = r.state === "draft" || r.state === "ready";
           const card: OrderCard = {
             id: r.id,

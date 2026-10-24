@@ -89,7 +89,9 @@ describe("the warehouse API", () => {
     const [b] = await sql()<{ qty: string }[]>`select qty::text as qty from stock_balance where location_id = '00000000-0000-0000-0000-00000000b001' and item_id = ${ITEM}`;
     expect(Number(b!.qty)).toBe(8);
     const card = await call("GET", `/dashboard/warehouse/orders/${id}`, SUP);
-    expect(card.json()).toMatchObject({ state: "done", short: true, lines: [{ expected: 10, done: 8, expectedKg: 180, doneKg: 150.5 }] });
+    // 8 of the 10 cartons came: the scale is held to the note's 144 kg for 8 (180 kg for 10) — short in cartons only.
+    expect(card.json()).toMatchObject({ state: "done", short: true, lines: [{ expected: 10, done: 8, expectedKg: 180, expectedKgForDone: 144, doneKg: 150.5 }] });
+    expect((done.json() as { short: { weightShort: boolean }[] }).short).toEqual([expect.objectContaining({ done: 8, weightShort: false })]);
     expect((await call("GET", `/dashboard/warehouse/orders/${randomUUID()}`, SUP)).statusCode).toBe(404);
     const open = await call("GET", `/dashboard/warehouse/orders?state=open&supplierId=${SUPPLIER}`, SUP);
     expect((open.json() as { orders: { id: string }[] }).orders.map((o) => o.id)).toEqual([back]);
@@ -126,6 +128,6 @@ describe("the warehouse API", () => {
     const stock = await call("GET", `/dashboard/warehouse/stock-at?date=${today}`, SUP);
     expect((stock.json() as { items: { id: string; warehouse: number }[] }).items.find((i) => i.id === ITEM)).toMatchObject({ warehouse: 8 });
     const report = await call("GET", `/dashboard/warehouse/suppliers/report?from=${today}&to=${today}`, SUP);
-    expect((report.json() as { supplier: { id: string }; receipts: number }[]).find((x) => x.supplier.id === SUPPLIER)).toMatchObject({ receipts: 1 });
+    expect((report.json() as { rows: { supplier: { id: string }; receipts: number }[] }).rows.find((x) => x.supplier.id === SUPPLIER)).toMatchObject({ receipts: 1 });
   });
 });

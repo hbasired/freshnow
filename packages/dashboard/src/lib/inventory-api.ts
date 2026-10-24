@@ -62,7 +62,7 @@ export interface DocLine {
 
 export interface DocCard {
   id: string;
-  kind: "receipt" | "handover" | "use" | "damage" | "count_adjustment" | "reversal";
+  kind: "receipt" | "handover" | "use" | "damage" | "count_adjustment" | "reversal" | "supplier_return";
   state: string;
   from: PlaceRef;
   to: PlaceRef;
@@ -175,6 +175,8 @@ export interface DayItemRow {
   takenBack: number;
   used: number;
   damaged: number;
+  /** Sent back to a supplier (TASK-086). */
+  returned: number;
   adjusted: number;
   reversed: number;
   closing: number;
@@ -310,6 +312,10 @@ export const REASON_WORDS: Readonly<Record<string, string>> = {
   earlier_miscount: "An earlier count was wrong",
   found: "Found stock",
   unexplained: "No explanation yet",
+  // A return to the supplier's reasons (TASK-086); wrong_item, expired and other are above.
+  quality: "Bad quality",
+  excess: "More than ordered",
+  damaged_on_arrival: "Damaged on arrival",
 };
 
 export const KIND_WORDS: Readonly<Record<string, string>> = {
@@ -319,6 +325,7 @@ export const KIND_WORDS: Readonly<Record<string, string>> = {
   damage: "Damaged",
   count_adjustment: "Count adjustment",
   reversal: "Reversal",
+  supplier_return: "Returned to supplier",
 };
 
 export const COUNT_KIND_WORDS: Readonly<Record<string, string>> = {
