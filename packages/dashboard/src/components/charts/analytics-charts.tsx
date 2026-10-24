@@ -1,5 +1,7 @@
+import type { ReactElement } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, LabelList, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis, type TooltipContentProps } from "recharts";
-import { TIER_COLOR, TIER_WORDS, dayLabel, hourLabel, n1, signedPct, type CategoryPerf, type MachinePerf } from "../../lib/analytics-api";
+import { TIER_COLOR, TIER_WORDS, dayLabel, hourLabel, n1, signedPct, vsAverageText, type CategoryPerf, type MachinePerf } from "../../lib/analytics-api";
+import { NARROW, useMedia } from "../../lib/media";
 import { Icon } from "../icons";
 
 /**
@@ -44,12 +46,22 @@ function TipBox({ title, lines }: { title: string; lines: { value: string; name:
 }
 
 /** A machine's name on one line, cut with an ellipsis — Recharts' own tick wraps long names onto two cramped lines. */
-function NameTick(props: { x?: number | string; y?: number | string; payload?: { value?: string } }) {
+function NameTick(props: { x?: number | string; y?: number | string; payload?: { value?: string }; max?: number }) {
   return (
     <text x={Number(props.x ?? 0) - 6} y={Number(props.y ?? 0) + 4} textAnchor="end" fontSize={11} fill="var(--color-mut)">
-      {short(String(props.payload?.value ?? ""), 26)}
+      {short(String(props.payload?.value ?? ""), props.max ?? 26)}
     </text>
   );
+}
+
+/**
+ * The name column of a bar chart: 168 px on a wide screen, 104 px on a phone — at 390 px wide the full column left the bars
+ * a strip of about 100 px (TASK-075 follow-up, the phone screenshots).
+ */
+function useNames(): { width: number; tick: (p: { x?: number | string; y?: number | string; payload?: { value?: string } }) => ReactElement } {
+  const narrow = useMedia(NARROW);
+  const max = narrow ? 15 : 26;
+  return { width: narrow ? 104 : 168, tick: (p) => <NameTick {...p} max={max} /> };
 }
 
 // ── every machine, against the fleet average ─────────────────────────────────
@@ -62,13 +74,17 @@ export function RankedMachines({
   average,
   thresholds,
   onPick,
+  beforeLabel = "vs the days before",
 }: {
   machines: MachinePerf[];
   average: number;
   /** Where the tiers begin, from the server (125 % and 75 % of the unrounded average). */
   thresholds: { top: number; below: number } | null;
   onPick?: (m: MachinePerf) => void;
+  /** What a machine's change is against, in words ("vs the week before"). */
+  beforeLabel?: string;
 }) {
+  const names = useNames();
   // In the server's order (its ranks), drawn at their cups a day.
   const rows = machines
     .filter((m) => m.counted && m.cupsPerDay !== null && m.cups > 0)
@@ -83,14 +99,17 @@ export function RankedMachines({
         <LegendKey box color={TIER_COLOR.top} label={TIER_WORDS.top} />
         <LegendKey box color={TIER_COLOR.average} label={TIER_WORDS.average} />
         <LegendKey box color={TIER_COLOR.below} label={TIER_WORDS.below} />
-        <span>— the fleet average {n1(average)} cups a day; dashed: 75 % and 125 % of it</span>
+        <span className="basis-full">
+          The solid line is the average machine ({n1(average)} cups a day)
+          {thresholds ? `; the dashed lines are where Top begins (${n1(thresholds.top)}) and where Below average begins (under ${n1(thresholds.below)})` : ""}.
+        </span>
       </figcaption>
       <div style={{ height }} className="w-full">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={rows} layout="vertical" margin={{ top: 8, right: 48, bottom: 0, left: 0 }} barCategoryGap={2}>
+          <BarChart data={rows} layout="vertical" margin={{ top: 20, right: 48, bottom: 0, left: 0 }} barCategoryGap={2}>
             <CartesianGrid horizontal={false} stroke="var(--color-grid)" />
             <XAxis type="number" tick={axisTick} axisLine={{ stroke: "var(--color-grid)" }} tickLine={false} allowDecimals={false} />
-            <YAxis type="category" dataKey="name" width={168} tick={NameTick} axisLine={false} tickLine={false} interval={0} />
+            <YAxis type="category" dataKey="name" width={names.width} tick={names.tick} axisLine={false} tickLine={false} interval={0} />
             <Tooltip
               cursor={{ fill: "var(--color-sunken)" }}
               isAnimationActive={false}
@@ -102,15 +121,15 @@ export function RankedMachines({
                     title={`${m.label}${m.assetNo ? ` · ${m.assetNo}` : ""}`}
                     lines={[
                       { value: n1(m.cupsPerDay ?? 0), name: "cups a day" },
-                      { value: m.vsAverage === null ? "—" : `${Math.round(m.vsAverage * 100)} %`, name: "of the fleet average" },
+                      { value: vsAverageText(m.vsAverage), name: "vs the average machine" },
                       { value: m.tier ? TIER_WORDS[m.tier] : "—", name: m.category },
-                      { value: pctText(m.changePct), name: "against the same days before" },
+                      { value: pctText(m.changePct), name: beforeLabel },
                     ]}
                   />
                 );
               }}
             />
-            <ReferenceLine x={average} stroke="var(--color-ink)" strokeWidth={1.5} />
+            <ReferenceLine x={average} stroke="var(--color-ink)" strokeWidth={1.5} label={{ value: "average", position: "top", fill: "var(--color-mut)", fontSize: 11 }} />
             {thresholds ? <ReferenceLine x={thresholds.below} stroke="var(--color-mut)" strokeDasharray="4 4" /> : null}
             {thresholds ? <ReferenceLine x={thresholds.top} stroke="var(--color-mut)" strokeDasharray="4 4" /> : null}
             <Bar dataKey="value" radius={[0, 4, 4, 0]} isAnimationActive={false} onClick={(d: { payload?: { m?: MachinePerf } }) => d.payload?.m && onPick?.(d.payload.m)}>
@@ -223,9 +242,9 @@ export function DailyComparison({
                   <TipBox
                     title={dayLabel(p.date)}
                     lines={[
-                      { value: p.now === null ? "not read" : n1(p.now), name: `${unit} — ${names.now}`, color: "var(--color-mark-accent)" },
-                      ...(anyBefore ? [{ value: p.before === null ? "not read" : n1(p.before), name: `${unit} — ${names.before}`, color: "var(--color-mark-base)" }] : []),
-                      ...(p.pct !== undefined ? [{ value: signedPct(p.pct ?? null), name: "against the same weekday a week before" }] : []),
+                      { value: p.now === null ? "no data" : n1(p.now), name: `${unit} — ${names.now}`, color: "var(--color-mark-accent)" },
+                      ...(anyBefore ? [{ value: p.before === null ? "no data" : n1(p.before), name: `${unit} — ${names.before}`, color: "var(--color-mark-base)" }] : []),
+                      ...(p.pct !== undefined ? [{ value: signedPct(p.pct ?? null), name: "vs the same weekday a week before" }] : []),
                     ]}
                   />
                 );
@@ -294,6 +313,7 @@ export function HourlyLines({ points, names }: { points: HourPoint[]; names: { n
 
 /** One series of bars with each value at its end — a small "which machines, how much" chart (one hue, no legend). */
 export function ValueBars({ rows, unit, format = n1, onPick }: { rows: { key: string; name: string; value: number }[]; unit: string; format?: (n: number) => string; onPick?: (key: string) => void }) {
+  const names = useNames();
   if (rows.length === 0) return null;
   return (
     <figure className="m-0">
@@ -302,7 +322,7 @@ export function ValueBars({ rows, unit, format = n1, onPick }: { rows: { key: st
           <BarChart data={rows} layout="vertical" margin={{ top: 4, right: 72, bottom: 0, left: 0 }} barCategoryGap={3}>
             <CartesianGrid horizontal={false} stroke="var(--color-grid)" />
             <XAxis type="number" tick={axisTick} axisLine={{ stroke: "var(--color-grid)" }} tickLine={false} tickFormatter={(v: number) => format(v)} />
-            <YAxis type="category" dataKey="name" width={168} tick={NameTick} axisLine={false} tickLine={false} interval={0} />
+            <YAxis type="category" dataKey="name" width={names.width} tick={names.tick} axisLine={false} tickLine={false} interval={0} />
             <Tooltip
               cursor={{ fill: "var(--color-sunken)" }}
               isAnimationActive={false}
@@ -386,9 +406,10 @@ export function PairBars({
   format?: (n: number) => string;
   unit: string;
   onPick?: (key: string) => void;
-  /** A line across every row — the fleet average. */
+  /** A line across every row — the average machine. */
   reference?: { value: number; label: string } | null;
 }) {
+  const nameCol = useNames();
   if (rows.length === 0) return null;
   const labelled = rows.length <= 8;
   const data = rows.map((r) => ({ ...r, av: r.a ?? 0, bv: r.b ?? 0 }));
@@ -404,7 +425,7 @@ export function PairBars({
           <BarChart data={data} layout="vertical" margin={{ top: reference ? 20 : 4, right: 64, bottom: 0, left: 0 }} barCategoryGap={8} barGap={2}>
             <CartesianGrid horizontal={false} stroke="var(--color-grid)" />
             <XAxis type="number" tick={axisTick} axisLine={{ stroke: "var(--color-grid)" }} tickLine={false} tickFormatter={(v: number) => format(v)} />
-            <YAxis type="category" dataKey="name" width={168} tick={NameTick} axisLine={false} tickLine={false} interval={0} />
+            <YAxis type="category" dataKey="name" width={nameCol.width} tick={nameCol.tick} axisLine={false} tickLine={false} interval={0} />
             <Tooltip
               cursor={{ fill: "var(--color-sunken)" }}
               isAnimationActive={false}
@@ -471,14 +492,14 @@ export function ColumnBars({
               content={(t: TooltipContentProps) => {
                 const p = t.payload?.[0]?.payload as { label: string; value: number | null } | undefined;
                 if (!t.active || !p) return null;
-                return <TipBox title={p.label} lines={[{ value: p.value === null ? "not read" : format(p.value), name: unit }]} />;
+                return <TipBox title={p.label} lines={[{ value: p.value === null ? "no data" : format(p.value), name: unit }]} />;
               }}
             />
             <Bar dataKey="value" fill={color} radius={[4, 4, 0, 0]} isAnimationActive={false} />
           </BarChart>
         </ResponsiveContainer>
       </div>
-      <TableView caption={unit} head={[tableHead, unit]} rows={points.map((p) => [p.label, p.value === null ? "not read" : format(p.value)])} />
+      <TableView caption={unit} head={[tableHead, unit]} rows={points.map((p) => [p.label, p.value === null ? "no data" : format(p.value)])} />
     </figure>
   );
 }
@@ -530,8 +551,8 @@ export function TwoLines({
                   <TipBox
                     title={xText(p.x)}
                     lines={[
-                      { value: p.a === null ? "not read" : n1(p.a), name: `${unit} — ${names.a}`, color: colors.a },
-                      { value: p.b === null ? "not read" : n1(p.b), name: `${unit} — ${names.b}`, color: colors.b },
+                      { value: p.a === null ? "no data" : n1(p.a), name: `${unit} — ${names.a}`, color: colors.a },
+                      { value: p.b === null ? "no data" : n1(p.b), name: `${unit} — ${names.b}`, color: colors.b },
                     ]}
                   />
                 );
@@ -545,7 +566,7 @@ export function TwoLines({
       <TableView
         caption={unit}
         head={[axis === "hour" ? "Hour" : "Day", names.a, names.b]}
-        rows={points.map((p) => [xText(p.x), p.a === null ? "not read" : n1(p.a), p.b === null ? "not read" : n1(p.b)])}
+        rows={points.map((p) => [xText(p.x), p.a === null ? "no data" : n1(p.a), p.b === null ? "no data" : n1(p.b)])}
       />
     </figure>
   );
@@ -556,6 +577,7 @@ export function TwoLines({
  * down — one neutral hue, the sign said in the label, so it never borrows A's or B's colour.
  */
 export function MoverBars({ rows, names, onPick }: { rows: { key: string; label: string; assetNo: number | null; a: number; b: number; change: number }[]; names: { a: string; b: string }; onPick?: (key: string) => void }) {
+  const nameCol = useNames();
   if (rows.length === 0) return null;
   const data = rows.map((r) => ({ ...r, name: `${r.assetNo ?? "—"} ${r.label.replace(/-\s*\d{3,5}\s*-.*$/, "")}` }));
   return (
@@ -565,7 +587,7 @@ export function MoverBars({ rows, names, onPick }: { rows: { key: string; label:
           <BarChart data={data} layout="vertical" margin={{ top: 4, right: 56, bottom: 0, left: 0 }} barCategoryGap={4}>
             <CartesianGrid horizontal={false} stroke="var(--color-grid)" />
             <XAxis type="number" tick={axisTick} axisLine={{ stroke: "var(--color-grid)" }} tickLine={false} />
-            <YAxis type="category" dataKey="name" width={168} tick={NameTick} axisLine={false} tickLine={false} interval={0} />
+            <YAxis type="category" dataKey="name" width={nameCol.width} tick={nameCol.tick} axisLine={false} tickLine={false} interval={0} />
             <ReferenceLine x={0} stroke="var(--color-mut)" />
             <Tooltip
               cursor={{ fill: "var(--color-sunken)" }}

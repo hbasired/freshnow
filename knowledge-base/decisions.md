@@ -2156,3 +2156,74 @@ the hash; Back works through them. Also `#analytics/trends` and `#analytics/comp
 One filter row above everything it scopes (days, then categories); the sentences directly under the key figures; under the tier
 buttons the table of the machines first (a card each on a phone), the chart of the same machines after it — a table beside the chart
 squeezed the names onto four lines (G228).
+
+## D278 — The proposal's budget separates what the pilot needs from what is optional (TASK-085, 24 Oct) [decided — the user's question]
+Core kit, one station and one van: a scale that sends its weight (a data port, read by Chrome over a USB cable, Bluetooth on
+Android, or a Wi-Fi bridge only where no laptop stands at the door), the phone or a scanner gun, QR labels, a van re-weigh scale —
+AED 580 minimum, AED 1,600–3,211 with a scanner gun and a calibrated 1-gram scale. Cameras, ANPR, installer and GPS are a separate,
+optional layer bought only if the pilot's numbers show a need. The old AED 12.5K–41K "rollout" mixed both and read as the price of
+the pilot. A scale whose weight a person reads and types is not enough: the typed number is the gap a theft hides in.
+
+## D279 — Analytics speaks plain words, the same on the screens and in the sentences (TASK-075 follow-up, 24 Oct) [decided — the user: "a normal person … should understand everything"]
+The comparison period is named by its weeks — "the week before", "the 2 weeks before" (core `beforeWords`, used by the server's
+sentences and the dashboard alike). "Fleet" became "the average machine", "tier" became "group", the 80 % set's machines are "key
+machines", a share's move is said as "was 9.4 % the week before" (no "points" outside the Compare table, where it is "percentage
+points"), days are "with sales data" or "no data" (never "read"), "(est.)" is "(estimate)". A day left out of the changes is named
+with the day it lacks. No figure changed: only words, three layouts (the category page's table, the phone's name column, the chart
+title that counts its machines) and a guide (D280).
+
+## D280 — "How to read this page": open the first time, then as the person left it (TASK-075 follow-up) [decided]
+Seven short points above the filters. Whether it is open is kept in this browser's localStorage, a per-viewer convenience only: the
+page reads the same when storage is refused (a private window), and nothing about it reaches the server.
+
+## D281 — Warehouse documents plan on top of the stock ledger, never beside it (TASK-086) [decided — the user, 24 Oct: build it like Televend's WMS, "in a more advanced and effective way"]
+A delivery from a supplier is planned (draft → expected), received at the door against what was expected, and only then moves
+stock: done posts an ordinary ledger delivery in the same transaction (0042, `postSupplierDoc`). Balances, counts, the day sheet
+and Movements stay the one record of where stock is. A done or cancelled document never changes (triggers); its stock is undone
+by an approver's reversal like any other. Numbers IN-YYYY-NNNN and RET-YYYY-NNNN come from one counter per kind and year, taken
+in the document's own transaction, so a number is never skipped by a failed save.
+
+## D282 — Receiving starts at what was expected; less asks "later" or "never" (TASK-086) [decided — Odoo's backorder prompt (VF103), in plainer words]
+Each line starts at the expected amount, so "everything came" is one tap; the receiver changes what differs and types the scale's
+kilograms. Less than expected asks "It will come later" (a backorder: a new expected delivery for the rest) or "It will not come"
+(closed short). Every line received becomes a lot `<number>-<line>` with its supplier, day, kilograms, variety and best-before.
+Following a lot through hand-outs and machines is not built: it comes with the crates.
+
+## D283 — A return to the supplier is a ledger document of its own (TASK-086) [decided]
+A new stock document kind, 'supplier_return', from the warehouse to the bookkeeping place Suppliers, with a reason: bad quality,
+wrong item, more than ordered, damaged on arrival, expired, or other (which needs words). From a received delivery it is capped at
+what came less what already went back, checked again when it is sent. Sending it back tells the Ops Head (no Ops Head: the CEO).
+
+## D284 — Reorder rules suggest; a person orders (TASK-086) [decided]
+Per item and place (the warehouse, or one person's stock): the least to keep and the most to fill up to, optionally in packs.
+Forecast = on hand + already coming (open deliveries, drafts included, for the warehouse; handovers still on their way, for a
+person). Below the least, the suggestion brings the forecast to at least the most, rounded up to whole packs — so it may pass the
+most by less than one pack, as Odoo 19 does (VF102, A-T86.1). One tap turns the ticked rows into one delivery draft per supplier,
+expected on today + the supplier's days to deliver; a person is topped up by an ordinary handover they confirm. Nothing is ordered
+or handed out by a rule. The warehouse's suggestions are hidden from someone counting it (D236).
+
+## D285 — The scale is held to the note's weight for what came (TASK-086, 24 Oct) [decided — found on the receive screen, G232]
+A delivery note weighs everything expected, so 8 of 10 cartons are held to 8/10 of its kilograms (`noteGramsFor`, whole grams).
+Holding them to the whole note called every delivery short in cartons light as well — the missing cartons counted twice — and the
+Ops Head's notice would have read "150.5 of 180 kg" for cartons that were heavier than the note's 18 kg each. One rule now in the
+receive check, the document card, the notice, the supplier report (SQL) and the semantic layer's note on `expected_g`; "lighter"
+is below it by more than SHORT_WEIGHT_SHARE (2 %, a placeholder — A-T85.4). "Short" is a delivery's word: a return that goes back
+with less than planned is never flagged short.
+
+## D286 — The warehouse's reports are the ledger summed by Postgres (TASK-086) [decided]
+Stock at the end of a chosen Dubai day (every move up to then, so a past day reads as it was); every movement, one row per item
+moved with the document that posted it, and totals into and out of the warehouse (or a chosen person's stock) over the whole
+filter; a CSV of up to 10,000 rows, UTF-8 with a byte-order mark (G233), whose cells starting with = + − @ are made text, so
+a spreadsheet never runs them; one item
+(where it is now, its lots, its moves); suppliers (received, on time of those with a day, lines complete, weight against the note
+for what came, lighter lines, returns, still to come). Counted, not scored, and about suppliers — never a person (CLAUDE.md). The
+supplier report sends the tolerance it counted with, so the page cannot state another. All refused while the viewer counts the
+warehouse.
+
+## D287 — Stock gets Deliveries, Reorder and Reports; the door sees what is expected (TASK-086 screens) [decided]
+The three views show to whoever sees all stock (inventory.read); the buttons that write, only to the warehouse (inventory.move) —
+the server checks again. The Stock home lists deliveries expected today or late, and returns ready to go, each with its Receive or
+Send back button. The free "Delivery in" lists the expected deliveries first: one that arrives is received against its plan, not
+typed again (which would add it to stock twice and leave the plan open). On a phone a document's lines read as short sentences,
+the Deliveries filters fold into one line, what to order is a card per item, and the tab strip of seven views scrolls sideways on
+its own.

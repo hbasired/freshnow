@@ -1395,6 +1395,12 @@ ignored. aa00334's tree equals branch `claude/charming-hopper-tfg8v8` (f44bab1),
 folder that contains `packages/televend`, never with `-f`, and to a new branch when unsure. The repository is public.
 Recovered the same evening: `git push origin "HEAD@{2}:refs/heads/rescue-2"` from the laptop sent the pre-reset commit
 9ee207e (the reflog keeps it for 90 days), which was merged with main of 7 Oct and the proposal (branch claude/lucid-babbage-duy1uz).
+**24 Oct, on the user's "clean main":** `main` was pushed with `--force-with-lease` from d7cac5f to e34fbc6 — the same code, a
+history without ef84b05 (checked: no data or secret paths in any commit of it). Still holding ef84b05: branches
+`vscode-build-2026-10-20`, `local/main`, `local/checkout` (deleting them was refused to this session as destructive — the user
+deletes them), and the merge commit d664d06 that pull requests 10–12 point at; every `refs/pull/*/head` is clean. GitHub keeps
+unreachable commits and PR views until GitHub Support purges them, so the data stays reachable by SHA until then. A laptop copy
+must not `git pull` the old history back: `git fetch` then `git reset origin/main` (mixed — keeps the folders on disk, now ignored).
 
 ## G218 — This build environment cannot reach Groq or Amazon.ae [verified 2026-10-23]
 The proxy answers 403 to CONNECT for api.groq.com and www.amazon.ae, and the fetch tool cannot resolve console.groq.com. Groq's
@@ -1444,3 +1450,29 @@ Names match as case-insensitive substrings by default. Use `{ name: "All", exact
 ## G228 — A seven-column table beside a chart is too narrow at desktop width [verified 2026-10-24 — screenshot]
 At 1440 px with the sidebar, a 3 : 2 split left the machine table ~700 px: names wrapped onto four lines and a button was clipped.
 The table got the full width; the chart follows it.
+
+## G229 — Stopping and starting the API in one command line kills the command itself [verified 2026-10-24]
+`for p in $(pgrep -f "api/src/index.[t]s"); do kill $p; done; … tsx packages/api/src/index.ts &` exits 144: the bracket trick of
+G225 stops the pattern matching its own text, but the same command line also contains the start command's literal
+`packages/api/src/index.ts`, which the pattern does match. Stop in one command, start in the next.
+
+## G230 — Editing a test and its module while the full suite runs fails that test [verified 2026-10-24]
+vitest had loaded the old `warehouse.ts` and then the edited `warehouse.test.ts`: one failure in the full run, 53/53 when the file
+ran alone with the live-scope and retention tests. Edit after the suite finishes, or rerun the file.
+
+## G231 — The semantic layer was not valid YAML, and its test could not tell [verified 2026-10-24 — PyYAML]
+Three values from TASK-061 — `e.g. {"100": 8, …}` inside an unquoted value, and two apostrophes inside '…' values — made the whole
+file unreadable to any YAML parser; `semantic.test.ts` reads it as text and passed. Fixed by quoting ('…' doubles an apostrophe:
+plan''s); a new test checks those two slips line by line, as no YAML parser is a dependency. The Phase 2 loader should parse the
+file in a test.
+
+## G232 — A test that restates the code's rule proves nothing; the screen showed the bug [verified 2026-10-24]
+The receipt test said "18 of 20 cartons; 342.5 kg is below 360 × 0.98, so it is light too" — the code's rule, restated. The
+receive screen's "29.5 kg lighter than the note" for 8 of 10 cartons that were heavier per carton than the note exposed it (D285).
+Write the expectation from what the business means (a carton should weigh what the note says a carton weighs), then look at the
+screen.
+
+## G233 — Excel reads a UTF-8 CSV right only when it starts with a byte-order mark [believed — widely documented; not tried in Excel here]
+Without it Excel on Windows opens the file in the PC's own code page, and Arabic, Hindi or Urdu names come out garbled; Google
+Sheets reads either. The movements CSV now starts with U+FEFF. JavaScript's `trim()` removes that mark, so a test that trims the
+file cannot see whether it is there — check `startsWith("\uFEFF")` first.

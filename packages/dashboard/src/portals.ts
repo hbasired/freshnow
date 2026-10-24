@@ -161,9 +161,10 @@ export function portalsFor(capabilities: readonly string[] | null | undefined): 
 
 /**
  * The Inventory portal's views (TASK-060), as the hash names them: `#inventory` is Stock,
- * `#inventory/moves`, `#inventory/day` and `#inventory/items` the others.
+ * `#inventory/moves`, `#inventory/day` and `#inventory/items` the others; TASK-086 added
+ * `#inventory/deliveries`, `#inventory/reorder` and `#inventory/reports`.
  */
-export const INVENTORY_VIEWS = ["stock", "moves", "day", "items"] as const;
+export const INVENTORY_VIEWS = ["stock", "deliveries", "moves", "day", "reorder", "reports", "items"] as const;
 export type InventoryView = (typeof INVENTORY_VIEWS)[number];
 export const isInventoryView = (x: unknown): x is InventoryView => (INVENTORY_VIEWS as readonly unknown[]).includes(x);
 

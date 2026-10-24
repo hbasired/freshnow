@@ -210,7 +210,7 @@ body.idle #ctl{opacity:0}
 
 <!-- 1 · title ─────────────────────────────────────────────────────────── -->
 <section id="s1" class="slide on" data-key="title" data-section="Start" data-title="Every orange, accounted for" style="padding-top:96px">
-  <div class="kick"><span class="pill">Proposal for decision</span><span>23 October 2026</span></div>
+  <div class="kick"><span class="pill">Proposal for decision</span><span>23 October 2026 · updated 24 October</span></div>
   <div class="g6040" style="align-items:center;margin-top:24px;gap:64px">
     <div style="display:flex;flex-direction:column;gap:34px">
       <h1>Every orange,<br>accounted for</h1>
@@ -234,7 +234,7 @@ body.idle #ctl{opacity:0}
   </div>
   <div class="grow"></div>
   <div class="sm mut" style="max-width:1500px">Prepared for FreshNow (Daily Vending LLC) management by the platform team. How each fact is known is marked:
-    <span class="tg L">listed price</span> seen on a shop page on 23 Oct 2026 ·
+    <span class="tg L">listed price</span> seen on a shop page on 23–24 Oct 2026 ·
     <span class="tg E">estimate</span> our range, to be replaced by quotes ·
     <span class="tg Q">quote</span> ask the supplier ·
     <span class="tg B">believed</span> from secondary sources ·
@@ -248,15 +248,15 @@ body.idle #ctl{opacity:0}
   <h2>The answer on one page</h2>
   <div class="g6040 grow" style="gap:40px">
     <ol class="steps" style="gap:18px">
-      <li><div><b>Weigh at the van door.</b> A networked scale and a scanner at the loading door. Scan the van once, then each crate once: weight and van are recorded together. No gap between weighing and loading.</div></li>
+      <li><div><b>Weigh at the van door.</b> A scale that sends its weight to the system, and a scanner, at the loading door. Scan the van once, then each crate once: weight and van are recorded together. No gap between weighing and loading.</div></li>
       <li><div><b>Seal, then re-weigh at the machine.</b> A numbered seal on every crate at weighing. The machine loader checks the seal and re-weighs; a short crate raises an alarm.</div></li>
-      <li><div><b>Cameras as evidence.</b> Number-plate reading at the gate, one camera per loading door, every scan bookmarks the video. Cameras check the record; they don't replace it.</div></li>
+      <li><div><b>Cameras later, if the pilot shows a need.</b> Number-plate reading at the gate, one camera per loading door, every scan bookmarks the video. Cameras check the record; they don't replace it.</div></li>
       <li><div><b>Build the warehouse system into the FreshNow platform</b>, borrowing Manhattan's model (crate IDs, delivery notices, reason codes, cycle counts) and a double-entry weight ledger.</div></li>
       <li><div><b>Pilot first:</b> one station, one van, two machines, two weeks. Measure, set the tolerances, then buy the rest.</div></li>
     </ol>
     <div style="display:flex;flex-direction:column;gap:16px">
-      <div class="card stat"><div class="k">Pilot kit</div><div class="v">AED 1,100–5,600</div><div class="d">1 station, seals, labels, 1 van scale <span class="tg E">estimate</span></div></div>
-      <div class="card stat"><div class="k">Warehouse rollout</div><div class="v">AED 12,500–41,000</div><div class="d">2 stations, receiving and sorting scales, cameras, gate ANPR, 3 vans <span class="tg E">estimate</span></div></div>
+      <div class="card stat"><div class="k">Core kit · 1 station, 1 van</div><div class="v">AED 600–3,200</div><div class="d">a scale with a data port, the phone or a scanner, labels, a van scale <span class="tg E">estimate</span> <span class="tg L">listed</span></div></div>
+      <div class="card stat"><div class="k">Whole warehouse, no cameras</div><div class="v">AED 2,800–11,900</div><div class="d">cameras, gate ANPR, installer, van GPS are optional: AED 7,800–20,700 <span class="tg E">estimate</span></div></div>
       <div class="card stat"><div class="k">Smallest theft a scale catches</div><div class="v">1 orange / crate</div><div class="d">on trips up to about 11 hours with a 10 g scale — slide 15 <span class="tg E">estimate</span></div></div>
     </div>
   </div>
@@ -270,7 +270,7 @@ body.idle #ctl{opacity:0}
   <h2>Where this fits: the orange-tracking layer of your operations plan</h2>
   <div class="g3 grow">
     <div class="card" style="display:flex;flex-direction:column;gap:10px">
-      <span class="chip ok" style="align-self:flex-start"><i></i>On GitHub · main of 7 Oct</span>
+      <span class="chip ok" style="align-self:flex-start"><i></i>On GitHub · main of 24 Oct</span>
       <h3>The platform</h3>
       <ul class="clean tight sm">
         <li>Tasks, problems and alerts with an escalation ladder</li>
@@ -281,15 +281,16 @@ body.idle #ctl{opacity:0}
       </ul>
     </div>
     <div class="card" style="display:flex;flex-direction:column;gap:10px">
-      <span class="chip warn" style="align-self:flex-start"><i></i>Your local build · not on GitHub yet</span>
-      <h3>Operations + Inventory (TASK-055 → 069)</h3>
+      <span class="chip ok" style="align-self:flex-start"><i></i>Built · on GitHub since 24 Oct</span>
+      <h3>Operations, Analytics, Stock, Cash, Route</h3>
       <ul class="clean tight sm">
-        <li>Read-only Televend connector: machines, vends, events, refills — checked against the portal's own exports</li>
-        <li>A read-only MCP server over that data</li>
-        <li>Machine registry with a QR sticker per machine</li>
-        <li>Planned: Operations and Inventory portals, Flutter staff app, built-in chat replacing the WhatsApp groups, eight roles</li>
+        <li>Read-only Televend connector and MCP server: machines, vends, events, refills (TASK-055, 056)</li>
+        <li>Operations: machine pages, alarms, recent sales (058, 059, 072)</li>
+        <li>Analytics: tiers, categories, category buttons, Compare (070–075)</li>
+        <li>Stock, Cash and Route portals (060, 061); machine QR stickers</li>
+        <li>Planned: Flutter staff app, built-in chat replacing the WhatsApp groups (063–069)</li>
       </ul>
-      <p class="xs mut">Read from the TASK-055/056 notes in your 23 Oct push; the code itself was not in it.</p>
+      <p class="xs mut">Merged on 23–24 Oct; the company data pushed on 23 Oct was removed from git history on 24 Oct.</p>
     </div>
     <div class="card" style="display:flex;flex-direction:column;gap:10px;border:2px solid #7fb300">
       <span class="chip info" style="align-self:flex-start"><i></i>This proposal</span>
@@ -382,7 +383,7 @@ body.idle #ctl{opacity:0}
       </tbody>
     </table>
   </div>
-  <p class="sm mut">Then, per machine: kilograms delivered against cups refilled and cups sold. Televend's refills and vends are already mirrored into our database by your local build (TASK-056), so this check needs no new hardware.</p>
+  <p class="sm mut">Then, per machine: kilograms delivered against cups refilled and cups sold. Televend's refills and vends are already mirrored into our database by the platform (TASK-056), so this check needs no new hardware.</p>
   <div class="foot"><span>FreshNow · Orange traceability &amp; warehouse proposal</span><span class="pg">6 / 36</span></div>
 </section>
 
@@ -425,7 +426,7 @@ body.idle #ctl{opacity:0}
       <div class="tint">
         <h3>Mass balance per sorting batch</h3>
         <p style="font-size:26px">Cartons in = good + unfit + bad + unexplained</p>
-        <p class="sm ink2" style="margin-top:8px">Each output bin is weighed when it's closed, on the same kind of networked scale as the loading door. Yield is tracked per vendor and per lot, so a vendor's poor fruit shows up as a number.</p>
+        <p class="sm ink2" style="margin-top:8px">Each output bin is weighed when it's closed, on the same kind of connected scale as the loading door. Yield is tracked per vendor and per lot, so a vendor's poor fruit shows up as a number.</p>
       </div>
       <div class="card">
         <h3>Unfit fruit leaves with three things: reason, recipient, approver</h3>
@@ -472,16 +473,16 @@ body.idle #ctl{opacity:0}
     <table class="t">
       <thead><tr><th style="width:14%">Option</th><th style="width:11%">Scans per crate</th><th style="width:15%">Gap between weighing and loading</th><th style="width:16%">Hardware per station</th><th style="width:27%">Main risk</th><th>Verdict</th></tr></thead>
       <tbody>
-        <tr><td class="nm">1 · Two zones</td><td>2, plus 1 per van</td><td>Yes: minutes to hours</td><td>AED 796–4,742 <span class="tg E">estimate</span></td><td>Fruit taken from weighed crates waiting to load</td><td><span class="chip ok"><i></i>Good, with seals</span></td></tr>
-        <tr class="hi"><td class="nm">1b · Tailgate</td><td>1, plus 1 per van</td><td>None</td><td>AED 796–4,742 <span class="tg E">estimate</span></td><td>Needs space for the scale at the door</td><td><span class="chip ok"><i></i>Recommended</span></td></tr>
-        <tr><td class="nm">2 · Phone</td><td>1–2 by camera, plus 1 per van</td><td>Depends on layout</td><td>Scale + bridge AED 550–3,250 <span class="tg E">estimate</span>; phones you own</td><td>Camera scanning slower than a scanner gun (not yet measured); personal phones need a data-protection notice</td><td><span class="chip info"><i></i>Vans and machines</span></td></tr>
+        <tr><td class="nm">1 · Two zones</td><td>2, plus 1 per van</td><td>Yes: minutes to hours</td><td>AED 430–2,200 <span class="tg E">estimate</span></td><td>Fruit taken from weighed crates waiting to load</td><td><span class="chip ok"><i></i>Good, with seals</span></td></tr>
+        <tr class="hi"><td class="nm">1b · Tailgate</td><td>1, plus 1 per van</td><td>None</td><td>AED 430–2,200 <span class="tg E">estimate</span></td><td>Needs space for the scale at the door</td><td><span class="chip ok"><i></i>Recommended</span></td></tr>
+        <tr><td class="nm">2 · Phone</td><td>1–2 by camera, plus 1 per van</td><td>Depends on layout</td><td>Scale + connection AED 430–1,850 <span class="tg E">estimate</span>; phones you own</td><td>Camera scanning slower than a scanner gun (not yet measured); personal phones need a data-protection notice</td><td><span class="chip info"><i></i>Vans and machines</span></td></tr>
         <tr><td class="nm">3 · Voice</td><td>0 — spoken</td><td>Depends on layout</td><td>A phone or laptop microphone</td><td>Numbers misheard in a noisy warehouse; needs read-back</td><td><span class="chip warn"><i></i>Backup only</span></td></tr>
         <tr><td class="nm">4 · RFID</td><td>0</td><td>None at the portal</td><td>Portal <span class="tg Q">quote</span>; tags and handheld trial AED 1,300–5,000 <span class="tg E">estimate</span></td><td>Oranges are mostly water, which weakens UHF tag reads <span class="tg B">believed</span>. Trial before buying.</td><td><span class="chip mute"><i></i>Later</span></td></tr>
         <tr><td class="nm">5 · Cameras only</td><td>0</td><td>Not applicable</td><td>AED 399–420 per camera <span class="tg L">Amazon.ae</span> + AI box AED 820–3,499</td><td>Stacked crates hide labels; glare and angle; misses are silent</td><td><span class="chip mute"><i></i>Audit only</span></td></tr>
       </tbody>
     </table>
   </div>
-  <p class="sm mut">Per-station hardware = scale with data output, a bridge that puts it on the network, a scanner and a screen (line items on slide 24).</p>
+  <p class="sm mut">Per-station hardware = a scale with a data output, a connection (a USB cable into a laptop, or a Wi-Fi bridge), and a scanner or the phone (line items on slide 24).</p>
   <div class="foot"><span>FreshNow · Orange traceability &amp; warehouse proposal</span><span class="pg">10 / 36</span></div>
 </section>
 
@@ -818,8 +819,8 @@ body.recording .slide{transition:none!important}
       <thead><tr><th style="width:24%">Control</th><th style="width:30%">What it catches</th><th style="width:30%">Cost</th><th>When</th></tr></thead>
       <tbody>
         <tr class="hi"><td class="nm">Weigh at the tailgate</td><td>Fruit taken between weighing and loading</td><td>AED 0 — layout change</td><td>Pilot</td></tr>
-        <tr><td class="nm">Crate lid + numbered seal</td><td>A crate opened after weighing or in the van</td><td>Seals sold in packs of 100–1,000 on Amazon.ae; about AED 80–250 per 1,000 <span class="tg E">estimate</span></td><td>Pilot</td></tr>
-        <tr><td class="nm">Re-weigh at the machine</td><td>Any shortfall between the warehouse and the machine</td><td>Portable scale per van AED 120–300 <span class="tg E">estimate</span> + the phone app</td><td>Pilot</td></tr>
+        <tr><td class="nm">Crate lid + numbered seal</td><td>A crate opened after weighing or in the van</td><td>£246.50 per 1,000 in the UK, ex VAT <span class="tg L">listed</span>; UAE price to quote. Optional when weighing at the van door</td><td>Pilot</td></tr>
+        <tr><td class="nm">Re-weigh at the machine</td><td>Any shortfall between the warehouse and the machine</td><td>Portable scale per van AED 100–300 <span class="tg E">estimate</span> + the phone app</td><td>Pilot</td></tr>
         <tr><td class="nm">kg delivered vs cups refilled vs cups sold</td><td>Loss at the machine itself; refills that don't match deliveries</td><td>AED 0 — Televend data is already mirrored (TASK-056)</td><td>Pilot</td></tr>
         <tr><td class="nm">Van door seal + GPS stop and door alerts</td><td>Stops with the cargo door open</td><td>About AED 600–1,500 per van installed <span class="tg E">estimate</span> + subscription <span class="tg Q">quote</span></td><td>Rollout</td></tr>
         <tr><td class="nm">Video bookmark on every scan</td><td>Disputes: a 10-second clip for any event</td><td>Cameras AED 399–420 each <span class="tg L">Amazon.ae</span> + recorder</td><td>Rollout</td></tr>
@@ -976,11 +977,11 @@ body.recording .slide{transition:none!important}
     <div class="node" style="flex:1"><b>Live screens</b>tablet, phone, dashboard</div>
   </div>
   <div class="g3 grow">
-    <div class="card" style="font-size:23px"><h3>Most affordable scales speak RS232, not REST</h3>A bridge of about AED 150–350 <span class="tg E">estimate</span> turns any RS232 scale into a network device. Scales that serve REST themselves exist — Mettler-Toledo's IND360 lists a JSON REST API; Arlyn's UpScale indicator too — at industrial prices <span class="tg Q">quote</span>.</div>
-    <div class="card" style="font-size:23px"><h3>Avoid "smart" Bluetooth scales</h3>Most talk only to their own app; no published way for our system to read them. Buy only if the maker publishes an SDK.</div>
+    <div class="card" style="font-size:23px"><h3>Most affordable scales speak RS232, not REST</h3>Cheapest: a USB-serial cable (about AED 30 <span class="tg E">estimate</span>) into a laptop at the door — Chrome reads the scale itself (Web Serial, desktop Chrome since version 89) and posts to our API. A phone: Chrome for Android reads a Bluetooth serial adapter (2025). A Wi-Fi bridge (AED 150–350 <span class="tg E">estimate</span>) only where no laptop stays.</div>
+    <div class="card" style="font-size:23px"><h3>A cheap "smart" scale is not enough</h3>Bluetooth kitchen and luggage scales talk to their own app; display-only scales (about AED 199–490) need someone to read and type the weight — where a wrong weight hides. Buy a documented RS232 or USB output.</div>
     <div class="card" style="font-size:23px"><h3>Accept only stable readings</h3>The indicator marks a reading stable when it stops moving. The station takes the latest stable reading, rejects motion, and stores the crate's own tare weight.</div>
   </div>
-  <div class="band" style="font-size:24px"><b>MCP is for AI assistants, not for devices.</b> It lets an assistant call tools. Placing it between the scale and the record would put a model in the data path — your rule is that models translate and the database computes. Your local build already has a read-only MCP server over Televend data (computed totals, at most 50 rows): the warehouse adds read-only tools there, such as "which van was short today?"</div>
+  <div class="band" style="font-size:24px"><b>MCP is for AI assistants, not for devices.</b> It lets an assistant call tools. Placing it between the scale and the record would put a model in the data path — your rule is that models translate and the database computes. The platform already has a read-only MCP server over Televend data (computed totals, at most 50 rows): the warehouse adds read-only tools there, such as "which van was short today?"</div>
   <div class="foot"><span>FreshNow · Orange traceability &amp; warehouse proposal</span><span class="pg">19 / 36</span></div>
 </section>
 
@@ -1018,21 +1019,21 @@ body.recording .slide{transition:none!important}
     <table class="t">
       <thead><tr><th style="width:17%">Item</th><th style="width:33%">Model (link)</th><th style="width:17%">Price seen</th><th>Why / watch out</th></tr></thead>
       <tbody>
-        <tr><td class="nm">Bench scale, RS232</td><td><a href="https://www.amazon.ae/s?k=Ohaus+Ranger+3000" target="_blank" rel="noopener">Ohaus Ranger 3000, 30 kg × 1 g</a></td><td>AED 2,875.76 <span class="tg L">listed</span></td><td>RS232 built in; Ethernet kit optional. Fits an 18 kg crate.</td></tr>
+        <tr><td class="nm">Bench scale, RS232</td><td><a href="https://ch.farnell.com/en-CH/kern/fcb-30k1/weighing-scale-bench-30kg/dp/2886409" target="_blank" rel="noopener">Kern FCB 30K1, 30 kg × 1 g</a> · <a href="https://www.amazon.ae/s?k=Ohaus+Ranger+3000" target="_blank" rel="noopener">Ohaus Ranger 3000</a></td><td>CHF 240.34 ex VAT (Farnell CH) · AED 2,875.76 (Amazon.ae) <span class="tg L">listed</span></td><td>RS232 built in; fits an 18 kg crate. Kern's FCD 30K-2 reads in 50 g steps — too coarse for one orange.</td></tr>
         <tr><td class="nm">Indicator, RS232</td><td><a href="https://www.amazon.ae/GHQERTY-Indicators-Platform-Weighing-Indicator/dp/B0D3WNNJ15" target="_blank" rel="noopener">XK3190-A12E weighing indicator</a></td><td><span class="tg Q">see listing</span></td><td>Pairs with a platform and load cell; output format from its manual</td></tr>
-        <tr><td class="nm">Network bridge</td><td><a href="https://www.amazon.ae/PUSR-USR-W610-Ethernet-Wireless-Converter/dp/B07DNWM62H" target="_blank" rel="noopener">USR-W610 RS232/485 → Wi-Fi/Ethernet</a></td><td>AED 150–350 <span class="tg E">estimate</span></td><td>Listed with an HTTP client mode: the scale posts to our API</td></tr>
+        <tr><td class="nm">Connection</td><td>USB-serial cable · <a href="https://www.amazon.ae/PUSR-USR-W610-Ethernet-Wireless-Converter/dp/B07DNWM62H" target="_blank" rel="noopener">USR-W610 RS232 → Wi-Fi</a></td><td>about AED 30 · AED 150–350 <span class="tg E">estimate</span></td><td>The cable into a laptop is enough (Chrome reads it); the bridge only where no laptop stays</td></tr>
         <tr><td class="nm">Display-only scales</td><td><a href="https://www.amazon.ae/s?k=platform+scale" target="_blank" rel="noopener">Platform scales on Amazon.ae</a></td><td>about AED 199–490</td><td><b>Avoid:</b> no data output</td></tr>
-        <tr><td class="nm">Scanner</td><td><a href="https://www.amazon.ae/Tera-Wireless-Bluetooth-Smartphone-Vibration/dp/B08X2F4X7H" target="_blank" rel="noopener">Tera HW0002, 2D, BT / 2.4G / USB</a></td><td>AED 246–292 <span class="tg L">listed</span></td><td>Types like a keyboard; stand included</td></tr>
+        <tr><td class="nm">Scanner</td><td><a href="https://www.carrefouruae.com/mafuae/en/pins-clips-id-badges/tera-barcode-scanner-wireless-1d-2d-qr-with-stand-battery-level-indicator-3-in-1-works-with-bluetooth-24g-wireless-usb-wired-handheld-bar-code-reader-with-vibration-alert-hw0002-black/p/3233002485221" target="_blank" rel="noopener">Tera HW0002, 2D</a> · <a href="https://www.desertcart.ae/products/81316609-w8x-bluetooth-2d.md" target="_blank" rel="noopener">Netum W8X</a> · the phone's camera</td><td>AED 269.54 (Carrefour UAE) · AED 276 <span class="tg L">listed</span> · AED 0</td><td>Types like a keyboard; the phone camera works too, slower (not measured)</td></tr>
         <tr><td class="nm">Wi-Fi scanner</td><td><a href="https://www.amazon.ae/NETUM-Wireless-Barcode-Scanner-DS2800-White/dp/B0B773QN46" target="_blank" rel="noopener">NETUM DS2800, Wi-Fi TCP / MQTT / HTTP</a></td><td><span class="tg Q">see listing</span></td><td>Can send scans straight to the server (seller's claim)</td></tr>
         <tr><td class="nm">Camera 4 MP</td><td><a href="https://www.amazon.ae/Hikvision-DS-2CD1643G2-LIZU-2-8-12mm-Varifocal-Microphone/dp/B0F7Z6Q4CJ" target="_blank" rel="noopener">Hikvision DS-2CD1643G2-LIZU</a> · <a href="https://www.amazon.ae/Hikvision-AcuSense-Network-DS-2CD2043G2-I-Compitale/dp/B0CFXV4L66" target="_blank" rel="noopener">DS-2CD2043G2-I</a></td><td>AED 399 · 420 <span class="tg L">listed</span></td><td>PoE bullets; AcuSense person/vehicle detection</td></tr>
         <tr><td class="nm">Recorder</td><td><a href="https://www.amazon.ae/Hikvision-DS-7608NXI-K2-8P-Professional-Recorder/dp/B0B7S5TRB9" target="_blank" rel="noopener">Hikvision DS-7608NXI-K2/8P, 8-ch PoE</a></td><td>AED 505–759 <span class="tg L">listed</span></td><td>Usually sold without disk</td></tr>
         <tr><td class="nm">AI box</td><td><a href="https://www.amazon.ae/Raspberry-Pi-HAT-TOPS-Accelerator/dp/B0DKTTDW79" target="_blank" rel="noopener">Raspberry Pi AI HAT+</a> · <a href="https://www.amazon.ae/nvidia-jetson/s?k=nvidia+jetson" target="_blank" rel="noopener">Jetson Orin Nano Super</a></td><td>AED 420 · 3,499 <span class="tg L">listed</span></td><td>Runs detection on site</td></tr>
-        <tr><td class="nm">Seals</td><td><a href="https://www.amazon.ae/Plastic-Security-Evident-Numbered-Extinguisher/dp/B086H3N86L" target="_blank" rel="noopener">Numbered pull-tight seals, 250 mm</a></td><td><span class="tg Q">see listing</span></td><td>Single use; serial number per seal</td></tr>
+        <tr><td class="nm">Seals</td><td><a href="https://www.amazon.ae/Plastic-Security-Evident-Numbered-Extinguisher/dp/B086H3N86L" target="_blank" rel="noopener">Numbered pull-tight seals, 250 mm</a></td><td>£246.50 per 1,000, UK <span class="tg L">listed</span></td><td>Single use; serial number per seal; optional at the van door</td></tr>
         <tr><td class="nm">RFID trial</td><td><a href="https://www.amazon.ae/YARONGTECH-860-960MHz-18000-6C-Sticker-Label/dp/B07VGJLCBM" target="_blank" rel="noopener">UHF stickers (ISO 18000-6C)</a> · <a href="https://www.amazon.ae/uhf-rfid/s?k=uhf+rfid" target="_blank" rel="noopener">UHF readers</a></td><td><span class="tg Q">see listing</span></td><td>Test reads through crates of fruit first</td></tr>
       </tbody>
     </table>
   </div>
-  <p class="xs mut">Prices are what search results showed on 23 Oct 2026, VAT treatment varies by seller. Re-check on the listing before buying.</p>
+  <p class="xs mut">Prices seen on 23–24 Oct 2026 (Amazon.ae, Carrefour UAE, desertcart; Farnell abroad, plus VAT and shipping). VAT treatment varies by seller. Re-check on the listing before buying.</p>
   <div class="foot"><span>FreshNow · Orange traceability &amp; warehouse proposal</span><span class="pg">21 / 36</span></div>
 </section>
 
@@ -1065,34 +1066,37 @@ body.recording .slide{transition:none!important}
 </section>
 
 <!-- 22 · budget tiers ─────────────────────────────────────────────────── -->
-<section id="s23" class="slide" data-key="budget" data-section="Hardware &amp; budget" data-title="Budget: three levels">
+<section id="s23" class="slide" data-key="budget" data-section="Hardware &amp; budget" data-title="Budget: what is needed, what is optional">
   <div class="kick"><span class="n">23</span><span>Hardware &amp; budget</span></div>
-  <h2>Budget: three levels, and what moves each range</h2>
+  <h2>Budget: the pilot is about AED 600–3,200 — the rest is optional</h2>
   <div class="g6040 grow" style="gap:40px;align-items:start">
     <figure style="margin:0;position:relative" id="budViz">
-      <p class="xs mut" style="margin-bottom:8px">Hardware and installation, AED, low to high estimate per level</p>
-      <svg viewBox="0 0 1000 400" width="100%" role="img" aria-label="Range bars: pilot AED 1,096 to 5,592; warehouse rollout 12,535 to 40,957; advanced 17,151 to 53,836 plus quoted items.">
+      <p class="xs mut" style="margin-bottom:8px">Hardware and installation, AED, low to high · blue: needed · gray: optional, only if the pilot shows a need</p>
+      <svg viewBox="0 0 1000 400" width="100%" role="img" aria-label="Range bars: core kit AED 580 to 3,211; whole warehouse without cameras 2,810 to 11,872; optional security layer adds 7,791 to 20,739; later adds 2,120 to 8,499.">
         <g font-family="IBM Plex Sans, sans-serif" font-size="18" fill="#5d6b60">
-          <g stroke="#e1e7da" stroke-width="1"><line x1="230" x2="230" y1="20" y2="330"/><line x1="356" x2="356" y1="20" y2="330"/><line x1="482" x2="482" y1="20" y2="330"/><line x1="608" x2="608" y1="20" y2="330"/><line x1="734" x2="734" y1="20" y2="330"/><line x1="860" x2="860" y1="20" y2="330"/><line x1="986" x2="986" y1="20" y2="330"/></g>
-          <g text-anchor="middle"><text x="230" y="356">0</text><text x="356" y="356">10K</text><text x="482" y="356">20K</text><text x="608" y="356">30K</text><text x="734" y="356">40K</text><text x="860" y="356">50K</text><text x="986" y="356">60K</text></g>
-          <text x="0" y="81" fill="#132017" font-weight="600">Pilot</text><text x="0" y="104" font-size="15">1 station · 1 van</text>
-          <text x="0" y="181" fill="#132017" font-weight="600">Warehouse rollout</text><text x="0" y="204" font-size="15">2 stations · cameras · 3 vans</text>
-          <text x="0" y="281" fill="#132017" font-weight="600">Advanced</text><text x="0" y="304" font-size="15">+ vision, AI box, RFID trial</text>
-          <path d="M247.8 70 h48.6 a4 4 0 0 1 4 4 v16 a4 4 0 0 1 -4 4 h-48.6 a4 4 0 0 1 -4 -4 v-16 a4 4 0 0 1 4 -4z" fill="#2a78d6" class="bud" data-t="Pilot: AED 1,096 – 5,592"/>
-          <path d="M391.9 170 h350.1 a4 4 0 0 1 4 4 v16 a4 4 0 0 1 -4 4 h-350.1 a4 4 0 0 1 -4 -4 v-16 a4 4 0 0 1 4 -4z" fill="#2a78d6" class="bud" data-t="Warehouse rollout: AED 12,535 – 40,957"/>
-          <path d="M450.1 270 h454.2 a4 4 0 0 1 4 4 v16 a4 4 0 0 1 -4 4 h-454.2 a4 4 0 0 1 -4 -4 v-16 a4 4 0 0 1 4 -4z" fill="#2a78d6" class="bud" data-t="Advanced: AED 17,151 – 53,836 + quoted items"/>
-          <text x="312" y="88" fill="#132017" font-weight="600">1.1K – 5.6K</text>
-          <text x="758" y="188" fill="#132017" font-weight="600">12.5K – 41K</text>
-          <text x="918" y="279" fill="#132017" font-weight="600">17.2K –</text><text x="918" y="300" fill="#132017" font-weight="600">53.8K +Q</text>
+          <g stroke="#e1e7da" stroke-width="1"><line x1="230" x2="230" y1="20" y2="340"/><line x1="381.2" x2="381.2" y1="20" y2="340"/><line x1="532.4" x2="532.4" y1="20" y2="340"/><line x1="683.6" x2="683.6" y1="20" y2="340"/><line x1="834.8" x2="834.8" y1="20" y2="340"/><line x1="986" x2="986" y1="20" y2="340"/></g>
+          <g text-anchor="middle"><text x="230" y="366">0</text><text x="381.2" y="366">5K</text><text x="532.4" y="366">10K</text><text x="683.6" y="366">15K</text><text x="834.8" y="366">20K</text><text x="986" y="366" text-anchor="end">25K</text></g>
+          <text x="0" y="66" fill="#132017" font-weight="600">Core kit</text><text x="0" y="88" font-size="15">1 station · 1 van</text>
+          <text x="0" y="146" fill="#132017" font-weight="600">Whole warehouse</text><text x="0" y="168" font-size="15">no cameras · core included</text>
+          <text x="0" y="226" fill="#132017" font-weight="600">Security layer</text><text x="0" y="248" font-size="15">optional · cameras, ANPR, GPS</text>
+          <text x="0" y="306" fill="#132017" font-weight="600">Later</text><text x="0" y="328" font-size="15">optional · AI box, RFID trial</text>
+          <rect x="247.5" y="58" width="79.6" height="24" rx="4" fill="#2a78d6" class="bud" data-t="Core kit: AED 580 – 3,211"/>
+          <rect x="315.0" y="138" width="274.0" height="24" rx="4" fill="#2a78d6" class="bud" data-t="Whole warehouse, no cameras: AED 2,810 – 11,872"/>
+          <rect x="465.6" y="218" width="391.5" height="24" rx="4" fill="#9aa39c" class="bud" data-t="Security layer, optional: adds AED 7,791 – 20,739"/>
+          <rect x="294.1" y="298" width="192.9" height="24" rx="4" fill="#9aa39c" class="bud" data-t="Later, optional: adds AED 2,120 – 8,499"/>
+          <text x="338" y="77" fill="#132017" font-weight="600">0.6K – 3.2K</text>
+          <text x="600" y="157" fill="#132017" font-weight="600">2.8K – 11.9K</text>
+          <text x="868" y="237" fill="#132017" font-weight="600">+7.8K – 20.7K</text>
+          <text x="498" y="317" fill="#132017" font-weight="600">+2.1K – 8.5K</text>
         </g>
       </svg>
       <div id="budTip" class="xs" style="position:absolute;display:none;background:#fff;border:1px solid var(--line);border-radius:10px;padding:8px 12px;box-shadow:0 10px 24px -14px #0005;pointer-events:none"></div>
     </figure>
     <div style="display:flex;flex-direction:column;gap:14px">
-      <div class="card sm"><b>What moves the range most:</b> which scale (a generic indicator vs an Ohaus Ranger), which ANPR camera (AED 2,040 vs 7,200), and the installer's quote.</div>
-      <div class="card sm"><b>Not included:</b> REST-native industrial indicators and an RFID portal <span class="tg Q">quote</span>; GPS subscriptions; staff time; software, which is built in-house.</div>
-      <div class="card sm"><b>Running cost of voice entry:</b> about $0.11 per 1,000 entries at Groq's listed price.</div>
-      <div class="band" style="font-size:23px"><b>Spend the pilot money first.</b> Its measurements decide how much of the rollout is worth buying.</div>
+      <div class="card sm"><b>The pilot needs a scale and a scanner.</b> About AED 600 with the phone as the scanner; AED 1,600–3,200 with a scanner gun and a calibrated 1-gram scale.</div>
+      <div class="card sm"><b>Why not a AED 100–400 "smart" scale:</b> the scale must send its own weight to the system. A weight someone reads and types is the gap a theft hides in. Scales with a data port list from about AED 1,100 abroad (Kern, Ohaus); cheaper generic ones exist but none was verified in the UAE.</div>
+      <div class="card sm"><b>Optional, only if the pilot shows a need:</b> cameras, a gate number-plate camera, a licensed installer and van GPS — AED 7,800–20,700. Not included: software, built in-house; staff time.</div>
+      <div class="band" style="font-size:23px"><b>Spend the pilot money first.</b> Its measurements decide how much of the rest is worth buying.</div>
     </div>
   </div>
   <div class="foot"><span>FreshNow · Orange traceability &amp; warehouse proposal</span><span class="pg">23 / 36</span></div>
@@ -1103,47 +1107,50 @@ body.recording .slide{transition:none!important}
   <div class="kick"><span class="n">24</span><span>Hardware &amp; budget</span></div>
   <h2>Budget line items</h2>
   <div class="g6040 grow" style="gap:32px;align-items:start">
-    <div class="tw">
-      <table class="t sm">
-        <thead><tr><th>Warehouse rollout</th><th class="n">Low</th><th class="n">High</th><th>Basis</th></tr></thead>
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div class="tw"><table class="t sm">
+        <thead><tr><th>Core kit · 1 station at the van door, 1 van</th><th class="n">Minimum</th><th class="n">Scanner gun + 1 g scale</th><th>Basis</th></tr></thead>
         <tbody>
-          <tr><td>2 weigh-and-load stations</td><td class="n">1,592</td><td class="n">9,484</td><td><span class="tg E">mix</span></td></tr>
-          <tr><td>Receiving floor scale 300–600 kg + indicator + bridge</td><td class="n">1,050</td><td class="n">3,850</td><td><span class="tg E">E</span></td></tr>
-          <tr><td>Sorting bench scale + bridge</td><td class="n">550</td><td class="n">3,250</td><td><span class="tg E">E</span></td></tr>
-          <tr><td>2 spare scanners</td><td class="n">492</td><td class="n">584</td><td><span class="tg L">L</span></td></tr>
-          <tr><td>QR labels for 300 crates</td><td class="n">300</td><td class="n">900</td><td><span class="tg E">E</span></td></tr>
-          <tr><td>Numbered seals × 5,000</td><td class="n">400</td><td class="n">1,250</td><td><span class="tg E">E</span></td></tr>
-          <tr><td>Re-weigh scales for 3 vans</td><td class="n">360</td><td class="n">900</td><td><span class="tg E">E</span></td></tr>
-          <tr><td>4 cameras, 4 MP</td><td class="n">1,596</td><td class="n">1,680</td><td><span class="tg L">L</span></td></tr>
-          <tr><td>8-channel recorder + 4 TB disk</td><td class="n">855</td><td class="n">1,359</td><td><span class="tg L">L+E</span></td></tr>
-          <tr><td>Gate ANPR camera</td><td class="n">2,040</td><td class="n">7,200</td><td><span class="tg L">L</span></td></tr>
-          <tr><td>SIRA-licensed installation</td><td class="n">1,500</td><td class="n">6,000</td><td><span class="tg E">E</span></td></tr>
-          <tr><td>GPS tracker + door sensor, 3 vans</td><td class="n">1,800</td><td class="n">4,500</td><td><span class="tg E">E</span></td></tr>
-          <tr class="hi"><td><b>Total, AED</b></td><td class="n"><b>12,535</b></td><td class="n"><b>40,957</b></td><td></td></tr>
+          <tr><td>Scale with a data port, 30 kg: generic … Kern FCB 30K1, 30 kg × 1 g</td><td class="n">400</td><td class="n">1,100–1,500</td><td><span class="tg E">E</span> <span class="tg L">L</span></td></tr>
+          <tr><td>Connection: USB cable to a laptop … Wi-Fi bridge if no laptop</td><td class="n">30</td><td class="n">30–350</td><td><span class="tg E">E</span></td></tr>
+          <tr><td>Scanner: the phone's camera … Tera HW0002 / Eyoyo</td><td class="n">0</td><td class="n">270–311</td><td><span class="tg L">L</span></td></tr>
+          <tr><td>QR labels for 50 crates and the van</td><td class="n">50</td><td class="n">100–150</td><td><span class="tg E">E</span></td></tr>
+          <tr><td>Portable re-weigh scale for the van</td><td class="n">100</td><td class="n">100–300</td><td><span class="tg E">E</span></td></tr>
+          <tr><td>Numbered seals × 1,000 — optional at the van door</td><td class="n">0</td><td class="n">0–600</td><td><span class="tg E">E</span></td></tr>
+          <tr class="hi"><td><b>Total, AED</b></td><td class="n"><b>580</b></td><td class="n"><b>1,600–3,211</b></td><td></td></tr>
         </tbody>
-      </table>
+      </table></div>
+      <div class="tw"><table class="t sm">
+        <thead><tr><th>Whole warehouse, no cameras · adds</th><th class="n">Low</th><th class="n">High</th><th>Basis</th></tr></thead>
+        <tbody>
+          <tr><td>2nd weigh-and-load station</td><td class="n">430</td><td class="n">2,161</td><td><span class="tg E">mix</span></td></tr>
+          <tr><td>Receiving floor scale 300–600 kg with a data port</td><td class="n">900</td><td class="n">3,500</td><td><span class="tg E">E</span></td></tr>
+          <tr><td>Sorting bench scale with a data port</td><td class="n">400</td><td class="n">1,500</td><td><span class="tg E">E</span></td></tr>
+          <tr><td>Re-weigh scales for 2 more vans · QR labels for 300 crates</td><td class="n">500</td><td class="n">1,500</td><td><span class="tg E">E</span></td></tr>
+          <tr class="hi"><td><b>Adds, AED</b></td><td class="n"><b>2,230</b></td><td class="n"><b>8,661</b></td><td></td></tr>
+        </tbody>
+      </table></div>
     </div>
-    <div style="display:flex;flex-direction:column;gap:16px">
+    <div style="display:flex;flex-direction:column;gap:14px">
       <div class="tw"><table class="t sm">
-        <thead><tr><th>Pilot kit</th><th class="n">Low</th><th class="n">High</th></tr></thead>
+        <thead><tr><th>Security layer · optional · adds</th><th class="n">Low</th><th class="n">High</th></tr></thead>
         <tbody>
-          <tr><td>1 station: scale, bridge, scanner, screen</td><td class="n">796</td><td class="n">4,742</td></tr>
-          <tr><td>Labels for 50 crates + vans</td><td class="n">100</td><td class="n">300</td></tr>
-          <tr><td>1,000 numbered seals</td><td class="n">80</td><td class="n">250</td></tr>
-          <tr><td>Re-weigh scale for 1 van</td><td class="n">120</td><td class="n">300</td></tr>
-          <tr class="hi"><td><b>Total, AED</b></td><td class="n"><b>1,096</b></td><td class="n"><b>5,592</b></td></tr>
+          <tr><td>4 cameras, 4 MP <span class="tg L">L</span></td><td class="n">1,596</td><td class="n">1,680</td></tr>
+          <tr><td>8-channel recorder + 4 TB disk <span class="tg L">L+E</span></td><td class="n">855</td><td class="n">1,359</td></tr>
+          <tr><td>Gate number-plate camera <span class="tg L">L</span></td><td class="n">2,040</td><td class="n">7,200</td></tr>
+          <tr><td>SIRA-licensed installation <span class="tg E">E</span></td><td class="n">1,500</td><td class="n">6,000</td></tr>
+          <tr><td>GPS + cargo-door sensor, 3 vans <span class="tg E">E</span></td><td class="n">1,800</td><td class="n">4,500</td></tr>
+          <tr class="hi"><td><b>Adds, AED</b></td><td class="n"><b>7,791</b></td><td class="n"><b>20,739</b></td></tr>
         </tbody>
       </table></div>
       <div class="tw"><table class="t sm">
-        <thead><tr><th>Advanced adds</th><th class="n">Low</th><th class="n">High</th></tr></thead>
+        <thead><tr><th>Later · optional · adds</th><th class="n">Low</th><th class="n">High</th></tr></thead>
         <tbody>
-          <tr><td>AI box (Pi 5 + AI HAT+ … Jetson)</td><td class="n">820</td><td class="n">3,499</td></tr>
-          <tr><td>4 more cameras</td><td class="n">1,596</td><td class="n">1,680</td></tr>
-          <tr><td>Cargo cameras, 3 vans</td><td class="n">900</td><td class="n">2,700</td></tr>
-          <tr><td>RFID trial: reader + 1,000 tags</td><td class="n">1,300</td><td class="n">5,000</td></tr>
+          <tr><td>AI box: Pi 5 + AI HAT+ … Jetson <span class="tg L">L+E</span></td><td class="n">820</td><td class="n">3,499</td></tr>
+          <tr><td>RFID trial: reader + 1,000 tags <span class="tg E">E</span></td><td class="n">1,300</td><td class="n">5,000</td></tr>
         </tbody>
       </table></div>
-      <p class="xs mut"><span class="tg L">L</span> listed price seen 23 Oct 2026 · <span class="tg E">E</span> our estimate, replace with quotes. Totals computed from these rows.</p>
+      <p class="xs mut"><span class="tg L">L</span> listed price seen 23–24 Oct 2026 (abroad: + VAT, shipping) · <span class="tg E">E</span> our estimate, replace with quotes. Totals computed from these rows.</p>
     </div>
   </div>
   <div class="foot"><span>FreshNow · Orange traceability &amp; warehouse proposal</span><span class="pg">24 / 36</span></div>
@@ -1218,8 +1225,8 @@ body.recording .slide{transition:none!important}
     <div class="card sm">
       <h3>Reused, not rebuilt</h3>
       <ul class="clean tight">
-        <li>Televend mirror: vends and refills per machine (local build)</li>
-        <li>Machine registry and machine QR stickers (local build)</li>
+        <li>Televend mirror: vends and refills per machine (built)</li>
+        <li>Machine registry and machine QR stickers (built)</li>
         <li>Alarm engine with escalation ladder; outbox; audit log; live screens</li>
         <li>Row-level security on every table; the eight planned roles</li>
         <li>Semantic layer updated in the same task as each table</li>
@@ -1320,15 +1327,15 @@ body.recording .slide{transition:none!important}
     </div>
     <div style="display:flex;flex-direction:column;gap:12px">
       <ul class="clean sm" style="gap:10px">
-        <li><b>Every category is a chip:</b> tap to drop Expo, or pick any combination; every number and chart recomputes at once.</li>
-        <li><b>Bar charts follow the selection</b>, each category keeping its own colour.</li>
-        <li><b>Answers open beside the charts</b>, not below them, with the query shown.</li>
-        <li><b>Each machine and category opens its own page:</b> trend, hour of day, weekday pattern, alarms, refills, kg delivered.</li>
-        <li><b>Change vs the same weekday last week</b> on every key number.</li>
-        <li><b>Compare page:</b> two dates, two machines or two categories side by side.</li>
+        <li><b>Every category is a button:</b> tap to drop Expo, or pick any combination; every number, chart and sentence is counted again.</li>
+        <li><b>Charts follow the selection</b>; the tier buttons' answer sits right under them.</li>
+        <li><b>Key figures are buttons</b> that open their page.</li>
+        <li><b>Each machine and category opens its own page:</b> days, hours, weekdays, payments, income.</li>
+        <li><b>Each day against the same weekday last week</b>, with its %.</li>
+        <li><b>Compare:</b> two days, two periods, two machines or two categories.</li>
         <li><b>Short insights</b> computed by rules in SQL ("Expo −23% vs last Friday"), never written by a model.</li>
       </ul>
-      <div class="note sm">Your analytics tab is in the local build, not on GitHub. This is the plan to apply to it once it's pushed. Revenue appears when Televend shows it to our account.</div>
+      <div class="note sm"><b>Built and on GitHub</b> (TASK-075, 24 Oct). Oranges per cup and unexplained loss in this wireframe need the warehouse ledger first; showing the query behind a number is not built yet. Revenue appears when Televend shows it to our account.</div>
     </div>
   </div>
   <div class="foot"><span>FreshNow · Orange traceability &amp; warehouse proposal</span><span class="pg">30 / 36</span></div>
@@ -1361,7 +1368,7 @@ body.recording .slide{transition:none!important}
   <div class="kick"><span class="n">32</span><span>Plan</span></div>
   <h2>Roadmap: twelve weeks, pilot before purchase</h2>
   <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:16px" class="grow">
-    <div class="card" style="display:flex;flex-direction:column;gap:10px;border-top:6px solid var(--ink)"><span class="mono xs mut">Week 0</span><h3>Decide &amp; prepare</h3><ul class="clean tight sm"><li>Decisions on slide 33</li><li>Repository private, data out of git</li><li>Buy the pilot kit</li><li>Label 50 crates and the pilot van</li><li>Staff notice, written procedure</li></ul></div>
+    <div class="card" style="display:flex;flex-direction:column;gap:10px;border-top:6px solid var(--ink)"><span class="mono xs mut">Week 0</span><h3>Decide &amp; prepare</h3><ul class="clean tight sm"><li>Decisions on slide 33</li><li>Repository private (data out of git: done 24 Oct)</li><li>Buy the pilot kit</li><li>Label 50 crates and the pilot van</li><li>Staff notice, written procedure</li></ul></div>
     <div class="card" style="display:flex;flex-direction:column;gap:10px;border-top:6px solid var(--lime)"><span class="mono xs mut">Weeks 1–3</span><h3>Build the core</h3><ul class="clean tight sm"><li>Ledger, crates, seals</li><li>Scale bridge → API</li><li>Weigh-and-load station screen</li><li>Van manifest</li><li>Re-weigh at the machine in the staff app</li><li>Variance alarm</li></ul></div>
     <div class="card" style="display:flex;flex-direction:column;gap:10px;border-top:6px solid var(--orange)"><span class="mono xs mut">Weeks 3–5</span><h3>Pilot</h3><ul class="clean tight sm"><li>1 station, 1 van, 2 machines</li><li>Control crates for moisture loss</li><li>Measure scans per minute</li><li>Set real tolerances</li><li>Decide what to buy next</li></ul></div>
     <div class="card" style="display:flex;flex-direction:column;gap:10px;border-top:6px solid var(--s1)"><span class="mono xs mut">Weeks 5–8</span><h3>Whole warehouse</h3><ul class="clean tight sm"><li>Receiving and sorting mass balance</li><li>Unfit-fruit outlets with approval</li><li>All inventory alarms</li><li>Analytics redesign and compare page</li></ul></div>
@@ -1380,13 +1387,13 @@ body.recording .slide{transition:none!important}
   <h2>Eight decisions needed from management</h2>
   <div class="g4 grow" style="gap:18px">
     <div class="card" style="display:flex;flex-direction:column;gap:10px"><span class="mono mut" style="font-size:20px">1 · Layout</span><p>Where is each crate weighed?</p><div class="row" style="gap:8px;flex-wrap:wrap;margin-top:auto"><span class="chip ok"><i></i>At the van door (1b)</span><span class="chip mute"><i></i>Two zones + seals (1)</span></div></div>
-    <div class="card" style="display:flex;flex-direction:column;gap:10px"><span class="mono mut" style="font-size:20px">2 · Pilot</span><p>AED 1,100–5,600 for one station. Which van and which two machines?</p><div class="row" style="gap:8px;flex-wrap:wrap;margin-top:auto"><span class="chip mute"><i></i>Van: ____</span><span class="chip mute"><i></i>Machines: ____</span></div></div>
+    <div class="card" style="display:flex;flex-direction:column;gap:10px"><span class="mono mut" style="font-size:20px">2 · Pilot</span><p>About AED 600–3,200 for one station and one van. Which van and which two machines?</p><div class="row" style="gap:8px;flex-wrap:wrap;margin-top:auto"><span class="chip mute"><i></i>Van: ____</span><span class="chip mute"><i></i>Machines: ____</span></div></div>
     <div class="card" style="display:flex;flex-direction:column;gap:10px"><span class="mono mut" style="font-size:20px">3 · Crates</span><p>How many crates exist? A permanent QR plate on each; numbered seals?</p><div class="row" style="gap:8px;flex-wrap:wrap;margin-top:auto"><span class="chip ok"><i></i>Seals: yes</span><span class="chip mute"><i></i>Seals: no</span></div></div>
     <div class="card" style="display:flex;flex-direction:column;gap:10px"><span class="mono mut" style="font-size:20px">4 · Devices</span><p>What do people scan with?</p><div class="row" style="gap:8px;flex-wrap:wrap;margin-top:auto"><span class="chip ok"><i></i>Guns in warehouse, phones outside</span><span class="chip mute"><i></i>Phones everywhere</span></div></div>
     <div class="card" style="display:flex;flex-direction:column;gap:10px"><span class="mono mut" style="font-size:20px">5 · Alarm owners</span><p>Who receives each alarm on slide 28, and how fast?</p><div class="row" style="gap:8px;flex-wrap:wrap;margin-top:auto"><span class="chip mute"><i></i>Fill in the table</span></div></div>
     <div class="card" style="display:flex;flex-direction:column;gap:10px"><span class="mono mut" style="font-size:20px">6 · Cameras</span><p>Approve the camera plan, a SIRA-licensed installer, signage and the staff notice.</p><div class="row" style="gap:8px;flex-wrap:wrap;margin-top:auto"><span class="chip ok"><i></i>Pilot without cameras</span><span class="chip mute"><i></i>Cameras from day one</span></div></div>
     <div class="card" style="display:flex;flex-direction:column;gap:10px"><span class="mono mut" style="font-size:20px">7 · Tolerance</span><p>What shortfall starts an investigation, and who investigates?</p><div class="row" style="gap:8px;flex-wrap:wrap;margin-top:auto"><span class="chip ok"><i></i>Set after the pilot</span><span class="chip mute"><i></i>Fixed now: ____ g</span></div></div>
-    <div class="card" style="display:flex;flex-direction:column;gap:10px"><span class="mono mut" style="font-size:20px">8 · One codebase</span><p>Push the local build and make the repository private, so this plan merges into TASK-055 → 069.</p><div class="row" style="gap:8px;flex-wrap:wrap;margin-top:auto"><span class="chip warn"><i></i>Needed before building</span></div></div>
+    <div class="card" style="display:flex;flex-direction:column;gap:10px"><span class="mono mut" style="font-size:20px">8 · Private repository</span><p>The code is merged and the data is out of git. Make the repository private before company data flows through the warehouse system.</p><div class="row" style="gap:8px;flex-wrap:wrap;margin-top:auto"><span class="chip warn"><i></i>Needed before the pilot</span></div></div>
   </div>
   <div class="band">Green chips are our recommendation. With these eight answers the pilot can start within a week of the kit arriving.</div>
   <div class="foot"><span>FreshNow · Orange traceability &amp; warehouse proposal</span><span class="pg">33 / 36</span></div>
@@ -1400,14 +1407,14 @@ body.recording .slide{transition:none!important}
     <table class="t">
       <thead><tr><th style="width:30%">Risk</th><th>Mitigation</th></tr></thead>
       <tbody>
-        <tr class="hi"><td class="nm">Company data in the public repository</td><td>On 23 Oct WhatsApp exports and Televend data were pushed to the public GitHub repository. Make it private, remove the files from history, keep data in private storage only; ask counsel whether it must be reported.</td></tr>
+        <tr class="hi"><td class="nm">Company data in the public repository</td><td>On 23 Oct WhatsApp exports and Televend data were pushed to the public repository; on 24 Oct they were removed from main's history. Still to do: delete the branches that hold them, make the repository private, ask GitHub Support to purge cached pages, ask counsel whether it must be reported — copies may exist.</td></tr>
         <tr><td class="nm">Scale drift and wrong tare</td><td>Monthly check with test weights; each crate's own tare stored; only stable readings accepted</td></tr>
         <tr><td class="nm">Wi-Fi gaps at the dock</td><td>Wired Ethernet bridge where possible; scans queue offline and sync once</td></tr>
         <tr><td class="nm">Labels wear out in a wet, cold store</td><td>Laminated or engraved QR plates; spare labels at each station</td></tr>
         <tr><td class="nm">Staff feel watched</td><td>Written notice and signage, purpose limited to stock and food safety, no scoring; the record also protects honest staff</td></tr>
         <tr><td class="nm">Camera false alarms</td><td>Cameras flag for review only; a person decides</td></tr>
         <tr><td class="nm">Televend access changes</td><td>Move from the web-app bridge to Televend's official API once IT issues a read-only client (your D182)</td></tr>
-        <tr><td class="nm">Two copies of the code diverge</td><td>Push the 20 Oct build to its own branch and merge it with the 7 Oct main into one line of history</td></tr>
+        <tr><td class="nm">Prices change; VAT and shipping differ</td><td>Every price is marked listed or estimate; three quotes per item before buying</td></tr>
       </tbody>
     </table>
   </div>
@@ -1421,7 +1428,7 @@ body.recording .slide{transition:none!important}
   <div class="g2 grow" style="gap:20px 36px">
     <ul class="clean" style="gap:22px;font-size:27px;line-height:1.38">
       <li>No scale, scanner, bridge or camera has been bench-tested. RS232 output formats and the USR-W610 HTTP mode come from listings and manuals not yet read.</li>
-      <li>Prices are search-result snapshots of 23 Oct 2026; some items show no captured price.</li>
+      <li>Prices are listings seen on 23–24 Oct 2026. Scales with a data port were found listed abroad only; no generic RS232 scale was verified in the UAE.</li>
       <li>SIRA rules quoted (31 days, 4 MP, approved devices, licensed installer) come from installers' guides, not SIRA's own documents.</li>
       <li>Moisture-loss rates come from three studies under different conditions; a Dubai van in summer is not measured.</li>
       <li>131 g per orange is the USDA "medium" via a secondary source; FreshNow's fruit has not been weighed.</li>
@@ -1431,7 +1438,7 @@ body.recording .slide{transition:none!important}
       <li>Phone-camera scanning speed against a scanner gun: not measured.</li>
       <li>Crates per van (24), number of crates, vans and machines: assumed.</li>
       <li>Groq's browser access from the voice page could not be tested from our build environment; the page has a fallback.</li>
-      <li>Your local build — analytics, MCP, inventory, routing and the TASK-055 plan — was seen only through notes. Parts of this proposal may duplicate or contradict it until we merge.</li>
+      <li>A phone reading a scale over a USB cable (Web Serial on Android) is not confirmed; desktop Chrome and Android over Bluetooth are documented.</li>
     </ul>
   </div>
   <div class="foot"><span>FreshNow · Orange traceability &amp; warehouse proposal</span><span class="pg">35 / 36</span></div>
@@ -1439,7 +1446,7 @@ body.recording .slide{transition:none!important}
 
 <!-- 35 · sources ──────────────────────────────────────────────────────── -->
 <section id="s36" class="slide" data-key="sources" data-section="Plan" data-title="Sources">
-  <div class="kick"><span class="n">36</span><span>Sources · read 23 Oct 2026</span></div>
+  <div class="kick"><span class="n">36</span><span>Sources · read 23–24 Oct 2026</span></div>
   <h2>Sources</h2>
   <div class="g3 sm" style="gap:14px 32px;line-height:1.45;font-size:20px">
     <div>
@@ -1455,7 +1462,8 @@ body.recording .slide{transition:none!important}
       <p><b>Scales, scanners, bridges</b></p>
       <p><a href="https://www.wiltronics.com.au/product/90786/ohaus-r31p1502-ranger-3000-bench-scale/" target="_blank" rel="noopener">Ohaus Ranger 3000 (RS232 standard)</a> · <a href="https://tester.co.uk/ohaus-30037447-ethernet-kit-r31-rc31-r41-rc41-r71-v71" target="_blank" rel="noopener">Ohaus Ethernet kit</a></p>
       <p><a href="https://www.mt.com/us/en/home/products/Industrial_Weighing_Solutions/scale-indicator/IND360.html" target="_blank" rel="noopener">Mettler-Toledo IND360</a> · <a href="https://www.arlynscales.com/digital-indicator/digital-scales-you-can-connect-to-the-internet/" target="_blank" rel="noopener">Arlyn UpScale REST</a> · <a href="https://www.mt.com/ae/en/home.html" target="_blank" rel="noopener">Mettler-Toledo UAE partners</a></p>
-      <p>Amazon.ae listings linked on slide 21 · <a href="https://neotech.ae/collections/zebra-barcode-printers-scanners-uae" target="_blank" rel="noopener">NEOTECH</a> · <a href="https://productivity.honeywell.com/partners/english/directory/partner/1097280/partner-tech-middle-east-fzco" target="_blank" rel="noopener">Honeywell partner directory</a></p>
+      <p><a href="https://ch.farnell.com/en-CH/kern/fcb-30k1/weighing-scale-bench-30kg/dp/2886409" target="_blank" rel="noopener">Kern FCB 30K1</a> · <a href="https://uk.rs-online.com/web/p/weighing-scales/2410028" target="_blank" rel="noopener">Kern FCD 30K-2</a> · <a href="https://supplies.xeretec.co.uk/security-seal-pull-tight-149mm-numbered-yellow-pack-of-1000-323473--4" target="_blank" rel="noopener">seals, 1,000</a> · <a href="https://developer.chrome.com/docs/capabilities/serial" target="_blank" rel="noopener">Web Serial (Chrome)</a> · <a href="https://groups.google.com/a/chromium.org/g/blink-dev/c/BqUGCcurReE/m/XbuAYkRxEQAJ" target="_blank" rel="noopener">Web Serial over Bluetooth, Android</a></p>
+      <p>Amazon.ae, Carrefour UAE and desertcart listings linked on slide 21 · <a href="https://neotech.ae/collections/zebra-barcode-printers-scanners-uae" target="_blank" rel="noopener">NEOTECH</a> · <a href="https://productivity.honeywell.com/partners/english/directory/partner/1097280/partner-tech-middle-east-fzco" target="_blank" rel="noopener">Honeywell partner directory</a></p>
       <p style="margin-top:10px"><b>Cameras and vision</b></p>
       <p><a href="https://hikvisioncameradubai.com/cctv-camera/hikvision-anpr-cameras/" target="_blank" rel="noopener">Hikvision ANPR, Dubai prices</a> · <a href="https://www.skmdubai.com/anpr-cameras/" target="_blank" rel="noopener">SKM</a> · <a href="https://www.acssllc.ae/hikvision-camera-price-in-dubai/" target="_blank" rel="noopener">ACSS</a> · <a href="https://ipcamtalk.com/threads/get-passed-license-plate-numbers-using-isapi.79032/post-888496" target="_blank" rel="noopener">ANPR events over HTTP (forum)</a></p>
       <p><a href="https://computingforgeeks.com/hailo-vs-coral-frigate-object-detection/" target="_blank" rel="noopener">Frigate detectors: Hailo vs Coral</a> · <a href="https://pypi.org/project/fast-alpr" target="_blank" rel="noopener">fast-alpr</a> · <a href="https://platerecognizer.com/uae-license-plates-explained-categories-numbers-colors-and-recognition-technology/" target="_blank" rel="noopener">Plate Recognizer: UAE plates</a></p>
@@ -1469,7 +1477,7 @@ body.recording .slide{transition:none!important}
       <p style="margin-top:10px"><b>Phones and protocols</b></p>
       <p><a href="https://developer.mozilla.org/en-US/docs/Web/API/Barcode_Detection_API" target="_blank" rel="noopener">MDN: Barcode Detection API</a> · <a href="https://caniuse.com/mdn-api_barcodedetector" target="_blank" rel="noopener">caniuse</a> · <a href="https://docs.telegram-mini-apps.com/platform/methods" target="_blank" rel="noopener">Telegram mini-app QR scanner</a> · <a href="https://modelcontextprotocol.io" target="_blank" rel="noopener">Model Context Protocol</a></p>
       <p style="margin-top:10px"><b>FreshNow's own records</b></p>
-      <p>Repository knowledge base (D121, D168) and the TASK-055/056 notes in the 23 Oct push (D179–D192, VF54–VF63).</p>
+      <p>Repository knowledge base (D121, D168, D179–D192) and the platform's task write-ups, TASK-055 → 075.</p>
     </div>
   </div>
   <div class="foot"><span>FreshNow · Orange traceability &amp; warehouse proposal</span><span class="pg">36 / 36</span></div>

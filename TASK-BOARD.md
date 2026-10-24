@@ -159,10 +159,11 @@ asked: Phase 1 → 5. Existing tasks 062–069 and 061 part 3 sit in the phases 
 | 072 | 1 Analytics | machine as a full page (with Televend's history log of renames and moves, if readable); recent sales page; Operations tiles that explore (cash in machines, collections, refills, needs a refill) | **done** (no migration); history log not read — not on the allow-list |
 | 073 | 1 Analytics | each portal its own sidebar (the switcher wrap is done) | **next** |
 | 074 | 1 Analytics | alarms cleared by the next sale; false alarms learned per type and machine; time to clear by type, chronic machines; alarms → routed problems switched on once FreshNow names the resolvers | |
-| 075 | 1 Analytics | the business analytics portal: EDA for a day or a range, indicators, insights, actions | |
+| 075 | 1 Analytics | the business analytics portal: EDA for a day or a range, indicators, insights, actions | **first part done** (no migration, D271–D277): category buttons, pages behind the buttons, Compare; plain words 24 Oct (D279, D280) |
 | 062 | 2 Money & stock | tally and end of day; the deposit check with a reason and alerts (golden cases from the chats); Televend's "filled by" names matched to employees (also for erasure); cups per carton; over/short; period close | |
 | 076 | 2 Money & stock | finance view; food/other expenses approved by the manager; "juice try"; bank statement (CSV/Excel) matching; pop-ups | |
-| 077 | 2 Money & stock | "Other" material; return to the supplier; a fruit grade only at chosen machines | |
+| 077 | 2 Money & stock | "Other" material; return to the supplier; a fruit grade only at chosen machines | return to the supplier **done in 086**; the rest open |
+| 086 | 2 Money & stock | warehouse documents on the stock ledger: suppliers, deliveries expected → received at the door (backorders, closed short, lots), returns to the supplier, reorder rules that suggest, reports (stock on a day, every movement + CSV, one item, suppliers) | **done** (0042, D281–D287) |
 | 061·3 | 2 Money & stock | part swaps, tickets (phones and SIMs too); spare parts with photos and the models they fit; each machine's parts history | |
 | 082 | 3 Televend | the MCP ↔ API switch in Settings: live test, shadow week, fall-back, audited; the API variables in `.env`; the MCP read tools still missing (machine detail, sales with filters and totals, history log, file import, FreshNow views) | |
 | — | before 069 | the independent reviews owed: 057, 059 fixes, 060 skeptic, 061 parts 1–2, 070 | **done** 20 Oct (D263): 53 + 24 confirmed, all fixed but one choice for FreshNow (A-T61.14) |

@@ -443,6 +443,10 @@ Placeholders so the design can be discussed. Confirm/refute: management sets eac
 ## A-T85.5 — SIRA rules: licensed installer, approved devices, 31-day retention, 4 MP minimum [assumed — installers' guides only]
 Confirm/refute: SIRA's own published requirements or a SIRA-licensed installer's written statement before buying cameras.
 
+## A-T85.6 — A generic 30 kg scale with an RS232/USB port costs about AED 400 in the UAE [assumed — no UAE listing verified]
+The deck's AED 580 minimum rests on it; listed models with a data port were found only abroad (Kern CHF 240 ex VAT, Ohaus
+AED 2,876). Confirm/refute: a written quote from a Dubai scale dealer, and that its port sends the weight continuously or on request.
+
 ## A-T75.1 — A day's change under 5 % is noise: said, not coloured [assumed — the trend sentence's rule reused]
 Confirm/refute: ask the Ops Head which day-to-same-weekday move they would act on.
 
@@ -452,3 +456,28 @@ The income estimate counts every paid cup that is not cash at the price in the m
 
 ## A-T75.3 — The first 15 machines, then "All", is enough for a first look [assumed]
 Confirm/refute: watch the Ops Head use the Overview; raise it if they press "All" every time.
+
+## A-T75.4 — A non-analyst reads the reworded Analytics page without help [assumed — a simulated persona, 24 Oct]
+The words (D279) and the guide (D280) were judged by reading screenshots as a shift supervisor would. Confirm/refute: watch the Ops
+Head or a supervisor answer "more or less than last week? which machines need a visit? where and when do we sell best?" from the page
+without asking; note every word they ask about.
+
+## A-T86.1 — Rounding a suggestion past the most by up to one pack is acceptable [assumed]
+Odoo 19 does the same (VF102). For oranges, which age, a pack over the most is stock that waits. Confirm/refute: the Ops Head
+reviews the first weeks of suggestions; if they cut every one back, round down to the most instead.
+
+## A-T86.2 — A draft counts as already coming [assumed]
+Otherwise the reorder list would suggest the same order again until the draft is marked expected. A forgotten draft hides a need;
+it stays under Deliveries → "Still to do". Confirm/refute: watch for drafts older than their supplier's days to deliver.
+
+## A-T86.3 — A delivery note's kilograms are for everything expected [assumed]
+D285 rests on it: the kilograms typed when the delivery is planned are the note's weight for the expected amount. If a supplier
+writes its note after loading (the weight of what was sent), the planned weight should be that note's. Confirm/refute: ask the
+warehouse how each supplier's note is written.
+
+## A-T86.4 — A supplier's "days to deliver" sets the expected day of a reorder draft [assumed]
+Today + those days; optional on the supplier. Confirm with the real lead times of FreshNow's suppliers.
+
+## A-T86.5 — A warehouse keeper reads the new screens without help [assumed — simulated, 24 Oct]
+Judged from screenshots at 1440 px and 390 px as a keeper at the door would read them. Confirm/refute: watch the keeper receive a
+real delivery and send back a carton; note every word they ask about.

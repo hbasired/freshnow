@@ -270,7 +270,7 @@ async function loadDocs(tx: Tx, viewer: ViewerOrg, ids: readonly string[]): Prom
         answer: isHandover && r.state === "waiting" && mayConfirm(viewer, d),
         cancel: isHandover && r.state === "waiting" && r.created_by === viewer.employeeId && viewer.status === "active",
         settle: isHandover && r.state === "part_accepted" && a.approve && !parties.includes(viewer.employeeId),
-        reverse: a.approve && r.state === "posted" && ["receipt", "use", "damage", "count_adjustment"].includes(r.kind),
+        reverse: a.approve && r.state === "posted" && ["receipt", "use", "damage", "count_adjustment", "supplier_return"].includes(r.kind),
       },
     };
   });
@@ -625,6 +625,8 @@ export interface DayItemRow {
   takenBack: number;
   used: number;
   damaged: number;
+  /** Sent back to a supplier (TASK-086). */
+  returned: number;
   /** Count adjustments and write-offs, signed: + found, − missing. */
   adjusted: number;
   /** Reversals, signed. */
@@ -687,6 +689,7 @@ export async function inventoryDay(viewer: ViewerOrg, date: string, now: Date = 
         taken_back: string;
         used: string;
         damaged: string;
+        returned: string;
         adjusted: string;
         reversed: string;
         closing: string;
@@ -704,6 +707,7 @@ export async function inventoryDay(viewer: ViewerOrg, date: string, now: Date = 
                coalesce(sum(case when m.posted_at >= ${start} and m.step = 'accept' and m.t = ${W} then m.qty end), 0)::text as taken_back,
                coalesce(sum(case when m.posted_at >= ${start} and m.kind = 'use' and m.f = ${W} then m.qty end), 0)::text as used,
                coalesce(sum(case when m.posted_at >= ${start} and m.kind = 'damage' and m.f = ${W} then m.qty end), 0)::text as damaged,
+               coalesce(sum(case when m.posted_at >= ${start} and m.kind = 'supplier_return' and m.f = ${W} then m.qty end), 0)::text as returned,
                coalesce(sum(case when m.posted_at >= ${start} and m.kind = 'count_adjustment' then case when m.t = ${W} then m.qty else -m.qty end end), 0)::text as adjusted,
                coalesce(sum(case when m.posted_at >= ${start} and m.kind = 'reversal' then case when m.t = ${W} then m.qty else -m.qty end end), 0)::text as reversed,
                coalesce(sum(case when m.t = ${W} then m.qty else -m.qty end), 0)::text as closing
@@ -788,6 +792,7 @@ export async function inventoryDay(viewer: ViewerOrg, date: string, now: Date = 
           takenBack: num(r.taken_back),
           used: num(r.used),
           damaged: num(r.damaged),
+          returned: num(r.returned),
           adjusted: num(r.adjusted),
           reversed: num(r.reversed),
           closing: num(r.closing),

@@ -110,4 +110,22 @@ describe("semantic layer stays in sync with the schema", () => {
     }
     expect(undocumented.sort()).toEqual([]);
   });
+
+  it("has neither of the two slips that made the file unreadable to a YAML parser", () => {
+    // Since TASK-061's cash and route tables were documented, no YAML parser could read this file (G231): a "key: value"
+    // inside an unquoted value, and a lone apostrophe inside a '…' value. The checks above read it as text and passed. There is no YAML parser among the
+    // dependencies, so these two rules are checked line by line instead — a quoted value doubles its apostrophes (plan''s).
+    const lines = readFileSync(join(process.cwd(), "semantic", "schema.yaml"), "utf8").split("\n");
+    const slips: string[] = [];
+    lines.forEach((line, i) => {
+      const quoted = /^\s*[A-Za-z_][A-Za-z0-9_]*:\s'(.*)'\s*$/.exec(line);
+      if (quoted) {
+        if (/(^|[^'])'([^']|$)/.test(quoted[1]!)) slips.push(`${i + 1}: ${line.trim()}`);
+        return;
+      }
+      const plain = /^\s*[A-Za-z_][A-Za-z0-9_]*:\s([^'"|>].*)$/.exec(line);
+      if (plain?.[1]!.includes(": ")) slips.push(`${i + 1}: ${line.trim()}`);
+    });
+    expect(slips).toEqual([]);
+  });
 });

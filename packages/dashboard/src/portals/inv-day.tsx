@@ -29,7 +29,7 @@ export default function DayView({ viewer }: { viewer: string }) {
     inv.day(viewer, date).then(setDay, (e) => setErr(errorText(e)));
   }, [viewer, date]);
 
-  const moved = day?.warehouse.filter((r) => r.opening || r.closing || r.received || r.givenOut || r.cameBack || r.takenBack || r.used || r.damaged || r.adjusted || r.reversed) ?? [];
+  const moved = day?.warehouse.filter((r) => r.opening || r.closing || r.received || r.givenOut || r.cameBack || r.takenBack || r.used || r.damaged || r.returned || r.adjusted || r.reversed) ?? [];
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-2">
@@ -64,6 +64,7 @@ export default function DayView({ viewer }: { viewer: string }) {
                       <th className="p-2 text-right">Back</th>
                       <th className="p-2 text-right">Used</th>
                       <th className="p-2 text-right">Damaged</th>
+                      <th className="p-2 text-right">To supplier</th>
                       <th className="p-2 text-right">Counts</th>
                       <th className="p-2 text-right">End</th>
                     </tr>
@@ -80,6 +81,7 @@ export default function DayView({ viewer }: { viewer: string }) {
                         <td className="p-2 text-right tabular-nums">{n(r.takenBack + r.cameBack)}</td>
                         <td className="p-2 text-right tabular-nums">{n(r.used)}</td>
                         <td className="p-2 text-right tabular-nums">{n(r.damaged)}</td>
+                        <td className="p-2 text-right tabular-nums">{n(r.returned)}</td>
                         <td className={`p-2 text-right tabular-nums ${r.adjusted + r.reversed < 0 ? "text-crit" : ""}`}>{signed(r.adjusted + r.reversed)}</td>
                         <td className="p-2 text-right font-bold tabular-nums">{n(r.closing) || "0"}</td>
                       </tr>

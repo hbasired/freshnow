@@ -9,7 +9,7 @@ import { Sheet, errorText, when } from "./inv-ui";
  * Nothing here is ever edited: a correction is a new document in this same list.
  */
 
-const KIND_ICON: Record<string, string> = { receipt: "📦", handover: "🤝", use: "🧴", damage: "🗑️", count_adjustment: "🔢", reversal: "↩️" };
+const KIND_ICON: Record<string, string> = { receipt: "📦", handover: "🤝", use: "🧴", damage: "🗑️", count_adjustment: "🔢", reversal: "⏪", supplier_return: "↩️" };
 const STATE: Record<string, { label: string; tone: "mut" | "ok" | "warn" | "crit" }> = {
   posted: { label: "Recorded", tone: "ok" },
   reversed: { label: "Reversed", tone: "mut" },
@@ -63,7 +63,7 @@ export default function MovesView({ viewer, liveTick, onReverse }: { viewer: str
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-2" role="group" aria-label="Show">
-        {["", "receipt", "handover", "use", "damage", "count_adjustment", "reversal"].map((k) => (
+        {["", "receipt", "supplier_return", "handover", "use", "damage", "count_adjustment", "reversal"].map((k) => (
           <button
             key={k || "all"}
             onClick={() => setKind(k)}

@@ -23,12 +23,12 @@ import { localDate } from "./time.js";
 const URL = "/app/#inventory";
 
 /** The keepers; with none, the Ops Head; with neither, the CEO — the people who run the warehouse day to day. */
-async function warehousePeople(except: readonly (string | null)[] = []): Promise<string[]> {
+export async function warehousePeople(except: readonly (string | null)[] = []): Promise<string[]> {
   return firstOf(["warehouse_keeper", "ops_head"], except);
 }
 
 /** The Ops Head; with none, the CEO — who decide differences (D218). */
-async function approvers(except: readonly (string | null)[] = []): Promise<string[]> {
+export async function approvers(except: readonly (string | null)[] = []): Promise<string[]> {
   return firstOf(["ops_head"], except);
 }
 
@@ -44,7 +44,7 @@ async function firstOf(roles: readonly string[], except: readonly (string | null
   return skip.includes(ceo) ? [] : [ceo];
 }
 
-async function tell(p: {
+export async function tell(p: {
   to: readonly string[];
   key: string;
   kind: string;

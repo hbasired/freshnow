@@ -379,6 +379,59 @@ export async function receiveDelivery(
   return afterPost(done, "stock", correlationId);
 }
 
+// ── a planned document's posting (TASK-086) ──────────────────────────────────
+/**
+ * A planned delivery received, or stock returned to its supplier, posted inside the CALLER's transaction — the warehouse document
+ * (warehouse.ts) and the stock it moves commit together or not at all. The same rules as every stock document here: items in use,
+ * whole steps, never below zero in the warehouse, the same id posted once. The caller tells people afterwards (afterPost's notices).
+ */
+export async function postSupplierDoc(
+  tx: Tx,
+  viewer: ViewerOrg,
+  d: {
+    id: string;
+    kind: "receipt" | "supplier_return";
+    supplier: string;
+    invoiceNo: string | null;
+    note: string | null;
+    reason?: string | null;
+    lines: readonly LineIn[];
+    mediaIds?: readonly string[];
+    deviceAt?: string | Date | null;
+    correlationId: string;
+  },
+): Promise<{ replay: boolean }> {
+  requireCan(viewer, "inventory.move", d.kind === "receipt" ? "Only the warehouse records deliveries." : "Only the warehouse returns stock to a supplier.");
+  const supplier = cleanText(d.supplier, 80);
+  const invoiceNo = cleanText(d.invoiceNo, 40);
+  const note = cleanText(d.note, 500);
+  const hash = requestHash({ k: d.kind, supplier, invoiceNo, note, reason: d.reason ?? null, lines: d.lines, media: [...(d.mediaIds ?? [])].sort() });
+  if (await replayOf(tx, d.id, hash)) return { replay: true };
+  const lines = await checkLines(tx, d.lines);
+  const synthetic = await isSyntheticPerson(tx, viewer.employeeId);
+  const from = d.kind === "receipt" ? PLACE.suppliers : PLACE.warehouse;
+  const to = d.kind === "receipt" ? PLACE.warehouse : PLACE.suppliers;
+  const doc = await insertDoc(tx, {
+    id: d.id, kind: d.kind, from, to, state: "posted", createdBy: viewer.employeeId, reason: d.reason ?? null, note, supplier, invoiceNo,
+    deviceAt: deviceTime(d.deviceAt), hash, isSynthetic: synthetic, correlationId: d.correlationId,
+  });
+  if (!doc.inserted) return { replay: true };
+  if (d.kind === "supplier_return") {
+    // Someone counting the warehouse hears "not enough", never how many are left (D236).
+    const hide = (await figuresHiddenFrom())(viewer.employeeId, true);
+    await requireEnough(tx, PLACE.warehouse, lines, "the warehouse", hide);
+  }
+  await insertLines(tx, d.id, lines);
+  await postMoves(tx, d.id, lines.map((l) => ({ itemId: l.item.id, from, to, milli: l.milli, step: "post" as const })), viewer.employeeId, d.correlationId, synthetic);
+  await linkPhotos(tx, d.id, d.mediaIds, viewer.employeeId, d.kind === "receipt" ? "receipt" : "evidence", d.correlationId);
+  await auditIn(tx, {
+    correlationId: d.correlationId, actor: `employee:${viewer.employeeId}`, action: d.kind === "receipt" ? "stock.received" : "stock.returned_to_supplier",
+    entity: "stock_doc", entityId: d.id,
+    detail: { supplier, invoiceNo, reason: d.reason ?? null, lines: lines.map((l) => ({ item: l.item.name, qty: fromMilli(l.milli) })) },
+  });
+  return { replay: false };
+}
+
 // ── handovers ────────────────────────────────────────────────────────────────
 /**
  * Give stock to someone, or take it back. The stock leaves the giver at once (into "in transit") and
@@ -755,7 +808,7 @@ export async function recordUse(
 
 // ── reversal ─────────────────────────────────────────────────────────────────
 /**
- * Undo a delivery, a use, a damage or a count adjustment entered by mistake: a new document whose moves
+ * Undo a delivery, a return to the supplier, a use, a damage or a count adjustment entered by mistake: a new document whose moves
  * are the original's, the other way round. The original stays, marked reversed. A handover is never
  * reversed — the stock goes back by a new handover the other side confirms.
  */
@@ -776,7 +829,7 @@ export async function reverseDocument(
     const [orig] = await tx<{ id: string; kind: string; state: string; from_location_id: string; to_location_id: string; is_synthetic: boolean }[]>`
       select id, kind, state, from_location_id, to_location_id, is_synthetic from stock_doc where id = ${docId} for update`;
     if (!orig) throw new InventoryRefused("No such document.", 404, "no_doc");
-    if (!["receipt", "use", "damage", "count_adjustment"].includes(orig.kind)) {
+    if (!["receipt", "use", "damage", "count_adjustment", "supplier_return"].includes(orig.kind)) {
       throw new InventoryRefused(orig.kind === "handover" ? "A handover is undone by a handover back, which the other side confirms." : "This document cannot be reversed.", 409, "not_reversible");
     }
     const replay = await tx<{ request_hash: string; reverses_doc_id: string | null }[]>`select request_hash, reverses_doc_id from stock_doc where id = ${req.id}`;

@@ -337,17 +337,27 @@ describe("what the figures say", () => {
   });
 
   it("says the trend, the 80 % set, the best and weakest category, the movers and the cash share in plain words", () => {
-    expect(find("trend")!.text).toBe("Cups sold fell 16 %: 42 a day, against 50 a day on the same days before.");
-    expect(find("top80")!.text).toBe("3 of the 5 machines that sold (60 %) made 80 % of the cups.");
+    expect(find("trend")!.text).toBe("Cups sold fell 16 %: 42 a day, against 50 a day the week before.");
+    expect(find("top80")!.text).toBe("3 of the 5 machines that sold made 80 % of the cups — the key machines.");
     expect(find("best_category")!.text).toBe(
-      `Of the categories where two or more machines sold, ${CAT.metro} sells the most per machine: 15 cups a day — 1.8× the fleet's 8.4.`,
+      `${CAT.metro} sells the most per machine: 15 cups a day — 1.8× the average machine (8.4).`,
     );
     expect(find("weakest_category")!.text).toBe(
-      `Of the categories where two or more machines sold, ${CAT.hospital} sells the least per machine: 4 cups a day across 3 machines.`,
+      `${CAT.hospital} sells the least per machine: 4 cups a day across 3 machines.`,
     );
-    expect(find(`category_move:${CAT.metro}`)!.text).toBe(`${CAT.metro} sold 50 % more cups a day than on the same days before: 30 against 20.`);
-    expect(find(`category_move:${CAT.hospital}`)!.text).toBe(`${CAT.hospital} sold 33.3 % fewer cups a day than on the same days before: 12 against 18.`);
-    expect(find("cash_share")!.text).toBe("Cash was 14.3 % of cups, down 15.7 points from 30 %.");
+    expect(find(`category_move:${CAT.metro}`)!.text).toBe(`${CAT.metro} sold 50 % more cups a day than the week before: 30 against 20.`);
+    expect(find(`category_move:${CAT.hospital}`)!.text).toBe(`${CAT.hospital} sold 33.3 % fewer cups a day than the week before: 12 against 18.`);
+    expect(find("cash_share")!.text).toBe("Cash was 14.3 % of the cups, down from 30 % the week before.");
+  });
+
+  it("says a category where one machine sold is left out of the ranking, and names the period by its weeks", () => {
+    // A third category where one machine sold: it is that machine, so the best/weakest sentences skip it — and say so.
+    const lone = { ...perf.categories[0]!, category: "Lone", selling: 1, cupsPerMachineDay: 99 };
+    const said = insightsOf({ fleet: perf.fleet, machines: [], categories: [...perf.categories, lone], nDays: 6, shiftDays: 14 });
+    expect(said.find((i) => i.id === "best_category")!.text).toBe(
+      `${CAT.metro} sells the most per machine: 15 cups a day — 1.8× the average machine (8.4). (Categories where only one machine sold are not ranked.)`,
+    );
+    expect(said.find((i) => i.id === "trend")!.text).toBe("Cups sold fell 16 %: 42 a day, against 50 a day the 2 weeks before.");
   });
 
   it("counts the machines it does not name: 'and 2 more' carries its 2", () => {

@@ -519,17 +519,30 @@ Routing goes to the **CEO only** for now (company routing data not yet supplied)
   (D276); Compare — two days, periods, machines or categories, differences from exact totals (D274), two peer hues (D275); the SQL for
   what a machine is shared (D273). A-T75.1–3; VF96, VF97; G225–G228.
   -> `docs/tasks/TASK-075-analytics-buttons-pages-compare.html`
+  24 Oct follow-up: every view and option re-checked (38/38) and the headline figures recounted by SQL (VF98); then plain words on the
+  screens and in the sentences (D279), a "How to read this page" guide (D280), the category page's table, the phone's name column, a
+  chart title that counts its machines; 48/48 browser checks (VF99); persona simulated, to confirm (A-T75.4); G229.
 
 - **T85 Orange traceability and warehouse proposal (document + prototype, no platform code)** (2026-10-23): a 36-slide deck
   — the orange's eight handoffs, a double-entry weight ledger, six capture options (recommended: weigh at the tailgate, D265),
   the theft window and how small a theft a re-weigh catches, computer vision where it pays, the employee-phone option, REST not MCP
-  for devices (D266), Amazon.ae shortlist, Dubai suppliers, budget AED 1,096–5,592 pilot / 12,535–40,957 rollout, Manhattan and
+  for devices (D266), Amazon.ae shortlist, Dubai suppliers, budget (corrected 24 Oct, D278) core kit AED 580 / 1,600–3,211, whole warehouse without cameras 2,810–11,872, cameras optional, Manhattan and
   open-source WMS comparison (D264), alarms, chat, analytics redesign, CopilotKit verdicts (D269), roadmap, eight decisions.
   A 72-second Option 1 demo video rendered from the deck (VF95) and a voice crate log prototype (D268, VF92). Found and
   reported: main rewound and company data pushed to the public repo; the 20 Oct build recovered from the reflog (G217).
   -> `docs/tasks/TASK-085-orange-traceability-proposal.html` · `docs/reports/warehouse-traceability-deck.html` · `docs/prototypes/voice-crate-capture.html`
   Follow-up the same day: numbered TASK-085, as the plan keeps 070–084 (D270); the merge with the 20 Oct build had dropped its
   status section, restored (G222); pnpm 11 ignores `.npmrc` (G223); tests in a container with no model keys (G224).
+  24 Oct: budget corrected — core kit AED 580 / 1,600–3,211, whole warehouse without cameras 2,810–11,872, security layer optional
+  (D278, A-T85.6); `main` rewritten without the data commit, three old branches still hold it (G217).
+
+- **T86 — Warehouse documents on the stock ledger** (2026-10-24, delivers the plan's 077 "return to the supplier"): migration 0042
+  (supplier, wh_number, wh_order, wh_order_line, inv_lot, reorder_rule; the ledger learns 'supplier_return'). Deliveries planned
+  and received at the door against the plan (backorders, closed short, lots), returns to the supplier, reorder rules that suggest,
+  the reports (stock on a day, every movement + CSV, one item, suppliers); Stock's Deliveries, Reorder and Reports views and
+  "Expected at the door" (D281–D287). The scale held to the note's weight for what came — found on the screen (D285, G232). The
+  semantic layer parses as YAML again (G231). A-T86.1–5; VF100–VF104; G230–G233.
+  -> `docs/tasks/TASK-086-warehouse-documents.html`
 
 ## Blocked on the user
 - ~~`CEO_TELEGRAM_USER_ID` is empty.~~ **Resolved 2026-09-04:** CEO = 6051615734,

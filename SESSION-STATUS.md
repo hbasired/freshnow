@@ -1,21 +1,50 @@
-# Session status — 2026-10-24 (cloud session, TASK-075 — Analytics: category buttons, pages, Compare)
+# Session status — 2026-10-24 (cloud session, TASK-075 — Analytics: category buttons, pages, Compare; then TASK-086 — warehouse documents)
 
+- **TASK-086 is built and pushed** on `claude/lucid-babbage-duy1uz` (`5cc3495` server, `9489358` screens, then the write-up with
+  the last fixes). Stock now has **Deliveries** (write down a delivery when you order it; receive it at the door against what was
+  expected — counted and weighed; the rest comes later or is closed short; every line a lot; send some back to the supplier, never
+  more than came), **Reorder** (least and most per item, a suggestion that counts what is already coming, one draft per supplier
+  with one tap) and **Reports** (stock at the end of any day, every movement with a spreadsheet download, one item's lots and
+  moves, each supplier's deliveries counted). The Stock home shows what is expected at the door. Migration 0042. Write-up:
+  `docs/tasks/TASK-086-warehouse-documents.html`.
+- **Found by looking at the screen, fixed:** 8 of 10 cartons were called "lighter than the note" because they were weighed against
+  the note's weight for all 10. The scale is now held to the note's weight for what came (D285).
+- **Also fixed:** `semantic/schema.yaml` could not be read by any YAML parser since TASK-061 (three quoting slips; G231) — a test
+  now guards them. The movements CSV starts with the mark Excel needs to read Arabic, Hindi or Urdu names (G233).
+- Tests: typecheck clean; warehouse 29/29, semantic 4/4; whole suite 1,273 passed, 5 skipped, and the 8 real-model tests failed
+  only because this container cannot reach the providers (G224). Browser: 41/41 checks, 1440 px and 390 px, no console errors
+  (VF101).
+- **Questions for you:** is a supplier's delivery note weighed for the whole order or for what was loaded (A-T86.3)? What weight
+  loss is normal, instead of the 2 % placeholder (A-T85.4)? Should a suggestion stop at the most instead of passing it by up to
+  one pack (A-T86.1)?
+- **After pulling:** `pnpm install`, `pnpm migrate` (0042), `pnpm build:web`, restart api, worker and bot. On the laptop, if the
+  clean-up below is not done yet, do it first; then `git pull --ff-only origin claude/lucid-babbage-duy1uz` on `main`.
 - **TASK-075 is built and pushed** on `claude/lucid-babbage-duy1uz` in two builds (`3201cde` server, `fc7ca49` screens) plus this
   write-up. Analytics now has a button per category (unpress Expo and everything is counted again without it), key figures that open
   their page, the short sentences right under them, the tier buttons' answer right under the buttons, a page for each machine and each
   category, Trends with each day's % against the same weekday a week before, and Compare: two days, two periods, two machines or two
   categories. Write-up: `docs/tasks/TASK-075-analytics-buttons-pages-compare.html`.
-- **To try it on the laptop** (PowerShell, in the project folder; Docker and Supabase running):
-  `git checkout main` → `git pull --no-rebase --no-edit origin claude/lucid-babbage-duy1uz` → `pnpm install` → `pnpm migrate` →
-  `pnpm build:web` → restart `pnpm start:api`, `pnpm start:worker`, `pnpm start:bot` → open `http://localhost:3001/app/#analytics`.
-- **Pull request #11** (`rescue-2` → `main`, the 20 Oct build) is mergeable and waits for your click. TASK-075's commits are not in it;
-  they can go to `main` in a pull request of their own when you want one.
 - Tests: typecheck clean; whole suite 1,242 passed, 5 skipped, and the 8 real-model tests failed only because this container cannot
   reach the providers (G224). Browser: 38/38 checks on synthetic data, both themes and a phone width, no console errors (VF96).
 - Not verified: the pages on the live mirror's real data, real use by the Ops Head, a real phone. Not built yet from the plan's 075:
   refills, stock-outs, alarms and cash over the whole history; the Operations "Now" redesign; "the query behind each number".
-- Still waiting on you: make the repository private, and reply "clean main" if the data folders should be removed from `main`'s
-  history (G217).
+- **`main` is clean** (on your "clean main", 24 Oct): it was pushed with `--force-with-lease` to `e34fbc6` — the same code, with
+  a history that never had the WhatsApp/Televend/private-data commit. Pull requests #11 and #12 were merged by you before that.
+  **Still on GitHub with the data:** branches `vscode-build-2026-10-20`, `local/main`, `local/checkout` (this session was not
+  allowed to delete them — delete them on GitHub → Branches), and the old merge commit the closed pull requests point at, which
+  only GitHub Support can purge. Make the repository private too (G217).
+- **On the laptop the old `git pull` must not be used once** — it would merge the old history, data commit included, back in.
+  PowerShell, in the project folder: `git branch backup-before-clean` (never push it) → `git fetch origin` →
+  `git reset origin/main` (no `--hard`: the data folders stay on disk and are now ignored) → `git restore .` → `pnpm install` →
+  `pnpm migrate` → `pnpm build:web` → start as in "To start everything again" further down. After that, `git pull origin main`
+  works as usual. Never `git push --all` from the laptop: it would publish the backup branch.
+- **Analytics checked and made readable by anyone** (your request of 24 Oct): every view and option worked (38/38 browser checks) and
+  the headline figures equal a plain SQL recount (VF98). Then plain words everywhere ("vs the week before", "average machine",
+  "group", "key machine", missing days named with the reason), a "How to read this page" guide, an aligned machine table on a
+  category's page, wider bars on a phone, a chart title that says how many machines it draws. 48/48 checks after (VF99). Write-up:
+  the follow-up section of `docs/tasks/TASK-075-analytics-buttons-pages-compare.html`.
+- **Proposal deck corrected** (`docs/reports/warehouse-traceability-deck.html`): the pilot is AED 580 with the phone as the scanner,
+  AED 1,600–3,211 with a scanner gun and a calibrated 1-gram scale; cameras, ANPR, installer and GPS are an optional layer (D278).
 
 ---
 

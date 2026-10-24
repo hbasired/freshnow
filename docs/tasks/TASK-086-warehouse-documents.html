@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TASK-086 — Warehouse documents: deliveries, returns, reorder, reports</title>
+<style>
+  :root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#3fb950;--warn:#d29922;--bad:#f85149;--card:#161b22;--bd:#30363d}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;max-width:980px;padding:48px 24px;margin-inline:auto}
+  h1{font-size:1.9rem;margin:0 0 4px} h2{margin-top:2.5rem;color:var(--acc);font-size:1.25rem} h3{font-size:1.05rem;margin-top:1.6rem}
+  .meta{color:var(--mut);font-size:.9rem;margin-bottom:2rem}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:18px;margin:14px 0}
+  .unverified{border-left:3px solid var(--warn)} .ok{border-left:3px solid var(--acc)} .bad{border-left:3px solid var(--bad)}
+  code{background:#1f2630;padding:2px 6px;border-radius:4px;font-size:.9em}
+  .tw{overflow-x:auto} table{border-collapse:collapse;width:100%;margin:14px 0}
+  th,td{border:1px solid var(--bd);padding:7px 9px;text-align:left;font-size:.88rem;vertical-align:top} th{background:#1f2630}
+  ul{padding-left:1.1rem} li{margin:3px 0} a{color:#88c0f0}
+  @media (max-width:600px){body{padding:28px 16px}}
+</style></head><body>
+<h1>TASK-086 — Warehouse documents: deliveries, returns, reorder, reports</h1>
+<p class="meta">2026-10-24 · asked by the user on 24 Oct with Televend's Warehouse Management guide (version 1.1) and a screenshot ·
+delivers the plan's 077 "return to the supplier" · migration <code>0042_warehouse_documents.sql</code> · core new
+<code>warehouse.ts</code>, <code>warehouse-reports.ts</code>; changed <code>inventory-ledger.ts</code> (<code>postSupplierDoc</code>),
+<code>inventory-notify.ts</code>, <code>inventory-read.ts</code>, <code>retention.ts</code>, <code>compliance-evidence.ts</code>,
+<code>scripts/reset-employee.ts</code> · API new <code>routes/warehouse.ts</code> · dashboard new <code>lib/warehouse-api.ts</code>,
+<code>portals/wh-docs.tsx</code>, <code>wh-sheets.tsx</code>, <code>wh-reorder.tsx</code>, <code>wh-reports.tsx</code>; changed
+<code>inventory.tsx</code>, <code>inv-ui.tsx</code>, <code>inv-sheets.tsx</code>, <code>inv-moves.tsx</code>, <code>inv-day.tsx</code>,
+<code>lib/inventory-api.ts</code>, <code>portals.ts</code> · <code>semantic/schema.yaml</code> · no new dependency · branch
+<code>claude/lucid-babbage-duy1uz</code>, pushed in three builds (<code>5cc3495</code> server, <code>9489358</code> screens, then this
+write-up with the last fixes)</p>
+
+<div class="card ok"><b>One-sentence summary:</b> the warehouse can now write down a delivery when it orders it, receive it at the door
+against what was expected — counted and weighed, with the rest left to come later or closed short, and every line a lot — send stock
+back to a supplier (never more than came), keep a least and a most for each item and get a suggestion of what to order, and read four
+reports (stock at the end of any day, every movement with a spreadsheet download, one item's whereabouts and lots, and each
+supplier's deliveries counted) — all on top of the existing stock ledger, so there is still one record of where stock is.</div>
+
+<div class="card bad"><b>A bug found by looking at the screen, fixed before release:</b> receiving 8 of 10 cartons with 150.5 kg
+against a note of 180 kg, the receive screen said "29.5 kg lighter than the note" — but 8 cartons should weigh 144 kg by that note,
+so they were <i>heavier</i>. The server had the same rule: it counted the two missing cartons once as cartons and again as weight,
+and would have told the Ops Head "150.5 of 180 kg". The scale is now held to the note's weight for what came (D285), everywhere the
+rule is used. The test that should have caught it had restated the code's rule instead of the business's (G232).</div>
+
+<h2>What was asked</h2>
+<ul>
+<li>24 Oct, sending Televend's Warehouse Management guide and a screenshot as a reference: "And then proceed with the next implementation which can be
+done. I have attached a screenshot can we build the system in this manner? we should build it more suphisticated and advanced way
+but just thought you need to have some reference but we should build in a more advanced and effective way."</li>
+<li>Later the same day: "can you proceed with the next task and continue building …" (the Analytics part of that message is TASK-075's
+follow-up).</li>
+<li>Standing: push after each build and give the commands to pull and start (the end of this page).</li>
+</ul>
+
+<h2>What was done</h2>
+<div class="tw"><table>
+<tr><th>Layer</th><th>What</th></tr>
+<tr><td>Migration 0042</td><td>Tables <code>supplier</code>, <code>wh_number</code> (one counter per kind and year), <code>wh_order</code>
+(a receipt or a return: draft → ready → done | cancelled; ready → draft to edit again), <code>wh_order_line</code> (each item once:
+expected and done, in the item's unit and in whole grams), <code>inv_lot</code> (every receipt line received), <code>reorder_rule</code>.
+The ledger learns a seventh kind, <code>supplier_return</code> (warehouse → Suppliers) with its reasons; 0032's unnamed checks were
+found by what they say and replaced by named ones. Triggers keep a done or cancelled document, its lines and lots unchanged (a
+person's words may still be erased). Row-level security: read for whoever sees all stock, no writes for the app role (core writes on
+the service role). Live updates for the documents. <code>wh_purge_orders</code> for tests and the reset script.</td></tr>
+<tr><td>Core</td><td><code>warehouse.ts</code>: suppliers; create, change, mark expected, back to draft, cancel; receive or send back
+(<code>validateOrder</code>: every line once, nothing posted twice for the same id, the ledger document in the same transaction, lots,
+backorder or closed short, the Ops Head told after the commit); a return from a received delivery (<code>startReturn</code>); the list
+and one document. <code>warehouse-reports.ts</code>: rules and suggestions, stock at a day, movements and their CSV, one item, suppliers.
+Retention and erasure cover the documents' words; the personal-data export lists the documents a person made.</td></tr>
+<tr><td>API</td><td><code>/dashboard/warehouse/</code> <code>suppliers</code>, <code>suppliers/report</code>, <code>orders</code>,
+<code>orders/:id</code> (+ <code>/ready</code>, <code>/draft</code>, <code>/cancel</code>, <code>/validate</code>, <code>/return</code>),
+<code>rules</code>, <code>suggestions</code>, <code>stock-at</code>, <code>moves</code>, <code>moves.csv</code>,
+<code>items/:id/tracking</code>. Zod checks the shape; core checks who and what; refusals keep their words.</td></tr>
+<tr><td>Dashboard</td><td>Stock gets three views for whoever sees all stock: <b>Deliveries</b> (expect a delivery, receive it at the
+door, return some, suppliers, filters, the document as a page), <b>Reorder</b> (rules, suggestions, one draft per supplier, give out
+to a person), <b>Reports</b> (four). The Stock home shows what is <b>expected at the door</b> with its button; the free "Delivery in"
+offers an expected delivery first. Movements filters returns to the supplier; the day sheet has a "To supplier" column.</td></tr>
+<tr><td>Semantic layer</td><td>The six tables documented, with the purpose of each self-join (a backorder's original, a return's
+delivery); <code>expected_g</code> says how to compare weights (D285). It also parses as YAML again: three values from TASK-061 had made
+the whole file unreadable to any YAML parser (G231); a test now guards those two slips.</td></tr>
+</table></div>
+
+<h2>Why it was done this way</h2>
+<ul>
+<li><b>On top of the ledger, not beside it (D281).</b> Televend's module, like Odoo's, keeps planned documents and stock moves
+together. Here the ledger (0032) already decides balances, counts and the day sheet; a second store of stock would be a second truth.
+A planned document only <i>posts</i> an ordinary ledger document when it is done, so everything built on the ledger keeps working.</li>
+<li><b>Each line starts at what was expected (D282).</b> At the door "everything came" must be one tap; the receiver changes only what
+differs. Less than expected asks the one question that matters — will the rest come? — as Odoo's backorder prompt does (VF103).</li>
+<li><b>Weight against the note's weight for what came (D285).</b> A note weighs everything expected; holding 8 cartons to the weight of
+10 punishes a short delivery twice and hides a real light one. Catch-weight systems likewise set the tolerance per unit (VF104).</li>
+<li><b>Suggestions, never orders (D284).</b> CLAUDE.md: rules and lookups decide, people act. The suggestion counts what is already
+coming, so the same order is not suggested twice, and rounds up to whole packs as Odoo 19 does (VF102).</li>
+<li><b>Counted, not scored (D286).</b> The supplier report counts deliveries, lines and kilograms — about suppliers, never a person.</li>
+<li><b>The door first (D287).</b> The person receiving holds a phone: big buttons, amounts with − and +, one thing per sheet, and the
+expected delivery offered before a free one, so a delivery is not entered twice.</li>
+</ul>
+
+<h2>How it works</h2>
+<h3>A delivery</h3>
+<ol>
+<li><b>Expect a delivery</b>: supplier, day, the delivery note's number, the truck's plate, the items with the note's kilograms (variety
+and best-before for oranges). "Save as draft" (not ordered yet) or "Save — expected". Nothing is in stock yet.</li>
+<li>On its day it appears on the Stock home under <b>Expected at the door</b>, and at the top of the free "Delivery in".</li>
+<li><b>Receive</b>: each line starts at the expected amount; change what differs, type the scale's kilograms. The screen says "2
+cartons short", and the note's weight for what came ("The note's weight for 8 cartons: 144 kg"; under it, "1.2 kg under …").</li>
+<li>Less than expected: <b>"It will come later"</b> makes a new expected delivery for the rest (a backorder, numbered, linked);
+<b>"It will not come"</b> closes it short.</li>
+<li>Done: the stock is in the warehouse through the ledger; each line is a lot <code>IN-2026-0004-1</code>; if it came short or a line
+is lighter than the note's weight for what came by more than 2 % (a placeholder), the Ops Head is told.</li>
+</ol>
+<h3>A return to the supplier</h3>
+<p>From a received delivery: <b>Return some to …</b>, a reason, how many (at most what came, less what already went back), kilograms,
+words. It is ready to go back; <b>Send back</b> takes it out of the warehouse's stock (a <code>supplier_return</code>) and tells the Ops
+Head. A return can also be made on its own from Deliveries. An approver can undo it like any stock document.</p>
+<h3>What to keep (reorder)</h3>
+<p>Example from the browser check: a rule for oranges in the warehouse — least 10, most 30, packs of 5. The warehouse held 6 cartons and
+2 were still coming (the backorder): forecast 8, below 10, so the suggestion is enough to reach 30 in whole packs: 30 − 8 = 22, rounded
+up to 25. "Make a delivery draft" creates one draft per supplier; with it counted as coming, the list then says nothing to order. A
+rule for a person's stock suggests what to give them; "Give out" sends it as a handover they confirm.</p>
+<h3>Reports</h3>
+<ul>
+<li><b>Stock on a day</b>: every move up to the end of that Dubai day, summed — warehouse, with people, being handed over.</li>
+<li><b>Every movement</b>: one row per item moved, newest first, with the document number; totals in and out of the warehouse (or a
+chosen person's stock) over the whole filter; <b>Download as a spreadsheet (CSV)</b> — up to 10,000 rows, UTF-8 with the mark Excel
+needs, and a cell starting with = + − @ written as text so no spreadsheet runs it.</li>
+<li><b>One item</b>: where it is now, the lots it came in, what moved it.</li>
+<li><b>Suppliers</b>: received, on time (of those with a day), lines complete, weight against the note for what came, lighter lines,
+returns, still to come — with the tolerance the server counted with.</li>
+</ul>
+
+<h2>Concepts and techniques</h2>
+<ul>
+<li><b>Ids made by the app</b>: every create carries a UUID made when the sheet opens, so a double tap or a retry creates once; receiving
+the same document again with the same ledger id answers "done" instead of posting twice.</li>
+<li><b>One transaction</b>: the document turns done, the ledger posts, the lots and the backorder are written together or not at all.</li>
+<li><b>Notices after the commit</b> (through the outbox): who is told never decides whether stock moved.</li>
+<li><b>Immutability by trigger</b>, not by convention: a done document cannot be changed even by a stray SQL update.</li>
+<li><b>Hidden while counting</b> (D236): suggestions and reports would show the warehouse's figures to the person counting it.</li>
+<li><b>CSV injection</b> and the <b>byte-order mark</b> (G233).</li>
+<li><b>Pro-rated tolerance</b>: <code>noteGramsFor</code> and <code>isLight</code>, one rule in TypeScript and the same in SQL.</li>
+</ul>
+
+<h2>Research findings</h2>
+<ul>
+<li>Televend's <b>Warehouse Management guide 1.1</b> (the user's attachment): an Odoo-style module — receipts drafted, marked to do,
+received against what was expected, a backorder for the rest, returns from done documents, minimum and maximum quantities. Used as the
+reference the user asked for; built stricter (weights, lots, one ledger, notices).</li>
+<li><b>Odoo 19 reordering rules</b> [verified, VF102]: the documentation change "multiple qty"
+(<a href="https://github.com/odoo/documentation/pull/14853">odoo/documentation#14853</a>, merged 13 Nov 2025) — "Odoo now selects the
+multiple that exceeds the defined Max quantity, rather than stopping below it (as in v18)"; Max 20 with packs of 3 orders 21.</li>
+<li><b>Odoo backorders</b> [believed, VF103 — third-party guides and the Odoo forum]: Create Backorder (done + a new Ready receipt for
+the rest) or No Backorder (closed as it is).</li>
+<li><b>Catch weight</b> [believed, VF104 — search results only; learn.microsoft.com did not open from this container]: Dynamics 365
+sets the weight tolerance per catch-weight unit, so the allowance grows with the units received — the same idea as D285.</li>
+</ul>
+
+<h2>Verification</h2>
+<div class="tw"><table>
+<tr><th>Check</th><th>Result</th></tr>
+<tr><td>Typecheck</td><td>core, API and dashboard clean; the dashboard builds.</td></tr>
+<tr><td>Warehouse tests</td><td>29 (24 core against real Postgres, 5 API) + the semantic layer's 4: all pass. They cover numbering,
+created once, planned moves nothing, every line once, the ledger posting once, lots, backorder and closed short, the notice, nothing
+changes once done (core and raw SQL), returns capped, the day sheet adding up, reversal, rules checked, suggestions with what is coming
+and packs, hidden while counting, the reports, the CSV (formula-safe, the byte-order mark), row security, erasure and the export, grams,
+and the weight held to the note's share for what came.</td></tr>
+<tr><td>Whole suite</td><td>1,273 passed, 5 skipped, 8 failed — the 8 real-model tests, which call an AI provider this container
+cannot reach (G224); the same 8 failed before this task. (A ninth failure in an earlier run came from editing a test while the suite
+ran — G230 — and passed on its own.)</td></tr>
+<tr><td>Browser</td><td>41/41 Playwright checks on this container's API as the demo CEO, on a clean sandbox (VF101): the whole flow
+above, 1440 px and 390 px, the page never scrolls sideways on a phone, no console errors. Screenshots were read, which is how the
+weight bug and three phone layouts were found (a document's table wrapped its figures; the filters pushed the list off the first
+screen; the reorder table hid the amount to order off to the right) — fixed and re-checked.</td></tr>
+</table></div>
+
+<h2>What we have not verified</h2>
+<div class="card unverified"><ul>
+<li>A real delivery received on a real phone at the warehouse door, by the warehouse keeper (A-T86.5).</li>
+<li>That the Ops Head's notices arrive: they are written to the outbox (tested); the worker that delivers them was not running here.</li>
+<li>How each supplier writes its note — for everything ordered, or for what was loaded (A-T86.3, which D285 rests on).</li>
+<li>The 2 % weight tolerance: still the proposal's placeholder (A-T85.4).</li>
+<li>Rounding past the most by up to one pack, for oranges that age (A-T86.1); drafts counted as coming (A-T86.2); suppliers' days to
+deliver (A-T86.4).</li>
+<li>The CSV opened in Excel on Windows with Arabic, Hindi or Urdu names (G233 — the mark is there; Excel itself was not tried).</li>
+<li>Speed with years of movements: "stock on a day" sums every move up to that day; fine for now, not measured at scale.</li>
+<li>The screens on the live database with FreshNow's real items and suppliers (only synthetic data here), and with the dark theme.</li>
+<li>Lots followed through hand-outs and machines — not built (comes with the crates).</li>
+</ul></div>
+
+<h2>Not built here</h2>
+<ul>
+<li>Following a lot after receiving (to a van, a machine) — with the crates of the traceability proposal (TASK-085).</li>
+<li>Purchase prices and supplier invoices — the plan's 076 (finance).</li>
+<li>Barcode or label printing for lots; scales that send their weight by themselves (the proposal's hardware).</li>
+<li>The rest of the plan's 077: "Other" material and a fruit grade at chosen machines.</li>
+</ul>
+
+<h2>Open questions for FreshNow</h2>
+<ul>
+<li>Is the delivery note's weight for the whole order, or for what was loaded? (A-T86.3)</li>
+<li>What weight loss between the farm and the door is normal — the tolerance to set instead of 2 %? (A-T85.4)</li>
+<li>Should a reorder suggestion stop at the most instead of passing it by up to one pack? (A-T86.1)</li>
+<li>Who besides the Ops Head should hear about a short delivery or a return?</li>
+</ul>
+
+<h2>To get it on the laptop</h2>
+<p>In PowerShell, in the project folder. <b>First, once, if not done yet</b> — the clean-up of 24 Oct in SESSION-STATUS.md
+(<code>git branch backup-before-clean</code> → <code>git fetch origin</code> → <code>git reset origin/main</code> → <code>git restore .</code>);
+without it, pulling would bring the old history back, and changing branch could remove the data folders from disk.</p>
+<p>Then: <code>git pull --ff-only origin claude/lucid-babbage-duy1uz</code> (on <code>main</code>; it only moves forward, never
+merges anything else) → <code>pnpm install</code> → <code>pnpm migrate</code> (applies 0042) → <code>pnpm build:web</code> → start
+the API, worker and bot as in "To start everything again". The new views are under Stock: Deliveries, Reorder, Reports.</p>
+</body></html>

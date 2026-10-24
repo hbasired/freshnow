@@ -3,6 +3,7 @@ import { TextArea } from "../components/form";
 import { DataTable, Empty, Pill, Spinner, type Column } from "../components/ui";
 import { DailyComparison, PairBars, RankedMachines, ValueBars } from "../components/charts/analytics-charts";
 import {
+  KEY_MACHINE,
   NOT_COUNTED,
   TIER_COLOR,
   TIER_WORDS,
@@ -10,9 +11,12 @@ import {
   aedPrice,
   aedRound,
   analytics,
+  beforeWords,
   dayLabel,
   dubaiDay,
+  earlierWords,
   n1,
+  vsAverageText,
   type Insight,
   type MachinePerf,
   type Performance,
@@ -21,8 +25,8 @@ import {
 } from "../lib/analytics-api";
 import { ANALYTICS_VIEWS, type AnalyticsView } from "../portals";
 import { BigButton, Problem, Sheet, errorText } from "./inv-ui";
-import { CategoryChips, Change, Coverage, Fig, InsightList, RangePicker, Section, TierBadge, Tile, scrollTo, useSettled } from "./analytics-ui";
-import { CategoryPage, MachinePage, TrendsView } from "./analytics-pages";
+import { CategoryChips, Change, Coverage, Fig, HowToRead, InsightList, RangePicker, Section, TierBadge, Tile, scrollTo, useSettled } from "./analytics-ui";
+import { CategoryPage, DayChanges, MachinePage, TrendsView } from "./analytics-pages";
 import { ComparePage, type CompareStart } from "./analytics-compare";
 
 /**
@@ -166,6 +170,8 @@ export default function AnalyticsPortal({
         </div>
       </div>
 
+      <HowToRead />
+
       <section aria-label="Filters" className="space-y-3 rounded-xl border border-edge bg-panel p-3">
         <RangePicker
           range={range}
@@ -291,6 +297,7 @@ function Overview({
   const f = perf.fleet;
   const t = profile?.totals ?? null;
   const cash = f.cashCompare;
+  const before = beforeWords(perf.before.shiftDays);
   return (
     <>
       <section aria-label="Key figures" className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
@@ -300,7 +307,7 @@ function Overview({
           line={
             f.compare ? (
               <>
-                <Change pct={f.compare.changePct} /> <span className="text-mut">a day on the same days before</span>
+                <Change pct={f.compare.changePct} /> <span className="text-mut">a day, vs {before}</span>
               </>
             ) : (
               <span className="text-mut">no comparison</span>
@@ -315,7 +322,7 @@ function Overview({
           line={
             t?.lastDay ? (
               <>
-                <Change pct={t.lastDay.changePct} /> <span className="text-mut">on {dayLabel(t.lastDay.lastWeek.date)}</span>
+                <Change pct={t.lastDay.changePct} /> <span className="text-mut">vs {dayLabel(t.lastDay.lastWeek.date)}</span>
               </>
             ) : (
               <span className="text-mut">—</span>
@@ -325,12 +332,12 @@ function Overview({
           opens="each day against the same weekday a week before"
         />
         <Tile
-          label="Income (est.)"
+          label="Income (estimate)"
           value={aedRound(f.incomeFils)}
           line={
             <span className="text-mut">
               {t?.incomePerDayFils !== null && t?.incomePerDayFils !== undefined ? `${aedRound(t.incomePerDayFils)} a day` : ""}
-              {t?.avgPriceFils ? ` · ${aedPrice(t.avgPriceFils)} a paid cup` : ""}
+              {t?.avgPriceFils ? ` · ${aedPrice(t.avgPriceFils)} per paid cup` : ""}
             </span>
           }
           onOpen={() => onTrends("trends-income")}
@@ -342,8 +349,7 @@ function Overview({
           line={
             cash ? (
               <span className="text-mut">
-                {cash.move > 0 ? "+" : cash.move < 0 ? "−" : "±"}
-                {n1(Math.abs(cash.move))} points on the days before
+                was {n1(cash.before)} % {before}
               </span>
             ) : (
               <span className="text-mut">no comparison</span>
@@ -355,14 +361,14 @@ function Overview({
         <Tile
           label="Machines that sold"
           value={`${f.selling} of ${f.machines}`}
-          line={<span className="text-mut">{f.top80} made 80 % of the cups</span>}
+          line={<span className="text-mut">{f.top80} of them sell 80 % of the cups</span>}
           onOpen={() => scrollTo("analytics-machines")}
           opens="the machines"
         />
         <Tile
-          label="Per machine a day"
+          label="Average machine, cups a day"
           value={f.cupsPerMachineDay === null ? "—" : n1(f.cupsPerMachineDay)}
-          line={<span className="text-mut">the average the tiers use · before {f.before.cupsPerMachineDay === null ? "—" : n1(f.before.cupsPerMachineDay)}</span>}
+          line={<span className="text-mut">was {f.before.cupsPerMachineDay === null ? "—" : n1(f.before.cupsPerMachineDay)} {before}</span>}
           onOpen={onCategories}
           opens="the categories"
         />
@@ -373,7 +379,7 @@ function Overview({
       {profile ? (
         <Section
           title="Cups each day — against the same weekday a week before"
-          hint="Blue: that day. Gray: the same weekday 7 days earlier. Hover a day for its % difference."
+          hint="Blue: each day. Gray: the same weekday a week earlier. The boxes under the chart give each day's change."
           right={
             <button onClick={() => onTrends("trends-days")} className="min-h-9 rounded-lg border border-edge px-2 text-xs font-semibold hover:border-link">
               All the trends →
@@ -381,6 +387,7 @@ function Overview({
           }
         >
           <DailyComparison tall points={profile.days.map((d) => ({ date: d.date, now: d.cups, before: d.lastWeek.cups, pct: d.changePct }))} names={{ now: "That day", before: "Same weekday a week before" }} unit="cups" />
+          <DayChanges days={profile.days} />
         </Section>
       ) : null}
 
@@ -422,6 +429,8 @@ function MachinesSection({
   const filtered = filter.tier !== null || filter.assetNos !== null || q !== "";
   const listed = all ? shown : shown.slice(0, FIRST);
   const charted = shown.filter((m) => m.cups > 0);
+  const drawn = all ? charted : charted.slice(0, Math.max(FIRST, listed.length));
+  const before = beforeWords(perf.before.shiftDays);
 
   return (
     <section id="analytics-machines" aria-label="Machines" className="scroll-mt-20 space-y-3">
@@ -442,13 +451,19 @@ function MachinesSection({
               </div>
               <div className="text-2xl font-bold">{s.machines}</div>
               <div className="text-xs text-mut">{t === "no_sales" ? "machines sold nothing" : `machines · ${n1(s.cupsShare)} % of the cups`}</div>
+              {s.machines > 0 || on ? (
+                <div className={`mt-1 text-xs font-semibold ${on ? "text-ink" : "text-link"}`}>{on ? "Listed below · tap again for all" : "List them →"}</div>
+              ) : null}
             </button>
           );
         })}
       </div>
       <p className="text-xs text-mut">
-        Top is at least 125 % of the average of {f.cupsPerMachineDay === null ? "—" : n1(f.cupsPerMachineDay)} cups per machine a day
-        {perf.selection.categories ? " (the categories chosen)" : ""}; below is under 75 %. The average counts the machines that sold.
+        How the groups are made: the average machine{perf.selection.categories ? " of the chosen categories" : ""} sells{" "}
+        {f.cupsPerMachineDay === null ? "—" : n1(f.cupsPerMachineDay)} cups a day (machines that sold nothing are not in the average).
+        {f.thresholds
+          ? ` Top sells 25 % or more above it (${n1(f.thresholds.top)} or more); Below average sells 25 % or more below it (under ${n1(f.thresholds.below)}); About average is in between.`
+          : ""}
       </p>
       <div className="flex flex-wrap items-center gap-2">
         <input
@@ -473,7 +488,7 @@ function MachinesSection({
       {/* The answer to a tier button is the table right under it; the chart of the same machines follows. */}
       <div className="space-y-4">
         <div className="min-w-0 space-y-2">
-          <DataTable rows={listed} rowKey={(m) => m.key} columns={machineColumns(onMachine, canCorrect, onCorrect)} empty="No machine matches." />
+          <DataTable rows={listed} rowKey={(m) => m.key} columns={machineColumns(onMachine, canCorrect, onCorrect, before, f.top80)} empty="No machine matches." />
           {shown.length > FIRST ? (
             <button onClick={() => setAll(!all)} className="min-h-10 w-full rounded-xl border border-edge text-sm font-semibold hover:border-link">
               {all ? `The first ${FIRST}` : `All ${shown.length} machines`}
@@ -481,15 +496,27 @@ function MachinesSection({
           ) : null}
         </div>
         {f.cupsPerMachineDay !== null && charted.length > 0 ? (
-          <Section title={filtered ? "Cups a day — the machines shown" : "Cups a day — every machine that sold"} hint="Tap a bar to open the machine.">
-            <RankedMachines machines={all ? charted : charted.slice(0, Math.max(FIRST, listed.length))} average={f.cupsPerMachineDay} thresholds={f.thresholds} onPick={(m) => onMachine(m.key)} />
+          <Section
+            title={
+              drawn.length === charted.length
+                ? `Cups a day — ${filtered ? `the ${drawn.length} machines listed` : `all ${drawn.length} machines that sold`}`
+                : `Cups a day — the first ${drawn.length} of ${charted.length} machines that sold`
+            }
+            hint={drawn.length === charted.length ? "One bar per machine, coloured by its group. Tap a bar to open the machine." : `One bar per machine, coloured by its group. Press "All ${shown.length} machines" above to draw every one. Tap a bar to open the machine.`}
+          >
+            <RankedMachines machines={drawn} average={f.cupsPerMachineDay} thresholds={f.thresholds} onPick={(m) => onMachine(m.key)} beforeLabel={`vs ${before}`} />
           </Section>
         ) : null}
       </div>
 
       {notCounted.length > 0 ? (
         <details className="rounded-xl border border-edge bg-panel p-3">
-          <summary className="min-h-10 cursor-pointer text-sm font-semibold">Not counted · {notCounted.length}</summary>
+          <summary className="min-h-10 cursor-pointer text-sm font-semibold">
+            Left out of every figure · {notCounted.length} machine{notCounted.length === 1 ? "" : "s"}
+          </summary>
+          <p className="mt-1 text-xs text-mut">
+            Marked "{NOT_COUNTED}" — a test machine, or one not open to the public. Its cups are in no number on this page.
+          </p>
           <ul className="mt-2 space-y-1 text-sm">
             {notCounted.map((m) => (
               <li key={m.key} className="flex flex-wrap items-center justify-between gap-2">
@@ -515,7 +542,13 @@ function MachinesSection({
  * The machines as a table — one line each on a wide screen, a card each on a phone (DataTable). The name opens the
  * machine's own page.
  */
-function machineColumns(onMachine: (key: string) => void, canCorrect: boolean, onCorrect: (m: MachinePerf) => void): Column<MachinePerf>[] {
+function machineColumns(
+  onMachine: (key: string) => void,
+  canCorrect: boolean,
+  onCorrect: (m: MachinePerf) => void,
+  before: string,
+  keyMachines: number,
+): Column<MachinePerf>[] {
   return [
     {
       head: "Machine",
@@ -532,25 +565,34 @@ function machineColumns(onMachine: (key: string) => void, canCorrect: boolean, o
               {m.corrected ? <span title={`Televend: ${m.televendRegion ?? "no region"}`}> (corrected)</span> : null}
             </span>
             {m.cardOnly ? <Pill tone="mut">Card only</Pill> : null}
-            {m.inTop80 ? <Pill tone="ok">In the 80 %</Pill> : null}
+            {m.inTop80 ? (
+              <span title={`One of the ${keyMachines} machines that together sell 80 % of the cups`}>
+                <Pill tone="ok">{KEY_MACHINE}</Pill>
+              </span>
+            ) : null}
             {m.disabledNow ? <Pill tone="warn">Off in Televend now</Pill> : null}
           </div>
         </div>
       ),
     },
-    { head: "Tier", cell: (m) => <TierBadge tier={m.tier} />, tight: true },
+    { head: "Group", cell: (m) => <TierBadge tier={m.tier} />, tight: true },
     { head: "Cups a day", cell: (m) => <span className="whitespace-nowrap tabular-nums">{m.cupsPerDay === null ? "—" : n1(m.cupsPerDay)}</span>, tight: true },
-    { head: "Of average", cell: (m) => <span className="whitespace-nowrap tabular-nums">{m.vsAverage === null ? "—" : `${Math.round(m.vsAverage * 100)} %`}</span>, tight: true },
-    { head: "Against before", cell: (m) => <span className="whitespace-nowrap"><Change pct={m.changePct} /></span>, tight: true },
-    { head: "Income (est.)", cell: (m) => <span className="whitespace-nowrap tabular-nums">{aedRound(m.incomeFils)}</span>, tight: true },
-    { head: "Cash", cell: (m) => <span className="whitespace-nowrap tabular-nums">{m.cashShare === null ? "—" : `${n1(m.cashShare)} %`}</span>, tight: true },
+    { head: "vs average", cell: (m) => <span className="whitespace-nowrap tabular-nums">{vsAverageText(m.vsAverage)}</span>, tight: true },
+    { head: `vs ${before}`, cell: (m) => <span className="whitespace-nowrap"><Change pct={m.changePct} /></span>, tight: true },
+    { head: "Income (estimate)", cell: (m) => <span className="whitespace-nowrap tabular-nums">{aedRound(m.incomeFils)}</span>, tight: true },
+    { head: "Paid in cash", cell: (m) => <span className="whitespace-nowrap tabular-nums">{m.cashShare === null ? "—" : `${n1(m.cashShare)} %`}</span>, tight: true },
     ...(canCorrect
       ? [
           {
             head: "",
             cell: (m: MachinePerf) => (
-              <button onClick={() => onCorrect(m)} className="min-h-8 whitespace-nowrap rounded-md border border-edge px-2 text-xs hover:border-link">
-                Change category
+              <button
+                onClick={() => onCorrect(m)}
+                aria-label={`Change the category of ${m.label}`}
+                title="Change the category it is counted under"
+                className="min-h-8 whitespace-nowrap rounded-md px-2 text-xs text-mut hover:bg-sunken hover:text-ink"
+              >
+                ✎ Category
               </button>
             ),
           },
@@ -566,17 +608,20 @@ function CategoriesView({ perf, onCategory }: { perf: Performance; onCategory: (
   return (
     <div className="space-y-4">
       <div className="grid gap-4 xl:grid-cols-2">
-        <Section title="Cups per machine a day — these days against the days before" hint="Per machine that sold, so a category of many machines and one of a few compare fairly. Tap a bar to open the category.">
+        <Section
+          title={`Cups per machine a day — these days against ${beforeWords(perf.before.shiftDays)}`}
+          hint="Per machine, so a category with many machines and one with a few compare fairly. The solid line is the average machine. Tap a bar to open the category."
+        >
           <PairBars
             rows={rows.map((c) => ({ key: c.category, name: c.selling === 1 ? `${c.category} (1 machine)` : c.category, a: c.cupsPerMachineDay, b: c.before.cupsPerMachineDay }))}
-            names={{ a: "These days", b: "The same days before" }}
+            names={{ a: "These days", b: beforeWords(perf.before.shiftDays).replace(/^the /, "The ") }}
             colors={{ a: ACCENT, b: BASE }}
             unit="cups per machine a day"
-            reference={f.cupsPerMachineDay !== null ? { value: f.cupsPerMachineDay, label: `average ${n1(f.cupsPerMachineDay)}` } : null}
+            reference={f.cupsPerMachineDay !== null ? { value: f.cupsPerMachineDay, label: `average machine ${n1(f.cupsPerMachineDay)}` } : null}
             onPick={onCategory}
           />
         </Section>
-        <Section title="Share of all the cups" hint="Where the volume comes from. Tap a bar to open the category.">
+        <Section title="Share of all the cups" hint="Where the cups come from: each category's part of all cups sold. Tap a bar to open the category.">
           <ValueBars rows={perf.categories.map((c) => ({ key: c.category, name: c.category, value: c.share }))} unit="% of the cups" format={(n) => `${n1(n)} %`} onPick={onCategory} />
         </Section>
       </div>
@@ -593,12 +638,16 @@ function CategoriesView({ perf, onCategory }: { perf: Performance; onCategory: (
                 <span className="text-xs text-mut">cups per machine a day</span>
               </div>
               <div className="text-xs">
-                <Change pct={c.changePct} /> <span className="text-mut">{c.compare ? `cups a day: ${n1(c.compare.now)} against ${n1(c.compare.before)}` : "on the same days before"}</span>
+                <Change pct={c.changePct} />{" "}
+                <span className="text-mut">
+                  cups a day vs {beforeWords(perf.before.shiftDays)}
+                  {c.compare ? ` (${n1(c.compare.now)}, was ${n1(c.compare.before)})` : ""}
+                </span>
               </div>
               <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
-                <Fig label="Machines" value={`${c.selling} sold of ${c.machines}`} />
+                <Fig label="Machines" value={`${c.selling} of ${c.machines} sold`} />
                 <Fig label="Share of cups" value={`${n1(c.share)} %`} />
-                <Fig label="Income (est.)" value={aedRound(c.incomeFils)} />
+                <Fig label="Income (estimate)" value={aedRound(c.incomeFils)} />
                 <Fig label="Paid in cash" value={c.cashShare === null ? "—" : `${n1(c.cashShare)} %`} />
               </dl>
               {c.best ? (
@@ -616,12 +665,15 @@ function CategoriesView({ perf, onCategory }: { perf: Performance; onCategory: (
               ) : null}
               {c.noSales > 0 ? <p className="text-xs text-crit">{c.noSales} sold nothing</p> : null}
               {perf.period.days >= 3 ? (
-                <DailyComparison
-                  compact
-                  points={c.daily.map((x) => ({ date: x.date, now: x.cupsPerMachine, before: x.before }))}
-                  names={{ now: "These days", before: `${perf.before.shiftDays} days earlier` }}
-                  unit="cups per machine"
-                />
+                <div>
+                  <p className="text-[11px] text-mut">Cups per machine each day — blue these days, gray the same weekday {earlierWords(perf.before.shiftDays)}</p>
+                  <DailyComparison
+                    compact
+                    points={c.daily.map((x) => ({ date: x.date, now: x.cupsPerMachine, before: x.before }))}
+                    names={{ now: "These days", before: beforeWords(perf.before.shiftDays).replace(/^the /, "The ") }}
+                    unit="cups per machine"
+                  />
+                </div>
               ) : null}
             </button>
           </li>

@@ -3,6 +3,7 @@ import { Icon } from "../components/icons";
 import { Empty, Spinner } from "../components/ui";
 import { MoverBars, PairBars, TwoLines } from "../components/charts/analytics-charts";
 import {
+  PAYMENT_HELP,
   PAYMENT_WORDS,
   addDays,
   aedPrice,
@@ -332,19 +333,19 @@ export function ComparePage({
             <SideKey side="B" color={B} label={sideName(shown, shown.b)} />
           </div>
           <InsightList insights={shown.insights} title="In short" />
-          <Section title="Side by side" hint="B against A. A % compares the totals, never rounded rates.">
+          <Section title="Side by side" hint="The last column is B minus A — and, in brackets, how much B is above or below A in %.">
             <CompareTable rows={shown.rows} a={sideName(shown, shown.a)} b={sideName(shown, shown.b)} />
           </Section>
           <div className="grid gap-4 xl:grid-cols-2">
-            <Section title="Hours of the day" hint="Cups at each hour, per day read.">
+            <Section title="Hours of the day — when people buy" hint="Average cups sold in each hour of a day.">
               <TwoLines axis="hour" points={shown.hours.map((h) => ({ x: h.hour, a: h.a, b: h.b }))} names={{ a: `A · ${sideName(shown, shown.a)}`, b: `B · ${sideName(shown, shown.b)}` }} colors={{ a: A, b: B }} unit="cups a day" />
             </Section>
             {shown.days ? (
-              <Section title="Each day" hint="Cups each day over the same days; a day not read is a gap.">
+              <Section title="Each day" hint="Cups each day; a day without sales data is left blank, never drawn as zero.">
                 <TwoLines axis="day" points={shown.days.map((d) => ({ x: d.date, a: d.a, b: d.b }))} names={{ a: `A · ${sideName(shown, shown.a)}`, b: `B · ${sideName(shown, shown.b)}` }} colors={{ a: A, b: B }} unit="cups" />
               </Section>
             ) : null}
-            <Section title="How people paid" hint="Share of the cups.">
+            <Section title="How people paid" hint={`Share of the cups paid each way. ${PAYMENT_HELP}`}>
               <PairBars
                 rows={shown.payments.filter((x) => (x.a ?? 0) > 0 || (x.b ?? 0) > 0).map((x) => ({ key: x.kind, name: PAYMENT_WORDS[x.kind], a: x.a, b: x.b }))}
                 names={{ a: "A", b: "B" }}
@@ -360,7 +361,7 @@ export function ComparePage({
             ) : null}
           </div>
           {shown.movers && shown.movers.length > 0 ? (
-            <Section title="The machines that moved most" hint="Cups a day, B against A: up to five each way. Tap a bar to open the machine.">
+            <Section title="The machines that changed most" hint="Change in cups a day from A to B — up to five that rose (right) and five that fell (left). Tap a bar to open the machine.">
               <MoverBars rows={shown.movers} names={{ a: "A", b: "B" }} onPick={onMachine} />
             </Section>
           ) : null}
@@ -389,7 +390,7 @@ function CompareTable({ rows, a, b }: { rows: CompareRow[]; a: string; b: string
               <span aria-hidden="true" className="mr-1 inline-block size-2.5 rounded-sm" style={{ background: B }} />B · {b}
             </th>
             <th scope="col" className="px-2 py-1.5 font-semibold">
-              B against A
+              Change (B − A)
             </th>
           </tr>
         </thead>
@@ -408,7 +409,7 @@ function CompareTable({ rows, a, b }: { rows: CompareRow[]; a: string; b: string
                   {d === null
                     ? "—"
                     : r.unit === "pct"
-                      ? `${d > 0 ? "+" : d < 0 ? "−" : "±"}${n1(Math.abs(d))} points`
+                      ? `${d > 0 ? "+" : d < 0 ? "−" : "±"}${n1(Math.abs(d))} percentage points`
                       : `${d > 0 ? "+" : d < 0 ? "−" : "±"}${r.unit === "fils" ? (r.id === "avg_price" ? aedPrice(Math.abs(d)) : aedRound(Math.abs(d))) : n1(Math.abs(d))}${r.diffPct !== null ? ` (${signedPct(r.diffPct)})` : ""}`}
                 </td>
               </tr>

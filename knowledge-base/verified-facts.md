@@ -982,3 +982,34 @@ synthetic machines, 33,717 sales, 42 days, 15 Oct not read on purpose. Not the l
 ## VF97 (2026-10-24) — The analytics routes answer in under 0.1 s on that data [verified — curl, local, synthetic]
 performance 0.03–0.04 s, profile 0.04–0.05 s (28 days), compare 0.02 s (two days) to 0.08 s (two 14-day periods), measured while the
 test suite ran. The live mirror's size (≈100 records, 208 days) was not timed.
+
+## VF98 (2026-10-24) — The Overview's headline figures equal plain SQL over the store [verified — psql, synthetic data]
+17–23 Oct, the machine marked "Not counted" (9124) left out: 5,414 cups, cash 9.1 %, Fri 23 Oct 828 cups, Fri 16 Oct 855 — the same
+as the page. The machine left out: 633 cups. Checked before and after the wording change; no figure moved.
+
+## VF99 (2026-10-24) — The reworded Analytics screens pass 48 browser checks [verified — Playwright, this container, synthetic data]
+The 38 checks of VF96 plus 10 for the follow-up (guide, named missing day, counting line, group buttons, chart title, the category
+page's table, the machine page's words, no jargon left on the Overview): 48/48, both themes, 390 px, no console errors.
+
+## VF100 (2026-10-24) — TASK-086's tests pass, and the rest of the suite is as before [verified — vitest, this container]
+29 warehouse tests (24 core, 5 API) and the semantic layer's 4 pass. The whole suite on the final code: 1,273 passed, 5 skipped,
+8 failed — the 8 real-model tests that need a provider this container cannot reach (G224), as before this task.
+
+## VF101 (2026-10-24) — The warehouse screens pass 41 browser checks [verified — Playwright, this container, the local API]
+As the demo CEO on a clean sandbox: a supplier added; a delivery expected and seen at the door; the free Delivery in pointing to
+it; 8 of 10 cartons received with 150.5 kg against a 180 kg note — held to 144 kg, not light (D285); the backorder and lots; a
+return capped at what came, sent back; a rule (least 10, most 30, packs of 5) suggesting 25 cartons for 6 on hand + 2 coming; the
+draft; all four reports and the CSV; Movements and the day sheet; 1440 px and 390 px; no console errors.
+
+## VF102 (2026-10-24) — Odoo 19 rounds a reorder past its Max to the next whole pack [verified — odoo/documentation PR #14853, merged 13 Nov 2025]
+"Odoo now selects the multiple that exceeds the defined Max quantity, rather than stopping below it (as in v18)"; multiples are
+defined with packagings; the example: Max 20, a pack of 3 → 7 packs, 21 units. Source: https://github.com/odoo/documentation/pull/14853
+
+## VF103 (2026-10-24) — Odoo's backorder prompt [believed — third-party guides and the Odoo forum, not Odoo's own pages]
+Validating a receipt with less than its demand asks: Create Backorder (this receipt done, a new one Ready for the rest) or No
+Backorder (closed as it is; for products that will never come).
+
+## VF104 (2026-10-24) — Catch-weight systems set the weight tolerance per unit [believed — search results only]
+Dynamics 365 sets a minimum and maximum weight per catch-weight unit, so the total allowed grows with the units received (a
+guide's example: 500 boxes nominally 2,500 kg accepted between 2,475 and 2,525 kg). learn.microsoft.com and the guide did not open
+from this container (DNS); the same idea as D285, not its source.

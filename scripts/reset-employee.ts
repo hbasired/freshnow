@@ -210,13 +210,23 @@ for (const t of targets) {
          where d.created_by = ${id} or d.confirm_by = ${id} or d.answered_by = ${id} or d.settled_by = ${id}
             or lf.employee_id = ${id} or lt.employee_id = ${id} or d.count_session_id = any(${sessions}::uuid[])`
     ).map((r) => r.id);
-    if (docs.length > 0) await tx`select inv_purge_docs(${docs}::uuid[])`;
+    // Warehouse documents (TASK-086) they made or moved on, with what those posted — in the same one purge (0042's
+    // wh_purge_orders takes these stock documents too, so the balances are rebuilt once from what remains).
+    const orders = (
+      await tx<{ id: string }[]>`
+        select id from wh_order where created_by = ${id} or ready_by = ${id} or done_by = ${id} or cancelled_by = ${id}`
+    ).map((r) => r.id);
+    if (orders.length > 0 || docs.length > 0) await tx`select wh_purge_orders(${orders}::uuid[], ${docs}::uuid[])`;
     await tx`set local freshnow.ledger_purge = 'on'`;
     await tx`delete from count_line where session_id = any(${sessions}::uuid[])`;
     await tx`delete from count_session where id = any(${sessions}::uuid[])`;
     await tx`delete from stock_balance where location_id in (select id from inv_location where employee_id = ${id})`;
+    await tx`delete from reorder_rule where location_id in (select id from inv_location where employee_id = ${id})`;
     await tx`delete from inv_location where employee_id = ${id}`;
     await tx`update inv_item set created_by = null where created_by = ${id}`;
+    await tx`update supplier set created_by = null where created_by = ${id}`;
+    await tx`update reorder_rule set created_by = null where created_by = ${id}`;
+    await tx`update reorder_rule set updated_by = null where updated_by = ${id}`;
   });
 
   // Cash (TASK-061): their shifts with every entry in them, through the ledger's purge (0035's

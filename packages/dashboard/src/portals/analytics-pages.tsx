@@ -1,20 +1,24 @@
 import { useEffect, useState } from "react";
 import { Icon } from "../components/icons";
-import { Empty, Pill, Spinner } from "../components/ui";
+import { DataTable, Empty, Pill, Spinner } from "../components/ui";
 import { ColumnBars, DailyComparison, PairBars, RankedMachines, TwoLines } from "../components/charts/analytics-charts";
 import {
+  KEY_MACHINE,
+  PAYMENT_HELP,
   PAYMENT_WORDS,
   aedPrice,
   aedRound,
   analytics,
+  beforeWords,
   dayLabel,
   hourLabel,
   n1,
+  vsAverageText,
   type MachinePerf,
   type SalesProfile,
 } from "../lib/analytics-api";
 import { Problem, errorText } from "./inv-ui";
-import { BackBar, Change, Coverage, Fig, InsightList, Section, TierBadge, Tile, scrollTo } from "./analytics-ui";
+import { BackBar, Change, Coverage, InsightList, Section, TierBadge, Tile, scrollTo } from "./analytics-ui";
 
 /**
  * The pages behind the Analytics buttons (TASK-075) — the user: "the machines and charts in the analytics page are small and
@@ -31,9 +35,13 @@ import { BackBar, Change, Coverage, Fig, InsightList, Section, TierBadge, Tile, 
 const ACCENT = "var(--color-mark-accent)";
 const BASE = "var(--color-mark-base)";
 const short = (d: string) => dayLabel(d).replace(/^(\w+) (\d+) \w+$/, "$1 $2");
+const ordinal = (n: number): string => {
+  const t = n % 100;
+  return `${n}${t >= 11 && t <= 13 ? "th" : n % 10 === 1 ? "st" : n % 10 === 2 ? "nd" : n % 10 === 3 ? "rd" : "th"}`;
+};
 
 /** Each day's % against the same weekday a week before, readable without hovering — the last 31 days of the range. */
-function DayChanges({ days }: { days: SalesProfile["days"] }) {
+export function DayChanges({ days }: { days: SalesProfile["days"] }) {
   const shown = days.slice(-31);
   return (
     <div className="mt-3">
@@ -44,7 +52,7 @@ function DayChanges({ days }: { days: SalesProfile["days"] }) {
         {shown.map((d) => (
           <li key={d.date} className="min-w-[4.75rem] shrink-0 rounded-lg border border-edge px-2 py-1 text-xs">
             <div className="text-mut">{short(d.date)}</div>
-            <div className="font-semibold tabular-nums">{d.cups === null ? "not read" : d.cups.toLocaleString("en-GB")}</div>
+            <div className="font-semibold tabular-nums">{d.cups === null ? "no data" : d.cups.toLocaleString("en-GB")}</div>
             <div>{d.cups === null ? <span className="text-mut">—</span> : <Change pct={d.changePct} />}</div>
           </li>
         ))}
@@ -57,6 +65,7 @@ function DayChanges({ days }: { days: SalesProfile["days"] }) {
 function ProfileTiles({ p, idPrefix }: { p: SalesProfile; idPrefix: string }) {
   const t = p.totals;
   const cash = p.payments.find((x) => x.kind === "cash")!;
+  const vs = `vs ${beforeWords(p.before.shiftDays)}`;
   return (
     <section aria-label="Key figures" className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
       <Tile
@@ -64,7 +73,7 @@ function ProfileTiles({ p, idPrefix }: { p: SalesProfile; idPrefix: string }) {
         value={t.cupsPerDay === null ? "—" : n1(t.cupsPerDay)}
         line={
           <>
-            <Change pct={t.compare?.changePct ?? null} /> <span className="text-mut">on the same days before</span>
+            <Change pct={t.compare?.changePct ?? null} /> <span className="text-mut">{vs}</span>
           </>
         }
         onOpen={() => scrollTo(`${idPrefix}-days`)}
@@ -76,28 +85,28 @@ function ProfileTiles({ p, idPrefix }: { p: SalesProfile; idPrefix: string }) {
         line={
           t.lastDay ? (
             <>
-              <Change pct={t.lastDay.changePct} /> <span className="text-mut">on {dayLabel(t.lastDay.lastWeek.date)}</span>
+              <Change pct={t.lastDay.changePct} /> <span className="text-mut">vs {dayLabel(t.lastDay.lastWeek.date)}</span>
             </>
           ) : (
-            <span className="text-mut">no day read</span>
+            <span className="text-mut">no day with data</span>
           )
         }
         onOpen={() => scrollTo(`${idPrefix}-days`)}
         opens="each day against the same weekday a week before"
       />
       <Tile
-        label="Income a day (est.)"
+        label="Income a day (estimate)"
         value={t.incomePerDayFils === null ? "—" : aedRound(t.incomePerDayFils)}
         line={
           <>
-            <Change pct={t.incomeCompare?.changePct ?? null} /> <span className="text-mut">· {aedRound(t.incomeFils)} in all</span>
+            <Change pct={t.incomeCompare?.changePct ?? null} /> <span className="text-mut">{vs} · {aedRound(t.incomeFils)} in all</span>
           </>
         }
         onOpen={() => scrollTo(`${idPrefix}-income`)}
         opens="income each day"
       />
       <Tile
-        label="Per paid cup (est.)"
+        label="Per paid cup (estimate)"
         value={t.avgPriceFils === null ? "—" : aedPrice(t.avgPriceFils)}
         line={<span className="text-mut">income ÷ {t.paidCups.toLocaleString("en-GB")} paid cups</span>}
         onOpen={() => scrollTo(`${idPrefix}-income`)}
@@ -106,13 +115,13 @@ function ProfileTiles({ p, idPrefix }: { p: SalesProfile; idPrefix: string }) {
       <Tile
         label="Paid in cash"
         value={t.cashShare === null ? "—" : `${n1(t.cashShare)} %`}
-        line={<span className="text-mut">before {cash.beforeShare === null ? "—" : `${n1(cash.beforeShare)} %`}</span>}
+        line={<span className="text-mut">{cash.beforeShare === null ? "nothing to compare with" : `was ${n1(cash.beforeShare)} % ${beforeWords(p.before.shiftDays)}`}</span>}
         onOpen={() => scrollTo(`${idPrefix}-payments`)}
         opens="how people paid"
       />
       <Tile
         label="Busiest hour"
-        value={t.peak ? hourLabel(t.peak.hour) : "—"}
+        value={t.peak ? `${hourLabel(t.peak.hour)}–${hourLabel((t.peak.hour + 1) % 24)}` : "—"}
         line={<span className="text-mut">{t.peak ? `${n1(t.peak.share)} % of the cups` : "no sales"}</span>}
         onOpen={() => scrollTo(`${idPrefix}-hours`)}
         opens="the hours of the day"
@@ -129,33 +138,44 @@ export function ProfileSections({ p, idPrefix }: { p: SalesProfile; idPrefix: st
       <Section
         id={`${idPrefix}-days`}
         title="Cups each day — against the same weekday a week before"
-        hint="Blue: that day. Gray: the same weekday 7 days earlier. Hover a day for its % difference; a day not read is a gap, never a zero."
+        hint="Blue: each day. Gray: the same weekday a week earlier. The boxes under the chart give each day's change; a day without sales data is left blank, never drawn as zero."
       >
         <DailyComparison tall points={p.days.map((d) => ({ date: d.date, now: d.cups, before: d.lastWeek.cups, pct: d.changePct }))} names={{ now: "That day", before: "Same weekday a week before" }} unit="cups" />
         <DayChanges days={p.days} />
       </Section>
       <div className="grid gap-4 xl:grid-cols-2">
-        <Section id={`${idPrefix}-income`} title="Income each day, AED (estimated)" hint="Cash cups at the cash price, other paid cups at the price in the machine's name; token cups are not paid.">
+        <Section
+          id={`${idPrefix}-income`}
+          title="Income each day, AED (estimated)"
+          hint="Worked out from the cups sold: cash cups at the cash price, card cups at the price in the machine's name; token cups count as unpaid. Televend's own amounts will replace it."
+        >
           <ColumnBars
             points={p.days.map((d) => ({ key: d.date, label: short(d.date), value: d.incomeFils === null ? null : Math.round(d.incomeFils / 100) }))}
-            unit="AED (est.)"
+            unit="AED (estimate)"
             format={(n) => `AED ${Math.round(n).toLocaleString("en-GB")}`}
             axisFormat={(n) => (n >= 1000 ? `${n1(n / 1000)}k` : String(Math.round(n)))}
           />
         </Section>
-        <Section id={`${idPrefix}-hours`} title="Hours of the day" hint={`Cups at each hour, per day read — these days against the same days ${p.before.shiftDays} days earlier.`}>
-          <TwoLines axis="hour" emphasis points={p.hours.map((h) => ({ x: h.hour, a: h.now, b: h.before }))} names={{ a: "These days", b: `${p.before.shiftDays} days earlier` }} colors={{ a: ACCENT, b: BASE }} unit="cups a day" />
+        <Section id={`${idPrefix}-hours`} title="Hours of the day — when people buy" hint={`Average cups sold in each hour of a day. Blue: these days; gray: ${beforeWords(p.before.shiftDays)}.`}>
+          <TwoLines
+            axis="hour"
+            emphasis
+            points={p.hours.map((h) => ({ x: h.hour, a: h.now, b: h.before }))}
+            names={{ a: "These days", b: beforeWords(p.before.shiftDays).replace(/^the /, "The ") }}
+            colors={{ a: ACCENT, b: BASE }}
+            unit="cups in that hour, a day"
+          />
         </Section>
         {p.period.days >= 7 ? (
-          <Section id={`${idPrefix}-weekdays`} title="Days of the week" hint="Cups on an average day of each weekday in the period (only the days read).">
+          <Section id={`${idPrefix}-weekdays`} title="Days of the week — which days sell most" hint="Cups on an average Monday, Tuesday … of these days (days without sales data are left out).">
             <ColumnBars points={p.weekdays.map((w) => ({ key: String(w.dow), label: w.label, value: w.cupsPerDay }))} unit="cups a day" tableHead="Weekday" />
           </Section>
         ) : null}
-        <Section id={`${idPrefix}-payments`} title="How people paid" hint="Share of the cups — these days against the days before.">
+        <Section id={`${idPrefix}-payments`} title="How people paid" hint={`Share of the cups paid each way. Blue: these days; gray: ${beforeWords(p.before.shiftDays)}. ${PAYMENT_HELP}`}>
           {paid.length > 0 ? (
             <PairBars
               rows={paid.map((x) => ({ key: x.kind, name: PAYMENT_WORDS[x.kind], a: x.nowShare, b: x.beforeShare }))}
-              names={{ a: "These days", b: "Before" }}
+              names={{ a: "These days", b: beforeWords(p.before.shiftDays).replace(/^the /, "The ") }}
               colors={{ a: ACCENT, b: BASE }}
               unit="% of cups"
               format={(n) => `${n1(n)} %`}
@@ -256,14 +276,19 @@ export function MachinePage({
           {m ? <TierBadge tier={m.tier} /> : null}
           {m && m.counted && m.vsAverage !== null ? (
             <span className="font-semibold">
-              {Math.round(m.vsAverage * 100)} % of the fleet average
+              {vsAverageText(m.vsAverage)} vs the average machine
               <span className="font-normal text-mut"> ({perf.fleet.cupsPerMachineDay === null ? "—" : n1(perf.fleet.cupsPerMachineDay)} cups a day)</span>
             </span>
           ) : null}
-          {m?.rank ? <span className="text-mut">#{m.rank} of {perf.fleet.selling} that sold</span> : null}
+          {m?.rank ? (
+            <span className="text-mut">
+              sells the {m.rank === 1 ? "" : `${ordinal(m.rank)} `}most of the {perf.fleet.selling} machines that sold
+            </span>
+          ) : null}
+          {m?.inTop80 ? <Pill tone="ok">{KEY_MACHINE}</Pill> : null}
           {m?.cardOnly ? <Pill tone="mut">Card only</Pill> : null}
           {m?.disabledNow ? <Pill tone="warn">Off in Televend now</Pill> : null}
-          {m && !m.counted ? <Pill tone="warn">Not counted in the fleet's figures</Pill> : null}
+          {m && !m.counted ? <Pill tone="warn">Left out of every figure (Not counted)</Pill> : null}
         </div>
       </header>
       <Coverage {...p.coverage} before={p.before} />
@@ -325,7 +350,7 @@ export function CategoryPage({
           {c ? (
             <>
               {c.selling} of {c.machines} machines sold · {n1(c.share)} % of all cups ·{" "}
-              <span className="font-semibold text-ink">{c.cupsPerMachineDay === null ? "—" : n1(c.cupsPerMachineDay)} cups per machine a day</span> (the fleet:{" "}
+              <span className="font-semibold text-ink">{c.cupsPerMachineDay === null ? "—" : n1(c.cupsPerMachineDay)} cups per machine a day</span> (the average machine:{" "}
               {perf.fleet.cupsPerMachineDay === null ? "—" : n1(perf.fleet.cupsPerMachineDay)})
             </>
           ) : (
@@ -338,29 +363,38 @@ export function CategoryPage({
       <InsightList insights={p.insights} title="In short" />
       <ProfileSections p={p} idPrefix="category" />
       {perf.fleet.cupsPerMachineDay !== null && ms.some((m) => m.cups > 0) ? (
-        <Section title="Its machines against the fleet average" hint="Cups a day, one bar each. The line is the fleet average; dashed: 75 % and 125 % of it. Tap a bar to open the machine.">
-          <RankedMachines machines={ms} average={perf.fleet.cupsPerMachineDay} thresholds={perf.fleet.thresholds} onPick={(m) => onMachine(m.key)} />
+        <Section title="Its machines against the average machine" hint="Cups a day, one bar each, coloured by group. Tap a bar to open the machine.">
+          <RankedMachines
+            machines={ms}
+            average={perf.fleet.cupsPerMachineDay}
+            thresholds={perf.fleet.thresholds}
+            onPick={(m) => onMachine(m.key)}
+            beforeLabel={`vs ${beforeWords(perf.before.shiftDays)}`}
+          />
         </Section>
       ) : null}
-      <Section title={`Machines · ${ms.length}`}>
-        {ms.length === 0 ? <Empty>No machine of this category in these days.</Empty> : null}
-        <ul className="divide-y divide-edge">
-          {ms.map((m) => (
-            <li key={m.key} className="flex flex-wrap items-center justify-between gap-2 py-2">
-              <button onClick={() => onMachine(m.key)} className="min-h-10 min-w-0 text-left font-semibold text-link hover:underline">
-                {m.rank ? <span className="mr-1 text-mut">#{m.rank}</span> : null}
-                {m.label}
-                {m.assetNo ? <span className="font-normal text-mut"> · {m.assetNo}</span> : null}
-              </button>
-              <dl className="grid grid-cols-4 gap-x-4 text-sm">
-                <Fig label="Cups a day" value={m.cupsPerDay === null ? "—" : n1(m.cupsPerDay)} />
-                <Fig label="Tier" value={<TierBadge tier={m.tier} />} />
-                <Fig label="Before" value={<Change pct={m.changePct} />} />
-                <Fig label="Income" value={aedRound(m.incomeFils)} />
-              </dl>
-            </li>
-          ))}
-        </ul>
+      <Section title={`Its machines · ${ms.length}`} hint="Tap a name to open the machine.">
+        <DataTable
+          rows={ms}
+          rowKey={(m) => m.key}
+          empty="No machine of this category in these days."
+          columns={[
+            {
+              head: "Machine",
+              cell: (m) => (
+                <button onClick={() => onMachine(m.key)} className="min-h-9 text-left font-semibold text-link hover:underline">
+                  {m.label}
+                  {m.assetNo ? <span className="font-normal text-mut"> · {m.assetNo}</span> : null}
+                </button>
+              ),
+            },
+            { head: "Group", cell: (m) => <TierBadge tier={m.tier} />, tight: true },
+            { head: "Cups a day", cell: (m) => <span className="tabular-nums">{m.cupsPerDay === null ? "—" : n1(m.cupsPerDay)}</span>, tight: true },
+            { head: "vs average", cell: (m) => <span className="tabular-nums">{vsAverageText(m.vsAverage)}</span>, tight: true },
+            { head: `vs ${beforeWords(perf.before.shiftDays)}`, cell: (m) => <Change pct={m.changePct} />, tight: true },
+            { head: "Income (estimate)", cell: (m) => <span className="tabular-nums">{aedRound(m.incomeFils)}</span>, tight: true },
+          ]}
+        />
       </Section>
     </div>
   );

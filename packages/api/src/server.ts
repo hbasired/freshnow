@@ -23,6 +23,7 @@ import { registerPeopleRoutes } from "./routes/people.js";
 import { registerMediaRoutes } from "./routes/media.js";
 import { registerOpsRoutes } from "./routes/ops.js";
 import { registerInventoryRoutes } from "./routes/inventory.js";
+import { registerWarehouseRoutes } from "./routes/warehouse.js";
 import { registerCashRoutes } from "./routes/cash.js";
 import { registerRouteRoutes } from "./routes/route.js";
 import { registerAnalyticsRoutes } from "./routes/analytics.js";
@@ -121,6 +122,7 @@ export function buildServer(logger = true): FastifyInstance {
   registerMediaRoutes(app);
   registerOpsRoutes(app);
   registerInventoryRoutes(app);
+  registerWarehouseRoutes(app);
   registerCashRoutes(app);
   registerRouteRoutes(app);
   registerAnalyticsRoutes(app);
