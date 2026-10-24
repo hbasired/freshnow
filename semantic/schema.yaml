@@ -1299,7 +1299,7 @@ tables:
       never changes; only its state moves forward. The amounts that actually moved are in stock_move.
     columns:
       id: Primary key — made by the phone or browser, so the same request sent twice posts once.
-      kind: receipt | handover | use | damage | count_adjustment | reversal.
+      kind: receipt | handover | use | damage | count_adjustment | reversal | supplier_return (stock sent back to a supplier, migration 0042).
       from_location_id: Where the stock comes from (the giver for a handover).
       to_location_id: Where it goes (the receiver for a handover).
       state: posted | reversed (most kinds); waiting | accepted | part_accepted | settled | refused | cancelled (a handover).
@@ -1313,10 +1313,10 @@ tables:
       settled_by: The approver who settled what was still in transit.
       settled_at: When.
       settle_note: The approver's words.
-      reason: Why — used (machine_refill, cleaning, shift_use, repair, other), damaged (spoiled, broken, expired, sorting_waste, other), reversed (entered_by_mistake, wrong_quantity, wrong_item, duplicate, other).
+      reason: Why — used (machine_refill, cleaning, shift_use, repair, other), damaged (spoiled, broken, expired, sorting_waste, other), reversed (entered_by_mistake, wrong_quantity, wrong_item, duplicate, other), returned to a supplier (quality, wrong_item, excess, damaged_on_arrival, expired, other).
       note: Free words from the person who made it.
-      supplier: A delivery — the supplier, as on its paper.
-      invoice_no: A delivery — the invoice number.
+      supplier: A delivery or a return to a supplier — the supplier, as on its paper (a planned one copies supplier.name).
+      invoice_no: A delivery — the invoice or delivery-note number (a planned one copies wh_order.source_ref).
       machine_id: Stock put into a machine — which.
       reverses_doc_id: A reversal — the document it undoes.
       count_session_id: A count adjustment — the count it comes from.
@@ -1486,6 +1486,186 @@ tables:
       item_id:
         references: inv_item.id
         purpose: '"Which item?"'
+
+  supplier:
+    notes: >
+      Who delivers to the warehouse (migration 0042) — a company's name, a short code, how many days a delivery takes. No person's
+      phone or name is kept here. Deliveries and returns are in wh_order; what each supplier's deliveries were like is a question
+      over wh_order and wh_order_line, never a score of a person.
+    columns:
+      id: Primary key.
+      name: The supplier's name, unique (ignoring case).
+      code: A short code for labels and lot numbers, unique — FVC, AL-AWIR.
+      lead_days: How many days an order usually takes to arrive (0–60).
+      note: The company's own words about it.
+      active: FALSE once no longer used; its documents stay.
+      created_by: Who added it.
+      created_at: When.
+      updated_at: When it last changed.
+      is_synthetic: TRUE for demo/test rows.
+    foreign_keys:
+      created_by:
+        references: employee.id
+        purpose: '"Who added this supplier?"'
+
+  wh_number:
+    notes: The last number given to each kind of warehouse document in each year (migration 0042) — IN-2026-0007, RET-2026-0002. Bookkeeping only.
+    columns:
+      kind: receipt | supplier_return. Part of the primary key.
+      year: The calendar year in Dubai. Part of the primary key.
+      last: The last number given.
+
+  wh_order:
+    notes: >
+      A planned warehouse document (migration 0042, TASK-086): a receipt expected from a supplier, or a return to the supplier.
+      draft → ready → done | cancelled. While draft or ready it moves NO stock; when done it posts an ordinary stock_doc (kind
+      receipt or supplier_return) — stock_doc_id — so balances come only from the ledger. A receipt received short leaves a
+      backorder (a new receipt whose backorder_of points back) or is closed short. Never changed once done or cancelled.
+    columns:
+      id: Primary key — made by the phone or browser, so the same request sent twice creates once.
+      kind: receipt | supplier_return.
+      number: Its human reference, unique — IN-YYYY-NNNN for a receipt, RET-YYYY-NNNN for a return.
+      state: draft | ready | done | cancelled.
+      supplier_id: The supplier it comes from or goes back to.
+      scheduled_on: The Dubai day it is expected (a receipt) or planned (a return).
+      priority: normal | urgent.
+      source_ref: The supplier's paper — delivery note, order or invoice number.
+      vehicle: The truck's plate as written at the gate (a receipt). The plate only.
+      note: Free words from the person who made it.
+      reason: A return — quality | wrong_item | excess | damaged_on_arrival | expired | other.
+      backorder_of: A backorder — the receipt whose missing rest it expects.
+      return_of: A return — the received delivery it sends goods back from.
+      stock_doc_id: The ledger document posted when it was done (null until then).
+      closed_short: Done with less than expected and no backorder — the rest will not come.
+      created_by: Who made it.
+      created_at: When.
+      ready_by: Who marked it ready ("to do").
+      ready_at: When.
+      done_by: Who received it (or sent it back).
+      done_at: When — the time reports use for "received".
+      cancelled_by: Who cancelled it.
+      cancelled_at: When.
+      cancel_note: Why it was cancelled, in their words.
+      request_hash: Fingerprint of the request, to tell a repeat from a different request under the same id.
+      is_synthetic: TRUE for demo/test rows.
+      correlation_id: Joins it to its audit rows.
+    foreign_keys:
+      supplier_id:
+        references: supplier.id
+        purpose: '"Which supplier delivered this / receives this return?"'
+      backorder_of:
+        references: wh_order.id
+        purpose: '"Which receipt is this backorder the rest of?" — a self-join on wh_order.'
+      return_of:
+        references: wh_order.id
+        purpose: '"Which delivery is this return from?" — a self-join on wh_order.'
+      stock_doc_id:
+        references: stock_doc.id
+        purpose: '"Which stock document moved this document''s stock?"'
+      created_by:
+        references: employee.id
+        purpose: '"Who made this document?"'
+      ready_by:
+        references: employee.id
+        purpose: '"Who marked it ready?"'
+      done_by:
+        references: employee.id
+        purpose: '"Who received it, or sent it back?"'
+      cancelled_by:
+        references: employee.id
+        purpose: '"Who cancelled it?"'
+
+  wh_order_line:
+    notes: >
+      Each item of a warehouse document, once (migration 0042): what was expected (or is to go back) and what came (or went), in
+      the item's unit, and in kilograms stored as whole grams. Changed only while its document is a draft; what came is written once.
+    columns:
+      order_id: The document. Part of the primary key.
+      item_id: The item. Part of the primary key.
+      expected_qty: What is expected (a receipt) or to go back (a return), in the item's unit.
+      done_qty: What came (or went back) — set when the document is done.
+      expected_g: The delivery note's weight in grams (divide by 1000 for kg).
+      done_g: The weight on the scale at receiving, in grams.
+      variety: The variety on the carton (oranges).
+      best_before: The best-before day on the carton.
+      note: Free words about this line.
+    foreign_keys:
+      order_id:
+        references: wh_order.id
+        purpose: '"What is on this document?"'
+      item_id:
+        references: inv_item.id
+        purpose: '"Which item, in which unit?"'
+
+  inv_lot:
+    notes: >
+      A lot (migration 0042): every receipt line received, with its delivery, supplier, day, amount, kilograms (grams) and
+      best-before. Written once when the receipt is done; the start of lot tracking — following a lot through hand-outs and
+      machines is not recorded yet.
+    columns:
+      id: Primary key.
+      code: Its code, unique — the receipt's number and the line's place in it (IN-2026-0007-1).
+      item_id: The item.
+      supplier_id: Who delivered it.
+      order_id: The receipt it came in.
+      stock_doc_id: The ledger document that brought it into the warehouse.
+      received_on: The Dubai day it was received.
+      best_before: The best-before day on the carton.
+      variety: The variety on the carton.
+      qty: How much came, in the item's unit.
+      weight_g: Its weight on the scale, in grams.
+      created_at: When it was recorded.
+      is_synthetic: TRUE for demo/test rows.
+      correlation_id: Joins it to its audit rows.
+    foreign_keys:
+      item_id:
+        references: inv_item.id
+        purpose: '"Which item is this lot of?"'
+      supplier_id:
+        references: supplier.id
+        purpose: '"Which supplier did this lot come from?"'
+      order_id:
+        references: wh_order.id
+        purpose: '"Which receipt brought this lot?"'
+      stock_doc_id:
+        references: stock_doc.id
+        purpose: '"Which stock document moved this lot in?"'
+
+  reorder_rule:
+    notes: >
+      What to keep in stock (migration 0042): per item and place (the warehouse, or one person's own stock), a minimum and a
+      maximum, the pack to order in, the supplier. Only suggests: below the minimum (on hand + already coming), order up to the
+      maximum in whole packs. Nothing is ordered or handed out by a rule.
+    columns:
+      id: Primary key.
+      item_id: The item.
+      location_id: The warehouse, or a person's own place (inv_location).
+      min_qty: Below this, it suggests ordering.
+      max_qty: It suggests ordering up to this.
+      multiple: The pack size to order in (null — the item's step).
+      supplier_id: Whom the warehouse orders it from.
+      active: FALSE once no longer used.
+      created_by: Who set it.
+      created_at: When.
+      updated_by: Who last changed it.
+      updated_at: When.
+      is_synthetic: TRUE for demo/test rows.
+    foreign_keys:
+      item_id:
+        references: inv_item.id
+        purpose: '"Which item is this rule for?"'
+      location_id:
+        references: inv_location.id
+        purpose: '"Which place should keep it in stock?"'
+      supplier_id:
+        references: supplier.id
+        purpose: '"Whom is it ordered from?"'
+      created_by:
+        references: employee.id
+        purpose: '"Who set this rule?"'
+      updated_by:
+        references: employee.id
+        purpose: '"Who last changed it?"'
 
   cash_account:
     notes: >

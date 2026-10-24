@@ -263,6 +263,18 @@ export async function exportPersonData(p: { employeeId: string; requestedBy: str
        where d.created_by = ${id} or d.confirm_by = ${id} or d.answered_by = ${id} or d.settled_by = ${id}
           or lf.employee_id = ${id} or lt.employee_id = ${id}
        order by d.recorded_at desc limit ${MAX}`,
+    // Warehouse documents (TASK-086): the receipts and returns they made, readied, received or cancelled — with the words THEY
+    // typed (a document's note, why they cancelled one, their lines' notes).
+    warehouseDocuments: await sql`
+      select o.number, o.kind, o.state, s.name as supplier, o.created_at, o.done_at,
+             (select string_agg(i.name || ' ' || l.expected_qty::text || coalesce(' → ' || l.done_qty::text, '') || ' ' || i.unit
+                                || case when o.created_by = ${id} and l.note is not null then ' (' || l.note || ')' else '' end, ', ' order by i.sort_order)
+                from wh_order_line l join inv_item i on i.id = l.item_id where l.order_id = o.id) as lines,
+             case when o.created_by = ${id} then o.note end as your_note,
+             case when o.cancelled_by = ${id} then o.cancel_note end as your_cancel_note
+        from wh_order o join supplier s on s.id = o.supplier_id
+       where o.created_by = ${id} or o.ready_by = ${id} or o.done_by = ${id} or o.cancelled_by = ${id}
+       order by o.created_at desc limit ${MAX}`,
     // Cash (TASK-061): what they hold now (fils), their shifts with the auditor's check — the question to
     // them is theirs to see, as the notice says — and their answer, every entry in their shifts with the
     // words they typed, and the checks they made as an auditor, with their own words.

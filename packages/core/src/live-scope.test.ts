@@ -293,9 +293,9 @@ describe("the rules every doorbell keeps", () => {
         join pg_proc f on f.oid = t.tgfoid
        where ns.nspname = 'public' and f.proname = 'notify_change' and not t.tgisinternal
        group by c.relname order by c.relname`;
-    // 0027's nineteen, the stock documents and counts (0032), the cash documents and shifts (0035), and the
-    // route plans, their stops, visits and their proof (0036).
-    expect(rows).toHaveLength(27);
+    // 0027's nineteen, the stock documents and counts (0032), the cash documents and shifts (0035), the
+    // route plans, their stops, visits and their proof (0036), and the warehouse documents (0042).
+    expect(rows).toHaveLength(28);
     expect(rows.every((r) => r.n === 3)).toBe(true);
   });
 

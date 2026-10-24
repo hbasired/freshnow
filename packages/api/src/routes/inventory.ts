@@ -108,7 +108,7 @@ const Moves = z.object({
   to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   itemId: Uuid.optional(),
   personId: Uuid.optional(),
-  kind: z.enum(["receipt", "handover", "use", "damage", "count_adjustment", "reversal"]).optional(),
+  kind: z.enum(["receipt", "handover", "use", "damage", "count_adjustment", "reversal", "supplier_return"]).optional(),
   // The previous page's cursor: "<time to the microsecond>|<document id>" (a bare time still works).
   before: z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,6})?(Z|[+-]\d{2}:\d{2})(\|[0-9a-f-]{36})?$/i).optional(),
   limit: z.coerce.number().int().min(1).max(100).optional(),

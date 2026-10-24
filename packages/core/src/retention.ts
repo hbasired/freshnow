@@ -152,9 +152,24 @@ export async function retentionSweep(correlationId?: string): Promise<RetentionR
     update machine set category_note = ${REDACTED}
      where category_note is not null and not inv_is_redaction(category_note) and category_set_at < now() - make_interval(days => ${days})`;
   const routeWords = visitsAged.count + plansAged.count + stopsAged.count;
+  // The words on warehouse documents (TASK-086, 0042): a document's note, why it was cancelled, a line's note. The document —
+  // supplier, items, amounts, kilograms, lots — stays as the company's stock record.
+  const ordersAged = await sql`
+    update wh_order set
+      note = case when note is not null and not inv_is_redaction(note) and created_at < now() - make_interval(days => ${days})
+                  then ${REDACTED} else note end,
+      cancel_note = case when cancel_note is not null and not inv_is_redaction(cancel_note) and cancelled_at < now() - make_interval(days => ${days})
+                         then ${REDACTED} else cancel_note end
+     where (note is not null and not inv_is_redaction(note) and created_at < now() - make_interval(days => ${days}))
+        or (cancel_note is not null and not inv_is_redaction(cancel_note) and cancelled_at < now() - make_interval(days => ${days}))`;
+  const orderLinesAged = await sql`
+    update wh_order_line l set note = ${REDACTED}
+      from wh_order o
+     where o.id = l.order_id and l.note is not null and not inv_is_redaction(l.note) and o.created_at < now() - make_interval(days => ${days})`;
+  const warehouseWords = ordersAged.count + orderLinesAged.count;
   if (
     aged.length > 0 || tracesAged.count > 0 || emailsAged.count > 0 || voiceAged.count > 0 || stockAged.count > 0 || countsAged.count > 0 || cashWords > 0 ||
-    routeWords > 0 || categoryAged.count > 0
+    routeWords > 0 || categoryAged.count > 0 || warehouseWords > 0
   ) {
     await logAudit({
       correlationId,
@@ -173,6 +188,7 @@ export async function retentionSweep(correlationId?: string): Promise<RetentionR
         cash: cashWords,
         routes: routeWords,
         categories: categoryAged.count,
+        warehouse: warehouseWords,
       },
     });
   }
@@ -239,6 +255,11 @@ export async function eraseEmployee(p: {
   await sql`update stock_doc set answer_note = '[erased]' where answered_by = ${p.employeeId} and answer_note is not null and answer_note <> '[erased]'`;
   await sql`update stock_doc set settle_note = '[erased]' where settled_by = ${p.employeeId} and settle_note is not null and settle_note <> '[erased]'`;
   await sql`update count_session set decision_note = '[erased]' where decided_by = ${p.employeeId} and decision_note is not null and decision_note <> '[erased]'`;
+  // And on warehouse documents (0042): the notes on documents they made, why they cancelled one, their lines' notes.
+  await sql`update wh_order set note = '[erased]' where created_by = ${p.employeeId} and note is not null and note <> '[erased]'`;
+  await sql`update wh_order set cancel_note = '[erased]' where cancelled_by = ${p.employeeId} and cancel_note is not null and cancel_note <> '[erased]'`;
+  await sql`update wh_order_line l set note = '[erased]' from wh_order o
+             where o.id = l.order_id and o.created_by = ${p.employeeId} and l.note is not null and l.note <> '[erased]'`;
   await sql`update count_session set recount_waived_reason = '[erased]'
              where recount_waived_by = ${p.employeeId} and recount_waived_reason is not null and recount_waived_reason <> '[erased]'`;
 
