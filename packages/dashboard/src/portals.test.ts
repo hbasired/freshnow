@@ -1,6 +1,19 @@
 import { describe, expect, it } from "vitest";
 import { ACCESS_ROLES, capabilitiesOf } from "../../core/src/permissions";
-import { landingPortal, machineOfSub, machineSub, portalsFor, PORTALS, stickerOf } from "./portals";
+import {
+  analyticsCategoryOf,
+  analyticsCategorySub,
+  analyticsMachineOf,
+  analyticsMachineSub,
+  ANALYTICS_VIEWS,
+  decodePart,
+  landingPortal,
+  machineOfSub,
+  machineSub,
+  portalsFor,
+  PORTALS,
+  stickerOf,
+} from "./portals";
 
 /**
  * Each role sees the right portals (TASK-058) — worked out from the real permission table
@@ -62,5 +75,35 @@ describe("which portals a role sees", () => {
     it("every portal has an id, a label and a place in the picker", () => {
     expect(new Set(PORTALS.map((p) => p.id)).size).toBe(PORTALS.length);
     for (const p of PORTALS) expect(p.points.length).toBeGreaterThan(0);
+  });
+});
+
+describe("the Analytics portal's pages (TASK-075)", () => {
+  it("has an Overview, Categories, Trends and Compare", () => {
+    expect([...ANALYTICS_VIEWS]).toEqual(["machines", "categories", "trends", "compare"]);
+  });
+
+  it("opens a machine by FreshNow's id or by a Televend record FreshNow has no machine for — nothing else", () => {
+    const id = "3f2a1b4c-5d6e-4f70-8a9b-0c1d2e3f4a5b";
+    expect(analyticsMachineOf(analyticsMachineSub(id))).toBe(id);
+    expect(analyticsMachineOf(analyticsMachineSub(id.toUpperCase()))).toBe(id);
+    expect(analyticsMachineOf(analyticsMachineSub("tv:993001"))).toBe("tv:993001");
+    for (const bad of ["993001", "tv:", "tv:12a", "<script>", ""]) expect(analyticsMachineOf(analyticsMachineSub(bad))).toBeNull();
+    // The Operations machine page's sub is not an Analytics page.
+    expect(analyticsMachineOf(machineSub(312))).toBeNull();
+    expect(analyticsMachineOf(null)).toBeNull();
+  });
+
+  it("opens a category by its name — 1 to 60 characters, spaces tidied, slashes and all", () => {
+    expect(analyticsCategoryOf(analyticsCategorySub("Hospital / Clinics"))).toBe("Hospital / Clinics");
+    expect(analyticsCategoryOf(analyticsCategorySub("  Metro   stations "))).toBe("Metro stations");
+    expect(analyticsCategoryOf(analyticsCategorySub(""))).toBeNull();
+    expect(analyticsCategoryOf(analyticsCategorySub("x".repeat(61)))).toBeNull();
+    expect(analyticsCategoryOf("am:tv:1")).toBeNull();
+    // As the link carries it: encoded, so a "/" in the name never splits the hash.
+    const part = encodeURIComponent("Hospital / Clinics");
+    expect(part).not.toContain("/");
+    expect(decodePart(part)).toBe("Hospital / Clinics");
+    expect(decodePart("%E0%A4%A")).toBeNull();
   });
 });

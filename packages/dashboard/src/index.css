@@ -79,6 +79,13 @@
      lightness band, colour-blind separation (blue ↔ orange ΔE 26.8 dark / 24.7 light; orange ↔ gray 12.0 / 12.0,
      target ≥ 8), normal-vision floor (≥ 15) and contrast (≥ 3:1) all pass; the gray fails the chroma floor by design. */
   --color-mark-below: #d95926;
+  /* Two things side by side (TASK-075, the Compare page): A and B are peers, not "now against before", so they take two
+     categorical hues — the reference palette's slots 1 and 2, the same steps as the accent and the warm pole. Validated
+     2026-10-24 with the dataviz validator against the panel, as a pair: dark ΔE 30.0 colour-blind / 34.2 normal, light
+     27.5 / 38.9 (targets ≥ 8 and ≥ 15), lightness band, chroma and contrast pass. Never on the same chart as the tier
+     scale, where orange means "below the average". */
+  --color-series-a: #388bfd;
+  --color-series-b: #d95926;
   /* Hairline gridlines and the baseline — recessive, one step off the surface. */
   --color-grid: #2c323a;
 
@@ -150,6 +157,8 @@
   --color-mark-accent: #0550ae;
   --color-mark-base: #6e7781;
   --color-mark-below: #eb6834;
+  --color-series-a: #0550ae;
+  --color-series-b: #eb6834;
   --color-grid: #e1e4e8;
 
   /* The brand fills are mode-invariant: the same green is the same green on both pages,

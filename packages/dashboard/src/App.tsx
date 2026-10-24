@@ -31,7 +31,26 @@ import { Button, PersonPicker, TextArea, TextField, Toast, useAction } from "./c
 import { TaskDetailPanel } from "./components/task-detail";
 import { AlertsTab, ConsentGate, InboxBell, InstallApp } from "./components/alerts";
 import { useLiveUpdates } from "./lib/live";
-import { isAnalyticsView, isCashView, isInventoryView, isOperationsView, isPortalId, isRouteView, landingPortal, machineOfSub, machineSub, PORTALS, portalsFor, stickerOf, type PortalId } from "./portals";
+import {
+  analyticsCategoryOf,
+  analyticsCategorySub,
+  analyticsMachineOf,
+  analyticsMachineSub,
+  decodePart,
+  isAnalyticsView,
+  isCashView,
+  isInventoryView,
+  isOperationsView,
+  isPortalId,
+  isRouteView,
+  landingPortal,
+  machineOfSub,
+  machineSub,
+  PORTALS,
+  portalsFor,
+  stickerOf,
+  type PortalId,
+} from "./portals";
 import { PortalBoundary } from "./components/portal-boundary";
 import { ThemeToggle } from "./components/theme-toggle";
 import { Icon, type IconName } from "./components/icons";
@@ -158,7 +177,15 @@ function readHash(): { portal: Portal; tab: TabId; projectId: string | null; sub
   if (head === "inventory") return { portal: "inventory", tab: "today", projectId: null, sub: isInventoryView(rest) && rest !== "stock" ? rest : null };
   if (head === "cash") return { portal: "cash", tab: "today", projectId: null, sub: isCashView(rest) && rest !== "mine" ? rest : null };
   if (head === "route") return { portal: "route", tab: "today", projectId: null, sub: isRouteView(rest) && rest !== "today" ? rest : null };
-  if (head === "analytics") return { portal: "analytics", tab: "today", projectId: null, sub: isAnalyticsView(rest) && rest !== "machines" ? rest : null };
+  if (head === "analytics") {
+    // A machine or a category as its own page (TASK-075): #analytics/machine/<key>, #analytics/category/<name>.
+    const part = more ? decodePart(more) : null;
+    if (rest === "machine" && part !== null && analyticsMachineOf(analyticsMachineSub(part)) !== null)
+      return { portal: "analytics", tab: "today", projectId: null, sub: analyticsMachineSub(part) };
+    if (rest === "category" && part !== null && analyticsCategoryOf(analyticsCategorySub(part)) !== null)
+      return { portal: "analytics", tab: "today", projectId: null, sub: analyticsCategorySub(part) };
+    return { portal: "analytics", tab: "today", projectId: null, sub: isAnalyticsView(rest) && rest !== "machines" ? rest : null };
+  }
   if (head === "visit") return { portal: "route", tab: "today", projectId: null, sub: null };
   const tab = (head === "tasks" ? rest : head) as TabId;
   // The third part is a page's own filter — `#tasks/pending/blocked` — so a tile on the Overview
@@ -403,7 +430,11 @@ export default function App({
               : portal === "route"
                 ? `#route${isRouteView(sub) && sub !== "today" ? `/${sub}` : ""}`
                 : portal === "analytics"
-                  ? `#analytics${isAnalyticsView(sub) && sub !== "machines" ? `/${sub}` : ""}`
+                  ? analyticsMachineOf(sub) !== null
+                    ? `#analytics/machine/${encodeURIComponent(analyticsMachineOf(sub)!)}`
+                    : analyticsCategoryOf(sub) !== null
+                      ? `#analytics/category/${encodeURIComponent(analyticsCategoryOf(sub)!)}`
+                      : `#analytics${isAnalyticsView(sub) && sub !== "machines" ? `/${sub}` : ""}`
                   : `#tasks/${visibleTab}${sub ? `/${sub}` : ""}`;
     if (location.hash !== want) {
       if (synced.current && !replaceNext.current) history.pushState(null, "", want);
@@ -831,7 +862,16 @@ export default function App({
                   <AnalyticsPortal
                     viewer={viewer}
                     view={isAnalyticsView(sub) ? sub : "machines"}
+                    page={
+                      analyticsMachineOf(sub) !== null
+                        ? { kind: "machine", key: analyticsMachineOf(sub)! }
+                        : analyticsCategoryOf(sub) !== null
+                          ? { kind: "category", name: analyticsCategoryOf(sub)! }
+                          : null
+                    }
                     onView={(v) => setSub(v === "machines" ? null : v)}
+                    onMachine={(key) => setSub(analyticsMachineSub(key))}
+                    onCategory={(name) => setSub(analyticsCategorySub(name))}
                     liveTick={liveTick}
                     canCorrect={may("machines.manage")}
                   />

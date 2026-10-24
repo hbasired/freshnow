@@ -201,9 +201,36 @@ export function landingPortal(wanted: PortalId | null, capabilities: readonly st
 }
 
 /**
- * The Analytics portal's views (TASK-070): `#analytics` is Machines, `#analytics/categories` the categories. Whole days
- * only — today's picture is Operations → Now.
+ * The Analytics portal's views (TASK-070, TASK-075): `#analytics` is the Overview (the machines), `#analytics/categories`,
+ * `#analytics/trends` and `#analytics/compare`. Whole days only — today's picture is Operations → Now.
  */
-export const ANALYTICS_VIEWS = ["machines", "categories"] as const;
+export const ANALYTICS_VIEWS = ["machines", "categories", "trends", "compare"] as const;
 export type AnalyticsView = (typeof ANALYTICS_VIEWS)[number];
 export const isAnalyticsView = (x: unknown): x is AnalyticsView => (ANALYTICS_VIEWS as readonly unknown[]).includes(x);
+
+/**
+ * A machine as its own Analytics page (TASK-075), `#analytics/machine/<key>`: the key is FreshNow's machine id, or
+ * "tv:<record>" for a Televend record FreshNow has no machine for (MachinePerf.key). Anything else is not a page.
+ */
+export const analyticsMachineSub = (key: string): string => `am:${key}`;
+export function analyticsMachineOf(sub: string | null): string | null {
+  const m = /^am:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|tv:\d{1,15})$/i.exec(sub ?? "");
+  return m ? m[1]!.toLowerCase() : null;
+}
+
+/** A category as its own Analytics page, `#analytics/category/<name>` — a name is 1 to 60 characters (as a correction's). */
+export const analyticsCategorySub = (name: string): string => `ac:${name}`;
+export function analyticsCategoryOf(sub: string | null): string | null {
+  if (!sub?.startsWith("ac:")) return null;
+  const name = sub.slice(3).replace(/\s+/g, " ").trim();
+  return name.length >= 1 && name.length <= 60 ? name : null;
+}
+
+/** A hash part, decoded — or null when it is not valid percent-encoding (a hand-typed or cut link). */
+export function decodePart(part: string): string | null {
+  try {
+    return decodeURIComponent(part);
+  } catch {
+    return null;
+  }
+}

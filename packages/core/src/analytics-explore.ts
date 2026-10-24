@@ -454,7 +454,8 @@ export function profileInsights(p: Omit<SalesProfile, "insights">): Insight[] {
     const same = Math.abs(c) < 0.05;
     out.push({
       id: "last_day",
-      tone: same ? "info" : c > 0 ? "good" : "bad",
+      // Under 5 % either way is a day's noise, as for the trend: said, not coloured.
+      tone: Math.abs(c) < 5 ? "info" : c > 0 ? "good" : "bad",
       text: same
         ? `${dayWords(t.lastDay.date)}: ${n} cups, the same as ${dayWords(t.lastDay.lastWeek.date)}.`
         : `${dayWords(t.lastDay.date)}: ${n} cups, ${by} % ${c > 0 ? "more" : "fewer"} than ${dayWords(t.lastDay.lastWeek.date)}.`,
@@ -467,11 +468,13 @@ export function profileInsights(p: Omit<SalesProfile, "insights">): Insight[] {
     const by = fmt(Math.abs(c));
     const a = fmt(t.compare.now);
     const b = fmt(t.compare.before);
+    // When some days could not be compared, the sentence says on how many it rests (as the performance page's does).
+    const partial = t.compare.days < p.coverage.read.length;
     out.push({
       id: "trend",
       tone: Math.abs(c) < 5 ? "info" : c > 0 ? "good" : "bad",
-      text: `Cups a day ${c >= 0 ? "up" : "down"} ${by} % on the same days before: ${a} against ${b}.`,
-      numbers: [by, a, b],
+      text: `Cups a day ${c >= 0 ? "up" : "down"} ${by} % on the same days before: ${a} against ${b}${partial ? ` (the ${t.compare.days} days read in both)` : ""}.`,
+      numbers: [by, a, b, ...(partial ? [String(t.compare.days)] : [])],
       action: null,
     });
   }
