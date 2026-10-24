@@ -972,3 +972,13 @@ DS-2CD2043G2-I AED 420; DS-7608NXI-K2/8P recorder AED 505–759; Raspberry Pi AI
 ## VF95 (2026-10-23) — Option 1 demo video [verified — ffprobe]
 `docs/reports/media/option1-weigh-scan-load.mp4`: H.264, 1920×1080, 30 fps, 72.03 s, 2.95 MB, rendered frame by frame from the
 deck's demo slide (`?record#s12`), so the slide and the video show the same frames.
+
+## VF96 (2026-10-24) — The new Analytics screens work in a browser on synthetic data [verified — Playwright, this container]
+38/38 checks: category buttons recount (5,414 → 4,842 cups without Events), None / a combination / All, six tiles that open, a tier
+button's answer under it, Trends' five sections and each day's % written out, a category's and a machine's page and Back, the four
+compare modes and Swap, a link to "Hospital / Clinics", light and dark, 390 px with no sideways scroll, no console errors. Data: 24
+synthetic machines, 33,717 sales, 42 days, 15 Oct not read on purpose. Not the live mirror.
+
+## VF97 (2026-10-24) — The analytics routes answer in under 0.1 s on that data [verified — curl, local, synthetic]
+performance 0.03–0.04 s, profile 0.04–0.05 s (28 days), compare 0.02 s (two days) to 0.08 s (two 14-day periods), measured while the
+test suite ran. The live mirror's size (≈100 records, 208 days) was not timed.

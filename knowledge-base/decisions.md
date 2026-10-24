@@ -2123,3 +2123,36 @@ browser/shell; needs CopilotKit Intelligence) conflicts with "no model decides w
 The plan reserves 070–084 (074 = alarms that clear themselves, 075 = the business analytics portal). The orange proposal — first
 TASK-070, then TASK-074 — is TASK-085, and its assumptions A-T74.x are A-T85.x. The Analytics improvements asked for on 23 Oct are
 TASK-075, the plan's own number for that work.
+
+## D271 — Choosing categories recounts everything for them, against their own average (TASK-075) [decided — the user's words, 23 Oct]
+"Unselect … expo … the full analysis is shown … without including expo": with a choice, the average, the tiers, the ranks, the
+80 % set, the categories and the sentences are all of the chosen categories' machines; `selection.available` still lists every
+category for the buttons. An empty choice counts nothing — never every category by accident. The choice travels as one JSON array of
+names, because a category's name is free text and no separator is safe.
+
+## D272 — "Last week same day" is always the same weekday 7 days back, for every day (TASK-075) [decided]
+Each day of a profile stands beside the same weekday a week earlier with the % difference, whatever the range; the period's own
+change still compares the same weekdays whole weeks earlier, over the days read on both sides (D257). Day-over-day is offered only as
+an explicit choice on Compare ("yesterday vs the day before").
+
+## D273 — Profiles and comparisons share the performance page's SQL for what a machine is (TASK-075) [verified — 23 TASK-070 tests unchanged, 19 new]
+`machineInfo` (record now, number, name, category, set price, live) and `namePrice` are one fragment; `attributedHours` credits an
+hour to the machine its day is credited to. A machine is the same machine, in the same category, at the same price, on every page.
+
+## D274 — A comparison's differences are worked out by the server from exact totals (TASK-075) [verified — tests]
+B − A and (B − A) ÷ A come from unrounded totals: 16 against 21.33 cups a day is +33.3 % (not the 33.1 % of the rounded 21.3); a
+cash move from exact shares is −20.3 points (not the −20.4 of 43.8 and 23.4). The page draws; it does no arithmetic.
+
+## D275 — A and B wear two peer hues; signed changes one neutral hue (TASK-075) [verified — the dataviz validator]
+`--color-series-a` / `--color-series-b` (blue/orange, the reference palette's slots 1 and 2): dark ΔE 30.0 colour-blind / 34.2 normal,
+light 27.5 / 38.9 against the panel. Never on a chart with the tier scale. The machines that moved are one gray, the sign said by
+direction and label. Now-against-before stays the accent/gray emphasis pair.
+
+## D276 — A machine and a category are pages with their own links (TASK-075) [verified — routing tests, browser]
+`#analytics/machine/<FreshNow id | tv:<record>>`, `#analytics/category/<name, encoded>` — a "/" in "Hospital / Clinics" never splits
+the hash; Back works through them. Also `#analytics/trends` and `#analytics/compare`.
+
+## D277 — The answer sits right under the button that asks for it (TASK-075) [decided — the user: "the answer is below the charts"]
+One filter row above everything it scopes (days, then categories); the sentences directly under the key figures; under the tier
+buttons the table of the machines first (a card each on a phone), the chart of the same machines after it — a table beside the chart
+squeezed the names onto four lines (G228).

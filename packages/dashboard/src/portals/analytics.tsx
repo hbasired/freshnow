@@ -48,7 +48,7 @@ const VIEW_LABEL: Record<AnalyticsView, string> = { machines: "Overview", catego
 const TIERS: Tier[] = ["top", "average", "below", "no_sales"];
 const ACCENT = "var(--color-mark-accent)";
 const BASE = "var(--color-mark-base)";
-/** How many machines the list and the chart show before "Show all". */
+/** How many machines the list and the chart show before "All". UNVERIFIED: enough for a first look (A-T75.3). */
 const FIRST = 15;
 
 export type AnalyticsPage = { kind: "machine"; key: string } | { kind: "category"; name: string } | null;

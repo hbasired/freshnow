@@ -1,3 +1,24 @@
+# Session status — 2026-10-24 (cloud session, TASK-075 — Analytics: category buttons, pages, Compare)
+
+- **TASK-075 is built and pushed** on `claude/lucid-babbage-duy1uz` in two builds (`3201cde` server, `fc7ca49` screens) plus this
+  write-up. Analytics now has a button per category (unpress Expo and everything is counted again without it), key figures that open
+  their page, the short sentences right under them, the tier buttons' answer right under the buttons, a page for each machine and each
+  category, Trends with each day's % against the same weekday a week before, and Compare: two days, two periods, two machines or two
+  categories. Write-up: `docs/tasks/TASK-075-analytics-buttons-pages-compare.html`.
+- **To try it on the laptop** (PowerShell, in the project folder; Docker and Supabase running):
+  `git checkout main` → `git pull --no-rebase --no-edit origin claude/lucid-babbage-duy1uz` → `pnpm install` → `pnpm migrate` →
+  `pnpm build:web` → restart `pnpm start:api`, `pnpm start:worker`, `pnpm start:bot` → open `http://localhost:3001/app/#analytics`.
+- **Pull request #11** (`rescue-2` → `main`, the 20 Oct build) is mergeable and waits for your click. TASK-075's commits are not in it;
+  they can go to `main` in a pull request of their own when you want one.
+- Tests: typecheck clean; whole suite 1,242 passed, 5 skipped, and the 8 real-model tests failed only because this container cannot
+  reach the providers (G224). Browser: 38/38 checks on synthetic data, both themes and a phone width, no console errors (VF96).
+- Not verified: the pages on the live mirror's real data, real use by the Ops Head, a real phone. Not built yet from the plan's 075:
+  refills, stock-outs, alarms and cash over the whole history; the Operations "Now" redesign; "the query behind each number".
+- Still waiting on you: make the repository private, and reply "clean main" if the data folders should be removed from `main`'s
+  history (G217).
+
+---
+
 # Session status — 2026-10-23 (cloud session, TASK-085 — first numbered TASK-070, then TASK-074; the plan of 19 Oct keeps 070–084 for its own tasks)
 
 - **Proposal deck for the warehouse and orange tracking:** `docs/reports/warehouse-traceability-deck.html` — 36 slides, opens

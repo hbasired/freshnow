@@ -513,6 +513,13 @@ Routing goes to the **CEO only** for now (company routing data not yet supplied)
   hidden figures (D259), alarms (D260), roles that lead people (D261), media uploads (D262); migrations 0039–0041. The second pass
   found 24 more: 23 fixed, 1 FreshNow's choice (A-T61.14). G212–G214, G216; A-T61.13, A-T61.14. Each task page has its section.
 
+- **T75 — Analytics: category buttons, pages behind the buttons, Compare** (2026-10-23/24, the plan's 075, first part): no
+  migration. A button per category recounts every figure (D271); tiles that open; sentences under the figures; the tier buttons'
+  answer under them (D277); each day against the same weekday a week before with its % (D272); a page per machine and per category
+  (D276); Compare — two days, periods, machines or categories, differences from exact totals (D274), two peer hues (D275); the SQL for
+  what a machine is shared (D273). A-T75.1–3; VF96, VF97; G225–G228.
+  -> `docs/tasks/TASK-075-analytics-buttons-pages-compare.html`
+
 - **T85 Orange traceability and warehouse proposal (document + prototype, no platform code)** (2026-10-23): a 36-slide deck
   — the orange's eight handoffs, a double-entry weight ledger, six capture options (recommended: weigh at the tailgate, D265),
   the theft window and how small a theft a re-weigh catches, computer vision where it pays, the employee-phone option, REST not MCP

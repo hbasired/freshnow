@@ -442,3 +442,13 @@ Placeholders so the design can be discussed. Confirm/refute: management sets eac
 
 ## A-T85.5 — SIRA rules: licensed installer, approved devices, 31-day retention, 4 MP minimum [assumed — installers' guides only]
 Confirm/refute: SIRA's own published requirements or a SIRA-licensed installer's written statement before buying cameras.
+
+## A-T75.1 — A day's change under 5 % is noise: said, not coloured [assumed — the trend sentence's rule reused]
+Confirm/refute: ask the Ops Head which day-to-same-weekday move they would act on.
+
+## A-T75.2 — Wallet and "other" payments are paid at the card price [assumed — extends A-T70.3]
+The income estimate counts every paid cup that is not cash at the price in the machine's name. Confirm/refute: Televend's amounts
+(API key) or FreshNow's price list per payment type.
+
+## A-T75.3 — The first 15 machines, then "All", is enough for a first look [assumed]
+Confirm/refute: watch the Ops Head use the Overview; raise it if they press "All" every time.

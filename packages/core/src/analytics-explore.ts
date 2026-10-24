@@ -171,7 +171,10 @@ const add = (t: Sales, s: Sales): void => {
   t.token += s.token;
   t.other += s.other;
 };
-/** Estimated: cash cups × the cash price + the other paid cups × the card price; token cups are not paid (A-T70.1, A-T70.3). */
+/**
+ * Estimated: cash cups × the cash price + the other paid cups × the card price; token cups are not paid (A-T70.1, A-T70.3).
+ * UNVERIFIED: wallet and "other" cups are paid at the card price (A-T75.2) until Televend's amounts arrive.
+ */
 const incomeOf = (s: Sales, f: Facts): number => s.cash * f.cashFils + (s.cups - s.cash - s.token) * f.cardFils;
 const isoWeekday = (d: string): number => ((new Date(`${d}T00:00:00Z`).getUTCDay() + 6) % 7) + 1;
 /** "Thu 23 Oct" — the words a sentence names a day with. */
@@ -454,7 +457,7 @@ export function profileInsights(p: Omit<SalesProfile, "insights">): Insight[] {
     const same = Math.abs(c) < 0.05;
     out.push({
       id: "last_day",
-      // Under 5 % either way is a day's noise, as for the trend: said, not coloured.
+      // Under 5 % either way is a day's noise, as for the trend: said, not coloured. UNVERIFIED: FreshNow's own line (A-T75.1).
       tone: Math.abs(c) < 5 ? "info" : c > 0 ? "good" : "bad",
       text: same
         ? `${dayWords(t.lastDay.date)}: ${n} cups, the same as ${dayWords(t.lastDay.lastWeek.date)}.`

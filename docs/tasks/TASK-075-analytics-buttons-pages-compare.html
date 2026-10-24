@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TASK-075 — Analytics: category buttons, pages behind the buttons, Compare</title>
+<style>
+  :root{--bg:#0d1117;--fg:#e6edf3;--mut:#8b949e;--acc:#3fb950;--warn:#d29922;--bad:#f85149;--card:#161b22;--bd:#30363d}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;max-width:980px;padding:48px 24px;margin-inline:auto}
+  h1{font-size:1.9rem;margin:0 0 4px} h2{margin-top:2.5rem;color:var(--acc);font-size:1.25rem} h3{font-size:1.05rem;margin-top:1.6rem}
+  .meta{color:var(--mut);font-size:.9rem;margin-bottom:2rem}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:18px;margin:14px 0}
+  .unverified{border-left:3px solid var(--warn)} .ok{border-left:3px solid var(--acc)} .bad{border-left:3px solid var(--bad)}
+  code{background:#1f2630;padding:2px 6px;border-radius:4px;font-size:.9em}
+  .tw{overflow-x:auto} table{border-collapse:collapse;width:100%;margin:14px 0}
+  th,td{border:1px solid var(--bd);padding:7px 9px;text-align:left;font-size:.88rem;vertical-align:top} th{background:#1f2630}
+  ul{padding-left:1.1rem} li{margin:3px 0} a{color:#88c0f0}
+  @media (max-width:600px){body{padding:28px 16px}}
+</style></head><body>
+<h1>TASK-075 — Analytics: category buttons, pages behind the buttons, Compare</h1>
+<p class="meta">2026-10-23/24 · the plan of 19 Oct's TASK-075 ("the business analytics portal"), first part, shaped by the user's
+words of 23 Oct · no migration · core <code>analytics.ts</code> (category choice, shared machine facts), new
+<code>analytics-explore.ts</code> (profiles, comparisons) · API <code>routes/analytics.ts</code> (<code>/profile</code>,
+<code>/compare</code>) · dashboard <code>portals/analytics.tsx</code>, new <code>analytics-ui.tsx</code>,
+<code>analytics-pages.tsx</code>, <code>analytics-compare.tsx</code>, <code>components/charts/analytics-charts.tsx</code>,
+<code>lib/analytics-api.ts</code>, <code>portals.ts</code>, <code>App.tsx</code>, <code>index.css</code> · no new dependency ·
+branch <code>claude/lucid-babbage-duy1uz</code>, pushed in two builds (<code>3201cde</code> server, <code>fc7ca49</code> screens)</p>
+
+<div class="card ok"><b>One-sentence summary:</b> the Analytics portal now has a button for every category — unpress Expo and
+every figure, chart and sentence is counted again without it — key figures that open their page, short sentences placed right
+under them, the tier buttons' answer directly under the buttons, a full page for each machine and each category, a Trends page
+with each day's % against the same weekday a week before, and a Compare page with four clear buttons (two days, two periods, two
+machines, two categories) whose differences the server works out from exact totals.</div>
+
+<h2>What was asked</h2>
+<ul>
+  <li>"in the analytics can we add buttons and exploration linked with it for all the categories because when one category like expo
+  needs to be removed then I can unselect the button and the full analysis is shown instantly there itself without including expo,
+  and also if I want only some combinations … I can do that as well with the selection and unselection of buttons."</li>
+  <li>"the position of the graph and analysis is not at all good, if I select something then the horizontal bar chart should also
+  change … and when a button is clicked then the answer is below the charts … please check the structure and positioning of the
+  analysis."</li>
+  <li>"the buttons are static you need to make them working and also the machines and charts in the analytics page are small and not
+  complete can you make them buttons and then it opens new page and the graphs and other analysis are shown visually and with
+  charts."</li>
+  <li>"last week same day percentage difference should also be mentioned and also there should be a comparison page where I can select
+  two dates, or two machines, or two categories and there complete analysis with visualizations and charts. The charts should be
+  interactive and dynamic and easily understandable by looking at them."</li>
+  <li>"we can do even better job with the category wise aggregation … key indication regarding the finances and sales and critical
+  numbers … Dont give long text or something just provide key insights and key indications in short and direct manner."</li>
+  <li>Later the same day: "proceed with the analytics tab improvements as per the specifications and clear comparision buttons with
+  choosable options … if anything can be implemented and improved proceed with it", and on 24 Oct: push after each build and give
+  the commands to pull and start.</li>
+  <li>The plan of 19 Oct's row 075 (R0.3, R0.5, R12.1–12.3, R15.1–15.7): key indicators with their change, insight cards, actions,
+  charts with clear legends and a tested palette, any day or range. This task delivers the parts the user named on 23 Oct; the rest
+  is listed under "Not built here".</li>
+</ul>
+
+<h2>What was done</h2>
+<div class="tw"><table>
+<tr><th>Layer</th><th>What</th></tr>
+<tr><td>Core — category choice</td><td><code>machinePerformance(viewer, range, now, { categories })</code>: with a choice, "the fleet"
+is the chosen categories' machines — the average, the tiers, the ranks, the 80 % set, the categories and the sentences all follow;
+<code>selection.available</code> still lists every category with its machines, so the buttons show the ones left out.
+<code>checkCategories</code> tidies the names (as a correction does) and refuses a name over 60 characters or more than 100 names.
+An empty choice counts nothing — never "every category" by accident. The best-category sentence says "the chosen categories'"
+average instead of "the fleet's".</td></tr>
+<tr><td>Core — one machine, one meaning</td><td>The chain that says what a machine is (its Televend record now, number, name,
+category, set price, live) became one SQL fragment, <code>machineInfo</code>, with <code>namePrice</code> for the "AED 12" in a name;
+<code>attributedHours</code> credits each hour (<code>sales_hour</code>) to the machine its day is credited to. The performance page
+and the new profiles read the same fragment, so a machine is in the same category at the same price on every page.</td></tr>
+<tr><td>Core — profiles</td><td><code>salesProfile(viewer, range, scope)</code> for the categories chosen, one category or one machine
+(by FreshNow's id or any of its Televend records): each day beside the same weekday a week before with the % difference, a day not
+read empty (never zero); totals — cups, cups a day, machines that sold, per machine a day, income, income a day, paid cups, income
+per paid cup, cash share; the change of cups and of income against the same days before (paired days only); the last day against
+the same weekday a week before; the busiest hour and its share; the best and the weakest day; the hours (per day read, now and
+before); the weekdays; the payment mix now and before; short sentences, each with its figures listed.</td></tr>
+<tr><td>Core — comparisons</td><td><code>compareSales(viewer, request)</code>: two days or two periods (over the categories chosen),
+two machines or two categories (over the same days). Rows of figures with B − A and the % — worked out from the exact totals, never
+from rounded rates; hours A and B; days A and B (same days); payment shares; for two days or periods each category's cups a day
+and the machines that moved most (five each way); short sentences. The same machine twice (one Televend record and FreshNow's id of
+it) or the same category twice is refused in words.</td></tr>
+<tr><td>API</td><td><code>GET /dashboard/analytics/performance?…&amp;categories=[…]</code> (a JSON array of names — a category's
+name is free text, so no separator is safe), <code>GET /dashboard/analytics/profile?scope=selection|category|machine</code>,
+<code>GET /dashboard/analytics/compare?mode=days|periods|machines|categories</code>; Zod checks the shape, core checks who and what;
+an unknown machine is 404, a malformed list 400, a driver 403.</td></tr>
+<tr><td>Dashboard — the shell</td><td>One filter row above everything it scopes: the days (presets, a range up to yesterday), then
+the category buttons (All, None, one per category with its machines; pressed = counted). Tapping several quickly counts once (250 ms
+settle); while it counts, the last render stays on screen, dimmed — no blank flash. Tabs: Overview, Categories, Trends,
+Compare.</td></tr>
+<tr><td>Dashboard — Overview</td><td>Six key figures, each a button that opens its page: Cups sold (and its change), Last day (against
+the same weekday a week before), Income (a day, per paid cup), Paid in cash, Machines that sold, Per machine a day. The short
+sentences right under them (the urgent first, "All N" for the rest). Each day against the same weekday a week before. Then the tier
+buttons, and directly under them the answer: a table of the machines (a card each on a phone) — the name opens the machine's page —
+and the chart of the same machines after it.</td></tr>
+<tr><td>Dashboard — Categories</td><td>Cups per machine a day, these days against the same days before, with the average line; the
+share of all the cups; a card per category that opens its page.</td></tr>
+<tr><td>Dashboard — Trends, Machine, Category</td><td>Six figures that scroll to their chart; the sentences; each day against the same
+weekday a week before (taller), and each day's % written out under it; income each day; hours of the day; days of the week (7 days or
+more); how people paid. A machine's page adds its tier, its % of the fleet average and its rank, "Open in Operations" and "Compare with
+another machine"; a category's page its machines against the fleet average and a list that opens each.</td></tr>
+<tr><td>Dashboard — Compare</td><td>Four large buttons with a line each; pickers and quick choices ("Yesterday vs the same day last
+week", "Yesterday vs the day before", "Last 7 / 14 / 28 days vs the ones before"); Swap A and B; the answer as soon as both sides are
+chosen — the sentences, a side-by-side table (A, B, B against A), hours, days, payments, categories, the machines that moved
+most.</td></tr>
+<tr><td>Charts</td><td><code>PairBars</code>, <code>ColumnBars</code>, <code>TwoLines</code>, <code>MoverBars</code>, a "Show as a
+table" twin for each; the daily chart's tooltip says the % against the same weekday. A and B wear two new tokens,
+<code>--color-series-a</code> / <code>--color-series-b</code>.</td></tr>
+<tr><td>Routing</td><td><code>#analytics/trends</code>, <code>#analytics/compare</code>, <code>#analytics/machine/&lt;key&gt;</code>,
+<code>#analytics/category/&lt;name&gt;</code> (encoded, so "Hospital / Clinics" never splits the hash); Back works through them.</td></tr>
+</table></div>
+
+<h2>Why it was done this way</h2>
+<ul>
+  <li><b>The server recounts on a category choice, the page does not add.</b> Unpressing Expo changes the average, so every tier,
+  rank and sentence must be worked out again over the remaining machines — the same rule TASK-070 set: every figure counted by Postgres
+  and fixed code, the page only draws. A round trip is under 0.1 s here, and the page holds its last render while it counts.</li>
+  <li><b>"Last week same day" is always 7 days back, per day.</b> The user asked for it by name, and weekday patterns make "the day
+  before" a misleading comparison (research below). The period's own change still compares whole weeks earlier, over pairs read on
+  both sides.</li>
+  <li><b>Differences from exact totals.</b> 16 against 21.33 cups a day is +33.3 %; from the rounded 21.3 it would be +33.1 %. The
+  test fixture makes both visible, and the cash move too (−20.3 points, not the −20.4 of the rounded shares).</li>
+  <li><b>The answer right under the button.</b> The machines' list used to sit below a chart over 2,000 px tall; now the table is the
+  first thing under the tier buttons, the chart follows and shows the same machines. A table beside the chart was tried at desktop
+  width and squeezed the names into four lines; it got the full width.</li>
+  <li><b>Pages, not panels.</b> The user asked for new pages; each is a link, so it can be sent, bookmarked and gone Back to.</li>
+  <li><b>Two peer hues for A and B.</b> A and B are not "now against before", so they cannot be the accent-and-gray emphasis pair;
+  the blue/orange pair was validated against the panel in both themes. The machines that moved are one neutral hue, so the sign is
+  said by direction and label, never by A's or B's colour.</li>
+  <li><b>No new dependency.</b> Recharts was already in the dashboard (TASK-058/070).</li>
+</ul>
+
+<h2>How it works</h2>
+<ol>
+  <li>The page sends the days and the categories chosen (a JSON array) to <code>/performance</code> and, for the Overview and Trends,
+  <code>/profile?scope=selection</code>.</li>
+  <li>Core checks the reader (<code>televend.read</code>), the range (whole days, up to yesterday, at most 92) and the names; Postgres
+  reads the days the store holds checked, credits each record's day and hours to FreshNow's machine through the placements, and
+  joins each machine's facts from <code>machineInfo</code> — all under the viewer's row security, read-only.</li>
+  <li>Fixed code adds up the scope's machines per day and over the period, pairs each day with the same weekday a week before, works
+  out the changes from the totals and fills the sentences, each with the figures it states.</li>
+  <li>A comparison builds two profiles and the rows of differences; the page draws the table and the charts.</li>
+</ol>
+
+<h2>Concepts and techniques</h2>
+<ul>
+  <li><b>Same-weekday comparison</b> — a day against the same weekday a week before cancels the weekday's own pattern; a period against
+  the same weekdays whole weeks earlier, over pairs read on both sides only.</li>
+  <li><b>Scope</b> — one profile function for the categories chosen, a category or a machine, so every page has the same charts and
+  the same meaning of a number.</li>
+  <li><b>Settled input</b> — several taps count once (250 ms); "refetch keeps the frame" — no skeleton, no jump.</li>
+  <li><b>Numeric gate in tests</b> — every figure in a sentence must be in its own list (names and dates of the month aside, thousands
+  separators understood).</li>
+  <li><b>Emphasis pair vs peer pair</b> — accent/gray for now against before; two validated hues for A against B; one hue and direction
+  for signed changes; every chart has a table twin.</li>
+</ul>
+
+<h2>Research findings</h2>
+<ul>
+  <li>Vending dashboards in use show total revenue, transaction counts, average transaction value, hourly peaks and per-machine payment
+  breakdowns (<a href="https://www.fiverr.com/sameeranalytic7/build-custom-power-bi-dashboard-for-vending-machine">a Power BI vending
+  offering</a>, <a href="https://help.365retailmarkets.com/hc/en-us/articles/34124715895831-Parlevel-Analytics-Vending-Financial-ROI-by-Machine-or-POS-Report">Parlevel's
+  ROI by machine</a>, <a href="https://apps.apple.com/mx/app/vendcell/id6677036994">VendCell</a>,
+  <a href="https://www.vendingtimes.com/news/sales-dashboard-and-summary-metrics-are-new-features-on-payranges-vending-app/">PayRange</a>)
+  — the figures added here (income per paid cup, busiest hour, payment mix per machine) match. No benchmark values were found.</li>
+  <li>Same-weekday comparisons are the common pattern where weekday seasonality is strong; day-over-day mainly for spotting anomalies
+  (<a href="https://forum.enterprisedna.co/t/assistance-with-sales-comparison-by-days-of-the-week/65498">Enterprise DNA forum</a>,
+  <a href="https://docs.oracle.com/en/industries/food-beverage/reporting-and-analytics/rarrg/c_sales_weekday_add.htm">Oracle's weekday
+  comparison report</a>, <a href="https://www.taskade.com/prompts/retail/daily-retail-dashboard">a retail dashboard template</a>). Compare
+  offers "yesterday vs the day before" as an explicit choice, not as the default.</li>
+  <li>Recharts: the newest notes found are 3.10.0 (Legend <code>position</code>/<code>offset</code>, XAxis <code>height="auto"</code>);
+  nothing changed for vertical grouped bars (<a href="https://newreleases.io/project/npm/recharts/release/3.10.0">3.10.0 notes</a>,
+  <a href="https://cdn.jsdelivr.net/npm/recharts@3.9.2/CHANGELOG.md">changelog</a>). The dashboard pins 3.10.1.</li>
+</ul>
+
+<h2>Verification</h2>
+<div class="tw"><table>
+<tr><th>Check</th><th>Result</th></tr>
+<tr><td>Core, new (<code>analytics-explore.test.ts</code>)</td><td>19 tests on a hand-worked fixture (the expected figures written in
+its header before the code ran): the choice recounts; tidy and refused names; days beside the same weekday with %; a day not read
+empty; income and paid cups; changes from totals; hours; weekdays; payments; best and weakest day; sentences with the numeric gate;
+category and machine scopes; four comparison modes; refusals. First run 18/19 — the one failure was the % from rounded rates,
+fixed; then a test of mine that expected the rounded cash move was corrected to the exact one.</td></tr>
+<tr><td>Core, TASK-070 (<code>analytics.test.ts</code>)</td><td>23/23 unchanged after the SQL was shared.</td></tr>
+<tr><td>API (<code>analytics.test.ts</code>)</td><td>6/6: the categories as a JSON array, 400 for a malformed list, the three profile
+scopes, 404 for an unknown machine, the four compare modes, 400 for the same machine twice, 403 for a driver.</td></tr>
+<tr><td>Routing (<code>portals.test.ts</code>)</td><td>9/9, three new: the views, machine keys, category names with a slash.</td></tr>
+<tr><td>Browser (Playwright, scratch script, synthetic data: 24 machines, 33,717 sales, 42 days, 15 Oct deliberately not read)</td>
+<td>38/38: the buttons for every category, unpress Events recounts (5,414 → 4,842 cups) and no Events machine is left, None, a
+combination, All restores; six tiles; the sentences under them; a tier button's answer; tiles open Trends with its five sections; each
+day's % written out; a category's page and link; a machine's page; Back; four compare buttons and each mode answers; Swap; "Compare with
+another machine" starts with A chosen; a link to "Hospital / Clinics"; light and dark; a 390 px phone with no sideways scroll on the
+Overview and Compare; no console errors.</td></tr>
+<tr><td>Speed (local, synthetic, while the test suite ran)</td><td>performance 0.03–0.04 s, profile 0.04–0.05 s (28 days), compare
+0.02 s (two days) – 0.08 s (two 14-day periods).</td></tr>
+<tr><td>Whole suite and typecheck</td><td>Typecheck clean; the dashboard builds. Whole suite on the final code, placeholder model
+keys: 115 files, <b>1,242 passed, 5 skipped, 8 failed</b> — the 8 are the tests that call a real model on purpose, which cannot reach
+the providers from this container (G224); the same 8 failed on the merged 20 Oct build before this task. 25 more tests pass than
+before it: the 19 core, 3 API and 3 routing tests above.</td></tr>
+</table></div>
+
+<h2>What we have not verified</h2>
+<div class="card unverified"><ul>
+  <li><b>Real data:</b> every screen was checked on synthetic machines and sales in this container. The live mirror (about 100 records,
+  208 days) was not read from here; how the pages look and how fast they answer on it is not known.</li>
+  <li><b>Real use:</b> nobody at FreshNow has used the new pages; whether the sentences and the layout answer the Ops Head's questions is
+  untested.</li>
+  <li><b>The thresholds:</b> "under 5 % is noise" for the last day's sentence (A-T75.1) and the first 15 machines before "All" are
+  defaults, not FreshNow's.</li>
+  <li><b>Income:</b> still an estimate from the prices (A-T70.1, A-T70.3), and wallet and other payments are counted at the card price
+  (A-T75.2).</li>
+  <li><b>Phones:</b> checked at 390 px in a headless browser, not on a real phone; long category names in the buttons were not tried.</li>
+  <li><b>Accessibility:</b> keyboard focus and screen-reader names were checked only where the browser script used them (buttons,
+  tabs, radios, labels); no screen reader was run.</li>
+  <li><b>Independent review:</b> not done for this task yet.</li>
+</ul></div>
+
+<h2>Not built here (the rest of the plan's 075)</h2>
+<ul>
+  <li>EDA of refills and stock-outs, alarms and cash over the whole history; the Operations "Now" page redesigned the same way.</li>
+  <li>"The query behind each number on demand" — the SQL is in core and every figure has its test, but the page does not show it yet.</li>
+  <li>Remembering the categories chosen between visits (today the choice lasts while the portal is open).</li>
+  <li>Comparing more than two at once.</li>
+</ul>
+
+<h2>Open questions for FreshNow</h2>
+<ul>
+  <li>Is a change of under 5 % on one day "about the same" for the Ops Head, or should a smaller move be coloured?</li>
+  <li>Should the category choice be remembered for each person (e.g. always without Expo)?</li>
+  <li>The earlier ones stand: a cup's price for cash, card and wallet; what a token sale is (A-T70.1, A-T70.3).</li>
+</ul>
+</body></html>

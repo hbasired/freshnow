@@ -1429,3 +1429,18 @@ settings from `pnpm-workspace.yaml` (camelCase), where the build-script approval
 Twelve need only *a* key configured (they stub `fetch`): run with `GROQ_API_KEY=test-key NVIDIA_API_KEY=test-key
 OPENROUTER_API_KEY=test-key`. Eight call a real model on purpose and fail where the providers are blocked (G218). On the merged
 20 Oct build: 1,216 passed with placeholder keys, those 8 failed, 6 skipped.
+
+## G225 — `pkill -f <pattern>` can kill the shell that runs it [verified 2026-10-24]
+The pattern is in the shell's own command line, so `pkill -f "packages/api/src/index.ts"` ended that command too (exit 144). Use a
+pattern that cannot match itself: `pgrep -f "api/src/index.[t]s"`, then `kill` those PIDs.
+
+## G226 — Full-page screenshots draw sticky bars in the middle of the page [verified 2026-10-24]
+The sidebar, the top bar and the phone's bottom menu are sticky; Playwright's `fullPage` capture paints them where the scroll was.
+Not a layout bug — check a viewport-sized screenshot before "fixing" it.
+
+## G227 — Playwright's `getByRole(…, { name: "All" })` also matches "Malls" [verified 2026-10-24]
+Names match as case-insensitive substrings by default. Use `{ name: "All", exact: true }` for short button names.
+
+## G228 — A seven-column table beside a chart is too narrow at desktop width [verified 2026-10-24 — screenshot]
+At 1440 px with the sidebar, a 3 : 2 split left the machine table ~700 px: names wrapped onto four lines and a button was clipped.
+The table got the full width; the chart follows it.
