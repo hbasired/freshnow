@@ -74,6 +74,50 @@ describe("the Analytics API", () => {
     expect((await call("GET", `/dashboard/analytics/machines/999999999/daily?from=${yesterday}&to=${yesterday}`, SUP)).statusCode).toBe(404);
   });
 
+  it("recomputes for the categories chosen, sent as a JSON array of names, and refuses a malformed list (TASK-075)", async () => {
+    const cats = encodeURIComponent(JSON.stringify([`${TAG} Malls`]));
+    const r = await call("GET", `/dashboard/analytics/performance?from=${yesterday}&to=${yesterday}&categories=${cats}`, SUP);
+    expect(r.statusCode).toBe(200);
+    const body = r.json() as { selection: { categories: string[] | null; available: { category: string }[] }; machines: { machineTvId: number }[] };
+    expect(body.selection.categories).toEqual([`${TAG} Malls`]);
+    expect(body.machines.find((m) => m.machineTvId === TV)).toBeTruthy();
+    const every = (await call("GET", `/dashboard/analytics/performance?from=${yesterday}&to=${yesterday}`, SUP)).json() as { selection: { categories: null } };
+    expect(every.selection.categories).toBeNull();
+    expect((await call("GET", `/dashboard/analytics/performance?from=${yesterday}&to=${yesterday}&categories=Malls`, SUP)).statusCode).toBe(400);
+    const long = encodeURIComponent(JSON.stringify(["x".repeat(61)]));
+    expect((await call("GET", `/dashboard/analytics/performance?from=${yesterday}&to=${yesterday}&categories=${long}`, SUP)).statusCode).toBe(400);
+  });
+
+  it("opens a profile — the categories chosen, a category, a machine — and says when a machine is not known", async () => {
+    const sel = await call("GET", `/dashboard/analytics/profile?scope=selection&from=${yesterday}&to=${yesterday}`, SUP);
+    expect(sel.statusCode).toBe(200);
+    expect(sel.json()).toMatchObject({ scope: { kind: "selection", label: "Every category" }, days: [{ date: yesterday }] });
+    const cat = await call("GET", `/dashboard/analytics/profile?scope=category&category=${encodeURIComponent(`${TAG} Malls`)}&from=${yesterday}&to=${yesterday}`, SUP);
+    expect(cat.json()).toMatchObject({ scope: { kind: "category", category: `${TAG} Malls`, machines: 1 } });
+    const one = await call("GET", `/dashboard/analytics/profile?scope=machine&machine=${MACHINE}&from=${yesterday}&to=${yesterday}`, SUP);
+    expect(one.json()).toMatchObject({ scope: { kind: "machine", machineTvId: TV, assetNo: ASSET } });
+    expect((await call("GET", `/dashboard/analytics/profile?scope=machine&machine=999999999&from=${yesterday}&to=${yesterday}`, SUP)).statusCode).toBe(404);
+    expect((await call("GET", `/dashboard/analytics/profile?scope=everything&from=${yesterday}&to=${yesterday}`, SUP)).statusCode).toBe(400);
+    expect((await call("GET", `/dashboard/analytics/profile?scope=selection&from=${yesterday}&to=${yesterday}`, VMO)).statusCode).toBe(403);
+  });
+
+  it("compares two days, two periods, two machines and two categories — and refuses the same one twice", async () => {
+    const weekAgo = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Dubai" }).format(new Date(Date.now() - 8 * 86_400_000));
+    const days = await call("GET", `/dashboard/analytics/compare?mode=days&a=${weekAgo}&b=${yesterday}`, SUP);
+    expect(days.statusCode).toBe(200);
+    expect(days.json()).toMatchObject({ mode: "days", rows: expect.arrayContaining([expect.objectContaining({ id: "cups" })]) });
+    const periods = await call("GET", `/dashboard/analytics/compare?mode=periods&aFrom=${weekAgo}&aTo=${weekAgo}&bFrom=${yesterday}&bTo=${yesterday}`, SUP);
+    expect(periods.json()).toMatchObject({ mode: "periods" });
+    const same = await call("GET", `/dashboard/analytics/compare?mode=machines&from=${yesterday}&to=${yesterday}&a=${TV}&b=${MACHINE}`, SUP);
+    expect(same.statusCode).toBe(400);
+    expect(same.json()).toMatchObject({ error: { code: "same_twice" } });
+    const cats = await call("GET", `/dashboard/analytics/compare?mode=categories&from=${yesterday}&to=${yesterday}&a=${encodeURIComponent(`${TAG} Malls`)}&b=Nowhere`, SUP);
+    expect(cats.statusCode).toBe(200);
+    expect((await call("GET", `/dashboard/analytics/compare?mode=machines&from=${yesterday}&to=${yesterday}&a=${TV}&b=999999999`, SUP)).statusCode).toBe(404);
+    expect((await call("GET", `/dashboard/analytics/compare?mode=weeks&a=${yesterday}&b=${yesterday}`, SUP)).statusCode).toBe(400);
+    expect((await call("GET", `/dashboard/analytics/compare?mode=days&a=${weekAgo}&b=${yesterday}`, VMO)).statusCode).toBe(403);
+  });
+
   it("lets the Ops Head correct a category and the Supervisor not", async () => {
     const sup = await call("PUT", `/dashboard/analytics/machines/${TV}/category`, SUP, { category: "Not counted" });
     expect(sup.statusCode).toBe(403);

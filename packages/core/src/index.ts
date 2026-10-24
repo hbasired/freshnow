@@ -274,10 +274,12 @@ export {
 export {
   AnalyticsRefused,
   BELOW_RATIO,
+  MAX_CATEGORIES,
   MAX_RANGE_DAYS,
   NOT_COUNTED,
   TOP_RATIO,
   categoryChoices,
+  checkCategories,
   checkRange,
   insightsOf,
   machineDaily,
@@ -290,6 +292,21 @@ export {
   type Performance,
   type Tier,
 } from "./analytics.js";
+export {
+  PAYMENT_KINDS,
+  compareInsights,
+  compareSales,
+  profileInsights,
+  salesProfile,
+  type CompareRequest,
+  type CompareRow,
+  type PaymentKind,
+  type ProfileDay,
+  type ProfileScope,
+  type ProfileTotals,
+  type SalesComparison,
+  type SalesProfile,
+} from "./analytics-explore.js";
 export {
   PAYMENT,
   STORE_DAYS_PER_RUN,

@@ -212,13 +212,31 @@ export interface Performance {
   machines: MachinePerf[];
   categories: CategoryPerf[];
   insights: Insight[];
+  /**
+   * The categories asked for — null for every category — and every category there is, so the buttons that choose can
+   * show the ones left out too (TASK-075). With a choice, every figure above is of the chosen categories' machines only:
+   * the average, the tiers, the ranks, the 80 % set and the sentences.
+   */
+  selection: { categories: string[] | null; available: { category: string; machines: number; selling: number }[] };
+}
+
+/** The most categories one request may name, and the longest name (a category is 1 to 60 characters). */
+export const MAX_CATEGORIES = 100;
+
+/** The categories asked for, tidied as a correction tidies a name; null = every category. Refused in words when malformed. */
+export function checkCategories(categories: readonly string[] | null | undefined): string[] | null {
+  if (categories === null || categories === undefined) return null;
+  if (categories.length > MAX_CATEGORIES) throw new AnalyticsRefused(`At most ${MAX_CATEGORIES} categories at a time.`, 400, "bad_category");
+  const tidy = categories.map((c) => c.replace(/\s+/g, " ").trim());
+  if (tidy.some((c) => c.length < 1 || c.length > 60)) throw new AnalyticsRefused("A category is 1 to 60 characters.", 400, "bad_category");
+  return [...new Set(tidy)].sort((a, b) => a.localeCompare(b));
 }
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
-const addDays = (d: string, n: number): string => new Date(Date.parse(`${d}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
+export const addDays = (d: string, n: number): string => new Date(Date.parse(`${d}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
 const daysBetween = (a: string, b: string): number => Math.round((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / 86_400_000);
-const r1 = (n: number): number => Math.round(n * 10) / 10;
-const pct = (part: number, whole: number): number | null => (whole > 0 ? r1((part / whole) * 100) : null);
+export const r1 = (n: number): number => Math.round(n * 10) / 10;
+export const pct = (part: number, whole: number): number | null => (whole > 0 ? r1((part / whole) * 100) : null);
 
 /**
  * Where a machine stands against the fleet average: its rate ÷ the average = cups × machines that sold ÷ all their cups (the days
@@ -233,7 +251,7 @@ export function standing(cups: number, selling: number, soldCups: number): { vsA
 }
 
 /** Now against before over `days` days each, from the two totals — the change is never worked out from rounded rates. */
-function compared(nowCups: number, beforeCups: number, days: number): Compared | null {
+export function compared(nowCups: number, beforeCups: number, days: number): Compared | null {
   if (days <= 0) return null;
   return { days, now: r1(nowCups / days), before: r1(beforeCups / days), changePct: beforeCups > 0 ? r1(((nowCups - beforeCups) / beforeCups) * 100) : null };
 }
@@ -254,12 +272,12 @@ export function checkRange(range: { from: string; to: string }, now: Date = new 
   return { from, to, days, shiftDays: 7 * Math.ceil(days / 7) };
 }
 
-function requireReader(viewer: Actor): void {
+export function requireReader(viewer: Actor): void {
   if (!can(viewer, "televend.read")) throw new AnalyticsRefused("Analytics is for the people who run the machines.", 403, "not_allowed");
 }
 
 /** Which of these days the store holds in full: its latest build is good and agrees with Televend's own count. */
-async function storeDays(sql: Tx, from: string, to: string): Promise<Map<string, boolean>> {
+export async function storeDays(sql: Tx, from: string, to: string): Promise<Map<string, boolean>> {
   const rows = await sql<{ day: string; covered: boolean }[]>`
     with runs as (
       select distinct on (day) day, status, agrees from analytics_run
@@ -280,21 +298,38 @@ async function storeDays(sql: Tx, from: string, to: string): Promise<Map<string,
  * its first sale (placements began with the first sync, the sales go back months) and its last one forward. A record
  * never placed counts for the machine with its number; one with no number stays itself ("tv:<id>").
  */
-const attributed = (sql: Tx, days: readonly string[]) => sql`
+const placements = (sql: Tx) => sql`
   pl as (
     select p.tv_machine_id, p.machine_id,
            case when p.valid_from = min(p.valid_from) over (partition by p.tv_machine_id) then '-infinity'::timestamptz else p.valid_from end as from_t,
            lead(p.valid_from) over (partition by p.tv_machine_id order by p.valid_from) as to_t
       from machine_placement p
-  ),
+  )`;
+export const attributed = (sql: Tx, days: readonly string[]) => sql`
+  ${placements(sql)},
   att as (
-    select s.day, s.machine_tv_id, s.cups, s.cash_cups, s.token_cups, s.last_sale_at,
+    select s.day, s.machine_tv_id, s.cups, s.cash_cups, s.cashless_cups, s.cashless3_cups, s.token_cups, s.wallet_cups, s.other_cups, s.last_sale_at,
            coalesce(pl.machine_id, (select m.id from tv_machine t join machine m on m.asset_no = t.asset_no where t.televend_id = s.machine_tv_id)) as machine_id
       from sales_day s
       left join pl on pl.tv_machine_id = s.machine_tv_id
                   and pl.from_t < ((s.day + 1)::timestamp at time zone 'Asia/Dubai')
                   and (pl.to_t is null or ((s.day + 1)::timestamp at time zone 'Asia/Dubai') <= pl.to_t)
      where s.day = any(${days}::date[])
+  )`;
+/**
+ * The same for each hour of those days (sales_hour, TASK-075): an hour's cups go to the machine its day's cups go to — the
+ * placement in force at the end of the day — so the hours of a machine always add up to its day.
+ */
+export const attributedHours = (sql: Tx, days: readonly string[]) => sql`
+  ${placements(sql)},
+  atth as (
+    select h.day, h.machine_tv_id, h.hour, h.cups,
+           coalesce(pl.machine_id, (select m.id from tv_machine t join machine m on m.asset_no = t.asset_no where t.televend_id = h.machine_tv_id)) as machine_id
+      from sales_hour h
+      left join pl on pl.tv_machine_id = h.machine_tv_id
+                  and pl.from_t < ((h.day + 1)::timestamp at time zone 'Asia/Dubai')
+                  and (pl.to_t is null or ((h.day + 1)::timestamp at time zone 'Asia/Dubai') <= pl.to_t)
+     where h.day = any(${days}::date[])
   )`;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -303,7 +338,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
  * A machine, named by FreshNow's id or by a Televend record (a record that moved between two machines stands for both;
  * the id says which). Refused in words when it is neither.
  */
-function machineRef(machine: string | number): { machineId: string } | { tvId: number } {
+export function machineRef(machine: string | number): { machineId: string } | { tvId: number } {
   if (typeof machine === "string" && UUID.test(machine)) return { machineId: machine.toLowerCase() };
   const n = typeof machine === "number" ? machine : /^\d{1,15}$/.test(machine) ? Number(machine) : NaN;
   if (!Number.isSafeInteger(n) || n <= 0) throw new AnalyticsRefused("No such machine.", 404, "no_machine");
@@ -321,12 +356,58 @@ const recordOfMachine = (sql: Tx, machineId: string) => sql`
    where m.id = ${machineId}`;
 
 /** The machine a Televend record stands for: its latest placement, open or closed, else the machine with its number. */
-const machineOfRecord = (sql: Tx, tvId: number) => sql`
+export const machineOfRecord = (sql: Tx, tvId: number) => sql`
   select t.televend_id, t.caption, t.asset_no as tv_asset_no, t.region_caption,
          coalesce((select p.machine_id from machine_placement p where p.tv_machine_id = t.televend_id
                     order by (p.valid_to is null) desc, p.valid_from desc limit 1),
                   (select m.id from machine m where m.asset_no = t.asset_no)) as machine_id
     from tv_machine t where t.televend_id = ${tvId}`;
+
+/**
+ * Each machine's facts now (TASK-070, shared since TASK-075): every machine with a sale in `att` (defined before it) and
+ * every machine live now — its Televend record now, number, name, category (FreshNow's correction, else Televend's
+ * region), set price and whether it is live. The performance and the profiles both read it, so a machine is the same
+ * machine, in the same category, at the same price, on every page.
+ */
+export const machineInfo = (sql: Tx) => sql`
+  -- Each Televend record's FreshNow machine now: its open placement, else its latest one — the machines sync closes a
+  -- placement made by hand for a record with no number, and the record still stands for that machine (review of the
+  -- fixes, 20 Oct) — else the machine with its number.
+  rec as (
+    select t.televend_id, t.enabled,
+           coalesce((select p.machine_id from machine_placement p where p.tv_machine_id = t.televend_id
+                      order by (p.valid_to is null) desc, p.valid_from desc limit 1),
+                    (select m.id from machine m where m.asset_no = t.asset_no)) as machine_id
+      from tv_machine t
+  ),
+  -- Every machine with a sale on a day read, and every machine live now (for "no sales").
+  keys as (
+    select distinct coalesce(a.machine_id::text, 'tv:' || a.machine_tv_id::text) as key, a.machine_id from att a
+    union
+    select coalesce(rec.machine_id::text, 'tv:' || rec.televend_id::text), rec.machine_id from rec where rec.enabled
+  ),
+  rep as (
+    select k.key, k.machine_id,
+           coalesce((select p.tv_machine_id from machine_placement p where p.machine_id = k.machine_id
+                      order by (p.valid_to is null) desc, p.valid_from desc limit 1),
+                    (select t.televend_id from tv_machine t join machine m on m.asset_no = t.asset_no where m.id = k.machine_id
+                      order by t.enabled desc, t.televend_id desc limit 1),
+                    case when k.machine_id is null then substring(k.key from 4)::bigint end) as tv_id
+      from keys k
+  ),
+  info as (
+    select r.key, r.machine_id, r.tv_id, coalesce(m.asset_no, t.asset_no) as asset_no, coalesce(m.label, t.caption, 'Machine') as label,
+           coalesce(m.category_override, t.region_caption, 'No category') as category, t.region_caption as region,
+           (m.category_override is not null) as corrected, t.caption, m.cash_price_fils,
+           -- Live when any record that stands for it now is live.
+           case when r.machine_id is null then coalesce(t.enabled, false)
+                else exists (select 1 from rec where rec.machine_id = r.machine_id and rec.enabled) end as enabled
+      from rep r left join machine m on m.id = r.machine_id left join tv_machine t on t.televend_id = r.tv_id
+     where r.tv_id is not null
+  )`;
+
+/** The "AED 12" in the machine's Televend name (else its label), in fils — a whole word "AED" only (review, 20 Oct). */
+export const namePrice = (sql: Tx) => sql`(regexp_match(coalesce(i.caption, i.label), '\\maed\\s*([0-9]{1,3})\\M', 'i'))[1]::int * 100`;
 
 interface Row {
   key: string;
@@ -354,10 +435,20 @@ interface Row {
 
 const EMIRATE: Readonly<Record<string, string>> = { DXB: "Dubai", SHJ: "Sharjah", AJM: "Ajman", UAQ: "Umm Al Quwain" };
 
-/** Machines, tiers, categories and what they say — for a range of whole days. */
-export async function machinePerformance(viewer: AppContext & Actor, range: { from: string; to: string }, now: Date = new Date()): Promise<Performance> {
+/**
+ * Machines, tiers, categories and what they say — for a range of whole days, and for the categories chosen (TASK-075:
+ * "when one category like expo needs to be removed then I can unselect the button and the full analysis is shown … without
+ * including expo"). Null or no `categories` = every category.
+ */
+export async function machinePerformance(
+  viewer: AppContext & Actor,
+  range: { from: string; to: string },
+  now: Date = new Date(),
+  opts: { categories?: readonly string[] | null } = {},
+): Promise<Performance> {
   requireReader(viewer);
   const p = checkRange(range, now);
+  const chosen = checkCategories(opts.categories);
   const before = { from: addDays(p.from, -p.shiftDays), to: addDays(p.to, -p.shiftDays), days: p.days, shiftDays: p.shiftDays };
   const defaultPrice = loadConfig().OPS_DEFAULT_CASH_PRICE_FILS;
   const periodDays = Array.from({ length: p.days }, (_, i) => addDays(p.from, i));
@@ -387,41 +478,7 @@ export async function machinePerformance(viewer: AppContext & Actor, range: { fr
                  max(a.last_sale_at) filter (where a.day = any(${readNow}::date[])) as last_sale_at
             from att a group by 1, 2
         ),
-        -- Each Televend record's FreshNow machine now: its open placement, else its latest one — the machines sync closes a
-        -- placement made by hand for a record with no number, and the record still stands for that machine (review of the
-        -- fixes, 20 Oct) — else the machine with its number.
-        rec as (
-          select t.televend_id, t.enabled,
-                 coalesce((select p.machine_id from machine_placement p where p.tv_machine_id = t.televend_id
-                            order by (p.valid_to is null) desc, p.valid_from desc limit 1),
-                          (select m.id from machine m where m.asset_no = t.asset_no)) as machine_id
-            from tv_machine t
-        ),
-        -- Every machine with a sale on a day read, either period, and every machine live now (for "no sales").
-        keys as (
-          select key, machine_id from per
-          union
-          select coalesce(rec.machine_id::text, 'tv:' || rec.televend_id::text), rec.machine_id from rec where rec.enabled
-        ),
-        rep as (
-          select k.key, k.machine_id,
-                 coalesce((select p.tv_machine_id from machine_placement p where p.machine_id = k.machine_id
-                            order by (p.valid_to is null) desc, p.valid_from desc limit 1),
-                          (select t.televend_id from tv_machine t join machine m on m.asset_no = t.asset_no where m.id = k.machine_id
-                            order by t.enabled desc, t.televend_id desc limit 1),
-                          case when k.machine_id is null then substring(k.key from 4)::bigint end) as tv_id
-            from keys k
-        ),
-        info as (
-          select r.key, r.machine_id, r.tv_id, coalesce(m.asset_no, t.asset_no) as asset_no, coalesce(m.label, t.caption, 'Machine') as label,
-                 coalesce(m.category_override, t.region_caption, 'No category') as category, t.region_caption as region,
-                 (m.category_override is not null) as corrected, t.caption, m.cash_price_fils,
-                 -- Live when any record that stands for it now is live.
-                 case when r.machine_id is null then coalesce(t.enabled, false)
-                      else exists (select 1 from rec where rec.machine_id = r.machine_id and rec.enabled) end as enabled
-            from rep r left join machine m on m.id = r.machine_id left join tv_machine t on t.televend_id = r.tv_id
-           where r.tv_id is not null
-        )`;
+        ${machineInfo(sql)}`;
       const rows = await sql<Row[]>`
         ${base}
         select i.key, i.machine_id::text as machine_id, i.tv_id::text as machine_tv_id, i.asset_no, i.label, i.category, i.region, i.corrected,
@@ -429,7 +486,7 @@ export async function machinePerformance(viewer: AppContext & Actor, range: { fr
                coalesce(i.caption ~* '\\mcard\\M', false) as card_only,
                i.enabled,
                i.cash_price_fils as set_price,
-               (regexp_match(coalesce(i.caption, i.label), '\\maed\\s*([0-9]{1,3})\\M', 'i'))[1]::int * 100 as name_price,
+               ${namePrice(sql)} as name_price,
                coalesce(per.cups, 0) as cups, coalesce(per.cash_cups, 0) as cash_cups, coalesce(per.token_cups, 0) as token_cups,
                coalesce(per.pair_cups, 0) as pair_cups, coalesce(per.pair_cash_cups, 0) as pair_cash_cups,
                coalesce(per.before_cups, 0) as before_cups, coalesce(per.before_cash_cups, 0) as before_cash_cups,
@@ -497,8 +554,19 @@ export async function machinePerformance(viewer: AppContext & Actor, range: { fr
     machines.push(m);
   }
 
+  // Every category there is, for the buttons — counted before the choice, so a category left out still shows.
+  const everyCounted = machines.filter((m) => m.counted);
+  const available = [...new Set(everyCounted.map((m) => m.category))]
+    .sort((a, b) => a.localeCompare(b))
+    .map((category) => {
+      const ms = everyCounted.filter((m) => m.category === category && (!m.disabledNow || m.cups > 0));
+      return { category, machines: ms.length, selling: ms.filter((m) => m.cups > 0).length };
+    });
+  const inChoice = (m: MachinePerf) => chosen === null || chosen.includes(m.category);
+
   // ── the fleet: the average over counted machines that sold, the tiers, the 80 % set ──
-  const counted = machines.filter((m) => m.counted);
+  // "The fleet" is the machines of the categories chosen: every figure below follows the choice.
+  const counted = everyCounted.filter(inChoice);
   // In the period: live now, or sold in it. A machine switched off since that sold only before counts in "before" only.
   const live = counted.filter((m) => !m.disabledNow || m.cups > 0);
   const selling = live.filter((m) => m.cups > 0);
@@ -628,9 +696,11 @@ export async function machinePerformance(viewer: AppContext & Actor, range: { fr
       mirroredFrom,
     },
     fleet,
-    machines,
+    // The machines of the categories chosen, and the machines left out of every figure (listed apart, to correct).
+    machines: machines.filter((m) => !m.counted || inChoice(m)),
     categories,
-    insights: insightsOf({ fleet, machines: counted, categories, nDays }),
+    insights: insightsOf({ fleet, machines: counted, categories, nDays, chosen: chosen !== null }),
+    selection: { categories: chosen, available },
   };
 }
 
@@ -643,8 +713,8 @@ const CATEGORY_MOVE = 15;
 /** The most machines one sentence names. */
 const NAMED = 6;
 
-const fmt = (n: number): string => n.toLocaleString("en-GB", { maximumFractionDigits: 1 });
-const nameOf = (m: { assetNo: number | null; label: string }): string => (m.assetNo ? `${m.label} (${m.assetNo})` : m.label);
+export const fmt = (n: number): string => n.toLocaleString("en-GB", { maximumFractionDigits: 1 });
+export const nameOf = (m: { assetNo: number | null; label: string }): string => (m.assetNo ? `${m.label} (${m.assetNo})` : m.label);
 /** Machines named in a sentence — at most six, then "and K more" — with the figures the words state. */
 const listOf = (ms: { assetNo: number | null; label: string }[]): { text: string; numbers: string[] } =>
   ms.length <= NAMED
@@ -655,7 +725,14 @@ const listOf = (ms: { assetNo: number | null; label: string }[]): { text: string
  * Fixed sentences filled from the figures above, most urgent first: machines to check, then the trend, then where
  * sales come from. Each carries the numbers it states, exactly as written.
  */
-export function insightsOf(x: { fleet: Performance["fleet"]; machines: MachinePerf[]; categories: CategoryPerf[]; nDays: number }): Insight[] {
+export function insightsOf(x: {
+  fleet: Performance["fleet"];
+  machines: MachinePerf[];
+  categories: CategoryPerf[];
+  nDays: number;
+  /** Some categories only: the average is theirs, and the sentences say so rather than "the fleet's". */
+  chosen?: boolean;
+}): Insight[] {
   const out: Insight[] = [];
   if (x.nDays === 0) return out;
   const { fleet } = x;
@@ -751,7 +828,7 @@ export function insightsOf(x: { fleet: Performance["fleet"]; machines: MachinePe
     out.push({
       id: "best_category",
       tone: "good",
-      text: `Of the categories where two or more machines sold, ${best.category} sells the most per machine: ${bv} cups a day — ${times}× the fleet's ${avg}.`,
+      text: `Of the categories where two or more machines sold, ${best.category} sells the most per machine: ${bv} cups a day — ${times}× the ${x.chosen ? "chosen categories'" : "fleet's"} ${avg}.`,
       numbers: [bv, times, avg],
       action: null,
     });
