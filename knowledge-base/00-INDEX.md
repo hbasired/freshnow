@@ -523,7 +523,7 @@ Routing goes to the **CEO only** for now (company routing data not yet supplied)
 - **T85 Orange traceability and warehouse proposal (document + prototype, no platform code)** (2026-10-23): a 36-slide deck
   — the orange's eight handoffs, a double-entry weight ledger, six capture options (recommended: weigh at the tailgate, D265),
   the theft window and how small a theft a re-weigh catches, computer vision where it pays, the employee-phone option, REST not MCP
-  for devices (D266), Amazon.ae shortlist, Dubai suppliers, budget AED 1,096–5,592 pilot / 12,535–40,957 rollout, Manhattan and
+  for devices (D266), Amazon.ae shortlist, Dubai suppliers, budget (corrected 24 Oct, D278) core kit AED 580 / 1,600–3,211, whole warehouse without cameras 2,810–11,872, cameras optional, Manhattan and
   open-source WMS comparison (D264), alarms, chat, analytics redesign, CopilotKit verdicts (D269), roadmap, eight decisions.
   A 72-second Option 1 demo video rendered from the deck (VF95) and a voice crate log prototype (D268, VF92). Found and
   reported: main rewound and company data pushed to the public repo; the 20 Oct build recovered from the reflog (G217).

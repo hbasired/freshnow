@@ -50,8 +50,7 @@ AED 2,810–11,872; cameras, gate number-plate camera, licensed installer and va
 only if the pilot shows a need (D278). Listed prices found: Kern FCB 30K1 (30 kg × 1 g, RS232) CHF 240.34 ex VAT at Farnell; Tera
 HW0002 scanner AED 269.54 at Carrefour UAE; Netum W8X AED 276 at desertcart; numbered seals £246.50 per 1,000 ex VAT (UK). A
 UAE scanner costs about AED 270–311, not $30; a AED 100–400 "smart" scale with an app does not send its weight to our system, so it
-cannot close the gap. The generic AED 400 scale with a data port is an estimate (A-T85.6). The lines below that give the pilot as
-AED 1,096–5,592 and the rollout as 12,535–40,957 are superseded. The same day <code>main</code> was rewritten without the data commit
+cannot close the gap. The generic AED 400 scale with a data port is an estimate (A-T85.6). The verification line below carries the correction. The same day <code>main</code> was rewritten without the data commit
 (G217).</div>
 
 <h2>What was asked</h2>
@@ -177,8 +176,10 @@ video:  deck.html?record#s12 → for f in 0..2160: seek(f/30); screenshot → ff
   <li><b>Deck:</b> all 36 slides rendered in Chromium at 1920×1080 — no console errors; an overflow probe flagged only slide 4 (the
       arrow between chain cards sits outside each card by design) and the full-bleed demo. Four contact sheets reviewed by eye; sparse
       slides enlarged; decision and chat slides redesigned.</li>
-  <li><b>Budget arithmetic</b> computed by script from the line items: pilot AED 1,096–5,592, rollout 12,535–40,957, advanced
-      17,151–53,836; chart bars placed by the same scale as the axis.</li>
+  <li><b>Budget arithmetic</b> computed by script from the line items; chart bars placed by the same scale as the axis.
+      <i>Corrected 24 Oct (D278):</i> the first figures (pilot AED 1,096–5,592, rollout 12,535–40,957, advanced 17,151–53,836)
+      mixed optional security into the pilot; now core kit AED 580 / 1,600–3,211, whole warehouse without cameras
+      2,810–11,872, security layer +7,791–20,739, later +2,120–8,499.</li>
   <li><b>Video:</b> ffprobe — h264, 1920×1080, 30/1, 72.03 s, 2,950,686 bytes; frames at 2, 10, 38 and 58 s inspected (intro, logged
       crate, refused scan naming CRT-0003, closed trip at 72.73 kg).</li>
   <li><b>Voice parser:</b> 16 of 16 phrasings correct, including "H N eight nine seven", "H.N. 897", "A 54321", "no 3", "18,5 kgs",
