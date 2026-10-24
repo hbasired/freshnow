@@ -5,17 +5,22 @@
   their page, the short sentences right under them, the tier buttons' answer right under the buttons, a page for each machine and each
   category, Trends with each day's % against the same weekday a week before, and Compare: two days, two periods, two machines or two
   categories. Write-up: `docs/tasks/TASK-075-analytics-buttons-pages-compare.html`.
-- **To try it on the laptop** (PowerShell, in the project folder; Docker and Supabase running):
-  `git checkout main` → `git pull --no-rebase --no-edit origin claude/lucid-babbage-duy1uz` → `pnpm install` → `pnpm migrate` →
-  `pnpm build:web` → restart `pnpm start:api`, `pnpm start:worker`, `pnpm start:bot` → open `http://localhost:3001/app/#analytics`.
-- **Pull request #11** (`rescue-2` → `main`, the 20 Oct build) is mergeable and waits for your click. TASK-075's commits are not in it;
-  they can go to `main` in a pull request of their own when you want one.
 - Tests: typecheck clean; whole suite 1,242 passed, 5 skipped, and the 8 real-model tests failed only because this container cannot
   reach the providers (G224). Browser: 38/38 checks on synthetic data, both themes and a phone width, no console errors (VF96).
 - Not verified: the pages on the live mirror's real data, real use by the Ops Head, a real phone. Not built yet from the plan's 075:
   refills, stock-outs, alarms and cash over the whole history; the Operations "Now" redesign; "the query behind each number".
-- Still waiting on you: make the repository private, and reply "clean main" if the data folders should be removed from `main`'s
-  history (G217).
+- **`main` is clean** (on your "clean main", 24 Oct): it was pushed with `--force-with-lease` to `e34fbc6` — the same code, with
+  a history that never had the WhatsApp/Televend/private-data commit. Pull requests #11 and #12 were merged by you before that.
+  **Still on GitHub with the data:** branches `vscode-build-2026-10-20`, `local/main`, `local/checkout` (this session was not
+  allowed to delete them — delete them on GitHub → Branches), and the old merge commit the closed pull requests point at, which
+  only GitHub Support can purge. Make the repository private too (G217).
+- **On the laptop the old `git pull` must not be used once** — it would merge the old history, data commit included, back in.
+  PowerShell, in the project folder: `git branch backup-before-clean` (never push it) → `git fetch origin` →
+  `git reset origin/main` (no `--hard`: the data folders stay on disk and are now ignored) → `git restore .` → `pnpm install` →
+  `pnpm migrate` → `pnpm build:web` → start as in "To start everything again" further down. After that, `git pull origin main`
+  works as usual. Never `git push --all` from the laptop: it would publish the backup branch.
+- **Proposal deck corrected** (`docs/reports/warehouse-traceability-deck.html`): the pilot is AED 580 with the phone as the scanner,
+  AED 1,600–3,211 with a scanner gun and a calibrated 1-gram scale; cameras, ANPR, installer and GPS are an optional layer (D278).
 
 ---
 

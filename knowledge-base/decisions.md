@@ -2156,3 +2156,10 @@ the hash; Back works through them. Also `#analytics/trends` and `#analytics/comp
 One filter row above everything it scopes (days, then categories); the sentences directly under the key figures; under the tier
 buttons the table of the machines first (a card each on a phone), the chart of the same machines after it — a table beside the chart
 squeezed the names onto four lines (G228).
+
+## D278 — The proposal's budget separates what the pilot needs from what is optional (TASK-085, 24 Oct) [decided — the user's question]
+Core kit, one station and one van: a scale that sends its weight (a data port, read by Chrome over a USB cable, Bluetooth on
+Android, or a Wi-Fi bridge only where no laptop stands at the door), the phone or a scanner gun, QR labels, a van re-weigh scale —
+AED 580 minimum, AED 1,600–3,211 with a scanner gun and a calibrated 1-gram scale. Cameras, ANPR, installer and GPS are a separate,
+optional layer bought only if the pilot's numbers show a need. The old AED 12.5K–41K "rollout" mixed both and read as the price of
+the pilot. A scale whose weight a person reads and types is not enough: the typed number is the gap a theft hides in.

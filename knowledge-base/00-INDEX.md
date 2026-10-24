@@ -530,6 +530,8 @@ Routing goes to the **CEO only** for now (company routing data not yet supplied)
   -> `docs/tasks/TASK-085-orange-traceability-proposal.html` · `docs/reports/warehouse-traceability-deck.html` · `docs/prototypes/voice-crate-capture.html`
   Follow-up the same day: numbered TASK-085, as the plan keeps 070–084 (D270); the merge with the 20 Oct build had dropped its
   status section, restored (G222); pnpm 11 ignores `.npmrc` (G223); tests in a container with no model keys (G224).
+  24 Oct: budget corrected — core kit AED 580 / 1,600–3,211, whole warehouse without cameras 2,810–11,872, security layer optional
+  (D278, A-T85.6); `main` rewritten without the data commit, three old branches still hold it (G217).
 
 ## Blocked on the user
 - ~~`CEO_TELEGRAM_USER_ID` is empty.~~ **Resolved 2026-09-04:** CEO = 6051615734,

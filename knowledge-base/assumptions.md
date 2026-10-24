@@ -443,6 +443,10 @@ Placeholders so the design can be discussed. Confirm/refute: management sets eac
 ## A-T85.5 — SIRA rules: licensed installer, approved devices, 31-day retention, 4 MP minimum [assumed — installers' guides only]
 Confirm/refute: SIRA's own published requirements or a SIRA-licensed installer's written statement before buying cameras.
 
+## A-T85.6 — A generic 30 kg scale with an RS232/USB port costs about AED 400 in the UAE [assumed — no UAE listing verified]
+The deck's AED 580 minimum rests on it; listed models with a data port were found only abroad (Kern CHF 240 ex VAT, Ohaus
+AED 2,876). Confirm/refute: a written quote from a Dubai scale dealer, and that its port sends the weight continuously or on request.
+
 ## A-T75.1 — A day's change under 5 % is noise: said, not coloured [assumed — the trend sentence's rule reused]
 Confirm/refute: ask the Ops Head which day-to-same-weekday move they would act on.
 

@@ -1395,6 +1395,12 @@ ignored. aa00334's tree equals branch `claude/charming-hopper-tfg8v8` (f44bab1),
 folder that contains `packages/televend`, never with `-f`, and to a new branch when unsure. The repository is public.
 Recovered the same evening: `git push origin "HEAD@{2}:refs/heads/rescue-2"` from the laptop sent the pre-reset commit
 9ee207e (the reflog keeps it for 90 days), which was merged with main of 7 Oct and the proposal (branch claude/lucid-babbage-duy1uz).
+**24 Oct, on the user's "clean main":** `main` was pushed with `--force-with-lease` from d7cac5f to e34fbc6 — the same code, a
+history without ef84b05 (checked: no data or secret paths in any commit of it). Still holding ef84b05: branches
+`vscode-build-2026-10-20`, `local/main`, `local/checkout` (deleting them was refused to this session as destructive — the user
+deletes them), and the merge commit d664d06 that pull requests 10–12 point at; every `refs/pull/*/head` is clean. GitHub keeps
+unreachable commits and PR views until GitHub Support purges them, so the data stays reachable by SHA until then. A laptop copy
+must not `git pull` the old history back: `git fetch` then `git reset origin/main` (mixed — keeps the folders on disk, now ignored).
 
 ## G218 — This build environment cannot reach Groq or Amazon.ae [verified 2026-10-23]
 The proxy answers 403 to CONNECT for api.groq.com and www.amazon.ae, and the fetch tool cannot resolve console.groq.com. Groq's
