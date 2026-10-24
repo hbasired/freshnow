@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Icon } from "../components/icons";
 import { Card } from "../components/ui";
-import { TIER_COLOR, TIER_WORDS, addDays, dayLabel, n1, type Insight, type Tier } from "../lib/analytics-api";
+import { TIER_COLOR, TIER_WORDS, addDays, beforeWords, dayLabel, earlierWords, n1, type Insight, type Tier } from "../lib/analytics-api";
 
 /**
  * The Analytics portal's shared pieces (TASK-075): the filter row (days, then the category buttons), tiles that open
@@ -126,10 +126,10 @@ export function InsightList({ insights, onShow, title = "What it says — and wh
                 {i.text}
                 {i.action ? (
                   <span className="mt-1 flex flex-wrap items-center gap-2">
-                    <span className="text-xs font-semibold">→ {i.action.label}.</span>
+                    <span className="text-xs text-mut">What to do: {i.action.label.charAt(0).toLowerCase() + i.action.label.slice(1)}.</span>
                     {onShow && i.action.assetNos.length > 0 ? (
                       <button onClick={() => onShow(i.action!.assetNos)} className="min-h-9 rounded-lg border border-edge px-2 text-xs font-semibold hover:border-link">
-                        {i.action.assetNos.length === 1 ? "Open the machine" : `Show the ${i.action.assetNos.length} machines`}
+                        {i.action.assetNos.length === 1 ? "Open the machine →" : `Show the ${i.action.assetNos.length} machines →`}
                       </button>
                     ) : null}
                   </span>
@@ -141,7 +141,7 @@ export function InsightList({ insights, onShow, title = "What it says — and wh
       </ul>
       {insights.length > max ? (
         <button onClick={() => setAll(!all)} className="mt-2 min-h-9 rounded-lg px-2 text-xs font-semibold text-link hover:underline">
-          {all ? "Fewer" : `All ${insights.length}`}
+          {all ? "Show fewer" : `Show all ${insights.length}`}
         </button>
       ) : null}
     </section>
@@ -195,6 +195,14 @@ export function CategoryChips({
           <span className="font-normal text-mut">{a.machines}</span>
         </button>
       ))}
+      <p className="basis-full text-xs text-mut">
+        {chosen === null
+          ? `Counting all ${names.length} categories.`
+          : chosen.length === 0
+            ? "No category chosen."
+            : `Counting ${chosen.length} of ${names.length}: ${chosen.join(", ")}.`}{" "}
+        Tap a category to leave it out or add it back — everything below is counted again. The number beside each is how many machines it has.
+      </p>
     </div>
   );
 }
@@ -259,34 +267,107 @@ export function RangePicker({
       </div>
       <p className={`text-xs ${problem ? "text-crit" : "text-mut"}`}>
         {problem ??
-          `${dayLabel(range.from)}${range.from !== range.to ? ` – ${dayLabel(range.to)}` : ""}${shiftDays ? ` · compared with the same days of the week, ${shiftDays} days earlier` : ""}`}
+          `${dayLabel(range.from)}${range.from !== range.to ? ` – ${dayLabel(range.to)}` : ""}${
+            shiftDays
+              ? ` · every ▲▼ compares with ${beforeWords(shiftDays)}: ${dayLabel(addDays(range.from, -shiftDays))}${range.from !== range.to ? ` – ${dayLabel(addDays(range.to, -shiftDays))}` : ""} (a Friday with a Friday)`
+              : ""
+          }`}
       </p>
     </div>
   );
 }
 
-/** Days the store does not hold, said — never counted as days without sales. */
+/** Up to three days by name, more as a count. */
+const someDays = (ds: string[]): string => (ds.length <= 3 ? ds.map(dayLabel).join(", ") : `${ds.length} days`);
+
+/**
+ * Days without sales data, said by name with the reason — never counted as days without sales. A day whose same weekday
+ * before has no data stays in the totals but is left out of every ▲▼, and the banner says which and why.
+ */
 export function Coverage({ notRead, read, beforeRead, compared, before }: { notRead: string[]; read: string[]; beforeRead: string[]; compared: string[]; before: { from: string; to: string; shiftDays: number } }) {
   const noBefore = beforeRead.length === 0;
-  if (notRead.length === 0 && !noBefore && compared.length === read.length) return null;
+  const leftOut = read.filter((d) => !compared.includes(d));
+  if (notRead.length === 0 && !noBefore && leftOut.length === 0) return null;
   return (
-    <div className="rounded-xl border border-warn/40 bg-warn/10 p-3 text-sm">
+    <div className="space-y-1 rounded-xl border border-warn/40 bg-warn/10 p-3 text-sm">
       {notRead.length > 0 ? (
         <p>
-          Not read in full from Televend yet: {notRead.map(dayLabel).join(", ")} — left out; per-day figures use the {read.length} day{read.length === 1 ? "" : "s"} read. (Yesterday
-          arrives once Televend's count for it is checked, early each morning.)
+          No sales data yet for {someDays(notRead)} — left out of every figure, never counted as a day without sales. Per-day figures use the {read.length} day
+          {read.length === 1 ? "" : "s"} with data. (A day's sales arrive once Televend's count for it is checked, early the next morning.)
         </p>
       ) : null}
       {noBefore ? (
         <p>
-          No comparison: the same days before ({dayLabel(before.from)} – {dayLabel(before.to)}) are not in the store.
+          Nothing to compare with: there is no sales data for {beforeWords(before.shiftDays)} ({dayLabel(before.from)} – {dayLabel(before.to)}).
         </p>
-      ) : compared.length < read.length ? (
+      ) : leftOut.length > 0 ? (
         <p>
-          The changes compare only the {compared.length} day{compared.length === 1 ? "" : "s"} read in both periods, each with the same weekday {before.shiftDays} days earlier.
+          {leftOut.length <= 3 ? `${someDays(leftOut)} ${leftOut.length === 1 ? "is" : "are"}` : `${leftOut.length} days are`} left out of the changes (▲▼): there is no
+          sales data for {leftOut.length <= 3 ? someDays(leftOut.map((d) => addDays(d, -before.shiftDays))) : "their days"}, the same weekday {earlierWords(before.shiftDays)}.
         </p>
       ) : null}
     </div>
+  );
+}
+
+const HOW_TO_KEY = "freshnow.analytics.howto";
+
+/**
+ * "How to read this page" — open the first time, then as the person left it (a per-viewer convenience in this browser
+ * only; the page reads the same without it).
+ */
+export function HowToRead() {
+  const [open, setOpen] = useState(() => {
+    try {
+      return window.localStorage.getItem(HOW_TO_KEY) !== "closed";
+    } catch {
+      return true;
+    }
+  });
+  const toggle = (next: boolean) => {
+    setOpen(next);
+    try {
+      window.localStorage.setItem(HOW_TO_KEY, next ? "open" : "closed");
+    } catch {
+      // Storage refused (a private window): the guide still opens and closes for this visit.
+    }
+  };
+  return (
+    <section aria-label="How to read this page" className="rounded-xl border border-edge bg-panel">
+      <button onClick={() => toggle(!open)} aria-expanded={open} className="flex min-h-11 w-full items-center justify-between gap-2 px-3 text-left text-sm font-semibold">
+        <span className="inline-flex items-center gap-2">
+          <Icon.info size={16} className="text-link" /> How to read this page
+        </span>
+        <span className="text-xs font-normal text-mut">{open ? "Hide" : "Show"}</span>
+      </button>
+      {open ? (
+        <ul className="grid gap-x-6 gap-y-1.5 border-t border-edge px-3 py-3 text-sm md:grid-cols-2">
+          <li>
+            <b>The days.</b> Choose Yesterday, 7, 14 or 28 days, or your own dates. Every ▲▼ compares with the same days of the week before — a Friday with a
+            Friday.
+          </li>
+          <li>
+            <b>Categories.</b> Tap a category to leave it out, tap it again to add it back. Every number, chart and sentence is counted again at once.
+          </li>
+          <li>
+            <b>The groups.</b> The <i>average machine</i> sells the average cups a day of all machines that sold. <i>Top</i> sells 25 % or more above it,{" "}
+            <i>Below average</i> 25 % or more below it, <i>About average</i> in between.
+          </li>
+          <li>
+            <b>Key machines.</b> The few machines that together sell 80 % of all cups — the ones to keep running.
+          </li>
+          <li>
+            <b>Income is an estimate.</b> Cups × the machine's prices, until Televend's own amounts arrive.
+          </li>
+          <li>
+            <b>Missing days.</b> A day without sales data is left blank and out of every comparison — never counted as zero.
+          </li>
+          <li className="md:col-span-2">
+            <b>Tap anything.</b> Every figure, bar and name opens more detail; "Show as a table" under a chart lists its numbers.
+          </li>
+        </ul>
+      ) : null}
+    </section>
   );
 }
 

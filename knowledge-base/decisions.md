@@ -2163,3 +2163,15 @@ Android, or a Wi-Fi bridge only where no laptop stands at the door), the phone o
 AED 580 minimum, AED 1,600–3,211 with a scanner gun and a calibrated 1-gram scale. Cameras, ANPR, installer and GPS are a separate,
 optional layer bought only if the pilot's numbers show a need. The old AED 12.5K–41K "rollout" mixed both and read as the price of
 the pilot. A scale whose weight a person reads and types is not enough: the typed number is the gap a theft hides in.
+
+## D279 — Analytics speaks plain words, the same on the screens and in the sentences (TASK-075 follow-up, 24 Oct) [decided — the user: "a normal person … should understand everything"]
+The comparison period is named by its weeks — "the week before", "the 2 weeks before" (core `beforeWords`, used by the server's
+sentences and the dashboard alike). "Fleet" became "the average machine", "tier" became "group", the 80 % set's machines are "key
+machines", a share's move is said as "was 9.4 % the week before" (no "points" outside the Compare table, where it is "percentage
+points"), days are "with sales data" or "no data" (never "read"), "(est.)" is "(estimate)". A day left out of the changes is named
+with the day it lacks. No figure changed: only words, three layouts (the category page's table, the phone's name column, the chart
+title that counts its machines) and a guide (D280).
+
+## D280 — "How to read this page": open the first time, then as the person left it (TASK-075 follow-up) [decided]
+Seven short points above the filters. Whether it is open is kept in this browser's localStorage, a per-viewer convenience only: the
+page reads the same when storage is refused (a private window), and nothing about it reaches the server.

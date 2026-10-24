@@ -6,6 +6,7 @@ import {
   NOT_COUNTED,
   addDays,
   attributed,
+  beforeWords,
   attributedHours,
   checkCategories,
   checkRange,
@@ -476,7 +477,7 @@ export function profileInsights(p: Omit<SalesProfile, "insights">): Insight[] {
     out.push({
       id: "trend",
       tone: Math.abs(c) < 5 ? "info" : c > 0 ? "good" : "bad",
-      text: `Cups a day ${c >= 0 ? "up" : "down"} ${by} % on the same days before: ${a} against ${b}${partial ? ` (the ${t.compare.days} days read in both)` : ""}.`,
+      text: `Cups a day ${c >= 0 ? "up" : "down"} ${by} % against ${beforeWords(p.before.shiftDays)}: ${a} against ${b}${partial ? ` (comparing the ${t.compare.days} days with sales data both times)` : ""}.`,
       numbers: [by, a, b, ...(partial ? [String(t.compare.days)] : [])],
       action: null,
     });
@@ -516,16 +517,16 @@ export function profileInsights(p: Omit<SalesProfile, "insights">): Insight[] {
   const cash = p.payments.find((x) => x.kind === "cash")!;
   const nowAll = p.payments.reduce((t, x) => t + x.now, 0);
   const beforeAll = p.payments.reduce((t, x) => t + x.before, 0);
-  // The move in points from the exact shares, never from the rounded ones shown (43.75 → 23.44 is 20.3 points, not 20.4).
+  // Whether the move is worth a sentence (a point or more) is judged on the exact shares, never on the rounded ones shown.
   const move = cash.nowShare !== null && cash.beforeShare !== null ? r1((cash.now / nowAll - cash.before / beforeAll) * 100) : null;
   if (move !== null && Math.abs(move) >= 1) {
     const now = fmt(cash.nowShare!);
-    const by = fmt(Math.abs(move));
+    const was = fmt(cash.beforeShare!);
     out.push({
       id: "cash_share",
       tone: "info",
-      text: `Cash ${now} % of the cups, ${move > 0 ? "up" : "down"} ${by} points.`,
-      numbers: [now, by],
+      text: `Cash was ${now} % of the cups, ${move > 0 ? "up" : "down"} from ${was} % ${beforeWords(p.before.shiftDays)}.`,
+      numbers: [now, was],
       action: null,
     });
   }
@@ -639,9 +640,9 @@ export async function compareSales(viewer: AppContext & Actor, req: CompareReque
       ? []
       : [row("machines_sold", "Machines that sold", "count", ea.machinesSold, eb.machinesSold), row("per_machine", "Cups per machine a day", "cups", ea.perMachine, eb.perMachine)]),
     ...(req.mode === "days"
-      ? [row("income", "Income (est.)", "fils", ea.income, eb.income)]
-      : [row("income_per_day", "Income a day (est.)", "fils", ea.incomePerDay, eb.incomePerDay), row("income", "Income in all (est.)", "fils", ea.income, eb.income)]),
-    row("avg_price", "Per paid cup (est.)", "fils", ea.avgPrice, eb.avgPrice),
+      ? [row("income", "Income (estimate)", "fils", ea.income, eb.income)]
+      : [row("income_per_day", "Income a day (estimate)", "fils", ea.incomePerDay, eb.incomePerDay), row("income", "Income in all (estimate)", "fils", ea.income, eb.income)]),
+    row("avg_price", "Per paid cup (estimate)", "fils", ea.avgPrice, eb.avgPrice),
     row("cash_share", "Paid in cash", "pct", ea.cashShare, eb.cashShare),
   ];
 
@@ -746,7 +747,7 @@ export function compareInsights(c: SalesComparison): Insight[] {
     out.push({
       id: "income",
       tone: "info",
-      text: `Income${c.mode === "days" ? "" : " a day"} (est.): AED ${y} against AED ${x}, ${inc.diffPct >= 0 ? "+" : "−"}${by} %.`,
+      text: `Income${c.mode === "days" ? "" : " a day"} (estimated): AED ${y} against AED ${x}, ${inc.diffPct >= 0 ? "+" : "−"}${by} %.`,
       numbers: [y, x, by],
       action: null,
     });
@@ -771,7 +772,7 @@ export function compareInsights(c: SalesComparison): Insight[] {
     out.push({
       id: "category_move",
       tone: m.changePct! >= 0 ? "good" : "bad",
-      text: `Moved most: ${m.category}, ${y} cups a day against ${x} (${m.changePct! >= 0 ? "+" : "−"}${by} %).`,
+      text: `The category that changed most: ${m.category}, ${y} cups a day against ${x} (${m.changePct! >= 0 ? "+" : "−"}${by} %).`,
       numbers: [y, x, by],
       action: null,
     });
@@ -780,7 +781,7 @@ export function compareInsights(c: SalesComparison): Insight[] {
   if (top) {
     const x = fmt(top.a);
     const y = fmt(top.b);
-    out.push({ id: "machine_move", tone: top.change > 0 ? "good" : "bad", text: `Machine that moved most: ${nameOf(top)}, ${x} → ${y} cups a day.`, numbers: [x, y], action: null });
+    out.push({ id: "machine_move", tone: top.change > 0 ? "good" : "bad", text: `The machine that changed most: ${nameOf(top)}, from ${x} to ${y} cups a day.`, numbers: [x, y], action: null });
   }
   return out;
 }

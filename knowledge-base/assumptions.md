@@ -456,3 +456,8 @@ The income estimate counts every paid cup that is not cash at the price in the m
 
 ## A-T75.3 — The first 15 machines, then "All", is enough for a first look [assumed]
 Confirm/refute: watch the Ops Head use the Overview; raise it if they press "All" every time.
+
+## A-T75.4 — A non-analyst reads the reworded Analytics page without help [assumed — a simulated persona, 24 Oct]
+The words (D279) and the guide (D280) were judged by reading screenshots as a shift supervisor would. Confirm/refute: watch the Ops
+Head or a supervisor answer "more or less than last week? which machines need a visit? where and when do we sell best?" from the page
+without asking; note every word they ask about.

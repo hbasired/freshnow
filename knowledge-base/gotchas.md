@@ -1450,3 +1450,8 @@ Names match as case-insensitive substrings by default. Use `{ name: "All", exact
 ## G228 — A seven-column table beside a chart is too narrow at desktop width [verified 2026-10-24 — screenshot]
 At 1440 px with the sidebar, a 3 : 2 split left the machine table ~700 px: names wrapped onto four lines and a button was clipped.
 The table got the full width; the chart follows it.
+
+## G229 — Stopping and starting the API in one command line kills the command itself [verified 2026-10-24]
+`for p in $(pgrep -f "api/src/index.[t]s"); do kill $p; done; … tsx packages/api/src/index.ts &` exits 144: the bracket trick of
+G225 stops the pattern matching its own text, but the same command line also contains the start command's literal
+`packages/api/src/index.ts`, which the pattern does match. Stop in one command, start in the next.

@@ -982,3 +982,11 @@ synthetic machines, 33,717 sales, 42 days, 15 Oct not read on purpose. Not the l
 ## VF97 (2026-10-24) — The analytics routes answer in under 0.1 s on that data [verified — curl, local, synthetic]
 performance 0.03–0.04 s, profile 0.04–0.05 s (28 days), compare 0.02 s (two days) to 0.08 s (two 14-day periods), measured while the
 test suite ran. The live mirror's size (≈100 records, 208 days) was not timed.
+
+## VF98 (2026-10-24) — The Overview's headline figures equal plain SQL over the store [verified — psql, synthetic data]
+17–23 Oct, the machine marked "Not counted" (9124) left out: 5,414 cups, cash 9.1 %, Fri 23 Oct 828 cups, Fri 16 Oct 855 — the same
+as the page. The machine left out: 633 cups. Checked before and after the wording change; no figure moved.
+
+## VF99 (2026-10-24) — The reworded Analytics screens pass 48 browser checks [verified — Playwright, this container, synthetic data]
+The 38 checks of VF96 plus 10 for the follow-up (guide, named missing day, counting line, group buttons, chart title, the category
+page's table, the machine page's words, no jargon left on the Overview): 48/48, both themes, 390 px, no console errors.

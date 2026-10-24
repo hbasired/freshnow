@@ -519,6 +519,9 @@ Routing goes to the **CEO only** for now (company routing data not yet supplied)
   (D276); Compare — two days, periods, machines or categories, differences from exact totals (D274), two peer hues (D275); the SQL for
   what a machine is shared (D273). A-T75.1–3; VF96, VF97; G225–G228.
   -> `docs/tasks/TASK-075-analytics-buttons-pages-compare.html`
+  24 Oct follow-up: every view and option re-checked (38/38) and the headline figures recounted by SQL (VF98); then plain words on the
+  screens and in the sentences (D279), a "How to read this page" guide (D280), the category page's table, the phone's name column, a
+  chart title that counts its machines; 48/48 browser checks (VF99); persona simulated, to confirm (A-T75.4); G229.
 
 - **T85 Orange traceability and warehouse proposal (document + prototype, no platform code)** (2026-10-23): a 36-slide deck
   — the orange's eight handoffs, a double-entry weight ledger, six capture options (recommended: weigh at the tailgate, D265),

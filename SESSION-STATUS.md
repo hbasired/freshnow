@@ -19,6 +19,11 @@
   `git reset origin/main` (no `--hard`: the data folders stay on disk and are now ignored) → `git restore .` → `pnpm install` →
   `pnpm migrate` → `pnpm build:web` → start as in "To start everything again" further down. After that, `git pull origin main`
   works as usual. Never `git push --all` from the laptop: it would publish the backup branch.
+- **Analytics checked and made readable by anyone** (your request of 24 Oct): every view and option worked (38/38 browser checks) and
+  the headline figures equal a plain SQL recount (VF98). Then plain words everywhere ("vs the week before", "average machine",
+  "group", "key machine", missing days named with the reason), a "How to read this page" guide, an aligned machine table on a
+  category's page, wider bars on a phone, a chart title that says how many machines it draws. 48/48 checks after (VF99). Write-up:
+  the follow-up section of `docs/tasks/TASK-075-analytics-buttons-pages-compare.html`.
 - **Proposal deck corrected** (`docs/reports/warehouse-traceability-deck.html`): the pilot is AED 580 with the phone as the scanner,
   AED 1,600–3,211 with a scanner gun and a calibrated 1-gram scale; cameras, ANPR, installer and GPS are an optional layer (D278).
 

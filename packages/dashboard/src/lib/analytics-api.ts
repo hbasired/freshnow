@@ -276,6 +276,24 @@ export const aedPrice = (fils: number): string => `AED ${(fils / 100).toFixed(2)
 export const hourLabel = (h: number): string => `${String(h).padStart(2, "0")}:00`;
 /** A change in %, signed: "+5.2 %", "−3 %"; "—" with nothing to compare. */
 export const signedPct = (n: number | null): string => (n === null ? "—" : `${n > 0 ? "+" : n < 0 ? "−" : "±"}${n1(Math.abs(n))} %`);
+
+// ── plain words (TASK-075 follow-up: a page a non-analyst reads without help) ──
+/** The comparison period: the same days of the week, whole weeks earlier — the server's own words (core beforeWords). */
+export const beforeWords = (shiftDays: number): string =>
+  shiftDays === 7 ? "the week before" : shiftDays % 7 === 0 ? `the ${shiftDays / 7} weeks before` : `the ${shiftDays} days before`;
+/** Where the same weekday lies: "a week earlier", "2 weeks earlier". */
+export const earlierWords = (shiftDays: number): string =>
+  shiftDays === 7 ? "a week earlier" : shiftDays % 7 === 0 ? `${shiftDays / 7} weeks earlier` : `${shiftDays} days earlier`;
+/** A machine against the average machine, from the server's whole-% ratio: 1.84 → "+84 %", 0.66 → "−34 %". */
+export const vsAverageText = (ratio: number | null): string => {
+  if (ratio === null) return "—";
+  const p = Math.round(ratio * 100) - 100;
+  return `${p > 0 ? "+" : p < 0 ? "−" : "±"}${Math.abs(p)} %`;
+};
+/** The few machines that together sell 80 % of the cups (the server's inTop80). */
+export const KEY_MACHINE = "Key machine";
+/** What the payment kinds are — UNVERIFIED for tokens: counted as unpaid until FreshNow confirms (A-T70.1). */
+export const PAYMENT_HELP = "Card and Wallet are Televend's cashless payments. Token cups are counted as unpaid until FreshNow confirms what a token is.";
 /** "Mon 13 Oct". */
 export const dayLabel = (d: string): string =>
   new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" }).format(new Date(`${d}T00:00:00Z`));

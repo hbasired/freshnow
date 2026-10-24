@@ -162,7 +162,7 @@ describe("choosing categories with the buttons", () => {
     ]);
     // The sentence names the chosen categories' average, not the fleet's.
     expect(two.insights.find((i) => i.id === "best_category")!.text).toBe(
-      `Of the categories where two or more machines sold, ${CAT.metro} sells the most per machine: 7 cups a day — 1.6× the chosen categories' 4.5.`,
+      `${CAT.metro} sells the most per machine: 7 cups a day — 1.6× the average machine of the chosen categories (4.5).`,
     );
   });
 
@@ -235,11 +235,11 @@ describe("a profile: the chosen categories over the period", () => {
   it("says it in short sentences, each figure in it from the figures", () => {
     const by = (id: string) => all.insights.find((i) => i.id === id)!;
     expect(by("last_day").text).toBe("Sun 15 May: 18 cups, 12.5 % more than Sun 8 May.");
-    expect(by("trend").text).toBe("Cups a day up 33.3 % on the same days before: 21.3 against 16.");
+    expect(by("trend").text).toBe("Cups a day up 33.3 % against the week before: 21.3 against 16.");
     expect(by("peak_hour").text).toBe("Busiest hour: 18:00 to 19:00, 37.5 % of the cups.");
     expect(by("income").text).toBe("About AED 207 a day — AED 10.20 for each paid cup (estimated from the prices).");
     // Points from the exact shares (23.44 against 43.75), not from the rounded 23.4 and 43.8.
-    expect(by("cash_share").text).toBe("Cash 23.4 % of the cups, down 20.3 points.");
+    expect(by("cash_share").text).toBe("Cash was 23.4 % of the cups, down from 43.8 % the week before.");
     gate(all.insights, labels());
   });
 });

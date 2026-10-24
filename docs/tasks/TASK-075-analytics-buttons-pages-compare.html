@@ -31,6 +31,11 @@ under them, the tier buttons' answer directly under the buttons, a full page for
 with each day's % against the same weekday a week before, and a Compare page with four clear buttons (two days, two periods, two
 machines, two categories) whose differences the server works out from exact totals.</div>
 
+<div class="card"><b>Follow-up, 24 Oct — a page anyone can read:</b> the user asked to check that every chart shows correctly with
+every option, and that "a normal person looking at the graphs and analysis should understand everything". All 38 earlier browser checks
+passed and the headline figures were recounted straight from the database (they match); the wording and three layout faults were then
+fixed — see <a href="#followup">the follow-up section</a>.</div>
+
 <h2>What was asked</h2>
 <ul>
   <li>"in the analytics can we add buttons and exploration linked with it for all the categories because when one category like expo
@@ -198,6 +203,55 @@ the providers from this container (G224); the same 8 failed on the merged 20 Oct
 before it: the 19 core, 3 API and 3 routing tests above.</td></tr>
 </table></div>
 
+<h2 id="followup">Follow-up, 24 Oct: checked with every option, and made readable by anyone</h2>
+<p><b>Asked:</b> "check if analytics page is showcases correctly with all the graph and with different options that can be selected for
+the analysis, by removing something or adding. And also id the analytics page is UI/UX friendly? if not make it, you can make persona of
+a norml person and looking at the graphs and analysis he should understand everyhting and they needs to be self explanatory."</p>
+
+<h3>1. Does it show correctly? — yes, and the numbers are right</h3>
+<ul>
+  <li>The browser script of this task (38 checks: every tab, category buttons pressed off and on, None, a two-category combination, All,
+  the group buttons, every tile, a category page, a machine page, Back, all four Compare modes, swap, a category name with a slash, both
+  themes, a 390&nbsp;px phone) passed 38/38 on the synthetic data before any change.</li>
+  <li>The Overview's headline figures recounted with plain SQL over <code>sales_day</code> (17–23 Oct, the one machine marked "Not
+  counted" left out): <b>5,414</b> cups, cash <b>9.1&nbsp;%</b>, Fri 23 Oct <b>828</b>, Fri 16 Oct <b>855</b> (so −3.2&nbsp;%) — all
+  equal to the page (VF98). The machine left out holds 633 cups, as the page's list of it says.</li>
+</ul>
+
+<h3>2. The persona and what tripped them</h3>
+<p>A simulated reader, not a real one: a shift supervisor who uses WhatsApp and a banking app, knows the machines by place rather than
+number, and opens Analytics between visits wanting three answers in a minute — are we selling more or less than last week, which
+machines need a visit, where and when do we sell best. Reading every screenshot as them, this is what they could not answer alone:</p>
+<div class="tw"><table>
+<tr><th>Where</th><th>Before</th><th>After</th></tr>
+<tr><td>Banner</td><td>"The changes compare only the 6 days read in both periods"</td><td>"Thu 22 Oct is left out of the changes (▲▼): there is no sales data for Thu 15 Oct, the same weekday a week earlier."</td></tr>
+<tr><td>Tiles</td><td>"a day on the same days before", "−0.3 points on the days before", "the average the tiers use"</td><td>"vs the week before", "was 9.4 % the week before", "Average machine, cups a day · was 34.2 the week before"</td></tr>
+<tr><td>Sentences</td><td>"(the 6 days read in both periods)", "the fleet's 33.6", "down 15.7 points", "Moved most"</td><td>"(comparing the 6 days with sales data both times)", "the average machine (33.6)", "down from 30 % the week before", "The category that changed most"</td></tr>
+<tr><td>Two numbers</td><td>Tile "773.4 cups a day" beside the sentence's "777.7 a day" with no reason given</td><td>The sentence now says the 777.7 rests on the days with data both times; the banner names the day left out</td></tr>
+<tr><td>Machine list</td><td>"Tier", "Of average 184 %", "Against before", "In the 80 %", a "Change category" button on every row</td><td>"Group", "vs average +84 %", "vs the week before", a "Key machine" badge with its meaning on hover, a quiet "✎ Category"</td></tr>
+<tr><td>Groups</td><td>Four cards that are buttons but do not look like ones; the rule in percentages of an average</td><td>"List them →" on each (hidden on an empty group); "How the groups are made: … Top sells 25 % or more above it (42 or more) …"</td></tr>
+<tr><td>Bar chart</td><td>Titled "every machine that sold" while drawing the first 15; the lines explained as "75 % and 125 % of it"</td><td>"the first 15 of 23 machines that sold — press All to draw every one"; the solid line labelled "average", the dashed lines given their values</td></tr>
+<tr><td>Daily chart</td><td>Each day's % only on hover</td><td>The boxes with each day's change under the Overview's chart too (Trends had them)</td></tr>
+<tr><td>Category page</td><td>Its machine list's columns did not line up (each row sized itself)</td><td>An aligned table, a card per machine on a phone</td></tr>
+<tr><td>Phone</td><td>Bar charts gave the names 168 of 390&nbsp;px, the bars about 100&nbsp;px</td><td>Names 104&nbsp;px (cut to 15 letters), the bars about twice as wide</td></tr>
+<tr><td>Everywhere</td><td>"not read", "(est.)", "Not counted · 1", payment kinds unexplained</td><td>"no data", "(estimate)", "Left out of every figure · 1 machine — marked Not counted …", a line on what Card, Wallet and Token mean (tokens: to be confirmed)</td></tr>
+<tr><td>New</td><td>—</td><td>"How to read this page": seven short points (the days, categories, groups, key machines, income, missing days, tap anything), open the first time, then as the person left it; under the category buttons, what is being counted ("Counting 4 of 5: …") and what a tap does</td></tr>
+</table></div>
+<p>The server's sentences changed with the screens (core <code>analytics.ts</code> <code>beforeWords</code> and
+<code>analytics-explore.ts</code>), so the same words appear in the tiles, the sentences and the charts (D279). No figure changed: the
+tests' hand-worked numbers are the same, only their sentences were updated, and one test was added for the new cases — a category with
+one selling machine said to be unranked, and a 14-day period called "the 2 weeks before".</p>
+
+<h3>3. Verified after the change</h3>
+<ul>
+  <li>The browser script, extended to 48 checks (the guide opens and closes, the missing day is named, the counting line follows the
+  buttons, the group buttons say what they do, the chart title counts its machines, the category table, the machine page's words, and
+  that none of "read in both", "fleet", "the average the tiers use", "In the 80 %", "points on" is left on the Overview): <b>48/48</b>,
+  both themes, a 390&nbsp;px phone, no console errors (VF99).</li>
+  <li>Typecheck clean (server and dashboard); the dashboard builds. Whole suite with placeholder model keys: <b>1,243 passed, 5 skipped,
+  8 failed</b> — the same 8 real-model tests as before (G224); one more test passes than before, the new one.</li>
+</ul>
+
 <h2>What we have not verified</h2>
 <div class="card unverified"><ul>
   <li><b>Real data:</b> every screen was checked on synthetic machines and sales in this container. The live mirror (about 100 records,
@@ -212,6 +266,11 @@ before it: the 19 core, 3 API and 3 routing tests above.</td></tr>
   <li><b>Accessibility:</b> keyboard focus and screen-reader names were checked only where the browser script used them (buttons,
   tabs, radios, labels); no screen reader was run.</li>
   <li><b>Independent review:</b> not done for this task yet.</li>
+  <li><b>The persona was simulated</b> (24 Oct follow-up): the wording was judged by reading screenshots as a non-analyst would, not by
+  watching a supervisor use the page. Whether "the week before", "average machine", "key machine" and the guide's seven points are
+  understood at first reading is to be confirmed with the Ops Head or a supervisor (A-T75.4).</li>
+  <li><b>The phone name column</b> cuts machine names to 15 letters; on real Televend names ("NMC C-AED15-…") the start may not tell two
+  machines apart — the number before it does.</li>
 </ul></div>
 
 <h2>Not built here (the rest of the plan's 075)</h2>

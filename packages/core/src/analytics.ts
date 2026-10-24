@@ -699,7 +699,7 @@ export async function machinePerformance(
     // The machines of the categories chosen, and the machines left out of every figure (listed apart, to correct).
     machines: machines.filter((m) => !m.counted || inChoice(m)),
     categories,
-    insights: insightsOf({ fleet, machines: counted, categories, nDays, chosen: chosen !== null }),
+    insights: insightsOf({ fleet, machines: counted, categories, nDays, chosen: chosen !== null, shiftDays: before.shiftDays }),
     selection: { categories: chosen, available },
   };
 }
@@ -714,6 +714,13 @@ const CATEGORY_MOVE = 15;
 const NAMED = 6;
 
 export const fmt = (n: number): string => n.toLocaleString("en-GB", { maximumFractionDigits: 1 });
+
+/**
+ * What the comparison period is called in a sentence: the same days of the week, whole weeks earlier — "the week before"
+ * for a week or less, "the 2 weeks before" for up to 14 days (TASK-075 follow-up: plain words a non-analyst reads at once).
+ */
+export const beforeWords = (shiftDays: number): string =>
+  shiftDays === 7 ? "the week before" : shiftDays % 7 === 0 ? `the ${shiftDays / 7} weeks before` : `the ${shiftDays} days before`;
 export const nameOf = (m: { assetNo: number | null; label: string }): string => (m.assetNo ? `${m.label} (${m.assetNo})` : m.label);
 /** Machines named in a sentence — at most six, then "and K more" — with the figures the words state. */
 const listOf = (ms: { assetNo: number | null; label: string }[]): { text: string; numbers: string[] } =>
@@ -730,12 +737,15 @@ export function insightsOf(x: {
   machines: MachinePerf[];
   categories: CategoryPerf[];
   nDays: number;
-  /** Some categories only: the average is theirs, and the sentences say so rather than "the fleet's". */
+  /** Some categories only: the average is theirs, and the sentences say so. */
   chosen?: boolean;
+  /** How far back the comparison period lies (whole weeks); the sentences name it. */
+  shiftDays?: number;
 }): Insight[] {
   const out: Insight[] = [];
   if (x.nDays === 0) return out;
   const { fleet } = x;
+  const before = beforeWords(x.shiftDays ?? 7);
   const byNumber = (a: MachinePerf, b: MachinePerf) => (a.assetNo ?? 1e9) - (b.assetNo ?? 1e9);
 
   const silent = x.machines.filter((m) => m.tier === "no_sales").sort(byNumber);
@@ -778,7 +788,7 @@ export function insightsOf(x: {
       tone: "bad",
       text: `${nameOf(m)} fell from ${was} to ${is} cups a day (−${by} %).`,
       numbers: [was, is, by],
-      action: { label: "Open the machine: its alarms, refills and stock", assetNos: m.assetNo ? [m.assetNo] : [] },
+      action: { label: "Look at its alarms, refills and stock", assetNos: m.assetNo ? [m.assetNo] : [] },
     });
   }
 
@@ -790,13 +800,13 @@ export function insightsOf(x: {
     const same = Math.abs(fc.changePct) < 5;
     // When some days could not be compared, the sentence says on how many it rests.
     const partial = fc.days < x.nDays;
-    const on = partial ? ` (the ${fc.days} days read in both periods)` : "";
+    const on = partial ? ` (comparing the ${fc.days} days with sales data both times)` : "";
     out.push({
       id: "trend",
       tone: same ? "info" : fc.changePct > 0 ? "good" : "bad",
       text: same
-        ? `Cups sold held steady: ${now} a day, against ${was} a day on the same days before${on}.`
-        : `Cups sold ${fc.changePct > 0 ? "rose" : "fell"} ${by} %: ${now} a day, against ${was} a day on the same days before${on}.`,
+        ? `Cups sold held steady: ${now} a day, against ${was} a day ${before}${on}.`
+        : `Cups sold ${fc.changePct > 0 ? "rose" : "fell"} ${by} %: ${now} a day, against ${was} a day ${before}${on}.`,
       numbers: [...(same ? [now, was] : [by, now, was]), ...(partial ? [String(fc.days)] : [])],
       action: null,
     });
@@ -805,12 +815,11 @@ export function insightsOf(x: {
   if (fleet.selling > 0 && fleet.top80 > 0 && fleet.top80Share !== null) {
     const n = String(fleet.top80);
     const of = String(fleet.selling);
-    const share = fmt(fleet.top80Share);
     out.push({
       id: "top80",
       tone: "info",
-      text: `${n} of the ${of} machines that sold (${share} %) made 80 % of the cups.`,
-      numbers: [n, of, share, "80"],
+      text: `${n} of the ${of} machines that sold made 80 % of the cups — the key machines.`,
+      numbers: [n, of, "80"],
       action: null,
     });
   }
@@ -825,10 +834,14 @@ export function insightsOf(x: {
     const avg = fmt(fleet.cupsPerMachineDay);
     // From the two figures the sentence shows, so it can be checked from them.
     const times = fmt(r1(best.cupsPerMachineDay! / fleet.cupsPerMachineDay));
+    // A category where one machine sold is that machine, so it is not ranked — said only when there is one.
+    const single = x.categories.some((c) => c.cupsPerMachineDay !== null && c.selling === 1)
+      ? " (Categories where only one machine sold are not ranked.)"
+      : "";
     out.push({
       id: "best_category",
       tone: "good",
-      text: `Of the categories where two or more machines sold, ${best.category} sells the most per machine: ${bv} cups a day — ${times}× the ${x.chosen ? "chosen categories'" : "fleet's"} ${avg}.`,
+      text: `${best.category} sells the most per machine: ${bv} cups a day — ${times}× the average machine${x.chosen ? " of the chosen categories" : ""} (${avg}).${single}`,
       numbers: [bv, times, avg],
       action: null,
     });
@@ -836,7 +849,7 @@ export function insightsOf(x: {
     out.push({
       id: "weakest_category",
       tone: "info",
-      text: `Of the categories where two or more machines sold, ${worst.category} sells the least per machine: ${wv} cups a day across ${worst.selling} machines.`,
+      text: `${worst.category} sells the least per machine: ${wv} cups a day across ${worst.selling} machines.`,
       numbers: [wv, String(worst.selling)],
       action: null,
     });
@@ -851,7 +864,7 @@ export function insightsOf(x: {
     out.push({
       id: `category_move:${c.category}`,
       tone: cc.changePct > 0 ? "good" : "bad",
-      text: `${c.category} sold ${by} % ${cc.changePct > 0 ? "more" : "fewer"} cups a day than on the same days before: ${now} against ${was}.`,
+      text: `${c.category} sold ${by} % ${cc.changePct > 0 ? "more" : "fewer"} cups a day than ${before}: ${now} against ${was}.`,
       numbers: [by, now, was],
       action: null,
     });
@@ -861,12 +874,11 @@ export function insightsOf(x: {
   if (cash && Math.abs(cash.move) >= 5) {
     const now = fmt(cash.now);
     const was = fmt(cash.before);
-    const by = fmt(Math.abs(cash.move));
     out.push({
       id: "cash_share",
       tone: "info",
-      text: `Cash was ${now} % of cups, ${cash.move > 0 ? "up" : "down"} ${by} points from ${was} %.`,
-      numbers: [now, by, was],
+      text: `Cash was ${now} % of the cups, ${cash.move > 0 ? "up" : "down"} from ${was} % ${before}.`,
+      numbers: [now, was],
       action: null,
     });
   }
