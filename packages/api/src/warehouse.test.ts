@@ -120,6 +120,7 @@ describe("the warehouse API", () => {
     expect(r.statusCode).toBe(200);
     expect(r.headers["content-type"]).toContain("text/csv");
     expect(r.headers["content-disposition"]).toContain(`freshnow-moves-${today}-to-${today}.csv`);
+    expect(r.body.charCodeAt(0)).toBe(0xfeff); // the byte-order mark Excel needs, before the header
     const lines = r.body.trim().split("\r\n");
     expect(lines[0]).toBe("Time (Dubai),Kind,Reason,Item,Amount,Unit,From,To,By,Supplier,Document,Move");
     expect(lines).toHaveLength(2);

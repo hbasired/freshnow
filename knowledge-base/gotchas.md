@@ -1455,3 +1455,24 @@ The table got the full width; the chart follows it.
 `for p in $(pgrep -f "api/src/index.[t]s"); do kill $p; done; … tsx packages/api/src/index.ts &` exits 144: the bracket trick of
 G225 stops the pattern matching its own text, but the same command line also contains the start command's literal
 `packages/api/src/index.ts`, which the pattern does match. Stop in one command, start in the next.
+
+## G230 — Editing a test and its module while the full suite runs fails that test [verified 2026-10-24]
+vitest had loaded the old `warehouse.ts` and then the edited `warehouse.test.ts`: one failure in the full run, 53/53 when the file
+ran alone with the live-scope and retention tests. Edit after the suite finishes, or rerun the file.
+
+## G231 — The semantic layer was not valid YAML, and its test could not tell [verified 2026-10-24 — PyYAML]
+Three values from TASK-061 — `e.g. {"100": 8, …}` inside an unquoted value, and two apostrophes inside '…' values — made the whole
+file unreadable to any YAML parser; `semantic.test.ts` reads it as text and passed. Fixed by quoting ('…' doubles an apostrophe:
+plan''s); a new test checks those two slips line by line, as no YAML parser is a dependency. The Phase 2 loader should parse the
+file in a test.
+
+## G232 — A test that restates the code's rule proves nothing; the screen showed the bug [verified 2026-10-24]
+The receipt test said "18 of 20 cartons; 342.5 kg is below 360 × 0.98, so it is light too" — the code's rule, restated. The
+receive screen's "29.5 kg lighter than the note" for 8 of 10 cartons that were heavier per carton than the note exposed it (D285).
+Write the expectation from what the business means (a carton should weigh what the note says a carton weighs), then look at the
+screen.
+
+## G233 — Excel reads a UTF-8 CSV right only when it starts with a byte-order mark [believed — widely documented; not tried in Excel here]
+Without it Excel on Windows opens the file in the PC's own code page, and Arabic, Hindi or Urdu names come out garbled; Google
+Sheets reads either. The movements CSV now starts with U+FEFF. JavaScript's `trim()` removes that mark, so a test that trims the
+file cannot see whether it is there — check `startsWith("\uFEFF")` first.

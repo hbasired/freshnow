@@ -229,61 +229,74 @@ function WarehouseSuggestions({
         </div>
       ) : null}
       {!hidden && rows.length > 0 ? (
-        <div className="overflow-x-auto rounded-xl border border-edge bg-panel">
-          <table className="w-full min-w-[34rem] text-left text-sm">
-            <thead className="bg-sunken text-xs text-mut">
-              <tr>
-                {canMove ? <th scope="col" className="w-10 px-2 py-2"><span className="sr-only">Order it</span></th> : null}
-                <th scope="col" className="px-2 py-2">Item</th>
-                <th scope="col" className="px-2 py-2 text-right">In the warehouse</th>
-                <th scope="col" className="px-2 py-2 text-right">On its way</th>
-                <th scope="col" className="px-2 py-2 text-right">Least → most</th>
-                <th scope="col" className="px-2 py-2 text-right">Order</th>
-                <th scope="col" className="px-2 py-2">From</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((s) => {
-                const need = s.suggest > 0;
-                return (
-                  <tr key={s.rule.id} className={`border-t border-edge ${need ? "" : "text-mut"}`}>
-                    {canMove ? (
-                      <td className="px-2 py-2">
-                        {need && s.rule.supplier ? (
-                          <input
-                            type="checkbox"
-                            className="size-5"
-                            checked={!unticked.has(s.rule.id)}
-                            aria-label={`Order ${s.rule.item.name}`}
-                            onChange={(e) =>
-                              setUnticked((t) => {
-                                const n = new Set(t);
-                                if (e.target.checked) n.delete(s.rule.id);
-                                else n.add(s.rule.id);
-                                return n;
-                              })
-                            }
-                          />
-                        ) : null}
-                      </td>
-                    ) : null}
-                    <td className="px-2 py-2 font-semibold">
+        <>
+          {/* A phone: one card per item, so the amount to order is never off the screen to the right. */}
+          <ul className="space-y-2 sm:hidden">
+            {rows.map((s) => {
+              const need = s.suggest > 0;
+              return (
+                <li key={s.rule.id} className={`flex gap-3 rounded-xl border p-3 text-sm ${need ? "border-crit/40 bg-panel" : "border-edge bg-panel text-mut"}`}>
+                  {canMove && need && s.rule.supplier ? <Tick s={s} unticked={unticked} setUnticked={setUnticked} /> : null}
+                  <div className="min-w-0 space-y-0.5">
+                    <div className="font-semibold text-ink">
                       {s.rule.item.icon ?? "📦"} {s.rule.item.name}
                       {need ? <span className="ml-1"><Pill tone="crit">below the least</Pill></span> : null}
-                    </td>
-                    <td className="px-2 py-2 text-right tabular-nums">{amount(s.onHand, s.rule.item.unit)}</td>
-                    <td className="px-2 py-2 text-right tabular-nums">{s.incoming > 0 ? amount(s.incoming, s.rule.item.unit) : "—"}</td>
-                    <td className="px-2 py-2 text-right tabular-nums">
-                      {s.rule.min} → {s.rule.max}
-                    </td>
-                    <td className="px-2 py-2 text-right font-bold tabular-nums">{need ? amount(s.suggest, s.rule.item.unit) : "—"}</td>
-                    <td className="px-2 py-2">{s.rule.supplier ? s.rule.supplier.name : <span className="text-crit">choose one on the rule</span>}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                    </div>
+                    <p>
+                      In the warehouse {amount(s.onHand, s.rule.item.unit)}
+                      {s.incoming > 0 ? ` · ${amount(s.incoming, s.rule.item.unit)} on its way` : ""}
+                    </p>
+                    <p>
+                      Least {s.rule.min} → most {s.rule.max}
+                      {need ? (
+                        <>
+                          {" · "}order <b className="text-ink">{amount(s.suggest, s.rule.item.unit)}</b>
+                        </>
+                      ) : null}
+                    </p>
+                    <p>{s.rule.supplier ? `From ${s.rule.supplier.name}` : <span className="text-crit">No supplier — choose one on the rule</span>}</p>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+          <div className="hidden overflow-x-auto rounded-xl border border-edge bg-panel sm:block">
+            <table className="w-full min-w-[34rem] text-left text-sm">
+              <thead className="bg-sunken text-xs text-mut">
+                <tr>
+                  {canMove ? <th scope="col" className="w-10 px-2 py-2"><span className="sr-only">Order it</span></th> : null}
+                  <th scope="col" className="px-2 py-2">Item</th>
+                  <th scope="col" className="px-2 py-2 text-right">In the warehouse</th>
+                  <th scope="col" className="px-2 py-2 text-right">On its way</th>
+                  <th scope="col" className="px-2 py-2 text-right">Least → most</th>
+                  <th scope="col" className="px-2 py-2 text-right">Order</th>
+                  <th scope="col" className="px-2 py-2">From</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((s) => {
+                  const need = s.suggest > 0;
+                  return (
+                    <tr key={s.rule.id} className={`border-t border-edge ${need ? "" : "text-mut"}`}>
+                      {canMove ? <td className="px-2 py-2">{need && s.rule.supplier ? <Tick s={s} unticked={unticked} setUnticked={setUnticked} /> : null}</td> : null}
+                      <td className="px-2 py-2 font-semibold">
+                        {s.rule.item.icon ?? "📦"} {s.rule.item.name}
+                        {need ? <span className="ml-1"><Pill tone="crit">below the least</Pill></span> : null}
+                      </td>
+                      <td className="px-2 py-2 text-right tabular-nums">{amount(s.onHand, s.rule.item.unit)}</td>
+                      <td className="px-2 py-2 text-right tabular-nums">{s.incoming > 0 ? amount(s.incoming, s.rule.item.unit) : "—"}</td>
+                      <td className="px-2 py-2 text-right tabular-nums">
+                        {s.rule.min} → {s.rule.max}
+                      </td>
+                      <td className="px-2 py-2 text-right font-bold tabular-nums">{need ? amount(s.suggest, s.rule.item.unit) : "—"}</td>
+                      <td className="px-2 py-2">{s.rule.supplier ? s.rule.supplier.name : <span className="text-crit">choose one on the rule</span>}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
       ) : null}
       {!hidden && canMove && short.length > 0 ? (
         <div className="space-y-1">
@@ -295,6 +308,26 @@ function WarehouseSuggestions({
       ) : null}
       <Problem text={err} />
     </section>
+  );
+}
+
+/** Order this row: ticked unless the person unticked it (rows that become short later start ticked too). */
+function Tick({ s, unticked, setUnticked }: { s: Suggestion; unticked: Set<string>; setUnticked: (f: (t: Set<string>) => Set<string>) => void }) {
+  return (
+    <input
+      type="checkbox"
+      className="size-5 shrink-0"
+      checked={!unticked.has(s.rule.id)}
+      aria-label={`Order ${s.rule.item.name}`}
+      onChange={(e) =>
+        setUnticked((t) => {
+          const n = new Set(t);
+          if (e.target.checked) n.delete(s.rule.id);
+          else n.add(s.rule.id);
+          return n;
+        })
+      }
+    />
   );
 }
 

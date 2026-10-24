@@ -536,6 +536,14 @@ Routing goes to the **CEO only** for now (company routing data not yet supplied)
   24 Oct: budget corrected — core kit AED 580 / 1,600–3,211, whole warehouse without cameras 2,810–11,872, security layer optional
   (D278, A-T85.6); `main` rewritten without the data commit, three old branches still hold it (G217).
 
+- **T86 — Warehouse documents on the stock ledger** (2026-10-24, delivers the plan's 077 "return to the supplier"): migration 0042
+  (supplier, wh_number, wh_order, wh_order_line, inv_lot, reorder_rule; the ledger learns 'supplier_return'). Deliveries planned
+  and received at the door against the plan (backorders, closed short, lots), returns to the supplier, reorder rules that suggest,
+  the reports (stock on a day, every movement + CSV, one item, suppliers); Stock's Deliveries, Reorder and Reports views and
+  "Expected at the door" (D281–D287). The scale held to the note's weight for what came — found on the screen (D285, G232). The
+  semantic layer parses as YAML again (G231). A-T86.1–5; VF100–VF104; G230–G233.
+  -> `docs/tasks/TASK-086-warehouse-documents.html`
+
 ## Blocked on the user
 - ~~`CEO_TELEGRAM_USER_ID` is empty.~~ **Resolved 2026-09-04:** CEO = 6051615734,
   employee = 8903000291. Both have run `/start`; the CEO is linked to the CEO employee row.

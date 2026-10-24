@@ -1,5 +1,24 @@
-# Session status — 2026-10-24 (cloud session, TASK-075 — Analytics: category buttons, pages, Compare)
+# Session status — 2026-10-24 (cloud session, TASK-075 — Analytics: category buttons, pages, Compare; then TASK-086 — warehouse documents)
 
+- **TASK-086 is built and pushed** on `claude/lucid-babbage-duy1uz` (`5cc3495` server, `9489358` screens, then the write-up with
+  the last fixes). Stock now has **Deliveries** (write down a delivery when you order it; receive it at the door against what was
+  expected — counted and weighed; the rest comes later or is closed short; every line a lot; send some back to the supplier, never
+  more than came), **Reorder** (least and most per item, a suggestion that counts what is already coming, one draft per supplier
+  with one tap) and **Reports** (stock at the end of any day, every movement with a spreadsheet download, one item's lots and
+  moves, each supplier's deliveries counted). The Stock home shows what is expected at the door. Migration 0042. Write-up:
+  `docs/tasks/TASK-086-warehouse-documents.html`.
+- **Found by looking at the screen, fixed:** 8 of 10 cartons were called "lighter than the note" because they were weighed against
+  the note's weight for all 10. The scale is now held to the note's weight for what came (D285).
+- **Also fixed:** `semantic/schema.yaml` could not be read by any YAML parser since TASK-061 (three quoting slips; G231) — a test
+  now guards them. The movements CSV starts with the mark Excel needs to read Arabic, Hindi or Urdu names (G233).
+- Tests: typecheck clean; warehouse 29/29, semantic 4/4; whole suite 1,273 passed, 5 skipped, and the 8 real-model tests failed
+  only because this container cannot reach the providers (G224). Browser: 41/41 checks, 1440 px and 390 px, no console errors
+  (VF101).
+- **Questions for you:** is a supplier's delivery note weighed for the whole order or for what was loaded (A-T86.3)? What weight
+  loss is normal, instead of the 2 % placeholder (A-T85.4)? Should a suggestion stop at the most instead of passing it by up to
+  one pack (A-T86.1)?
+- **After pulling:** `pnpm install`, `pnpm migrate` (0042), `pnpm build:web`, restart api, worker and bot. On the laptop, if the
+  clean-up below is not done yet, do it first; then `git pull --ff-only origin claude/lucid-babbage-duy1uz` on `main`.
 - **TASK-075 is built and pushed** on `claude/lucid-babbage-duy1uz` in two builds (`3201cde` server, `fc7ca49` screens) plus this
   write-up. Analytics now has a button per category (unpress Expo and everything is counted again without it), key figures that open
   their page, the short sentences right under them, the tier buttons' answer right under the buttons, a page for each machine and each

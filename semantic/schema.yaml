@@ -1584,8 +1584,12 @@ tables:
       item_id: The item. Part of the primary key.
       expected_qty: What is expected (a receipt) or to go back (a return), in the item's unit.
       done_qty: What came (or went back) — set when the document is done.
-      expected_g: The delivery note's weight in grams (divide by 1000 for kg).
-      done_g: The weight on the scale at receiving, in grams.
+      expected_g: >
+        The delivery note's weight in grams for everything expected (divide by 1000 for kg). To judge the scale, compare done_g
+        with the note's weight for what came — round(expected_g * done_qty / expected_qty) — never with expected_g itself: 8 of 10
+        cartons are held to 8/10 of the note, or the missing cartons are counted short twice (D285). A line is "lighter" when
+        done_g is below that by more than the tolerance (2 %, a placeholder — A-T85.4).
+      done_g: The weight on the scale at receiving (or of what went back, on a return), in grams.
       variety: The variety on the carton (oranges).
       best_before: The best-before day on the carton.
       note: Free words about this line.
@@ -1742,7 +1746,7 @@ tables:
       cdm_operator: A deposit — the operator id on the receipt.
       cds_id: A deposit — the CDS id on the receipt.
       bag_no: A deposit — the bag number on the receipt.
-      denominations: A deposit — the notes by face value in AED, e.g. {"100": 8, "50": 1}; they add up to the amount.
+      denominations: 'A deposit — the notes by face value in AED, e.g. {"100": 8, "50": 1}; they add up to the amount.'
       receipt_at: The time printed on the receipt (deposit or fuel).
       reason: A reversal — entered_by_mistake | wrong_amount | wrong_machine | duplicate | other.
       note: Free words from the person who made it.
@@ -1843,7 +1847,7 @@ tables:
         purpose: '"Who changed this plan last?"'
       note_by:
         references: employee.id
-        purpose: '"Who wrote this plan's note?" — whose words they are, for erasure and the person's own download.'
+        purpose: '"Who wrote this plan''s note?" — whose words they are, for erasure and the person''s own download.'
 
   route_plan_member:
     notes: Who is on a plan's team (migration 0036). Teams change from day to day, so membership is per plan.
@@ -1884,7 +1888,7 @@ tables:
         purpose: '"Which plans send someone to this machine?"'
       instructions_by:
         references: employee.id
-        purpose: '"Who wrote this stop's instructions?" — whose words they are, for erasure and the person's own download.'
+        purpose: '"Who wrote this stop''s instructions?" — whose words they are, for erasure and the person''s own download.'
 
   visit:
     notes: >

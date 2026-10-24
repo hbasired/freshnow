@@ -461,3 +461,23 @@ Confirm/refute: watch the Ops Head use the Overview; raise it if they press "All
 The words (D279) and the guide (D280) were judged by reading screenshots as a shift supervisor would. Confirm/refute: watch the Ops
 Head or a supervisor answer "more or less than last week? which machines need a visit? where and when do we sell best?" from the page
 without asking; note every word they ask about.
+
+## A-T86.1 — Rounding a suggestion past the most by up to one pack is acceptable [assumed]
+Odoo 19 does the same (VF102). For oranges, which age, a pack over the most is stock that waits. Confirm/refute: the Ops Head
+reviews the first weeks of suggestions; if they cut every one back, round down to the most instead.
+
+## A-T86.2 — A draft counts as already coming [assumed]
+Otherwise the reorder list would suggest the same order again until the draft is marked expected. A forgotten draft hides a need;
+it stays under Deliveries → "Still to do". Confirm/refute: watch for drafts older than their supplier's days to deliver.
+
+## A-T86.3 — A delivery note's kilograms are for everything expected [assumed]
+D285 rests on it: the kilograms typed when the delivery is planned are the note's weight for the expected amount. If a supplier
+writes its note after loading (the weight of what was sent), the planned weight should be that note's. Confirm/refute: ask the
+warehouse how each supplier's note is written.
+
+## A-T86.4 — A supplier's "days to deliver" sets the expected day of a reorder draft [assumed]
+Today + those days; optional on the supplier. Confirm with the real lead times of FreshNow's suppliers.
+
+## A-T86.5 — A warehouse keeper reads the new screens without help [assumed — simulated, 24 Oct]
+Judged from screenshots at 1440 px and 390 px as a keeper at the door would read them. Confirm/refute: watch the keeper receive a
+real delivery and send back a carton; note every word they ask about.

@@ -577,7 +577,8 @@ export async function moveReportCsv(viewer: ViewerOrg, q: Omit<MovesQuery, "limi
   }
   const more = Math.max(total - rows.length, 0);
   if (more > 0) lines.push(cell(`… and ${more} more moves not in this file — choose fewer days, or one item.`));
-  return { csv: `${lines.join("\r\n")}\r\n`, rows: rows.length, more };
+  // A byte-order mark first: Excel reads a CSV as UTF-8 only with it — without, an Arabic or Hindi name comes out garbled.
+  return { csv: `\uFEFF${lines.join("\r\n")}\r\n`, rows: rows.length, more };
 }
 
 // ── one item ─────────────────────────────────────────────────────────────────

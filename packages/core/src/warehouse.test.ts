@@ -377,6 +377,8 @@ describe("the reports", () => {
     const { csv, rows, more } = await moveReportCsv(v[SUPV]!, { from: today, to: today, itemId: FORMULA });
     expect(rows).toBe(1);
     expect(more).toBe(0);
+    // UTF-8 with a byte-order mark, which Excel needs to read the names right (trim() would hide it, so it is checked first).
+    expect(csv.startsWith("\uFEFFTime (Dubai),")).toBe(true);
     const lines = csv.trim().split("\r\n");
     expect(lines[0]).toBe("Time (Dubai),Kind,Reason,Item,Amount,Unit,From,To,By,Supplier,Document,Move");
     // A name starting with "=" is written as text, never as a formula a spreadsheet would run.
